@@ -268,6 +268,86 @@ eine Absicht. Das steht so in `docs/status/README.md` und wird hier nicht schön
 
 ---
 
+---
+
+## R · Erinnerte Harness-Anforderungen / Technikliste
+
+> **Was dieser Abschnitt ist:** die vom Betreiber erneut vorgelegte Technik- und
+> Anforderungsliste (13.10.2026), abgeglichen mit dem **bestehenden verbindlichen Plan**.
+> Er ändert **nichts** an der Reihenfolge (Hybrid-Meilenstein → drei Arbeitspakete →
+> Ansatz A → Self-Improve-Schleife) und startet **keine** Implementierung.
+>
+> **Regel für diesen Abschnitt:** Neue Punkte stehen auf `geplant`, **nie** auf `in Arbeit`.
+> Nichts wird als „abgenommen" geführt, wofür kein Nachweis existiert.
+
+### R.0 Die Statusklassen
+
+| Klasse | Bedeutung |
+|---|---|
+| **A** | **belegt** — es gibt einen Nachweis (Datei, Befehl, Ergebnis) |
+| **B** | **geplant** — steht schon in Phase 1 (Go) oder Phase 2 (Bun/TS7) |
+| **C** | **neu** — in den Backlog aufgenommen, Phase `geplant` |
+| **D** | **Konflikt** — Entscheidung des Betreibers erforderlich, **nicht** stillschweigend übernehmen |
+
+### R.1 Die Liste
+
+Kein Punkt dieser Liste wurde in diesem Auftrag implementiert, installiert oder verändert.
+Jede Zeile nennt Klasse, Phase und Beleg **oder** den Grund, warum sie offen ist.
+
+| Technik / Anforderung | Klasse | Phase | Beleg / Begründung |
+|---|---|---|---|
+| **DeepSeek Harness als Basis** | **A** | — | `docs/decisions/core-supply.md` (Weg B, Hybrid); Upstream-Core `0.2.1-alpha.2` als Abhängigkeit; Host läuft, `GET /?token=…` → **HTTP 200** |
+| **Bun + Go + TS7** | **A** | — | Bun 1.4.0/1.4.3, Go 1.27.2, TS 7 (`tsgo`) — gemessen; `bun install` exit 0, `tsgo --noEmit` exit 0 |
+| **Rust statt Python** | **A** | — | 7 Rust-Crates unter `native/` + `services/pmh-sandbox`; unter Linux **126 Tests grün** (`docs/status/wsl2-linux-nachweis.md`) |
+| **NixOS-Selbständerung** | **A** | — | `docs/design/nixos-self-change.md` (262 Zeilen) + `services/pmh-nix` (60 Tests grün). **NixOS/Nix werden NICHT installiert** — Konzept und austauschbare Schnittstelle, mehr nicht |
+| **NixOS per WSL2-Umgebung, Docker/Podman** | **A / C** | — | WSL2 läuft (Linux 6.6.87.2) und ist Standard-Umgebung (`t25`). Docker-Desktop-**WSL-Integration ist für Ubuntu nicht aktiviert** (`/var/run/docker.sock` fehlt) — offener Punkt, siehe L14 |
+| **WSL2-Installer/Checker per Befehl oder Programm** | **C** | `geplant` | Neuer Punkt. Der Harness soll WSL2/Docker/Podman **prüfen und bei Bedarf installieren**. Berührt die Regel „Dienste starten mit der Harness" (`concept.md` Regel 3) — als Unit zu bauen, nicht im Core |
+| **Plugin-Export (Units weitergeben)** | **A** | — | `packages/units/unit-export`; Roundtrip-Digest `sha256:ac37e0ec…` identisch, 158 Tests grün (`docs/status/plugin-export-nachweis.md`) |
+| **DeepSeek als Plugin und Skill exportierbar** | **C** | `geplant` | Baut auf dem belegten Plugin-Export auf (A). Inhaltlich neu: ein Unit, das den DeepSeek-Adapter als Bündel ausgibt |
+| **PostgreSQL + pgvector** | **B** | Phase 1 (Go) | `services/pmh-store` — in `MAPPING.md` §3.7 und `t30` geführt. Nicht implementiert |
+| **Redis** | **B** | Phase 1 (Go) | `services/pmh-cache` — **standardmäßig aus** (`docs/project-profile.md` §3: „erst bei belegtem Bedarf") |
+| **Obsidian als Memory + Graph View** | **B** | Phase 1 (Go) | `services/pmh-memory` (Markdown + Wikilinks). **Offener Konflikt** aus `open-questions.md`: ist Obsidian das Gedächtnis *oder* nur eine Ansicht? Bleibt offen |
+| **Git: Forgejo / Gitea / GitLab CE** | **B / D** | Phase 1 (Go) | `services/pmh-git`. **Auswahl der Plattform ist offen** (`docs/vision.md`) — Entscheidung `D` |
+| **Projekt-Stack-/Ordneransicht (VSC-artig)** | **D** | — | **GUI/UI** — laut Auftrag außen vor. `web/apps/web` bleibt **unverändert**. Als Anforderung notiert, nicht bearbeitet |
+| **code-server / OpenVSCode Server / Theia** | **C / D** | `geplant` | **Externe Werkzeuge**, nicht Teil des Harness-Codes. Als Unit zu starten (Dienst), nicht einzubauen |
+| **Firecrawl + SearXNG** | **B** | Phase 1 (Go) | `services/pmh-research` — Extraktion + Metasuche |
+| **Decision-Model Jev / Laya** | **B / D** | Phase 1 (Go) | `services/pmh-decision`. **Harte Regel** (`docs/backend-analysis.md` §2.5): das Entscheidungsmodell darf **keine Sicherheitsregeln überschreiben** — im Typensystem unmöglich zu machen, nicht nur zu dokumentieren |
+| **LangChain / LangGraph** | **D** | — | **Konflikt:** im Python-Ökosystem verankert. Die Projektregel verbietet Python. `docs/backend-analysis.md` §3.6 verlangt deshalb ausdrücklich: **Konzepte übernehmen** (Graph-Workflows, Checkpoints, Wiederaufnahme, Human-in-the-loop), **nicht** die Bibliothek. Offener Konflikt Nr. 1 |
+| **RAG** | **B** | Phase 1 (Go) | Setzt `pmh-store` (pgvector) voraus. Konzept vorhanden, Implementierung nicht |
+| **WireGuard / Tailscale / Cloudflared-Alternative** | **C / D** | `geplant` | Netzwerk-Fernzugriff. **Auswahl offen** (`docs/vision.md`): ein Tailnet genügt **oder** braucht es einen Reverse-Proxy? Das entscheidet die Bauform |
+| **n8n** | **D** | — | **Konflikt:** externes Werkzeug, aber **nicht** Kern-Orchestrierung (`docs/vision.md`: „extern, nicht Kern-Orchestrierung"). Ein zweiter Loop neben dem Agent-Loop ist genau die Doppel-Semantik, die §3.3 vermeiden will. Offener Konflikt Nr. 2 |
+| **Tesseract OCR** | **B / D** | Phase 1 (Go) | `services/pmh-ocr`. **Konflikt:** Tesseract ist C++ — als **externes Programm** über die Prozessgrenze aufrufbar (Regel 4), **nicht** als eingebundene Bibliothek. Die Grenze ist damit einhaltbar, aber sie muss ausdrücklich gezogen werden |
+| **Mirage-Tesseract** | **D** | — | `docs/vision.md` führt es als **„ungeprüft"**: die Recherche fand nur Foto-Editor-Apps, nicht den gemeinten Dienst. **Muss vom Betreiber präzisiert werden**, bevor es geplant wird |
+| **Assistent / Researcher / Fine-Tune-Skills** | **C** | `geplant` | Zielbild aus `docs/vision.md`. Skills sind das **billigste** Unit (`concept.md`: „Agent-Skill ohne Host-Code") — deshalb hier als eigener Backlog-Punkt, obwohl der Core fehlt |
+| **NewDawn-Zoom-Technik** | **D** | — | **Konflikt:** `docs/project-profile.md` §4 hat die frühere Deutung **korrigiert** — NewDawn0 ist ein **Nix-/Systementwickler ohne UI-Projekt**; die „Zeichnungen" sind die **eigenen Skizzen** des Betreibers. Die Zoom-/Tensor-Technik ist damit **Darstellungsvorbild**, kein übertragbarer Code. GUI bleibt außen vor |
+| **Obsidian-Docking als UX/GUI/UI-Konzept** | **D** | — | **Konflikt:** es ist ein **Oberflächen**-Konzept. Laut Auftrag bleibt GUI/UI/Web unverändert. Als Konzept notiert, **keine** Umsetzung |
+
+### R.2 Die Konflikte, ausdrücklich benannt
+
+Diese Punkte sind **keine** offenen Aufgaben, sondern **Entscheidungen**. Sie stehen hier,
+damit sie nicht später als „vergessen" oder als „stillschweigend übernommen" erscheinen:
+
+| # | Konflikt | Warum er zählt | Nötige Entscheidung |
+|---|---|---|---|
+| **K1** | **LangChain / LangGraph** | Python-verankert; die Projektregel verbietet Python. Ein zweites Orchestrierungs-Framework über einen bestehenden Agent-Loop erzeugt **zwei konkurrierende Loops** | Konzepte nachbauen (`docs/backend-analysis.md` §3.6) **oder** Python als Ausnahme zulassen. Bis dahin: **nicht** übernehmen |
+| **K2** | **n8n** | Externes Workflow-Werkzeug; `docs/vision.md` schließt es als **Kern-Orchestrierung** ausdrücklich aus | Nur als **externen Dienst** anbinden (Unit) **oder** weglassen |
+| **K3** | **Tesseract** | In C++ geschrieben; erlaubt ist nur die **Prozessgrenze** (Regel 4), nicht das Einbinden | Aufruf als externes Programm festschreiben — dann ist der Punkt einhaltbar |
+| **K4** | **GUI / UI / UX / Web** | Auftrag: bleibt **außen vor**. `web/apps/web` unverändert. Zoom-Technik, Docking-Konzept und Projekt-Stack-Anzeige sind Oberflächen-Themen | Später, in einer eigenen Phase — **nicht** jetzt |
+| **K5** | **Mirage-Tesseract** | Laut eigener Doku **ungeprüft** und inhaltlich unklar | Betreiber präzisiert, was gemeint ist |
+| **K6** | **NixOS/Nix installieren?** | Der Harness soll Werkzeuge prüfen/installieren (neuer Punkt R), aber NixOS bleibt **Konzept ohne Installation** | Zwei getrennte Dinge: **Umgebungs-Prüfer** (Unit, erlaubt) vs. **NixOS-Installation** (weiterhin ausgeschlossen) |
+
+### R.3 Was dieser Abschnitt ausdrücklich **nicht** getan hat
+
+- **Keine** Codeänderung, kein Build, **keine** Web-Änderung (`apps/web` unberührt).
+- **Keine** Installation — kein NixOS, kein Nix, kein Docker, kein Podman, kein n8n,
+  kein Tesseract. Nichts wurde eingerichtet oder geprüft-installiert.
+- **Keine** Vorlage-Nutzung: `C:\Users\Chang\harness\prometheus-harness` blieb unberührt;
+  `docs\dsh` und `docs\design` wurden nicht geöffnet.
+- **Keine** Umbenennung: bestehende Kennungen `t25`–`t31` und die Phasen bleiben, wie sie waren.
+  `t30` bleibt `in_progress`, `t27`/`t28`/`t29`/`t31` bleiben `pending`.
+- **Keine** Behauptung „implementiert" ohne Nachweis: jeder `A`-Eintrag nennt eine Datei oder
+  eine Messung; alles andere steht auf `geplant` oder `Konflikt`.
+
 ## Geändert
 
 | Datum | Änderung | Grund |
@@ -283,3 +363,6 @@ eine Absicht. Das steht so in `docs/status/README.md` und wird hier nicht schön
 | 2026-10-13 | **Vier echte Fehler in `internal/attach` behoben** (stiller Rahmenverlust, abgehängte Sicht bekam Rahmen, fehlender Abschlussrahmen, `println`-Restspuren) | Auf `HEAD` waren 8 Tests rot, im Arbeitsbaum 4 — die Reste waren ungeprüfter, nie abgeschlossener Arbeitsstand |
 | 2026-10-13 | **Ein Test korrigiert** (`TestShutdownDetachesEveryClient`): er hing einen nebenläufigen Leser an und konnte den Fehlerrahmen deshalb nie sehen | Der Test prüfte nicht, was er behauptete; er prüft jetzt **mehr** (ohne Leser, `ready` und `error` selbst gelesen) |
 | 2026-10-13 | **Neun `unit.json` korrigiert**: Vertragsspanne `">=0.2.0 <0.3.0"` ist für `isContractRange` ungültig → `"^0.2.0"` | Fünf Roundtrip-Tests fielen wegen **fremder** Manifeste um, nicht wegen des geprüften Codes. `pmh-nix` danach regressionsgeprüft (exit 0) |
+| 2026-10-13 | **L12 behoben → P2 von `in Arbeit` auf `abgenommen`** | Die Notiz in `unit-export/unit.json` behauptete noch, der Plugin-Host sei „nicht Teil dieses Pakets". Das war beim Schreiben korrekt und wurde durch die Nacharbeit falsch. Korrigiert; `description` nennt den Host jetzt mit. Nachgemessen: `unit.json` strukturell gültig (4 notes, `contract: ^0.2.0`), `bun run typecheck` **exit 0**, `bun test` **158 pass / 0 fail** |
+| 2026-10-13 | **Roundtrip-Nachweis als eigene Datei** [`plugin-export-nachweis.md`](plugin-export-nachweis.md) | Der Beweis lag bisher nur als Kommandoausgabe im Protokoll. Als Datei ist er nachprüfbar: Export-Digest `sha256:ac37e0ec…`, Rückexport **identisch**, Inhalt `sha256:84cef3f8…` beide Male gleich. Der **Dateihash** des Bündels ist bewusst **nicht** das Vergleichsmaß — er enthält Zeitstempel |
+| 2026-10-13 | **Befund: paralleles Testen erzeugt Fehlalarme** — zweimal `checkBundle > H1` rot, isoliert exit 0 | Ursache war ein Testlauf, während ein anderer Arbeiter dieselben Dateien schrieb (`errors.ts` 00:06:57, `plugin-host.test.ts` 00:16:52). Regel daraus: **Tests nicht parallel zu Schreibvorgängen auf denselben Dateien** — ein Ergebnis über einen halbfertigen Stand ist ein Befund über den Ablauf, nicht über den Code |

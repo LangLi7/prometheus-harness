@@ -11,21 +11,84 @@
 >
 > **Umsetzung:** [`../../services/pmh-nix/`](../../services/pmh-nix/README.md).
 >
-> Stand: 12.10.2026.
+> Stand: 12.10.2026 · Fassung 2 (zweite Phase: Flake im Repository, Branch mit Freigabe).
 
 ---
 
-## 1. Das Ziel
+## 0. Einordnung — was zuerst kommt
 
-Der Harness soll sich selbst ändern können: nicht nur seinen Code, sondern auch die
-Systemumgebung, in der er läuft. Ein Agent, der eine Abhängigkeit braucht, soll sie
-**deklarieren** können — und der Weg von der Deklaration zur wirksamen Änderung soll ein
-Vorgang sein, der sichtbar, prüfbar und umkehrbar ist.
+**Der Betreiber ordnet ausdrücklich ein:**
 
-Was dabei entsteht, ist keine Fernwartung und kein Skript, das als root Zeilen an eine
-Konfiguration hängt. Es ist eine **Transaktion**.
+> *„Nimm das erst als zweite Phase. Ein sinnvoller Start ist eine Flake im Git-Repo für
+> reproduzierbare Umgebungen, und der Agent schlägt Änderungen nur als Branch mit Freigabe
+> vor."*
 
-## 2. Warum NixOS das richtige Fundament ist
+Daraus folgt die Reihenfolge, und sie ist bindend:
+
+| | Schritt | Was er liefert |
+|---|---|---|
+| **1** | **Flake im Git-Repository für reproduzierbare Umgebungen** — `nix develop` je Projekt | Dieselbe Umgebung auf jedem Rechner, ohne dass jemand ein System umstellt. Der Nutzen entsteht **ohne Actuation** |
+| **2** | **Die Regel „Änderung nur als Branch mit Freigabe"** — der Agent schlägt vor, der Mensch entscheidet | Der Vertrauensweg ist etabliert, bevor ihm irgendetwas folgen kann |
+| **3** | **Die Actuation** — `switch` und Rollback gegen ein entferntes Ziel | Erst jetzt wird aus dem Vorschlag ein Systemwechsel |
+
+**Die Actuation ist das Ziel dahinter, nicht der Anfang.** Wer bei Schritt 3 beginnt, baut
+eine Maschine, die ein System umstellen kann, bevor irgendjemand gelernt hat, ihren
+Vorschlägen zu trauen.
+
+## 1. Das Ziel: das System als Code
+
+Das ganze System wird **als Code beschrieben, nicht von Hand eingerichtet.** Pakete, Dienste
+(PostgreSQL, Redis, Forgejo, SearXNG, Tailscale) und Einstellungen stehen in einer
+deklarativen Konfiguration — `configuration.nix` oder eine **Flake**. `nixos-rebuild switch`
+baut daraus das System; jede Änderung erzeugt eine **Generation**, und ein Befehl führt auf
+die vorherige zurück (**Rollback**). Das Ergebnis ist **reproduzierbar**: dieselbe
+Konfiguration ergibt auf jedem Rechner dasselbe System.
+
+**Warum das der richtige Anfang ist:** Eine deklarative Beschreibung ist die Voraussetzung
+dafür, dass ein Vorschlag überhaupt prüfbar ist. Ein Diff gegen eine Datei kann man lesen,
+vergleichen und freigeben; eine Folge von Befehlen, die ein System verändert, kann man nur
+ausführen und bereuen.
+
+## 2. Was „kann sich selbst ändern" konkret heißt
+
+Der Agent ändert **nicht das laufende System direkt** — kein „wildes `apt install`". Er
+ändert **die Konfigurationsdatei in einem Git-Repository** (z. B. Forgejo). Er arbeitet auf
+einem **Branch** und baut mit `nixos-rebuild build` oder `test`, **ohne sofort zu
+aktivieren**. Der Mensch sieht den **Diff** und gibt frei; **erst dann** folgt `switch`. Geht
+etwas schief: Rollback auf die vorige Generation. Jede Änderung ist ein **Git-Commit**, also
+nachvollziehbar.
+
+### 2.1 Der präzisierte Vertrag
+
+```text
+Vorschlag   = Branch + Diff                  (NICHT eine "angewendete" Änderung)
+Prüfbau     = build/test, ohne Aktivierung   ->  pmh-nix check
+Freigabe    = menschliche Bestätigung, ausdrücklich, mit Identität/Zeitstempel
+                                             ->  pmh-nix approve
+Activation  = switch                         ->  pmh-nix apply
+Rückweg     = Rollback auf die vorige Generation
+                                             ->  pmh-nix rollback
+```
+
+| Stufe | Was geschieht | Fehlersemantik |
+|---|---|---|
+| **propose** | Legt einen **Branch** mit dem textuellen Diff an und zeichnet **Commit, Diff und Basisgeneration** auf. **Aktiviert nie** und berührt das System nie | Kein Flake-Pfad: Aufruffeher (2). Backend kann nicht: Backendfehler (125). **Es entsteht keine Wirkung, nur ein Datensatz.** |
+| **check** | **Prüfbau ohne Aktivierung.** Die Befunde tragen Schwere (`info`, `warning`, `error`) und Text; das Ergebnis wird aufgezeichnet | Ein Befund der Schwere `error` sperrt: Politikfehler (1). Ab hier ist die Aufzeichnung die Grundlage jeder weiteren Entscheidung. |
+| **approve** | Zeichnet die **ausdrückliche menschliche Freigabe** auf: **wer, wann, welcher Diff-Hash, welche Basisgeneration** | Ohne Namen keine Freigabe (2). Ohne vorherigen Prüfbau keine Freigabe (1) — eine Freigabe ohne Prüfbau wäre blind. Ein gesperrter Vorschlag lässt sich nicht freigeben (1). |
+| **apply** | Die **Activation**: führt den Diff aus und liefert die entstandene Generation | Verweigert ohne Vorschlag, ohne Prüfbau, bei Fehler-Schwere-Befunden, bei getauschtem Diff, **ohne aufgezeichnete Freigabe** und bei nicht mehr aktiver Basisgeneration. Backend kann nicht: 125, **ohne** Generation. |
+| **Generation** | Die neue Generation ist aktiv; die vorige bleibt liegen | Genau **eine** aktive Generation. Ein Vorschlag wirkt genau **einmal**. |
+| **rollback** | Umschalten auf eine **aufgezeichnete** Generation, nicht auf eine wiederhergestellte | Unbekannte Generation: Politikfehler (1). Der Rückweg ist bewusst **nicht** gesperrt. |
+
+**`propose` darf das System nie berühren und nie aktivieren.** Das ist im Dienst nicht nur
+eine Zusage, sondern eine **getestete Eigenschaft**: `TestProposeNeverActivates` misst, dass
+`propose`, `check` und `approve` zusammen **null** Aktivierungen auslösen und außerhalb der
+Buchführung keine Datei entstehen lassen.
+
+**`apply` darf ohne aufgezeichnete Freigabe nicht laufen.** Ebenfalls getestet:
+`TestApplyRequiresRecordedApproval`. Hat sich der Diff nach der Freigabe geändert (der
+Hash stimmt nicht mehr), lehnt `apply` **fail-closed** ab — `TestApplyRejectsChangedDiffHash`.
+
+## 3. Warum NixOS das richtige Fundament ist
 
 Die Begründung stammt nicht von uns, sondern aus einer Messung der Vorbilder. Sie steht in
 [`../project-profile.md`](../project-profile.md) §4:
@@ -46,16 +109,16 @@ Vier Eigenschaften machen NixOS für diesen Zweck geeignet, und keine davon ist 
 
 | Eigenschaft | Was sie bedeutet | Warum sie hier trägt |
 |---|---|---|
-| **Konfiguration als Code** | Die Systembeschreibung ist deklarativer Text in einem Flake, nicht eine Folge von Befehlen | Die Änderung ist **lesbar, bevor** sie wirkt. Genau das braucht eine Prüfschicht: einen Diff, über den man entscheiden kann |
+| **Konfiguration als Code** | Die Systembeschreibung ist deklarativer Text in einem Flake, nicht eine Folge von Befehlen | Die Änderung ist **lesbar, bevor** sie wirkt — die Bedingung dafür, dass ein Mensch sie freigeben kann |
 | **Generationen** | Jeder Wechsel erzeugt eine neue Generation, die vorige bleibt liegen | Eine Änderung ist kein Endzustand, sondern ein **Schritt** mit Vorgänger |
 | **Atomares Umschalten** | Der Wechsel gilt ganz oder gar nicht | Es gibt keinen halb angewandten Zustand, über den niemand mehr Auskunft geben kann |
-| **Rückweg** | Zurückrollen ist das Umschalten auf die vorige Generation | Der Ausweg ist so billig wie der Weg hinein — das ist die Bedingung dafür, dass man ihn überhaupt gehen darf |
+| **Rollback** | Zurückrollen ist das Umschalten auf die vorige Generation | Der Ausweg ist so billig wie der Weg hinein |
 
 **Der entscheidende Punkt:** Ein System, das sich selbst ändern kann, ist nur dann
 vertretbar, wenn jede Änderung atomar ist und zurückgerollt werden kann. Ohne diese beiden
 Eigenschaften wäre Selbständerung eine Wette. Mit ihnen ist sie eine Transaktion.
 
-## 3. Die Grenze — verbindlich: NixOS und Nix werden nicht installiert
+## 4. Die Grenze — verbindlich: NixOS und Nix werden nicht installiert
 
 > ### ⚠ Abgrenzung
 >
@@ -63,8 +126,8 @@ Eigenschaften wäre Selbständerung eine Wette. Mit ihnen ist sie eine Transakti
 >
 > Der Anlass ist eine Messung, kein Vorbehalt: `nix` und `nixos-rebuild` sind auf diesem
 > Rechner **nicht vorhanden** (Windows). Diese Feststellung ist der **Ist-Zustand**, kein
-> Installationsauftrag ([§3.1](../decisions/hybrid-then-self-build.md) sagt das ausdrücklich:
-> *„Die Umgebungsmessung dient damit nur der Feststellung des Ist-Zustands, nicht als
+> Installationsauftrag ([§3.1](../decisions/hybrid-then-self-build.md): *„Die
+> Umgebungsmessung dient damit nur der Feststellung des Ist-Zustands, nicht als
 > Installationsauftrag."*).
 >
 > | Erlaubt | **Nicht** erlaubt |
@@ -74,126 +137,199 @@ Eigenschaften wäre Selbständerung eine Wette. Mit ihnen ist sie eine Transakti
 > | Den Dienst `pmh-nix` als **Gerüst** bauen, mit **Backend-Austausch** | Die Actuation gegen ein echtes System **ausführen** |
 > | Eine **Attrappe** als Backend, damit alles testbar ist | `nixos-rebuild switch` irgendwo auslösen |
 >
-> Kein WSL-Subsystem wird eingerichtet, kein Paketmanager aufgerufen, keine
-> Betriebssystem-Einstellung verändert.
+> Kein WSL-Subsystem wird eingerichtet (`wsl --install` ist ausgeschlossen), kein
+> Paketmanager aufgerufen, keine Betriebssystem-Einstellung verändert.
 
-### 3.1 Was stattdessen gebaut wird
+### 4.1 Was stattdessen gebaut wird
 
-Drei Dinge, und nur diese drei:
-
-1. **Das Konzept** — dieses Dokument: der Vorgang, seine Stufen, seine Fehlersemantik.
+1. **Das Konzept** — dieses Dokument.
 2. **Die austauschbare Schnittstelle** — ein Interface mit sieben Methoden
    (`internal/actuation`), hinter dem die Ausführung liegt. Konzept und Schnittstelle ändern
    sich nicht, wenn später eine echte Ausführung dazukommt; es kommt eine **weitere
    Implementierung** hinzu.
-3. **Zwei Backends**:
-   - `stub` — die **Vorgabe**. Eine ehrliche Attrappe: sie meldet
-     `available: false` mit dem Grund *„nicht verfügbar: kein Nix auf diesem Wirt"*, ruft kein
-     Programm auf und führt den vollen Vertrag auf **eigener Buchführung**. Jede so entstandene
-     Generation trägt `system: "attrappe"` und den Vermerk *„nichts am System geändert, nur
-     Buchführung"*.
-   - `nix` — ein **vorhandenes, aber inertes** Backend. Es ruft `nix`/`nixos-rebuild` auf.
-     Fehlt `nix` auf dem Suchpfad, **scheitert jeder Aufruf laut** (fail-closed, Exit-Code
-     125). Es gibt keinen Weg, auf dem dieses Backend stillschweigend Erfolg meldet, ohne
-     etwas getan zu haben — insbesondere liefert `Apply` niemals eine erfundene Generation.
+3. **Zwei Backends**: `stub` (Vorgabe, ehrliche Attrappe, ändert nichts) und `nix`
+   (vorhanden, aber inert; ohne `nix` auf dem Suchpfad scheitert **jeder** Aufruf laut,
+   fail-closed, Exit 125, und `Apply` liefert **nie** eine erfundene Generation).
 
-**Der Nutzen dieser Aufteilung:** Die Vision ist geplant, ohne dass heute etwas installiert
-oder umgestellt wird. Und der Vertrag ist **heute schon messbar** — 45 Tests, davon sieben
-allein zur Sicherheitsinvariante.
+**Der Nutzen:** Die Vision ist geplant, ohne dass heute etwas installiert oder umgestellt
+wird — und der Vertrag ist **heute schon messbar**.
 
-## 4. Der Transaktionsvertrag
+## 5. Die zwei Betriebsarten
 
-```text
-propose ──▶ check ──▶ policy ──▶ apply ──▶ Generation ──▶ rollback
-  ▲                                                              │
-  └──────────────── der Rückweg ist ein Umschalten ──────────────┘
-```
+Beide Betriebsarten erfüllen **dasselbe Backend-Interface**; sie unterscheiden sich im
+**Ort**, nicht in der Form des Aufrufs. Die Wahl geschieht per Flag
+`--mode local|remote`, Vorgabe **`local`**.
 
-| Stufe | Was geschieht | Wer entscheidet | Fehlersemantik |
-|---|---|---|---|
-| **propose** | Der Dienst erzeugt aus einer Anfrage den **textuellen Diff**, den die Änderung bewirken würde, vergibt die Kennung und zeichnet beides auf | offen — Vorschlagen ist nicht gesperrt | Kein Flake-Pfad: Aufruffeher (2). Backend kann nicht: Backendfehler (125). **Es entsteht keine Wirkung, nur ein Datensatz.** |
-| **check** | Statische Prüfung des Diffs. Die Befunde tragen Schwere (`info`, `warning`, `error`) und Text; das **Ergebnis wird aufgezeichnet** | offen — Prüfen ist nicht gesperrt | Ein Befund der Schwere `error` sperrt: Politikfehler (1). Die Aufzeichnung ist ab hier die Grundlage jeder weiteren Entscheidung. |
-| **policy** | Eigenständige Schicht, die über die Zulässigkeit der Anwendung entscheidet. Sie liest **ausschließlich die Aufzeichnung**, kein Feld der Anfrage | **die Politik** | Jede Ablehnung nennt einen maschinenlesbaren Grund: `vorschlag-unbekannt`, `vorschlag-schon-angewandt`, `vorschlag-ungeprueft`, `pruefung-gesperrt`, `diff-geaendert`. Politikfehler (1). |
-| **apply** | Führt den Diff aus und liefert die entstandene Generation. Das Backend prüft **zusätzlich selbst** und verweigert, wenn seine Prüfung sperrt | das Backend, aber nur nach der Politik | Backend kann nicht: Backendfehler (125), **ohne** Generation. Der Vorschlag bleibt unangewandt. |
-| **Generation** | Die neue Generation ist die aktive; die vorige bleibt liegen | — | Es gibt genau eine aktive Generation. Ein Vorschlag wirkt genau **einmal**; ein zweites `apply` wird abgewiesen. |
-| **rollback** | Umschalten auf eine vorhandene Generation | offen — der Rückweg ist bewusst nicht gesperrt | Unbekannte Generation: Politikfehler (1). Es wird **nichts wiederhergestellt**, sondern umgeschaltet. |
+| | **`local`** | **`remote`** |
+|---|---|---|
+| Ort | Flake im Repository auf dem Arbeitsrechner | Branch im Git-Repository, Zielmaschine ist ein **entfernter** Rechner |
+| Was gebaut wird | Diff und **Prüfbau ohne Aktivierung** | Branch, Prüfbau auf der Zielmaschine, Freigabe, dann `switch` |
+| Branch | `local/agent-<ziel>`, kein Push | `agent/nixos-<ziel>` auf `main`, mit Push |
+| Aktivierung | nur in der Attrappe (Simulation) | `switch` auf der Zielmaschine, Rollback über die Generation |
+| Rolle | **der Start** — zweite Phase, ohne Nix-Installation als Konzept und Vertrag ausformuliert und mit dem Attrappen-Backend **testbar** | **das Ziel** — entfernter NixOS-Rechner, per SSH oder Agent auf dem Ziel. **Nichts davon wird jetzt gebaut** |
 
-**Zwei Eigenschaften, die den Vertrag tragen:**
+`--mode` gilt für `propose` (Branch-Form), `detect` und die Anzeige; die Betriebsart eines
+Vorschlags wird **im Diff mitgeführt**, damit die Activation nicht raten muss, wo sie
+stattfindet. Eine unbekannte Betriebsart ist ein Aufruffeher (Exit 2).
 
-- Die Reihenfolge ist bindend. `policy.Require(apply)` steht **vor** jedem `Backend.Apply`.
-  Ein Backend wird nie ohne Zulassung angefasst.
-- Die Zulassung kommt **nie** aus der Anfrage. Es gibt in `api.Proposal` absichtlich kein
-  `checked`, kein `safe`, kein `policy_ok`, kein `approved_by`. Ein von Hand in die Ablage
-  geschriebenes `"checked": true` ist wirkungslos, weil die Politik auf die **Aufzeichnung**
-  schaut und nicht auf den Vorschlag.
+## 6. Grenzen G1–G5 — vom Betreiber benannt
 
-## 5. Warum das Selbständerung vertretbar macht
+### G1 — NixOS läuft nur auf Linux
+
+NixOS läuft **nur auf Linux**, auch auf einem **Raspberry Pi** und unter **WSL2** (über
+NixOS-WSL). Auf reinem Windows gibt es nur den Umweg über **WSL2**.
+
+**Folge für den Dienst:** Actuation findet **nie auf diesem Windows-Host** statt. `detect`
+meldet das ehrlich: `available: false`, Grund *„nicht verfügbar: kein Nix auf diesem Wirt"*,
+und in den Einzelheiten die Zeile *„Grenze G1: NixOS läuft nur auf Linux; auf diesem Wirt
+findet keine Actuation statt"*. Ein ehrliches „nicht verfügbar" ist ein **gelungener**
+Aufruf (Exit 0) — es ist die Wahrheit.
+
+### G2 — steile Lernkurve, Speicherbedarf
+
+Die **Nix-Sprache hat eine steile Lernkurve**, und Builds brauchen **Speicherplatz**.
+
+**Folge:** **Flake klein halten.** Erklärungen gehören **in die Doku**, nicht in verstreute
+Kommentare. Deshalb steht in `pmh-nix` jeder Vertrag in `README.md` und im Paketkommentar —
+und die Attrappe trägt statt langer Kommentare einen kurzen Vermerk an jedem Datensatz.
+
+### G3 — Netzwerk, Nutzerrechte und Secrets bekommen eine eigene, strengere Stufe
+
+**Der Agent darf Netzwerk, Nutzerrechte und Secrets nicht ungeprüft ändern.**
+
+**Folge:** Diese drei Kategorien sind im Politik-Layer eine **eigene Stufe** — nicht ein
+Sonderfall der allgemeinen Branch-Regel. Die Zuordnung Pfad → Kategorie
+(`internal/actuation`, `Classify`) erkennt die drei Kategorien an den Pfaden und am Inhalt:
+
+| Kategorie | Erkannt an | Folge |
+|---|---|---|
+| `network` | `networking.*`, `network/*`, `firewall/*`, `tailscale`, `wireguard` | zwingende ausdrückliche Freigabe, **nie automatisch** |
+| `users` | `users.*`, `users/*`, `home/*`, `sudoers` | zwingende ausdrückliche Freigabe |
+| `secrets` | `secrets/*`, `sops`, `agenix`, ein Klartext-Geheimnis im Diff | zwingende ausdrückliche Freigabe |
+
+Ohne ausdrückliche Freigabe wird ein solcher Diff **abgelehnt**, und die Ablehnung nennt die
+strengere Stufe ausdrücklich (`strengere-kategorie`). Getestet:
+`TestRestrictedCategoryNeedsExplicitApproval` (drei Fälle: Netzwerk, Nutzer, Geheimnis),
+`TestRestrictedCategoriesAreNamedInTheCheck`, `TestClassifyRecognisesRestrictedCategories`.
+
+**Die strenge Stufe verlangt eine Freigabe, sie verbietet die Änderung nicht.** Mit
+ausdrücklicher Freigabe läuft auch ein `networking.*`-Diff durch — sonst ließe sich ein
+Netzwerk nie ändern.
+
+### G4 — Secrets gehören nicht in den Nix-Store
+
+Der **Nix-Store ist world-readable.** Ein Geheimnis dort ist offen. Der vorgesehene Weg sind
+**`sops-nix`** oder **`agenix`**.
+
+**Folge:** Der Prüfbau enthält eine **eigene Prüfung**: ein Diff, der ein Secret **im
+Klartext** in die Konfiguration schreibt, ist ein Befund der Schwere **`error`** — **kein
+Hinweis**. Er sperrt die Anwendung, und ein gesperrter Vorschlag lässt sich nicht einmal
+freigeben. Erkannt werden zugeordnete Literalwerte (`password = "…"`), eingebettete private
+Schlüssel (`-----BEGIN … PRIVATE KEY-----`) und bekannte Token-Formate.
+
+**Der richtige Weg wird nicht bestraft:** ein Verweis auf `sops.secrets.*`,
+`config.sops…`, einen `.age`-Pfad oder `builtins.getEnv` ist **kein** Befund. Sonst wäre der
+vorgesehene Weg der bestrafte. Getestet: `TestCheckReportsPlaintextSecretAsError` und die
+Gegenprobe `TestSopsReferenceIsNotAFinding`.
+
+### G5 — jede Änderung ist ein Git-Commit auf einem Branch
+
+**Kein direkter Schreibzugriff auf den aktiven Stand.** Ein Vorschlag ist ein **Branch mit
+Commit**; der aktive Stand bleibt unberührt.
+
+**Folge:** `propose` zeichnet **Branch, Commit, Basis-Commit und Basisgeneration** auf, und
+die Attrappe ruft dabei **kein `git`** auf — Branch und Commit sind Datensätze. Wer den
+aktiven Stand ändern will, muss durch die Activation.
+
+## 7. Warum das Selbständerung vertretbar macht
 
 Drei Sätze, die den Unterschied ausmachen:
 
 **1. Der Agent ändert Code, nicht Zustand.** Ein Vorschlag ist ein Text-Diff gegen eine
-deklarative Beschreibung. Er beschreibt eine Absicht, er trägt keine Befehlsfolge. Wer den
-Diff liest, weiß, was geschehen würde — **bevor** es geschieht. Deshalb ist die Prüfstufe
-überhaupt möglich: Es gibt etwas zu prüfen.
+deklarative Beschreibung — **auf einem Branch**, nicht im aktiven Stand. Er beschreibt eine
+Absicht, er trägt keine Befehlsfolge. Wer den Diff liest, weiß, was geschehen würde, **bevor**
+es geschieht.
 
 **2. `nixos-rebuild` ist der Transaktionsrand.** Innerhalb des Randes mag viel geschehen;
-nach außen gibt es **einen** Übergang — ganz oder gar nicht. Der Harness muss also nicht
-wissen, wie ein Systemwechsel im Einzelnen funktioniert; er muss nur wissen, wo der Rand
-liegt und wie man ihn zweimal betritt.
+nach außen gibt es **einen** Übergang — ganz oder gar nicht.
 
 **3. Rollback ist ein Umschalten, keine Wiederherstellung.** Es gibt kein Zurückspielen einer
-Sicherung, keine Rekonstruktion, keine Frage, ob das Backup vollständig war. Die vorige
-Generation liegt noch da; der Rückweg zeigt auf sie. Der Ausweg ist damit so billig wie der
-Weg hinein — und nur deshalb darf man diesen Weg überhaupt gehen.
+Sicherung und keine Rekonstruktion. Die vorige Generation liegt noch da; der Rückweg zeigt
+auf sie.
 
 Zusammen: Die Änderung ist **lesbar** (1), **ganz oder gar nicht** (2) und **umkehrbar** (3).
 Fehlt eine der drei, ist die Selbständerung eine Wette.
 
-## 6. Die Sicherheitsregel und ihre geprüften Invarianten
+## 8. Die Sicherheitsregel und ihre geprüften Invarianten
 
 > **Das Modell empfiehlt, die Policy entscheidet — ein Modell löst niemals einen
 > Systemwechsel aus.**
 >
 > Ein Modell — oder jeder andere äußere Aufrufer — kann genau **eines**: einen Vorschlag
-> aufnehmen. Was daraus wird, entscheidet die Politik.
+> aufnehmen. Was daraus wird, entscheidet die Politik. Und **freigeben kann nur ein Mensch**:
+> die Freigabe trägt einen Namen und einen Zeitstempel.
 
-Diese Regel ist keine Beschreibung, sondern eine **erzwungene und getestete Eigenschaft**.
-Die Namen der Tests sagen die Invariante:
+Der Ablauf ist bindend, und der Aufruf der Politik steht **vor** jedem Backend-Aufruf:
+
+```text
+propose -> check -> approve -> policy.Require(apply) -> backend.Apply
+```
 
 | Invariante | Test | Was gemessen wird |
 |---|---|---|
-| Ohne Prüfung keine Anwendung | `TestApplyRejectsUncheckedProposal` | `apply` auf einen nur vorgeschlagenen Datensatz wird abgewiesen; nach `check` geht es |
-| Keine Umgehung über Vorschlagsfelder | `TestPolicyCannotBeBypassedByProposalFields` | ein Vorschlag, der sich selbst für geprüft, sicher, genehmigt und anwendbar erklärt, wird trotzdem abgewiesen — die Politik liest nur die Aufzeichnung |
+| **Ohne Freigabe keine Anwendung** | `TestApplyRequiresRecordedApproval` | ein geprüfter, aber nicht freigegebener Vorschlag wird abgewiesen; die Aufzeichnung nennt wer, wann, welchen Diff, welche Basisgeneration |
+| **propose aktiviert nie** | `TestProposeNeverActivates` | null Aktivierungen nach propose/check/approve, keine Datei außerhalb der Buchführung, und genau eine Aktivierung durch apply |
+| **Rückweg auf die Aufzeichnung** | `TestRollbackReturnsToRecordedGeneration` | der Rückweg landet auf einer aufgezeichneten Generation, beide bleiben erhalten, eine geratene Kennung wird abgewiesen |
+| **Getauschter Diff fällt durch** | `TestApplyRejectsChangedDiffHash` | nach der Freigabe getauscht → fail-closed, Grund `diff-geaendert` / `freigabe-veraltet` |
+| Ohne Prüfbau keine Anwendung | `TestApplyRejectsUncheckedProposal` | erst check, dann Freigabe, dann apply |
+| Keine Umgehung über Vorschlagsfelder | `TestPolicyCannotBeBypassedByProposalFields` | ein Vorschlag, der sich selbst für geprüft, sicher, freigegeben und anwendbar erklärt, wird trotzdem abgewiesen |
 | Nur eigene Kennungen | `TestApplyRejectsUnknownProposal` | nur eine von `propose` vergebene Kennung kommt durch |
 | Einmal wirkt | `TestApplyRejectsAlreadyAppliedProposal` | ein Vorschlag erzeugt genau eine Generation |
-| Sperrende Befunde sperren | `TestApplyRefusesWhenCheckFoundErrorSeverityFinding` | ein Befund der Schwere `error` verhindert die Anwendung |
-| Gebundene Bytes | `TestPolicyRejectsTamperedDiff` | wer den Diff nach der Prüfung tauscht, fällt über den Fingerabdruck durch |
-| Nur `apply` ist gesperrt | `TestProposeIsTheOnlyOpenAction` | Vorschlagen, Prüfen und der Rückweg bleiben offen |
-| Fail-closed ohne Werkzeugkasten | `TestNixRefusesEveryMutatingCallFailClosed` | ohne `nix` scheitert jeder Aufruf des echten Backends laut — und `Apply` liefert keine Generation |
+| Sperrende Befunde sperren | `TestApplyRefusesWhenCheckFoundErrorSeverityFinding` | ein Befund der Schwere `error` verhindert die Anwendung und die Freigabe |
+| Strenge Kategorien brauchen Freigabe | `TestRestrictedCategoryNeedsExplicitApproval` | Netzwerk, Nutzer, Geheimnis: ohne Freigabe abgelehnt, mit Freigabe erlaubt |
+| Klartext-Secrets sind Fehler | `TestCheckReportsPlaintextSecretAsError` | Schwere `error`, Anwendung und Freigabe gesperrt |
+| Veraltete Basisgeneration | `TestApplyRejectsStaleBaseGeneration` | Basis nicht mehr aktiv → fail-closed, neu bauen |
+| Freigabe gilt genau für Bytes | `TestApprovalIsInvalidatedByNewCheck` | ein neuer Prüfbau über einen anderen Diff nimmt sie zurück |
+| Nur `apply` ist gesperrt | `TestProposeIsTheOnlyOpenAction` | Vorschlagen, Prüfen, Freigeben und der Rückweg bleiben offen |
+| Fail-closed ohne Werkzeugkasten | `TestNixRefusesEveryMutatingCallFailClosed` | ohne `nix` scheitert jeder Backend-Aufruf laut — und `Apply` liefert keine Generation |
 
-Der Rückweg ist **absichtlich offen**. Ein System, aus dem man nicht herauskommt, wäre
-schlimmer als eines, das sich ändert.
+**Die Politik liest kein Feld der Anfrage.** Sie liest ausschließlich die aufgezeichnete
+Buchführung. Es gibt in `api.Proposal` absichtlich kein `checked`, kein `safe`, kein
+`approved`, kein `policy_ok` — und ein von Hand in die Ablage geschriebenes
+`"approved": true` ist wirkungslos.
 
 **Ehrliche Einschränkung.** Auf diesem Wirt gibt es kein Nix. In der Vorgabe-Betriebsart
 läuft der Vertrag der Attrappe deshalb **durch**: er erzeugt einen Datensatz, der wie eine
-Generation aussieht — und der ausdrücklich als Attrappe gekennzeichnet ist. Wer „eine
-Generation ist entstanden" mit „das System wurde umgestellt" gleichsetzt, liest die Ausgabe
-falsch. Der Unterschied ist an jedem Datensatz ablesbar: `system: "attrappe"` und der Vermerk
-in `note`. Die Betriebsart **streng** der Attrappe zeigt die andere Seite: sobald sie sich für
-unverfügbar erklärt, verweigert sie jede Anwendung.
+Generation aussieht — und der ausdrücklich als Attrappe gekennzeichnet ist (`system:
+"attrappe"`, Vermerk *„nichts am System geändert, nur Buchführung"*). Wer „eine Generation
+ist entstanden" mit „das System wurde umgestellt" gleichsetzt, liest die Ausgabe falsch.
 
-## 7. Offene Fragen — Messungen, keine Aufträge
+## 9. Zielumgebung — Ausblick
+
+**Kein Bauauftrag.** Später kommt eines von beidem:
+
+| Ziel | Was es bedeutet |
+|---|---|
+| **Externer Server mit NixOS** | Der Dienst adressiert ein **entferntes** Ziel: per **SSH** oder über einen **Agenten auf dem Ziel** |
+| **Raspberry Pi 5 mit 8 GB RAM** | Dasselbe Muster, im Gehäuse **Pironman 5** — ein kleiner, billiger, ersetzbarer Rechner, auf dem ein misslungener Wechsel nichts kostet |
+
+Daraus folgt: die Actuation braucht die **`remote`-Betriebsart** — Prüfbau auf der
+Zielmaschine, Freigabe, dann `switch`. Sie ist im Vertrag und im Interface **vorgesehen und
+in der Attrappe testbar**, aber **nichts davon wird jetzt gebaut oder installiert**.
+
+## 10. Offene Fragen — Messungen, keine Aufträge
 
 Diese Fragen sind **offen**. Keine von ihnen wird hier entschieden, und **keine** ist ein
 Auftrag, etwas zu installieren.
 
 | Offene Frage | Warum sie offen ist | Was sie klären würde |
 |---|---|---|
-| **Wo läuft die Actuation später?** Drei Ränder sind denkbar: ein eigener **NixOS-Host**, ein **Container** oder ein **WSL2-Rand**. | Die Umgebungsmessung (§3.1) hat alle drei Optionen als *vorhanden* festgestellt (WSL2 mit Distributionen; Docker mit laufendem Daemon), aber keine als *geeignet* gemessen. | Eine Messung, kein Beschluss: Welcher Rand lässt sich am billigsten zurückrollen, und welcher lässt sich am ehrlichsten überwachen? |
-| **Wie wird der Diff berechnet?** | Ohne Werkzeugkasten gibt es keinen ehrlichen Diff. `nixos-rebuild build --dry-run` ist der geplante Weg, aber ungemessen. | Ein Vergleich: Wie vollständig ist die Ausgabe eines Trockenlaufs gegenüber einem echten `nix store diff-closures`? |
-| **Wer darf einen Vorschlag einreichen?** | Heute ist der Rand die Prozessgrenze, nicht ein Benutzer. Es gibt keine Signaturprüfung und keine Authentisierung. | Ein Modell für Herkunft und Prüfsumme — nicht nur für die Änderung, sondern für den **Einreicher**. |
-| **Wie wird die Generationenliste ausgelesen?** | Geplant ist `nix-env --list-generations --profile /nix/var/nix/profiles/system`. | Eine Messung, ob die Liste stabil genug ist, um darauf Entscheidungen zu stützen. |
-| **Was geschieht bei einem Rückweg über einen Neustart hinweg?** | Ein Rückweg ist ein Umschalten. Ob der nächste Start dieselbe Generation sieht, ist Teil des Randes und nicht gemessen. | Eine Messung auf dem gewählten Rand. |
+| **Wo läuft die Actuation später?** Eigener NixOS-Host, Raspberry Pi, Container oder WSL2-Rand | Die Umgebungsmessung (§3.1) hat WSL2 und Docker als *vorhanden* festgestellt, aber keine Option als *geeignet* gemessen | Eine Messung, kein Beschluss: Welcher Rand lässt sich am billigsten zurückrollen und am ehrlichsten überwachen? |
+| **Wie wird der Diff berechnet?** | Ohne Werkzeugkasten gibt es keinen ehrlichen Diff. `nixos-rebuild build --dry-run` ist der geplante Weg, aber ungemessen | Ein Vergleich: Wie vollständig ist die Ausgabe eines Trockenlaufs gegenüber einem echten `nix store diff-closures`? |
+| **Wie kommt der Vorschlag auf den Zielrechner?** | Die `remote`-Betriebsart ist im Vertrag, aber der Transport (SSH, Agent, Forgejo-Actions) ist ungemessen | Eine Messung an **einem** Rand, nicht drei Entwürfe |
+| **Wer darf einen Vorschlag einreichen, wer freigeben?** | Heute ist der Rand die Prozessgrenze; die Freigabe trägt einen Namen, aber es gibt keine Signaturprüfung | Ein Modell für Herkunft und Prüfsumme — für den Einreicher **und** für den Freigeber |
+| **Wie wird die Generationenliste ausgelesen?** | Geplant ist `nix-env --list-generations --profile /nix/var/nix/profiles/system` | Ob die Liste stabil genug ist, um Entscheidungen darauf zu stützen |
+| **Was geschieht bei einem Rückweg über einen Neustart hinweg?** | Ein Rückweg ist ein Umschalten; ob der nächste Start dieselbe Generation sieht, ist Teil des Randes | Eine Messung auf dem gewählten Rand |
 
 **Keine dieser Fragen rechtfertigt heute eine Installation.** Sie werden beantwortet, wenn ein
 Rand gewählt und gemessen ist — und der Dienst ändert sich dafür nicht: es kommt eine weitere
