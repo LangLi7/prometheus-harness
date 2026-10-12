@@ -1,0 +1,115 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>E · Orbit-Void</title><style>
+:root{--bg:#050507;--s:#101010ee;--b:#3d3a39;--t:#f2f2f2;--t2:#b8b3b0;--t3:#8b949e;--a:#ff5a1f;--a2:#ffb35c;--blue:#6ba3ff;--g:#3fb970}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(ellipse at 50% 35%,#14100c,var(--bg) 75%);color:var(--t);font:13px/1.6 'JetBrains Mono',Consolas,monospace;height:100vh;overflow:hidden}
+canvas{position:absolute;inset:0;width:100%;height:100%;cursor:grab}
+canvas:active{cursor:grabbing}
+.hud{position:absolute;top:16px;left:20px}
+.hud .wm{font-size:11px;letter-spacing:3px;color:var(--a2)}
+.hud small{display:block;font-size:10px;letter-spacing:1.5px;color:var(--t3);margin-top:2px}
+.panel{position:absolute;top:14px;right:16px;background:var(--s);border:1px solid var(--b);border-radius:8px;padding:12px 16px;backdrop-filter:blur(8px);min-width:210px}
+.panel .lbl{font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+select{width:100%;background:#0a0a0a;color:var(--a2);border:1px solid var(--b);border-radius:6px;font:inherit;font-size:12px;padding:6px 8px;outline:none;margin-bottom:10px}
+.kv{display:flex;justify-content:space-between;font-size:11px;padding:2px 0}
+.kv span:first-child{color:var(--t3)}.kv span:last-child{color:var(--t2)}
+.ok{color:var(--g)!important}
+.hint{position:absolute;bottom:150px;left:20px;font-size:10.5px;color:var(--t3);letter-spacing:1px}
+.dock{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);width:min(780px,92vw);background:var(--s);border:1px solid var(--b);border-radius:10px;backdrop-filter:blur(10px);box-shadow:0 20px 60px #000c;transition:transform .25s,opacity .25s}
+body.hide .dock{transform:translateX(-50%) translateY(120px);opacity:0;pointer-events:none}
+body.hide .hint{opacity:0}
+.hist{max-height:0;overflow:hidden;transition:max-height .3s}
+.dock.open .hist{max-height:300px;overflow-y:auto}
+.hist .m{padding:10px 18px;border-bottom:1px solid #1d1b1a;font:13px Inter,system-ui,sans-serif;color:var(--t2)}
+.hist .who{font:600 10.5px 'JetBrains Mono';letter-spacing:1.5px;text-transform:uppercase;margin-right:10px;color:var(--blue)}
+.hist .m.a .who{color:var(--a2)}
+.last{padding:12px 18px;border-bottom:1px solid #1d1b1a;font:13px Inter,system-ui,sans-serif;color:var(--t2);border-left:2px solid var(--a);border-radius:10px 0 0 0}
+.last .who{color:var(--a2);font:600 10.5px 'JetBrains Mono';letter-spacing:1.5px;text-transform:uppercase;margin-right:10px}
+.row{display:flex;gap:10px;padding:12px 18px;align-items:center}
+.pr{color:var(--a)}
+input{flex:1;background:none;border:none;outline:none;color:var(--t);font:inherit}
+.mic{width:32px;height:32px;border-radius:50%;border:1px solid var(--b);background:none;color:var(--t3);font-size:14px;cursor:pointer}
+.mic.hot{color:var(--a);border-color:var(--a);box-shadow:0 0 12px #ff5a1f66;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{box-shadow:0 0 22px #ff5a1f99}}
+.run{background:#0a0a0a;color:var(--a2);border:1px solid var(--b);border-radius:6px;font:inherit;font-size:11px;letter-spacing:1.5px;padding:7px 16px;cursor:pointer}
+kbd{font-size:10px;color:var(--t3);border:1px solid var(--b);border-radius:3px;padding:1px 5px}
+</style></head><body>
+<canvas id="c"></canvas>
+<div class="hud"><span class="wm">◆ PROMETHEUS</span><small>knowledge orbit · live</small></div>
+<div class="panel">
+  <div class="lbl">model</div>
+  <select><option>ornith-9b · lokal</option><option>ornith-35b · lokal</option><option>deepseek-r1-14b · lokal</option><option>glm-4.7-flash · lokal</option><option>openrouter · fallback</option></select>
+  <div class="kv"><span>status</span><span class="ok">online</span></div>
+  <div class="kv"><span>nodes</span><span>247</span></div>
+  <div class="kv"><span>memory</span><span>Phase 1</span></div>
+  <div class="kv"><span>voice</span><span>bereit</span></div>
+</div>
+<div class="hint">drag = rotieren · scroll = zoom · ⌘K = fokus</div>
+<div class="dock" id="dock">
+  <div class="hist" id="hist">
+    <div class="m"><span class="who">you</span>Erinnerst du dich an den BTC Trade Plan?</div>
+    <div class="m a"><span class="who">prometheus</span>Ja — Deep Q-Learning auf 1h-Candles, RSI, Support 104k.</div>
+    <div class="m"><span class="who">you</span>Speichere: NixOS-Flake auf dem Raspi5 testen.</div>
+  </div>
+  <div class="last" id="toggle" title="klick = verlauf" style="cursor:pointer"><span class="who">prometheus</span>Gespeichert → verknüpft mit „NixOS Deployment". Nächster kleinster Schritt: Flake auf dem Pi testen.</div>
+  <div class="row"><span class="pr">❯</span><input id="inp" placeholder="frag den orbit… (⌘K zeigt/versteckt · klick oben = verlauf)"><button class="mic" id="mic" title="Sprachsteuerung">🎙</button><button class="run">run</button><kbd>⌘K</kbd></div>
+</div>
+<script>
+// Spiralgalaxie: Memory-Cluster als Sternhaufen an Spiralarmen.
+// zoom aufs Mausziel (0.3–8x), drag = pan, langsame Eigenrotation.
+const cv=document.getElementById('c'),x=cv.getContext('2d');
+let W,H,zoom=1,cx=0,cy=0,rot=0,drag=null;
+function rs(){W=cv.width=innerWidth;H=cv.height=innerHeight}rs();onresize=rs;
+// Sterne-Hintergrund (statisch)
+const BG=[];for(let i=0;i<300;i++)BG.push({x:Math.random(),y:Math.random(),a:Math.random()*.5+.1,r:Math.random()*1.2+.3});
+// Galaxie: 3 Arme, Knoten entlang log-Spirale + Jitter; große Knoten = Cluster
+const N=[],ARMS=3;
+for(let i=0;i<420;i++){const arm=i%ARMS,t=Math.random();
+const r=30+t*340,th=arm*(2*Math.PI/ARMS)+t*4.2+(Math.random()-.5)*.55/(t+.25);
+const big=Math.random()<.05;
+N.push({r,th,x:0,y:0,big,
+c:big?'#ffb35c':(Math.random()<.16?'#6ba3ff':(Math.random()<.5?'#ff5a1f':'#c9bfb2')),
+s:big?4.5:Math.random()*1.8+.8,tw:Math.random()*7})}
+const E=[];for(let i=0;i<N.length;i++){if(!N[i].big)continue;
+for(let j=0;j<N.length;j++){const a=N[i],b=N[j];
+if(i!==j&&Math.abs(a.r-b.r)<60&&Math.abs(a.th-b.th)<.3&&Math.random()<.35)E.push([i,j])}}
+cv.onmousedown=e=>{drag={x:e.clientX,y:e.clientY,cx,cy}};
+onmousemove=e=>{if(e.clientY>innerHeight-40)document.body.classList.remove('hide');
+if(!drag)return;cx=drag.cx+(e.clientX-drag.x)/zoom;cy=drag.cy+(e.clientY-drag.y)/zoom};
+onmouseup=()=>{drag=null};
+cv.onwheel=e=>{e.preventDefault();
+const f=Math.exp(-e.deltaY*.0012),nz=Math.max(.3,Math.min(8,zoom*f));
+// zoom aufs Mausziel: Weltpunkt unterm Cursor fixieren
+const mx=(e.clientX-W/2)/zoom-cx,my=(e.clientY-H/2)/zoom-cy;
+cx=(e.clientX-W/2)/nz-mx;cy=(e.clientY-H/2)/nz-my;zoom=nz};
+function frame(){rot+=drag?0:.0006;
+x.clearRect(0,0,W,H);
+// hintergrund-sterne (kein zoom — tiefe)
+for(const s of BG){x.globalAlpha=s.a;x.fillStyle='#c9bfb2';x.beginPath();x.arc(s.x*W,s.y*H,s.r,0,7);x.fill()}
+x.globalAlpha=1;
+const T=Date.now()/900;
+const px=p=>{const th=p.th+rot*(1-p.r/900);
+p.x=W/2+((Math.cos(th)*p.r)+cx)*zoom;p.y=H/2+((Math.sin(th)*p.r*.62)+cy)*zoom;return p};
+N.forEach(px);
+// kern-glow
+const kx=W/2+cx*zoom,ky=H/2+cy*zoom;
+const g=x.createRadialGradient(kx,ky,1,kx,ky,(60+Math.sin(T)*8)*zoom);
+g.addColorStop(0,'#fff3e0');g.addColorStop(.15,'#ffb35c');g.addColorStop(.45,'#ff5a1f55');g.addColorStop(1,'transparent');
+x.fillStyle=g;x.beginPath();x.arc(kx,ky,80*zoom,0,7);x.fill();
+// cluster-kanten
+x.strokeStyle='#3d3a39';x.lineWidth=1;
+for(const[i,j]of E){x.globalAlpha=.35;x.beginPath();x.moveTo(N[i].x,N[i].y);x.lineTo(N[j].x,N[j].y);x.stroke()}
+// sterne/knoten
+for(const p of N){x.globalAlpha=p.big?1:.55+Math.sin(T*2+p.tw)*.3;
+x.fillStyle=p.c;x.beginPath();x.arc(p.x,p.y,p.s*Math.sqrt(zoom),0,7);x.fill();
+if(p.big&&zoom>2){x.globalAlpha=.9;x.fillStyle='#b8b3b0';x.font='10px JetBrains Mono';
+x.fillText('cluster',p.x+8,p.y+3)}}
+x.globalAlpha=1;requestAnimationFrame(frame)}frame();
+// mic demo toggle
+mic.onclick=()=>mic.classList.toggle('hot');
+// dock: ⌘K/Ctrl+K & Esc verstecken/zeigen (Spotlight-Verhalten), Maus unten holt es zurück
+addEventListener('keydown',e=>{
+if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();document.body.classList.toggle('hide');if(!document.body.classList.contains('hide'))inp.focus()}
+if(e.key==='Escape')document.body.classList.add('hide')});
+onmousemove=(o=>e=>{o&&o(e);if(e.clientY>innerHeight-40)document.body.classList.remove('hide')})(onmousemove);
+toggle.onclick=()=>dock.classList.toggle('open');
+</script></body></html>

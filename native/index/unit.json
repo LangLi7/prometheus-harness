@@ -1,0 +1,20 @@
+{
+  "name": "pmh-index",
+  "version": "0.1.0",
+  "kind": "service",
+  "language": "rust",
+  "description": "Indiziert einen Quellbaum und extrahiert Deklarationen lexikalisch; eine JSON-Zeile pro Datei.",
+  "entry": {
+    "command": "pmh-index",
+    "args": ["tree", ".", "--symbols"]
+  },
+  "core": "optional",
+  "provides": ["workspace-index"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Neubau: die Vorlage hat kein Gegenstueck.",
+    "Der Extraktor ist LEXIKALISCH, kein Parser: er loest keine Importe auf und baut keinen Typgraphen. Die Grenze ist im Modulkopf dokumentiert und durch einen Test gepinnt.",
+    "Das Feld digest ist FNV-1a 64 und nur zur Aenderungserkennung gedacht, NICHT kryptografisch. Fuer echte Pruefsummen pmh-crypto benutzen."
+  ]
+}

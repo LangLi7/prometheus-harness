@@ -1,0 +1,16 @@
+{
+  "name": "@prometheus-harness/website",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Dokumentationsseite: VitePress über die Markdown-Dokumente in docs/",
+  "scripts": {
+    "project": "bun project.ts",
+    "dev": "bun project.ts && vitepress dev . --host 127.0.0.1 --port 5176",
+    "build": "bun project.ts && vitepress build .",
+    "preview": "vitepress preview . --host 127.0.0.1 --port 4176"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}

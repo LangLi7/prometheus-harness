@@ -1,0 +1,19 @@
+================================================================
+  PRUEFUNG r1-r7  --  ABGESCHLOSSEN (Bericht liegt vor)
+================================================================
+  Freigabeempfehlung: FREIGABE MIT AUFLAGEN
+
+  Rust      : 110 Tests gruen, 0 Fehler / 0 Warnungen (Windows UND Linux)
+  TypeScript:  54 Tests gruen, Typecheck 4/4 exit 0
+  Go        :  2 von 27 Tests rot (Plattformgrenze Windows)
+  Vorlage   : 27.093 Dateien, Manifestvergleich 0 Abweichungen
+
+  Bericht  : docs/review/backend-review.md
+  Detail   : docs/review/review-backend-transfer.md
+  Protokoll: docs/review/verification-log.txt
+
+  OFFEN: r1-r7 im Crew-State stehen weiter auf pending.
+  Grund: Rollengrenze -- diese Sitzung ist "executor" und darf
+  Reviewer-State nicht schreiben; crew_run brach 2x ab.
+  Belege je Todo stehen im Bericht, Abschnitt "Nachtrag".
+================================================================

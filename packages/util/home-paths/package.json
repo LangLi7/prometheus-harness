@@ -1,0 +1,11 @@
+{
+  "name": "@prometheus-harness/home-paths",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Auflösung des Harness-Home: PMH_HOME → DSH_HOME → ~/.pmh",
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test"
+  }
+}

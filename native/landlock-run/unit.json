@@ -1,0 +1,20 @@
+{
+  "name": "pmh-landlock-run",
+  "version": "0.1.0",
+  "kind": "service",
+  "language": "rust",
+  "description": "Legt ein Landlock-Ruleset auf sich selbst und startet den eingehüllten Befehl darin; fail-closed ohne Landlock-Durchsetzung.",
+  "entry": {
+    "command": "pmh-landlock-run",
+    "args": ["--ro", "/usr", "--rw", "/work", "--", "bash", "-c", "…"]
+  },
+  "core": "optional",
+  "provides": ["landlock-confinement"],
+  "requires": [],
+  "platforms": ["linux"],
+  "notes": [
+    "Ersetzt native/system/packages/entry/src/main.c der Vorlage (298 Zeilen C).",
+    "Der CLI-Vertrag aus native/system/docs/cli-contract.md ist woertlich uebernommen: Grammatik, Exit 125, die drei Report-Zeilen, keine Umgebungsvariablen-Eingaben.",
+    "Nur Linux: Landlock ist eine Linux-Syscall-Familie. Auf anderen Hosts meldet der Launcher 'unusable' und startet nichts."
+  ]
+}

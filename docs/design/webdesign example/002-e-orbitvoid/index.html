@@ -1,0 +1,98 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>E · Orbit-Void</title><style>
+:root{--bg:#050507;--s:#101010ee;--b:#3d3a39;--t:#f2f2f2;--t2:#b8b3b0;--t3:#8b949e;--a:#ff5a1f;--a2:#ffb35c;--blue:#6ba3ff;--g:#3fb970}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(ellipse at 50% 35%,#14100c,var(--bg) 75%);color:var(--t);font:13px/1.6 'JetBrains Mono',Consolas,monospace;height:100vh;overflow:hidden}
+canvas{position:absolute;inset:0;width:100%;height:100%;cursor:grab}
+canvas:active{cursor:grabbing}
+.hud{position:absolute;top:16px;left:20px}
+.hud .wm{font-size:11px;letter-spacing:3px;color:var(--a2)}
+.hud small{display:block;font-size:10px;letter-spacing:1.5px;color:var(--t3);margin-top:2px}
+.panel{position:absolute;top:14px;right:16px;background:var(--s);border:1px solid var(--b);border-radius:8px;padding:12px 16px;backdrop-filter:blur(8px);min-width:210px}
+.panel .lbl{font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+select{width:100%;background:#0a0a0a;color:var(--a2);border:1px solid var(--b);border-radius:6px;font:inherit;font-size:12px;padding:6px 8px;outline:none;margin-bottom:10px}
+.kv{display:flex;justify-content:space-between;font-size:11px;padding:2px 0}
+.kv span:first-child{color:var(--t3)}.kv span:last-child{color:var(--t2)}
+.ok{color:var(--g)!important}
+.hint{position:absolute;bottom:150px;left:20px;font-size:10.5px;color:var(--t3);letter-spacing:1px}
+.dock{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);width:min(780px,92vw);background:var(--s);border:1px solid var(--b);border-radius:10px;backdrop-filter:blur(10px);box-shadow:0 20px 60px #000c;transition:transform .25s,opacity .25s}
+body.hide .dock{transform:translateX(-50%) translateY(120px);opacity:0;pointer-events:none}
+body.hide .hint{opacity:0}
+.hist{max-height:0;overflow:hidden;transition:max-height .3s}
+.dock.open .hist{max-height:300px;overflow-y:auto}
+.hist .m{padding:10px 18px;border-bottom:1px solid #1d1b1a;font:13px Inter,system-ui,sans-serif;color:var(--t2)}
+.hist .who{font:600 10.5px 'JetBrains Mono';letter-spacing:1.5px;text-transform:uppercase;margin-right:10px;color:var(--blue)}
+.hist .m.a .who{color:var(--a2)}
+.last{padding:12px 18px;border-bottom:1px solid #1d1b1a;font:13px Inter,system-ui,sans-serif;color:var(--t2);border-left:2px solid var(--a);border-radius:10px 0 0 0}
+.last .who{color:var(--a2);font:600 10.5px 'JetBrains Mono';letter-spacing:1.5px;text-transform:uppercase;margin-right:10px}
+.row{display:flex;gap:10px;padding:12px 18px;align-items:center}
+.pr{color:var(--a)}
+input{flex:1;background:none;border:none;outline:none;color:var(--t);font:inherit}
+.mic{width:32px;height:32px;border-radius:50%;border:1px solid var(--b);background:none;color:var(--t3);font-size:14px;cursor:pointer}
+.mic.hot{color:var(--a);border-color:var(--a);box-shadow:0 0 12px #ff5a1f66;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{box-shadow:0 0 22px #ff5a1f99}}
+.run{background:#0a0a0a;color:var(--a2);border:1px solid var(--b);border-radius:6px;font:inherit;font-size:11px;letter-spacing:1.5px;padding:7px 16px;cursor:pointer}
+kbd{font-size:10px;color:var(--t3);border:1px solid var(--b);border-radius:3px;padding:1px 5px}
+</style></head><body>
+<canvas id="c"></canvas>
+<div class="hud"><span class="wm">◆ PROMETHEUS</span><small>knowledge orbit · live</small></div>
+<div class="panel">
+  <div class="lbl">model</div>
+  <select><option>ornith-9b · lokal</option><option>ornith-35b · lokal</option><option>deepseek-r1-14b · lokal</option><option>glm-4.7-flash · lokal</option><option>openrouter · fallback</option></select>
+  <div class="kv"><span>status</span><span class="ok">online</span></div>
+  <div class="kv"><span>nodes</span><span>247</span></div>
+  <div class="kv"><span>memory</span><span>Phase 1</span></div>
+  <div class="kv"><span>voice</span><span>bereit</span></div>
+</div>
+<div class="hint">drag = rotieren · scroll = zoom · ⌘K = fokus</div>
+<div class="dock" id="dock">
+  <div class="hist" id="hist">
+    <div class="m"><span class="who">you</span>Erinnerst du dich an den BTC Trade Plan?</div>
+    <div class="m a"><span class="who">prometheus</span>Ja — Deep Q-Learning auf 1h-Candles, RSI, Support 104k.</div>
+    <div class="m"><span class="who">you</span>Speichere: NixOS-Flake auf dem Raspi5 testen.</div>
+  </div>
+  <div class="last" id="toggle" title="klick = verlauf" style="cursor:pointer"><span class="who">prometheus</span>Gespeichert → verknüpft mit „NixOS Deployment". Nächster kleinster Schritt: Flake auf dem Pi testen.</div>
+  <div class="row"><span class="pr">❯</span><input id="inp" placeholder="frag den orbit… (⌘K zeigt/versteckt · klick oben = verlauf)"><button class="mic" id="mic" title="Sprachsteuerung">🎙</button><button class="run">run</button><kbd>⌘K</kbd></div>
+</div>
+<script>
+// 3D-Kugel-Graph: Punkte auf Sphäre (Fibonacci), drag rotiert, scroll zoomt
+const cv=document.getElementById('c'),x=cv.getContext('2d');
+let W,H,rx=0.4,ry=0,zoom=1,drag=null,vy=0.0018;
+function rs(){W=cv.width=innerWidth;H=cv.height=innerHeight}rs();onresize=rs;
+const N=[],E=[],n=140,GA=Math.PI*(3-Math.sqrt(5));
+for(let i=0;i<n;i++){const t=i/n,ph=Math.acos(1-2*t),th=GA*i;
+N.push({x:Math.sin(ph)*Math.cos(th),y:Math.sin(ph)*Math.sin(th),z:Math.cos(ph),
+c:Math.random()<.18?'#6ba3ff':(Math.random()<.12?'#ffb35c':'#ff5a1f'),r:Math.random()<.12?3.5:2})}
+for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){const a=N[i],b=N[j];
+if(Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z)<0.42&&Math.random()<.5)E.push([i,j])}
+cv.onmousedown=e=>{drag={x:e.clientX,y:e.clientY,rx,ry};vy=0};
+onmousemove=e=>{if(!drag)return;ry=drag.ry+(e.clientX-drag.x)*.005;rx=drag.rx+(e.clientY-drag.y)*.005};
+onmouseup=()=>{drag=null;vy=0.0018};
+cv.onwheel=e=>{zoom=Math.max(.5,Math.min(2.5,zoom-e.deltaY*.001));e.preventDefault()};
+function proj(p){
+const cy=Math.cos(ry),sy=Math.sin(ry),cx=Math.cos(rx),sx=Math.sin(rx);
+let X=p.x*cy+p.z*sy,Z=-p.x*sy+p.z*cy,Y=p.y*cx-Z*sx;Z=p.y*sx+Z*cx;
+const R=Math.min(W,H)*0.32*zoom,s=1/(1.8-Z*.6);
+return{sx:W/2+X*R*s,sy:H*0.42+Y*R*s,z:Z,s}}
+function frame(){if(!drag)ry+=vy;
+x.clearRect(0,0,W,H);
+const P=N.map(proj);
+for(const[i,j]of E){const a=P[i],b=P[j];x.globalAlpha=Math.max(0,(a.z+b.z)/2*.35+.25);
+x.strokeStyle='#3d3a39';x.beginPath();x.moveTo(a.sx,a.sy);x.lineTo(b.sx,b.sy);x.stroke()}
+x.globalAlpha=1;
+// Kern
+const g=x.createRadialGradient(W/2,H*.42,2,W/2,H*.42,46+Math.sin(Date.now()/500)*7);
+g.addColorStop(0,'#ffb35c');g.addColorStop(.3,'#ff5a1f77');g.addColorStop(1,'transparent');
+x.fillStyle=g;x.beginPath();x.arc(W/2,H*.42,55,0,7);x.fill();
+const ord=[...P.keys()].sort((a,b)=>P[a].z-P[b].z);
+for(const i of ord){const p=P[i];x.globalAlpha=p.z*.4+.6;
+x.fillStyle=N[i].c;x.beginPath();x.arc(p.sx,p.sy,N[i].r*p.s*1.4,0,7);x.fill()}
+x.globalAlpha=1;requestAnimationFrame(frame)}frame();
+// mic demo toggle
+mic.onclick=()=>mic.classList.toggle('hot');
+// dock: ⌘K/Ctrl+K & Esc verstecken/zeigen (Spotlight-Verhalten), Maus unten holt es zurück
+addEventListener('keydown',e=>{
+if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();document.body.classList.toggle('hide');if(!document.body.classList.contains('hide'))inp.focus()}
+if(e.key==='Escape')document.body.classList.add('hide')});
+onmousemove=(o=>e=>{o&&o(e);if(e.clientY>innerHeight-40)document.body.classList.remove('hide')})(onmousemove);
+toggle.onclick=()=>dock.classList.toggle('open');
+</script></body></html>

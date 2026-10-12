@@ -1,0 +1,57 @@
+=== 1. RUST: cargo test --workspace ===
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+=== 2. RUST: cargo check --target x86_64-unknown-linux-gnu --all-targets ===
+Fehler: 0   Warnungen: 0
+
+=== 3. RUST: cargo check --all-targets (Windows) ===
+Fehler: 0   Warnungen: 0
+
+=== 4. TYPESCRIPT ===
+
+Checked 41 installs across 73 packages (no changes) [29.00ms]
+bun run typecheck (Wurzel) exit=0
+
+=== 5. TYPESCRIPT: bun test je Paket ===
+  home-paths : 15 pass | 0 fail
+  atomic-write : 19 pass | 0 fail
+  scope : 12 pass | 0 fail
+  web : 8 pass | 0 fail
+
+=== 6. GO (services/pmh-supervisor) ===
+go vet -buildvcs=false     exit=0
+go build -buildvcs=false   exit=0
+go build (ohne Flag)       exit=1
+go test: 2 Tests rot
+  ok  	github.com/LangLi7/prometheus-harness/services/pmh-supervisor/internal/api	(cached)
+  ok  	github.com/LangLi7/prometheus-harness/services/pmh-supervisor/internal/config	(cached)
+  --- FAIL: TestShutdownReverseOrder (15.02s)
+  --- FAIL: TestSingleRestartStartetNeu (2.25s)
+  FAIL
+  FAIL	github.com/LangLi7/prometheus-harness/services/pmh-supervisor/internal/supervisor	49.569s
+  FAIL
+
+=== 7. VORLAGE ===
+Dateizahl: 27093  (Soll 27093)
+Manifestvergleich: 0 Abweichungen

@@ -1,0 +1,14 @@
+# Bun-Arbeitsbereich des Prometheus Harness.
+#
+# Zwei Regeln aus docs/stack.md, die hier technisch verankert sind:
+#   1. bun führt TypeScript direkt aus — es gibt keinen Transpile-Schritt.
+#   2. Typprüfung bleibt TypeScript 7 (`tsgo --noEmit`), niemals `tsc`.
+#
+# Deshalb steht hier bewusst KEIN Bundler-Abschnitt und keine `preload`-Datei:
+# der Kern wird nicht gebaut, er wird ausgeführt.
+
+[install]
+# `apps/web` bringt eine eigene bun.lock und ein eigenes node_modules mit. Ein
+# Installationlauf an der Wurzel darf diese nicht umschreiben; die Prüfung
+# dazu steht in docs/backend-ts.md (Abschnitt „Verifikation").
+linker = "hoisted"

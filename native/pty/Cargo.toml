@@ -1,0 +1,32 @@
+[package]
+name = "pmh-pty"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+description = "Persistent pseudo-terminal as a process — replaces the node-pty native addon"
+
+[[bin]]
+name = "pmh-pty"
+path = "src/main.rs"
+
+[lib]
+name = "pmh_pty"
+path = "src/lib.rs"
+
+[dependencies]
+serde_json.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_System_Console",
+    "Win32_System_Threading",
+    "Win32_System_Pipes",
+    "Win32_Storage_FileSystem",
+] }

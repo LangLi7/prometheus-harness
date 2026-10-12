@@ -1,0 +1,59 @@
+# Prometheus Harness — was NICHT ins Repository gehört.
+#
+# Grundsatz: ins Repository gehört, was ein Mensch geschrieben hat oder was einen
+# Nachweis trägt — nicht, was ein Werkzeug erzeugt hat. Am 12.10.2026 war der
+# Arbeitsbaum **1.271 MB** groß; davon waren rund **1.200 MB** erzeugter Ballast
+# (Abhängigkeiten, Rust-Buildartefakte, ein Website-Cache). Ohne diese Datei wäre
+# jeder Push unbrauchbar groß gewesen.
+
+# --- Abhängigkeiten (werden aus bun.lock / Cargo.lock reproduziert) ---
+node_modules/
+.pnpm-store/
+
+# --- Rust-Buildartefakte ---
+target/
+
+# --- Bun-Laufzeitmüll ---
+# `.bun-tmp` und `.bun-cache` sind Zwischenstände, kein Quellcode. Der
+# Website-Cache allein waren 4.617 Dateien / ~98 MB.
+.bun-tmp/
+.bun-cache/
+**/.bun-cache/
+**/.bun-tmp/
+
+# --- Laufzeit- und Sitzungsdaten ---
+# Das Harness-Home liegt außerhalb des Repos (`$PMH_HOME`, Fallback `~/.pmh`).
+# Sollte jemand versehentlich hier hineinschreiben, darf es nicht versioniert werden:
+# dort liegen Zugangsdaten.
+.pmh/
+*.log
+
+# --- Editor- und Betriebssystem-Beiwerk ---
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+
+# --- Zugangsdaten (nie versionieren, auch nicht versehentlich) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
+# --- Test- und Messartefakte ---
+coverage/
+*.heapsnapshot
+
+# --- Kopierter Upstream-Inhalt (bewusst NICHT versioniert) ---
+#
+# `.github/` ist eine **Kopie** des Referenz-Forks (56 Dateien: 60 CI-Workflows,
+# Issue-Vorlagen, ein Review-Ownership-Werkzeug). Nach `docs/concept.md`
+# („Der Core wird benutzt, nicht besessen" / „Wir kopieren nicht 14.990 Dateien")
+# gehört fremder Inhalt nicht in unser Repository. Zusätzlich enthält die Kopie
+# Python-Code und Workflows, die auf unsere Sprachen und unser Layout nicht passen.
+# Der Ordner bleibt auf der Platte (er ist nicht Teil dieser Aufgabe zu löschen),
+# wird aber nicht eingecheckt. Eigene CI entsteht neu und dann ausdrücklich.
+.github/

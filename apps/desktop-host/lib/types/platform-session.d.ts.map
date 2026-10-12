@@ -1,0 +1,1 @@
+{"version":3,"file":"platform-session.d.ts","sourceRoot":"","sources":["../../src/platform-session.ts"],"names":[],"mappings":"AAAA,0FAA0F;AAC1F,OAAO,KAAK,EAAE,OAAO,EAAE,MAAM,qBAAqB,CAAA;AAClD,OAAO,KAAK,EAAE,eAAe,EAAE,MAAM,mCAAmC,CAAA;AAExE;;;;GAIG;AACH,wBAAgB,+BAA+B,CAAC,GAAG,EAAE,OAAO,EAAE,OAAO,EAAE,CAAC,OAAO,EAAE,eAAe,GAAG,IAAI,KAAK,IAAI,GAAG,IAAI,CA0BtH"}

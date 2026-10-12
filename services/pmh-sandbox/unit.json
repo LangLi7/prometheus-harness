@@ -1,0 +1,21 @@
+{
+  "name": "pmh-sandbox",
+  "version": "0.1.0",
+  "kind": "service",
+  "language": "rust",
+  "description": "Beurteilt, wie vollstaendig eine Sandbox-Politik auf diesem Host durchgesetzt werden kann, und benennt jede nicht geehrte Anfrage.",
+  "entry": {
+    "command": "pmh-sandbox",
+    "args": ["assess", "--file-access", "read-write", "--read", "/usr", "--write", "/work"]
+  },
+  "core": "required_core",
+  "provides": ["sandbox-assessment"],
+  "requires": [],
+  "platforms": ["windows", "linux"],
+  "notes": [
+    "Nachfolger von packages/sandbox/sandbox-windows-acl der Vorlage.",
+    "Arbeitsteilung: die POLITIK lebt im TypeScript-Kern (packages/sandbox/sandbox-policy), die DURCHSETZUNG hier. Dieser Dienst entscheidet nie, wie die Politik aussehen soll.",
+    "Ehrlichkeitsanforderung: eine teilweise durchgesetzte Sandbox meldet partial mit vollstaendiger Maengelliste. Ein Netzwerk-Wunsch wird nie still als erfuellt gemeldet.",
+    "EINSCHRAENKUNG: beurteilt, setzt aber noch nicht durch. Die Landlock-Durchsetzung existiert bereits in native/landlock-run und muss nur angebunden werden (Auflage A5)."
+  ]
+}

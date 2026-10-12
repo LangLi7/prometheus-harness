@@ -1,0 +1,198 @@
+/*
+ * Dynamic Island — Aussehen.
+ *
+ * Übernommen aus H:\Projekt\Programmieren\Prometheus\webui\src\App.svelte,
+ * <style>-Block Zeilen 530–548 (dort mit Svelte-Scope-Klasse `svelte-1n46o8q`).
+ * Übernommen wurden nur die Regeln der Insel (.isl, .full, .head, .ch), nicht die
+ * übrigen 100+ Regeln der Vorlage (.panel, .dock, .term, .rail …) — die gehören
+ * zu Flächen, die dieser Prototyp nicht enthält.
+ */
+
+.isl {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  background: #0a0a0aee;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  backdrop-filter: blur(12px);
+  width: 230px;
+  height: 40px;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    width 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    height 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    border-radius 0.3s;
+  box-shadow: 0 8px 30px #000a;
+}
+
+/*
+ * Eingeklappte Form: `.isl` selbst ist die Pille (230 × 40, Radius 22).
+ * Aufgeklappt wird daraus `.isl.max` (560 × 280, Radius 16) — die Übergänge oben
+ * animieren Breite, Höhe und Radius, wie in der Vorlage.
+ */
+.isl.max {
+  width: min(560px, 90vw);
+  height: 280px;
+  border-radius: 16px;
+  cursor: default;
+}
+
+/* Vorlage: `.isl .mini` — hier ein <div role="button">, damit die Klassen der
+   Vorlage erhalten bleiben und die Pille trotzdem per Tastatur erreichbar ist. */
+.isl .mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 16px;
+  white-space: nowrap;
+}
+
+.isl .mini:focus-visible {
+  outline: 1px solid var(--accent-2);
+  outline-offset: -2px;
+}
+
+/* Vorlage: `.isl .mini .dot` */
+.isl .mini .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  flex: none;
+}
+
+/* Vorlage: `.isl .mini b` */
+.isl .mini b {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--accent-2);
+  font-weight: 600;
+}
+
+/* Vorlage: `.isl .mini span` */
+.isl .mini span {
+  font-size: 10.5px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.isl .full {
+  height: 100%;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.isl .head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.isl .head b {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--accent-2);
+}
+
+.isl .head span {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.isl .x {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ch {
+  flex: 1;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 18px;
+  align-content: start;
+}
+
+.ch .grp {
+  grid-column: 1 / -1;
+  font-size: 9.5px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 8px 0 3px;
+}
+
+/*
+ * `.item` entspricht `a` der Vorlage. Die Deklarationen sind zeichengleich; ergänzt
+ * sind nur `border: none`, `background: none`, `font: inherit` und `text-align: left`,
+ * weil ein <button> sonst seine eigene Rahmen- und Schriftbehandlung mitbringt.
+ */
+.ch .item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 6px;
+  color: var(--text-2);
+  font-size: 12.5px;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+}
+
+.ch .item:hover {
+  background: #1a1a1a;
+}
+
+.ch .item.on {
+  background: #1a1a1a;
+  color: var(--accent-2);
+}
+
+.ch .item:focus-visible {
+  outline: 1px solid var(--accent-2);
+  outline-offset: 1px;
+}
+
+/* Vorlage: `.ch a .h` */
+.ch .item .sigil {
+  color: var(--text-3);
+}
+
+/* Vorlage: `.ch a .b` */
+.ch .item .badge {
+  font-size: 9px;
+  color: var(--blue);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-left: auto;
+}
+
+/*
+ * Die Vorlage setzt `.grp` direkt neben die Einträge in dasselbe Grid. Hier liegt je
+ * Gruppe ein `.group`-Element dazwischen; die Gruppe erbt deshalb das Grid ihres
+ * Elternteils, damit Überschrift und Einträge in denselben zwei Spalten landen.
+ */
+.ch .group {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 18px;
+}

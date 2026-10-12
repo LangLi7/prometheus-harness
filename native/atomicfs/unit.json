@@ -1,0 +1,20 @@
+{
+  "name": "pmh-atomicfs",
+  "version": "0.1.0",
+  "kind": "service",
+  "language": "rust",
+  "description": "Dauerhafte atomare Schreibvorgaenge: Write-Through-Flush, atomares Ersetzen, Identitaetsbericht.",
+  "entry": {
+    "command": "pmh-atomicfs",
+    "args": ["write", "sessions.jsonl", "--stdin"]
+  },
+  "core": "optional",
+  "provides": ["atomic-durable-write"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Ersetzt den Bedarf am nativen Addon koffi (MoveFileExW mit MOVEFILE_WRITE_THROUGH).",
+    "Loest damit das Risiko mit der hoechsten Prioritaet aus docs/risks.md Abschnitt 1 strukturell auf, statt es zu messen.",
+    "Vier Garantien: nie eine zerrissene Datei, Bytes vor Erfolgsmeldung auf dem Medium, dauerhaftes Umbenennen, berichtbare Identitaet."
+  ]
+}

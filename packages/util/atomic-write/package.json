@@ -1,0 +1,11 @@
+{
+  "name": "@prometheus-harness/atomic-write",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Dauerhafte atomare Schreibvorgänge über den Rust-Prozess pmh-atomicfs",
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test"
+  }
+}

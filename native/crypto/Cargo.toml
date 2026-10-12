@@ -1,0 +1,20 @@
+[package]
+name = "pmh-crypto"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+description = "Cryptographic primitives as a process: digests, constant-time comparison, random tokens"
+
+[[bin]]
+name = "pmh-crypto"
+path = "src/main.rs"
+
+[lib]
+name = "pmh_crypto"
+path = "src/lib.rs"
+
+[dependencies]
+serde_json.workspace = true

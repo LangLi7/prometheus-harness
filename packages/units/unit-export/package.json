@@ -1,0 +1,12 @@
+{
+  "name": "@prometheus-harness/unit-export",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Unit-Manifest, Registry, Bündelung und Export/Import über die Harness",
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test",
+    "cli": "bun run src/cli.ts"
+  }
+}

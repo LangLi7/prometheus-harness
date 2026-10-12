@@ -1,0 +1,23 @@
+[package]
+name = "pmh-sandbox"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+description = "Sandbox enforcement as a service: Landlock on Linux, ACL-based confinement on Windows"
+
+[[bin]]
+name = "pmh-sandbox"
+path = "src/main.rs"
+
+[lib]
+name = "pmh_sandbox"
+path = "src/lib.rs"
+
+[dependencies]
+serde_json.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true

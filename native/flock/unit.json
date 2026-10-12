@@ -1,0 +1,20 @@
+{
+  "name": "pmh-flock",
+  "version": "0.1.0",
+  "kind": "service",
+  "language": "rust",
+  "description": "Eine beratende Dateisperre (flock) als Prozess, mit unterscheidbarem Konflikt-Exit-Code und Identitaetsbericht.",
+  "entry": {
+    "command": "pmh-flock",
+    "args": ["--path", "sessions.jsonl", "--hold-ms", "0"]
+  },
+  "core": "optional",
+  "provides": ["advisory-file-locking"],
+  "requires": [],
+  "platforms": ["linux", "darwin"],
+  "notes": [
+    "Ersetzt native/system/packages/entry/src/flock.c (Node-API-Addon) und flock.ts der Vorlage.",
+    "Vertrag: native/system/docs/flock-contract.md. Die 18 Bedingungen sind als Testsuite in tests/contract.rs umgesetzt (15 abgedeckt, 2 entfallen begruendet).",
+    "Windows nutzt diese API NICHT: der Vertrag sagt, Windows behaelt seine Semaphore-Implementierung. Deshalb kein Windows-Binary."
+  ]
+}

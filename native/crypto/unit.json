@@ -1,0 +1,20 @@
+{
+  "name": "pmh-crypto",
+  "version": "0.1.0",
+  "kind": "service",
+  "language": "rust",
+  "description": "Kryptografische Primitive als Prozess: SHA-256, HMAC-SHA-256, Konstantzeit-Vergleich, Zufallstoken.",
+  "entry": {
+    "command": "pmh-crypto",
+    "args": ["sha256", "--file", "…"]
+  },
+  "core": "optional",
+  "provides": ["crypto-primitives"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Neubau: die Vorlage haelt ihre Hashing-Logik in TypeScript (packages/util/crypto).",
+    "Geprueft gegen veroeffentlichte Vektoren: FIPS 180-4 (SHA-256) und RFC 4231 (HMAC-SHA-256).",
+    "Bewusst KEIN AEAD und KEINE KDF: beides braucht gepruefte Primitive, die man nicht selbst schreibt. probe meldet aead=false, kdf=false."
+  ]
+}

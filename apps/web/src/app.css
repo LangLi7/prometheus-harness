@@ -1,0 +1,74 @@
+/*
+ * Globale Basis — Design-Tokens wörtlich aus der Vorlage übernommen:
+ * H:\Projekt\Programmieren\Prometheus\webui\src\app.css (Kommentar dort: „G · UNIVERSE — warm dark").
+ *
+ * Bewusst EINE Datei für Basis und Seitenfläche. Grund ist ein echter Fehler aus dem
+ * ersten Anlauf: `app.css` und `App.css` sind unter Windows **dieselbe** Datei, weil das
+ * Dateisystem Groß- und Kleinschreibung nicht unterscheidet. Der zweite Schreibvorgang
+ * überschrieb den ersten — die Tokens verschwanden, die Seite wurde weiß und die Insel
+ * war ein dunkler Kasten mit schwarzer Schrift. Deshalb: keine zwei CSS-Dateien, deren
+ * Namen sich nur in der Schreibweise unterscheiden.
+ */
+:root {
+  --bg: #050507;
+  --surface: #101010ee;
+  --border: #3d3a39;
+  --border-dim: #241f1a;
+  --text: #f2f2f2;
+  --text-2: #b8b3b0;
+  --text-3: #8b949e;
+  --accent: #ff5a1f;
+  --accent-2: #ffb35c;
+  --blue: #6ba3ff;
+  --green: #3fb970;
+  --mono: 'JetBrains Mono', Consolas, ui-monospace, monospace;
+  --sans: 'Inter', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+::selection {
+  background: #ff5a1f22;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-dim);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border);
+}
+
+/* Die Fläche, auf der Hintergrund und Insel liegen. */
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}

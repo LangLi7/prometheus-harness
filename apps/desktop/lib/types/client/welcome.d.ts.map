@@ -1,0 +1,1 @@
+{"version":3,"file":"welcome.d.ts","sourceRoot":"","sources":["../../../src/client/welcome.tsx"],"names":[],"mappings":"AAAA,iFAAiF;AACjF,OAAO,iEAAiE,CAAA;AACxE,OAAO,sEAAsE,CAAA;AAI7E,OAAO,KAAK,EAAE,UAAU,EAAE,MAAM,mBAAmB,CAAA;AAEnD,OAAO,CAAC,MAAM,CAAC;IACb,UAAU,MAAM;QACd,UAAU,EAAE,UAAU,CAAA;KACvB;CACF"}

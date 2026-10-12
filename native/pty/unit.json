@@ -1,0 +1,20 @@
+{
+  "name": "pmh-pty",
+  "version": "0.1.0",
+  "kind": "service",
+  "language": "rust",
+  "description": "Ein persistentes Terminal als Prozess, gesteuert ueber ein JSON-Zeilenprotokoll.",
+  "entry": {
+    "command": "pmh-pty",
+    "args": []
+  },
+  "core": "optional",
+  "provides": ["persistent-terminal"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Ersetzt den Bedarf am nativen Addon node-pty (ConPTY unter Windows).",
+    "EINSCHRAENKUNG: benutzt noch KEIN echtes PTY, sondern Pipes. Kein isatty, keine Zeilenbearbeitung, keine Job-Control-Signale. resize wird verfolgt, aber nicht angewendet; signal validiert nur.",
+    "Das Feld implementation meldet derzeit noch conpty bzw. openpty, obwohl Pipes benutzt werden. Das ist als Mangel im Pruefbericht gefuehrt (Auflage A4)."
+  ]
+}

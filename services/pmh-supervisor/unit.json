@@ -1,0 +1,20 @@
+{
+  "name": "pmh-supervisor",
+  "version": "0.1.0",
+  "kind": "service",
+  "language": "go",
+  "description": "Startet, ueberwacht und beendet die Dienste der Harness; macht fehlgeschlagene Starts und Neustarts sichtbar.",
+  "entry": {
+    "command": "pmh-supervisor",
+    "args": ["--config", "supervisor.yaml"]
+  },
+  "core": "required_core",
+  "provides": ["process-supervision"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Erste Go-Aufgabe laut docs/stack.md und docs/decisions/open-questions.md Abschnitt 4.",
+    "Regel 3 aus docs/concept.md: Dienste starten mit der Harness, ein fehlgeschlagener Start ist ein sichtbarer Fehler.",
+    "Plattformgrenze: unter Windows kann kein freundliches Signal zugestellt werden, jeder Dienst wird nach Ablauf der Frist hart beendet. Siehe README."
+  ]
+}

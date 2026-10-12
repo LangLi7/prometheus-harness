@@ -1,0 +1,22 @@
+[package]
+name = "pmh-flock"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+description = "Advisory exclusive/shared file locking as a process — Rust successor to native/system/packages/entry/src/flock.c"
+
+[[bin]]
+name = "pmh-flock"
+path = "src/main.rs"
+
+[lib]
+name = "pmh_flock"
+path = "src/lib.rs"
+
+[dependencies]
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true

@@ -1,0 +1,11 @@
+{
+  "name": "@prometheus-harness/scope",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Scope-Primitiv: createScope, Scoped<T>, ScopeCarrier",
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test"
+  }
+}

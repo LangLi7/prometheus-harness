@@ -1,0 +1,20 @@
+[package]
+name = "pmh-index"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+description = "Heavy tooling: source symbol extraction and workspace indexing as a process"
+
+[[bin]]
+name = "pmh-index"
+path = "src/main.rs"
+
+[lib]
+name = "pmh_index"
+path = "src/lib.rs"
+
+[dependencies]
+serde_json.workspace = true

@@ -1,0 +1,20 @@
+[package]
+name = "pmh-landlock-run"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+description = "Self-restrict-then-exec Landlock launcher — Rust successor to native/system/packages/entry/src/main.c"
+
+[[bin]]
+name = "pmh-landlock-run"
+path = "src/main.rs"
+
+[lib]
+name = "pmh_landlock_run"
+path = "src/lib.rs"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc.workspace = true
