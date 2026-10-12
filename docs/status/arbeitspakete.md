@@ -36,28 +36,79 @@ wirken.
 
 ## P1 · t13 — `services/pmh-nix` (NixOS-Konzept, keine Installation)
 
-**Phase: `Nachweis offen`** · **Arbeiter:** 1 Subagent (Go) · **Weisung:** NixOS/Nix wird
-**nicht** installiert; nur Konzept und austauschbare Schnittstelle.
+**Phase: `abgenommen` (12.10.2026)** · **Arbeiter:** 1 Subagent (Go) · **Weisung:** NixOS/Nix
+wird **nicht** installiert; nur Konzept und austauschbare Schnittstelle.
+
+**Nachweis, unabhängig vom Subagenten gemessen** (nicht seine Meldung übernommen):
+
+```
+cd services/pmh-nix
+go vet   -buildvcs=false ./...   → exit 0
+go build -buildvcs=false ./...   → exit 0
+go build ./...                   → exit 0   (ohne Flag! siehe Befund unten)
+go test  -buildvcs=false -count=1 -v ./...  → PASS = 45, FAIL = 0, SKIP = 0
+```
 
 | # | Punkt | Stand |
 |---|---|---|
-| P1.1 | Backend-Interface (`Detect`/`Propose`/`Check`/`Apply`/`Generations`/`Rollback`) | erledigt (Code) |
-| P1.2 | Attrappen-Backend **ohne Systemwirkung**, nur eigene Buchführung | erledigt (Code) |
-| P1.3 | `nix`-Backend vorhanden, aber **inert** — ohne `nix` im PATH fail-closed | erledigt (Code) |
-| P1.4 | Vertrag `Vorschlag → Prüfung → Anwendung → Generation → Rückweg` | erledigt (Code) |
-| P1.5 | Freigabe-Datenstruktur `Approval` (wer/wann/Diff-Hash/Basisgeneration) | erledigt (Code) |
-| P1.6 | Zwei Betriebsarten `local`/`remote` | erledigt (Code) |
-| P1.7 | Policy-Stufe für Netzwerk/Nutzerrechte/Secrets strenger als die Branch-Regel | erledigt (Code) |
-| P1.8 | Secrets nicht im Nix-Store (`sops-nix`/`agenix`) als **Fehler**-Finding | erledigt (Code) |
-| P1.9 | `README.md` | **offen** |
-| P1.10 | `unit.json` nach bestehendem Format | **offen** |
-| P1.11 | `docs/design/nixos-self-change.md` (Konzeptdokument, Flakes/Module) | **offen** |
-| P1.12 | `go vet -buildvcs=false ./...` → exit 0 | **offen** |
-| P1.13 | `go test -buildvcs=false ./...` → exit 0, Anzahl Tests genannt | **offen** |
-| P1.14 | Quelltextprüfung: die Attrappe hat **keine** Systemwirkung | **offen** |
-| P1.15 | Nachweis, dass ein Modell **nicht** selbst umschalten kann (Test) | erledigt (Code) |
+| P1.1 | Backend-Interface (`Detect`/`Propose`/`Check`/`Apply`/`Generations`/`Rollback`) | **erledigt** |
+| P1.2 | Attrappen-Backend **ohne Systemwirkung**, nur eigene Buchführung | **erledigt** |
+| P1.3 | `nix`-Backend vorhanden, aber **inert** — ohne `nix` im PATH fail-closed | **erledigt** |
+| P1.4 | Vertrag `Vorschlag → Prüfung → Anwendung → Generation → Rückweg` | **erledigt** |
+| P1.5 | Freigabe-Datenstruktur `Approval` (wer/wann/Diff-Hash/Basisgeneration) | **erledigt** |
+| P1.6 | Zwei Betriebsarten `local`/`remote` | **erledigt** |
+| P1.7 | Policy-Stufe für Netzwerk/Nutzerrechte/Secrets strenger als die Branch-Regel | **erledigt** |
+| P1.8 | Secrets nicht im Nix-Store (`sops-nix`/`agenix`) als **Fehler**-Finding | **erledigt** |
+| P1.9 | `README.md` (12.379 B) | **erledigt** |
+| P1.10 | `unit.json` nach bestehendem Format (1.475 B) | **erledigt** |
+| P1.11 | `docs/design/nixos-self-change.md` (200 Zeilen) | **erledigt** |
+| P1.12 | `go vet -buildvcs=false ./...` → exit 0 | **erledigt** — gemessen |
+| P1.13 | `go test -buildvcs=false ./...` → exit 0, **45 PASS / 0 FAIL** | **erledigt** — gemessen |
+| P1.14 | Quelltextprüfung: die Attrappe hat **keine** Systemwirkung | **erledigt** — gemessen |
+| P1.15 | Nachweis, dass ein Modell **nicht** selbst umschalten kann (Test) | **erledigt** |
 
-**Abnahme erst, wenn P1.9–P1.14 belegt sind.**
+### Wie P1.14 belegt ist (und warum die Prüfung nötig war)
+
+`internal/actuation/stub/stub.go` **importiert `os/exec`** — das sieht nach Systemwirkung aus.
+Die Prüfung ergab: es wird ausschließlich `exec.LookPath(name)` benutzt (Zeile 84), also eine
+**Programmsuche**, kein Prozessstart.
+
+| Prüfung | Ergebnis |
+|---|---|
+| `exec.Command`/`CommandContext` in `internal/actuation/stub/` | **0 Vorkommen** |
+| `exec.CommandContext` im ganzen Dienst | **1 Vorkommen** — `internal/actuation/nix/nix.go` Z97, **hinter** dem fail-closed-Gate |
+| Prozessstart auf diesem Wirt | **keiner** — `nix` fehlt, jeder mutierende Aufruf liefert `ErrNotAvailable` |
+| Beweis | `TestNixNeverStartsAProcessOnThisHost` ersetzt `Run` durch ein `t.Fatalf` |
+
+**Die eigentliche Qualität dieses Entwurfs:** jeder Prozessstart läuft über die **injizierbaren**
+Felder `Run` und `LookPath`. Damit ist „es wird nichts gestartet" nicht eine Behauptung im
+Kommentar, sondern eine **ersetzbare und damit prüfbare** Eigenschaft. Das ist das Muster,
+das `native/flock` mit `BorrowedFd` schon einmal angewandt hat (siehe
+`docs/review/backend-review.md`, r5) — hier zum zweiten Mal, und diesmal für die schärfere
+Frage „läuft ein Prozess?".
+
+### Die Sicherheitstests, die die Kernanforderung tragen
+
+Alle **grün** (gemessen, nicht behauptet):
+
+| Test | Was er sichert |
+|---|---|
+| `TestProposeIsTheOnlyOpenAction` | ein Modell darf **nur vorschlagen** |
+| `TestApplyRejectsUncheckedProposal` (+ CLI-Variante) | ohne Prüfung keine Anwendung |
+| `TestApplyRejectsUnknownProposal` / `…AlreadyApplied` | keine erfundenen, keine doppelten Vorgänge |
+| `TestPolicyCannotBeBypassedByProposalFields` | **die zentrale Invariante**: freundliche Felder umgehen die Policy nicht |
+| `TestPolicyRejectsTamperedDiff` | nach der Freigabe geänderter Diff → abgelehnt |
+| `TestNixRefusesEveryMutatingCallFailClosed` | ohne Nix-Werkzeugkasten **kein** Erfolg |
+| `TestNixApplyNeverReturnsAGeneration` | das inerte Backend liefert **nie** eine Generation |
+| `TestStubRollbackRejectsUnknownGeneration` | Rückweg nur auf bekannte Generationen |
+
+### Befund am Rande: offener Punkt L2 ist erledigt
+
+`go build` **ohne** `-buildvcs=false` läuft jetzt durch (exit 0). Die Ursache war das leere
+`.git`, das kein Repository beantworten konnte; mit dem neuen Repository ist das Flag
+entfallen. **`scripts/build-go.ps1` und `scripts/test-go.ps1` setzen es weiterhin** — das ist
+harmlos, aber ab jetzt unnötig. Auflage **A3** aus `docs/review/backend-review.md` ist damit
+gegenstandslos, sobald die Skripte angepasst sind (offener Punkt, keine Eile).
 
 ---
 
@@ -153,3 +204,6 @@ eine Absicht. Das steht so in `docs/status/README.md` und wird hier nicht schön
 | Datum | Änderung | Grund |
 |---|---|---|
 | 2026-10-12 | Datei angelegt, P1–P5 erfasst | Weisung: Todo-Listen je Paket, gleiches Prinzip wie Git und Zwischenstand |
+| 2026-10-12 | **P1 von `Nachweis offen` auf `abgenommen`** — nach eigener Messung (45 Tests, 0 Fehler; Attrappe ohne Systemwirkung nachgewiesen) | Weisung: abgehakt wird nur Belegtes. Die Meldung des Subagenten wurde **nicht** übernommen, sondern nachgemessen |
+| 2026-10-12 | **P1.9–P1.14 von `offen` auf `erledigt`** | Dateien vorhanden (README 12.379 B, `unit.json` 1.475 B, Konzept 200 Zeilen); `go vet`/`build`/`test` exit 0 |
+| 2026-10-12 | Befund ergänzt: offener Punkt **L2 erledigt** (`go build` ohne `-buildvcs=false` läuft) | Ursache war das leere `.git`; Auflage A3 damit gegenstandslos |

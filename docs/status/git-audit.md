@@ -80,3 +80,66 @@ ohne Flag ist jetzt zu prüfen (offener Punkt, siehe unten).
 4. **Keine Review-/Security-Prüfung in diesem Durchlauf.** Es gab keine Codeänderung seit dem
    letzten Stand außer der Reparatur selbst; `code-review` und die Security-Skills laufen im
    nächsten Takt über die dann aktuellen Änderungen.
+
+### 2026-10-12 · 21:29 UTC · Dokumentation (zweiter Push)
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Status-Ordner, Risiko 6, Index-Register |
+| `HEAD` / `origin/main` | `50cfdb140eabe208d0181c50ef64b289ad477c18` (`50cfdb1`) — **identisch** |
+| API-Bestätigung | `50cfdb14`, `2026-10-12T21:29:54Z` |
+| Umfang | Status-Ordner (3 Dateien), `docs/risks.md` §6, `docs/INDEX.md` §7 |
+
+**Neu aufgenommen:** `docs/risks.md` §6 — **Bun kann `PluginPackages` nicht laden.**
+Der Befund war bis dahin nur im Chat und im Host-README; ein Risiko, das nirgends in der
+Risikoliste steht, wird beim nächsten Kontextwechsel vergessen.
+
+### 2026-10-12 · 21:31 UTC · Takt-Skript und Arbeitspaket-Register (dritter Push)
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Weisung: Todo-Listen je Arbeitspaket; Takt in einem Befehl |
+| `HEAD` / `origin/main` | `6ee57bef` — **identisch**, zusätzlich **über die API** bestätigt (`2026-10-12T21:31:38Z`) |
+| Umfang | `scripts/takt.ps1`, `docs/status/arbeitspakete.md`, `docs/INDEX.md`, `docs/design/nixos-self-change.md` |
+| Versionierte Dateien | **2.666** |
+| Befehl | `pwsh -ExecutionPolicy Bypass -File scripts/takt.ps1 -Message "…" -IncludeSelf` → Commit **und** Push **und** Audit in einem Lauf, exit 0 |
+
+**Erstmals belegt:** der Takt läuft als **ein** Befehl durch und prüft sich selbst
+(lokal gegen `origin`, danach gegen die API). Das Skript nimmt bewusst **nur** Doku und
+ausdrücklich genannte Pfade mit — die neun veränderten Dateien der laufenden Arbeitspakete
+blieben unangetastet und wurden im Lauf namentlich als „nicht im Commit" ausgegeben.
+
+#### Befund: der Credential-Helper ist falsch konfiguriert (niedrig, aber dauerhaft)
+
+Bei **jedem** Push erscheint:
+
+```
+git: 'credential-gh' is not a git command. See 'git --help'.
+```
+
+**Was das ist:** `git config --global credential.helper` steht auf `gh` — der `gh`-CLI-Helper
+heißt aber `gh auth git-credential`, nicht `credential-gh`. Git bildet den Wert zu
+`git credential-gh` um und findet nichts.
+
+**Warum es trotzdem funktioniert:** Der Push ging **dreimal** durch (exit 0). Git hat also
+einen anderen Weg zur Anmeldung gefunden — vermutlich über den im Credential-Store
+hinterlegten Eintrag. **Das ist eine Vermutung, keine Messung**, und genau deshalb als
+offener Punkt geführt: ein Push, der „zufällig" klappt, ist kein verlässlicher Push.
+
+**Schwere: niedrig.** Kein Datenverlust, keine Offenlegung. Aber es ist Lärm bei jedem Takt,
+und Lärm verdeckt echte Fehler. Behebung ist eine Zeile
+(`git config --global credential.helper "!gh auth git-credential"`) — **noch nicht
+ausgeführt**, weil eine Änderung an der globalen Git-Konfiguration eine Änderung außerhalb
+des Projekts ist und dem Betreiber gehört.
+
+#### Offene Punkte, die dieses Audit stehen lässt
+
+1. **`docs/design/nixos-self-change.md` kam mit diesem Commit mit** — geschrieben vom
+   Subagenten für `pmh-nix`, dessen Paket noch **nicht** abgenommen ist
+   (`docs/status/arbeitspakete.md`, P1: `Nachweis offen`). Das widerspricht Regel **A6**
+   („nur Fertiges wird committet") **teilweise**: die Datei ist inhaltlich fertig, das
+   *Paket* nicht. Der Widerspruch wird hier festgehalten statt weggeredet; ob Doku eines
+   offenen Pakets mitgehen darf, ist eine **offene Regelentscheidung**.
+2. **Die 4-Stunden-Kadenz ist bisher dreimal innerhalb von vier Minuten gefeuert** — das ist
+   kein Takt, das ist die Ersteinrichtung. Der Takt beginnt ab jetzt zu zählen.
+3. **`credential-gh`** bleibt bis zur Entscheidung des Betreibers offen (siehe oben).
