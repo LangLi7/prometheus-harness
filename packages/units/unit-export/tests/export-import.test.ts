@@ -348,9 +348,8 @@ describe('importBundle', () => {
         ...loaded.manifest,
         files: loaded.manifest.files.map((file, index) => index === 0 ? { ...file, path: '../../../entwischt.txt' } : file),
       }
-      const { serializeBundleManifest, computeBundleDigest } = await import('../src/bundle.ts')
-      const serialized = serializeBundleManifest({ ...forged, digest: 'sha256:' + '0'.repeat(64) })
-      const digest = computeBundleDigest(Buffer.from(serialized, 'utf8'), loaded.payload)
+      const { bundleDigestOf, DIGEST_PLACEHOLDER } = await import('../src/bundle.ts')
+      const digest = bundleDigestOf({ ...forged, digest: DIGEST_PLACEHOLDER }, loaded.payload)
       const forgedFile = join(source.path, 'gefaelscht.pmhunit')
       await writeFile(forgedFile, encodeBundle({ ...forged, digest }, loaded.payload))
 

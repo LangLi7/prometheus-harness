@@ -111,6 +111,35 @@ describe('scanRegistry', () => {
     }
   })
 
+  test('eine Warnung nimmt das Unit nicht aus dem Bestand', async () => {
+    const root = await tempRoot()
+    try {
+      // Der Ordnername weicht ab — laut `units/README.md` eine Abweichung, in
+      // den vorhandenen Units (`native/atomicfs`) aber die Regel.
+      await writeUnit(root.path, { name: 'pmh-abweichend', directory: 'anders' })
+      const registry = await scanRegistry({ roots: [root.path] })
+      expect(registry.units.map((entry) => entry.manifest.name)).toEqual(['pmh-abweichend'])
+      const warning = registry.diagnostics.find((error) => error.code === 'unit_name_directory_mismatch')
+      expect(warning?.severity).toBe('warning')
+    }
+    finally {
+      await root.cleanup()
+    }
+  })
+
+  test('ein abgelehntes Unit ist ein Fehler, kein Warnhinweis', async () => {
+    const root = await tempRoot()
+    try {
+      await writeUnit(root.path, { name: 'pmh-schlecht', rawManifest: '{"name":"pmh-schlecht","kind":"nope"}' })
+      const registry = await scanRegistry({ roots: [root.path] })
+      expect(registry.units).toEqual([])
+      expect(registry.diagnostics.every((error) => error.severity === 'error')).toBe(true)
+    }
+    finally {
+      await root.cleanup()
+    }
+  })
+
   test('zwei Ordner mit demselben Namen im selben Baum sind ein Befund', async () => {
     const root = await tempRoot()
     try {

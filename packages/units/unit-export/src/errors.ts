@@ -82,6 +82,16 @@ export type UnitErrorCode =
   | 'install_manifest_name_mismatch'
   | 'install_is_no_unit'
   | 'install_rollback'
+  // --- Plugin-Host (laden, prüfen, einhängen, abstecken) ---------------------
+  // Diese Codes gehören zum Einhängen, nicht zum Bündel: ein Unit kann als
+  // Bündel einwandfrei sein und trotzdem als Plugin abgewiesen werden.
+  | 'plugin-native-addon'
+  | 'plugin-einstieg'
+  | 'plugin-kein-plugin'
+  | 'plugin-vertrag'
+  | 'plugin-abhaengigkeit'
+  | 'plugin-lebenszyklus'
+  | 'plugin-manifest'
   | 'usage'
 
 /** Ein einzelner, benannter Befund. */

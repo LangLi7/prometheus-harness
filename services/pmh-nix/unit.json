@@ -1,0 +1,27 @@
+{
+  "name": "pmh-nix",
+  "version": "0.2.0",
+  "kind": "service",
+  "language": "go",
+  "description": "Bildet eine Selbstaenderung des Systems als gestuften, umkehrbaren Vorgang ab (Vorschlag als Branch mit Diff, Pruefbau ohne Aktivierung, ausdrueckliche Freigabe, Activation, Generation, Rueckweg) mit austauschbarem Actuation-Backend.",
+  "entry": {
+    "command": "pmh-nix",
+    "args": ["detect", "--json"]
+  },
+  "core": "required_core",
+  "contract": "^0.2.0",
+  "provides": ["system-actuation"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Arbeitspaket aus docs/decisions/hybrid-then-self-build.md Abschnitt 3.1; Fassung 2 nach der Betreiber-Praezisierung (Konzept in docs/design/nixos-self-change.md).",
+    "Verbindliche Abgrenzung: NixOS und Nix werden NICHT installiert (Weisung 'kein nixos installieren lol'). Der Dienst ruft kein nix, kein nixos-rebuild, kein nix-env und kein git auf; der einzige Schreibvorgang ist die eigene Buchfuehrungsdatei. Kein WSL-Subsystem wird eingerichtet.",
+    "Erster Schritt laut Betreiber ist die Flake im Git-Repository fuer reproduzierbare Umgebungen plus die Regel 'Aenderung nur als Branch mit Freigabe'; die Actuation ist das Ziel dahinter.",
+    "Vertrag: propose (Branch mit Diff, aktiviert nie) -> check (Pruefbau ohne Aktivierung) -> approve (ausdrueckliche menschliche Freigabe mit wer/wann/Diff-Hash/Basisgeneration) -> apply (Activation) -> rollback (Umschalten auf eine aufgezeichnete Generation).",
+    "Sicherheitsinvarianten, getestet: das Modell empfiehlt, die Policy entscheidet. apply verlangt Vorschlag, Pruefbau ohne Fehler-Schwere UND aufgezeichnete Freigabe; eine Hash-Abweichung nach der Freigabe wird fail-closed abgelehnt.",
+    "Zwei Betriebsarten ueber dasselbe Interface: --mode local (Vorgabe, Flake im Repository, Pruefbau ohne Aktivierung) und --mode remote (Branch im Git-Repository, Pruefbau auf der Zielmaschine, Freigabe, switch).",
+    "Strengere Policy-Stufe (G3) fuer Netzwerk, Nutzerrechte und Geheimnisse: zwingende Freigabe, nie automatisch. Klartext-Geheimnis in der Konfiguration ist ein Befund der Schwere error (G4); vorgesehen sind sops-nix oder agenix.",
+    "Exit-Codes: 0 Erfolg, 1 Politik- oder Pruefungsfehler, 2 Aufruffeher, 125 Backendfehler. Bei --json genau ein JSON-Objekt nach stdout, Fehler nach stderr mit dem Praefix 'pmh-nix: '.",
+    "Grenze G1: NixOS laeuft nur auf Linux; auf diesem Windows-Host findet keine Actuation statt, detect meldet ehrlich 'nicht verfuegbar'."
+  ]
+}

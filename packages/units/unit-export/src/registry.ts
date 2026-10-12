@@ -106,6 +106,12 @@ export interface RegistryEntry {
 export interface RegistryDiagnostic extends UnitError {
   /** Der Ordner, in dem der Befund auftrat. */
   readonly directory: string
+  /**
+   * `error` heißt: dieses Unit ist nicht nutzbar (es fehlt deshalb in `units`).
+   * `warning` heißt: das Unit ist nutzbar, aber etwas soll sichtbar sein —
+   * etwa ein Ordnername, der vom Unit-Namen abweicht.
+   */
+  readonly severity: 'error' | 'warning'
 }
 
 /** Das Ergebnis eines Scans. */
@@ -169,6 +175,18 @@ function isPruned(name: string): boolean {
   return SCAN_PRUNE_DIRECTORIES.includes(name.toLowerCase())
 }
 
+/**
+ * Sortiert zwei Zeichenketten nach Code-Einheit.
+ *
+ * Absichtlich **nicht** `localeCompare`: dessen Reihenfolge hängt von der
+ * ICU-Version und der Systemsprache ab, und `-` sortiert dort je nach Umgebung
+ * vor oder nach `.`. Die Registry verspricht aber eine Reihenfolge, die zwei
+ * Aufrufe auf zwei Rechnern gleich liefert — also wird nach Bytes verglichen.
+ */
+function byName(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
 async function isDirectory(path: string): Promise<boolean> {
   try {
     return (await stat(path)).isDirectory()
@@ -230,7 +248,7 @@ async function collectUnitDirectories(rootPath: string, maxDepth: number): Promi
     catch {
       return
     }
-    names.sort((a, b) => a.localeCompare(b, 'en'))
+    names.sort((a, b) => byName(a, b))
     if (names.includes('unit.json')) {
       found.push(directory)
       return
@@ -278,6 +296,7 @@ export async function scanRegistry(config: ScanRegistryConfig): Promise<Registry
       diagnostics.push({
         ...unitError('registry_root_missing', 'Die Registry-Wurzel existiert nicht oder ist kein Verzeichnis.', label),
         directory: path,
+        severity: 'error',
       })
       continue
     }
@@ -285,14 +304,14 @@ export async function scanRegistry(config: ScanRegistryConfig): Promise<Registry
     for (const directory of await collectUnitDirectories(path, maxDepth)) {
       const result = await readManifest(directory)
       if (!result.ok) {
-        for (const error of result.errors) diagnostics.push({ ...error, directory })
+        for (const error of result.errors) diagnostics.push({ ...error, directory, severity: 'error' })
         continue
       }
       const manifest = result.value
       // Warnungen sind Befunde ohne Wirkung auf die Installation — ein
       // abweichender Ordnername etwa. Sie sollen sichtbar sein, aber nicht
-      // als Fehler gelesen werden.
-      for (const warning of result.warnings) diagnostics.push({ ...warning, directory })
+      // als Fehler gelesen werden, und sie nehmen das Unit nicht aus dem Bestand.
+      for (const warning of result.warnings) diagnostics.push({ ...warning, directory, severity: 'warning' })
       const provenance = await readProvenance(directory)
       const colliding = findCollision(units, manifest.name)
       units.push({
@@ -316,21 +335,22 @@ export async function scanRegistry(config: ScanRegistryConfig): Promise<Registry
             directory,
           ),
           directory,
+          severity: 'error',
         })
       }
     }
   }
 
   units.sort((a, b) =>
-    a.rootLabel.localeCompare(b.rootLabel, 'en')
-    || a.manifest.name.localeCompare(b.manifest.name, 'en')
+    byName(a.rootLabel, b.rootLabel)
+    || byName(a.manifest.name, b.manifest.name)
     || compareVersions(b.manifest.version, a.manifest.version)
-    || a.directory.localeCompare(b.directory, 'en'))
+    || byName(a.directory, b.directory))
 
   diagnostics.sort((a, b) =>
-    a.code.localeCompare(b.code, 'en')
-    || a.directory.localeCompare(b.directory, 'en')
-    || (a.at ?? '').localeCompare(b.at ?? '', 'en'))
+    byName(a.code, b.code)
+    || byName(a.directory, b.directory)
+    || byName(a.at ?? '', b.at ?? ''))
 
   return {
     roots: rootReports,
@@ -375,7 +395,7 @@ function pickPreferred(registry: Registry, candidates: readonly RegistryEntry[])
   for (const candidate of candidates) {
     const comparison = rank(candidate) - rank(best)
       || compareVersions(candidate.manifest.version, best.manifest.version)
-      || best.directory.localeCompare(candidate.directory, 'en')
+      || byName(best.directory, candidate.directory)
     if (comparison < 0) best = candidate
   }
   return best
@@ -413,7 +433,7 @@ export function resolveDependencies(registry: Registry, name: string): Dependenc
   depthOf.set(rootName.toLowerCase(), 0)
 
   const walk = (entry: RegistryEntry, entryDepth: number, stack: readonly string[]): void => {
-    const requires = [...entry.manifest.requires].sort((a, b) => a.localeCompare(b, 'en'))
+    const requires = [...entry.manifest.requires].sort((a, b) => byName(a, b))
     for (const required of requires) {
       const key = required.toLowerCase()
       const parents = requiredBy.get(key) ?? new Set<string>()
@@ -459,14 +479,14 @@ export function resolveDependencies(registry: Registry, name: string): Dependenc
   const complete = order
     .map((node) => ({
       ...node,
-      requiredBy: [...(requiredBy.get(node.name.toLowerCase()) ?? new Set<string>())].sort((a, b) => a.localeCompare(b, 'en')),
+      requiredBy: [...(requiredBy.get(node.name.toLowerCase()) ?? new Set<string>())].sort((a, b) => byName(a, b)),
     }))
-    .sort((a, b) => a.depth - b.depth || a.name.localeCompare(b.name, 'en'))
+    .sort((a, b) => a.depth - b.depth || byName(a.name, b.name))
 
   return {
     root: rootName,
     order: complete,
-    missing: [...missing].sort((a, b) => a.depth - b.depth || a.name.localeCompare(b.name, 'en')),
+    missing: [...missing].sort((a, b) => a.depth - b.depth || byName(a.name, b.name)),
     ...(cycle === undefined ? {} : { cycle }),
   }
 }
@@ -573,7 +593,7 @@ export function planInstall(registry: Registry, name: string): Installability {
     const others = registry.units
       .filter((candidate) => candidate.manifest.name !== entry.manifest.name && candidate.manifest.provides.includes(provided))
       .map((candidate) => candidate.manifest.name)
-      .sort((a, b) => a.localeCompare(b, 'en'))
+      .sort((a, b) => byName(a, b))
     if (others.length > 0) {
       reasons.push({
         ...unitError(

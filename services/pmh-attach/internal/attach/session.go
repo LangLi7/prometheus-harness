@@ -95,15 +95,20 @@ func (m Message) EventFrame() api.EventFrame {
 //   - Ein als droppable markierter Rahmen darf verworfen werden; verworfen
 //     wird der AELTESTE droppable Rahmen (drop-oldest), damit die neuesten
 //     Ereignisse erhalten bleiben.
-//   - Ist kein droppable Rahmen zu finden, wird der Client getrennt. Er
-//     bekommt vorher einen error-Rahmen mit attach/peer-lagged, damit die
-//     Trennung sichtbar ist und der Client einen resync anfordern kann.
+//   - Ist kein droppable Rahmen zu finden, wird der Client sofort getrennt.
+//   - Auch drop-oldest ist begrenzt: nach Config.MaxDrops Verwuerfen wird der
+//     Client getrennt, damit dauerhafter Verlust nicht still bleibt.
+//
+// In beiden Faellen bekommt der Client vorher einen error-Rahmen mit
+// attach/peer-lagged, damit die Trennung sichtbar ist und er einen resync
+// anfordern kann.
 type Session struct {
 	id       string
 	view     string
 	windowID string
 	streamID string
 	queue    int
+	maxDrops uint64
 
 	mu       sync.Mutex
 	outbox   chan api.ServerMessage
@@ -126,6 +131,7 @@ func (h *Hub) neueSession(sink Sink, s Statement) *Session {
 		windowID: s.WindowID,
 		streamID: s.StreamID(),
 		queue:    h.config.Queue,
+		maxDrops: uint64(h.config.MaxDrops),
 		outbox:   make(chan api.ServerMessage, h.config.Queue),
 		finished: make(chan struct{}),
 		history:  make([]Message, 0, h.config.History),
@@ -182,85 +188,185 @@ func (s *Session) Closed() bool {
 func (s *Session) Finished() <-chan struct{} { return s.finished }
 
 // Enqueue legt einen Rahmen in die Warteschlange. Die Funktion blockiert
-// niemals: ist die Warteschlange voll, wird der aelteste droppable Rahmen
-// verworfen. Laeuft dabei nichts Droppables auf, meldet der Aufruf false und
-// der Aufrufer trennt den Client.
+// niemals:
+//
+//  1. Ist Platz, geht der Rahmen direkt hinein.
+//  2. Ist die Warteschlange voll, wird der AELTESTE als droppable markierte
+//     Rahmen verworfen (drop-oldest) und der neue Rahmen nimmt dessen Platz.
+//  3. Findet sich kein droppable Rahmen, meldet der Aufruf false und der
+//     Aufrufer trennt den Client (nicht droppbare Rahmen gehen nie verloren).
+//  4. Eine bereits beendete Session nimmt gar nichts mehr an; der Aufruf
+//     meldet true, damit das geordnete Ende nicht als Ueberlauf erscheint.
+//
+// Der Weg ueber den vollen Puffer haelt die Sperre ueber das Leeren und das
+// Zuruecklegen. Nur so kann kein zweiter Schreiber den freigewordenen Platz
+// wegnehmen: ginge dabei ein Rahmen verloren, waere das ein stiller Verlust,
+// und genau den darf es hier nicht geben. Der Platz reicht immer, denn
+// geleerte Rahmen minus den verworfenen plus den neuen ergeben genau die
+// Puffertiefe.
 func (s *Session) Enqueue(m Message) bool {
+	f := m.frame()
+
+	// Schneller Weg: es ist Platz. Der Puffer ist nebenlaeufig sicher.
+	select {
+	case s.outbox <- f:
+		s.mu.Lock()
+		if !s.closed {
+			s.seq = m.Sequence
+			s.merken(m)
+		}
+		s.mu.Unlock()
+		return true
+	default:
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
 		// Eine beendete Session nimmt nichts mehr an; das ist kein Fehler.
+		// Wichtig: es wird auch nichts mehr in den Puffer gelegt — sonst
+		// bekaeme eine abgehaengte Sicht nach dem detach noch Rahmen.
 		return true
 	}
+
+	// Warteschlange voll. Jetzt wird geleert, der aelteste droppable Rahmen
+	// bestimmt und der neue Rahmen HINTEN angehaengt: nur so bleibt die
+	// Warteschlange in Sequenzreihenfolge und drop-oldest verwirft wirklich
+	// das Aelteste. Wuerde der neue Rahmen in den freigewordenen Platz vorne
+	// gelegt, stuenden die verbliebenen Rahmen hinter ihm — die Reihenfolge
+	// waere gebrochen und der Verlust traefe die juengsten statt der aeltesten.
+	behalten := s.leeren()
+	ueberlauf := len(behalten) >= cap(s.outbox)
+
+	// Verworfen werden darf nur, was sich selbst als droppable markiert hat:
+	// der ready-Rahmen traegt nie ein droppable und ist der erste Rahmen der
+	// Generation — er weicht nie. Ein Rahmen ohne dieses Merkmal darf ebenfalls
+	// nie verloren gehen.
+	verworfen := -1
+	if ueberlauf && m.Droppable {
+		for i, candidate := range behalten {
+			if candidate.Droppable {
+				verworfen = i
+				break
+			}
+		}
+	}
+	if ueberlauf && verworfen < 0 {
+		// Nichts Droppables: Inhalt unveraendert zuruecklegen, kein Verlust.
+		// Der Aufrufer trennt den Client und meldet den Grund sichtbar.
+		s.zurueck(behalten)
+		return false
+	}
+	if verworfen >= 0 {
+		behalten = append(behalten[:verworfen], behalten[verworfen+1:]...)
+		s.dropped++
+
+		// Auch drop-oldest darf nicht endlos laufen: ein Client, der dauerhaft
+		// nicht mitkommt, wird getrennt, damit der Datenverlust sichtbar bleibt.
+		if s.maxDrops > 0 && s.dropped >= s.maxDrops {
+			s.zurueck(behalten)
+			return false
+		}
+	}
+
+	// Den neuen Rahmen hinten anhaengen und den uebrigen Inhalt davor
+	// zuruecklegen. Nach dem Leeren und einem Verwerfen ist genau ein Platz
+	// frei; gelingt das Zuruecklegen trotzdem nicht, wird der Client getrennt,
+	// statt einen Rahmen still zu verlieren.
+	behalten = append(behalten, f)
+	if !s.zurueck(behalten) {
+		return false
+	}
+	s.seq = m.Sequence
 	s.merken(m)
+	return true
+}
 
-	select {
-	case s.outbox <- m.frame():
-		s.seq = m.Sequence
-		return true
-	default:
-	}
-
-	// Warteschlange voll: die vorhandenen Rahmen zwischenspeichern, den
-	// aeltesten droppable verwerfen, den Rest unveraendert zuruecklegen.
-	tiefe := len(s.outbox)
-	behalten := make([]api.ServerMessage, 0, tiefe)
-	for i := 0; i < tiefe; i++ {
+// leeren holt alles aus dem Puffer. Der Aufrufer haelt die Sperre.
+func (s *Session) leeren() []api.ServerMessage {
+	behalten := make([]api.ServerMessage, 0, cap(s.outbox))
+	for {
 		select {
 		case candidate := <-s.outbox:
 			behalten = append(behalten, candidate)
 		default:
-			i = tiefe
+			return behalten
 		}
-	}
-
-	verworfen := false
-	for i, candidate := range behalten {
-		if !verworfen && candidate.Droppable {
-			behalten = append(behalten[:i], behalten[i+1:]...)
-			s.dropped++
-			verworfen = true
-			break
-		}
-	}
-	if !verworfen {
-		// Nichts Droppables: alles zuruecklegen und den Client trennen.
-		for _, candidate := range behalten {
-			select {
-			case s.outbox <- candidate:
-			default:
-			}
-		}
-		return false
-	}
-
-	for _, candidate := range behalten {
-		select {
-		case s.outbox <- candidate:
-		default:
-		}
-	}
-	select {
-	case s.outbox <- m.frame():
-		s.seq = m.Sequence
-		return true
-	default:
-		return false
 	}
 }
 
-// Fail beendet die Session sichtbar: sie bekommt einen error-Rahmen (falls
-// noch Platz ist) und danach wird sie geschlossen.
+// zurueck legt Rahmen in ihrer Reihenfolge zurueck. Der Aufrufer haelt die
+// Sperre und hat soeben geleert, der Platz steht also zur Verfuegung. Gelingt
+// das trotzdem nicht, meldet der Aufruf false und der Client wird getrennt —
+// ein stiller Verlust waere schlimmer als eine sichtbare Trennung.
+func (s *Session) zurueck(frames []api.ServerMessage) bool {
+	for _, candidate := range frames {
+		select {
+		case s.outbox <- candidate:
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// Fail beendet die Session sichtbar: sie bekommt einen error-Rahmen und danach
+// wird sie geschlossen.
+//
+// Der error-Rahmen ist der Abschluss der Generation und die einzige Stelle, an
+// der ein Client den Grund der Trennung erfaehrt. Er darf deshalb nicht daran
+// scheitern, dass die Warteschlange voll ist. Der Puffer wird also geleert und
+// so weit gekuerzt, dass der error-Rahmen hineinpasst. Gewichen wird in dieser
+// Reihenfolge:
+//
+//  1. der aelteste als droppable markierte Rahmen — derselbe Verlust, den die
+//     Ueberlaufpolitik ohnehin erlaubt,
+//  2. danach der ready-Rahmen: die Generation, die er eroeffnet, endet gerade,
+//     also bedeutet er nichts mehr, waehrend die Erklaerung der Trennung alles
+//     bedeutet.
+//
+// Dass Fail den ready-Rahmen opfern darf, waehrend Enqueue ihn nie anfasst, ist
+// kein Widerspruch: Enqueue schuetzt die laufende Generation, Fail beendet sie.
+// Nach dem Ende bedeutet ein ready-Rahmen nichts mehr, die Erklaerung der
+// Trennung dagegen alles. Reicht der Platz danach immer noch nicht — etwa weil
+// die Warteschlange nur aus nicht droppbaren Rahmen besteht —, bleibt der
+// Close-Code des Traegers die Meldung: lieber kein Rahmen als ein stiller
+// Verlust. Nutzinhalt wird nie still verworfen.
 func (s *Session) Fail(f *api.Failure) {
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
 		return
 	}
+	rahmen := api.ServerMessage{Type: api.FrameError, StreamID: s.streamID, Seq: s.seq, Error: f}
 	select {
-	case s.outbox <- api.ServerMessage{Type: api.FrameError, StreamID: s.streamID, Seq: s.seq, Error: f}:
+	case s.outbox <- rahmen:
 	default:
-		// Kein Platz: der Client erfaehrt es ueber den Close-Code.
+		// Voll: leeren, einen Rahmen opfern und den Fehler HINTEN anhaengen —
+		// dieselbe Reihenfolge wie in Enqueue, damit genau ein Platz entsteht
+		// und der Grund der Trennung ankommt.
+		behalten := s.leeren()
+		verworfen := -1
+		for i, candidate := range behalten {
+			if candidate.Droppable {
+				verworfen = i
+				break
+			}
+		}
+		if verworfen < 0 {
+			for i, candidate := range behalten {
+				if candidate.Type == api.FrameReady {
+					verworfen = i
+					break
+				}
+			}
+		}
+		if verworfen >= 0 {
+			behalten = append(behalten[:verworfen], behalten[verworfen+1:]...)
+			s.dropped++
+			behalten = append(behalten, rahmen)
+		}
+		s.zurueck(behalten)
 	}
 	s.mu.Unlock()
 	s.delivered()
@@ -290,17 +396,6 @@ func (s *Session) merken(m Message) {
 	if len(s.history) > cap(s.history) {
 		s.history = s.history[len(s.history)-cap(s.history):]
 	}
-}
-
-// zuletztSeit liefert die gemerkten Rahmen ab fromSeq.
-func (s *Session) zuletztSeit(fromSeq uint64) []Message {
-	out := make([]Message, 0, len(s.history))
-	for _, m := range s.history {
-		if m.Sequence > fromSeq {
-			out = append(out, m)
-		}
-	}
-	return out
 }
 
 // itoa ist eine kleine Zahl-zu-Text-Umsetzung fuer Kennungen.

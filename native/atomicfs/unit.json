@@ -9,6 +9,7 @@
     "args": ["write", "sessions.jsonl", "--stdin"]
   },
   "core": "optional",
+  "contract": "^0.2.0",
   "provides": ["atomic-durable-write"],
   "requires": [],
   "platforms": ["windows", "linux", "darwin"],

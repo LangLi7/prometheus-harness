@@ -18,13 +18,13 @@
  *     34      1  Leerzeichen (0x20)
  *     35     12  Länge der Nutzlast in Bytes, ASCII-Dezimal, 12 Stellen
  *     47      1  Leerzeichen (0x20)
- *     48     12  Länge von H1 (Manifest-Digest) in Bytes, ASCII-Dezimal, 12 Stellen
+ *     48     12  Länge von H1, ASCII-Dezimal, 12 Stellen — immer `000000000012`
  *     60      1  Leerzeichen (0x20)
  *     61      1  Trenner "\n" (0x0A)
  *     62      4  reserviert, vier Leerzeichen (0x20)
- *     66      L  Manifest: UTF-8 JSON, ohne BOM
- *   66+L     12  H1: SHA-256 über genau die Manifest-Bytes, als 12 hexadezimale ASCII-Zeichen
- *                 (die ersten 6 Bytes des Digest)
+ *     66      L  Manifest: UTF-8 JSON, ohne BOM, kanonisch serialisiert
+ *   66+L     12  H1: die ersten 12 hexadezimalen ASCII-Zeichen des SHA-256 über
+ *                 die kanonischen Manifest-Bytes (mit Platzhalter in `digest`)
  *                Nutzlast: die Dateiinhalte, in der Reihenfolge von manifest.files
  * ```
  *
@@ -42,12 +42,20 @@
  *
  * ## Digest
  *
- * Zwei Digestwerte, beide stabil über alle Plattformen:
+ * Zwei Digestwerte, beide stabil über alle Plattformen und beide aus der
+ * geschriebenen Datei **allein** nachrechenbar:
  *
  *  - **Bündeldigest** = `sha256:` + SHA-256 über
- *    `"PMHUNITB\n1\n" + H1 + H2 + "\n"`, wobei `H1` bzw. `H2` die vollen
- *    Hex-Digests (64 Zeichen) über die Manifest-Bytes bzw. die Nutzlast sind.
- *    Er deckt die tatsächlichen Bytes ab, nicht nur deren Beschreibung.
+ *    `"PMHUNITB\n1\n" + H1 + H2 + "\n"`, wobei `H2` der volle Hex-Digest
+ *    (64 Zeichen) über die Nutzlast ist und `H1` der volle Hex-Digest über die
+ *    **kanonischen Manifest-Bytes mit Platzhalter im Feld `digest`**
+ *    ({@link DIGEST_PLACEHOLDER}). Der Platzhalter steht dort, weil ein Digest
+ *    sich nicht selbst enthalten kann; er ist genauso lang wie der fertige
+ *    Wert. Nachrechnen heißt also: Manifest aus der Datei lesen, `digest` auf
+ *    den Platzhalter setzen, kanonisch serialisieren, rechnen. Der Digest
+ *    deckt damit jede Datei, jede Größe, jeden Hash und jedes eingebettete
+ *    Unit-Manifest ab, ohne von der Serialisierungs-Laune eines Schreibers
+ *    abzuhängen.
  *  - **Inhaltsdigest** = `sha256:` + SHA-256 über
  *    `"unit-content-1\n" + für jede Datei in der Reihenfolge des Manifests
  *    "unit\u0000path\u0000sha256\n"`. Er hängt **nicht** an Zeitstempeln,
@@ -151,16 +159,46 @@ function prefix(text: string, length: number): string {
   return text.slice(0, length)
 }
 
+/**
+ * Sortiert zwei Zeichenketten nach Code-Einheit — bewusst **nicht**
+ * `localeCompare`. Die Reihenfolge der Dateien in der Nutzlast muss auf jedem
+ * Rechner dieselbe sein, sonst ist der Digest nicht reproduzierbar.
+ */
+function byName(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
 /** `sha256:…` — die Anzeigeform eines Digests. */
 export function digestLabel(hex: string): string {
   return `sha256:${hex}`
 }
+
+/** Der Platzhalter, über den der Digest gerechnet wird. */
+export const DIGEST_PLACEHOLDER = 'sha256:0000000000000000000000000000000000000000000000000000000000000000'
 
 /** Rechnet den Bündeldigest aus den beiden Komponenten-Digests. */
 export function computeBundleDigest(manifestBytes: Uint8Array, payload: Uint8Array): string {
   const h1 = sha256Hex(manifestBytes)
   const h2 = sha256Hex(payload)
   return digestLabel(sha256Hex(Buffer.from(`${BUNDLE_MAGIC}\n${BUNDLE_FORMAT}\n${h1}${h2}\n`, 'utf8')))
+}
+
+/**
+ * Rechnet den Bündeldigest aus einem Manifest und der Nutzlast.
+ *
+ * Der Digest deckt **alles** ab: die kanonischen Manifest-Bytes mit einem
+ * Platzhalter an der Stelle von `digest` und die Nutzlast. Der Platzhalter
+ * steht dort, weil ein Digest sich nicht selbst enthalten kann; er ist genau
+ * so lang wie der fertige Wert, damit das Ergebnis dieselbe Länge hat.
+ *
+ * Weil nur der *Platzhalter* eingeht, ist der Digest aus der Datei allein
+ * nachrechenbar: Manifest lesen, `digest` auf den Platzhalter setzen,
+ * kanonisch serialisieren, rechnen. Es gibt keine Reihenfolge-Abhängigkeit
+ * und keinen Wert, der in seine eigene Berechnung eingeht.
+ */
+export function bundleDigestOf(manifest: BundleManifest, payload: Uint8Array): string {
+  const bytes = Buffer.from(serializeBundleManifest({ ...manifest, digest: DIGEST_PLACEHOLDER }), 'utf8')
+  return computeBundleDigest(bytes, payload)
 }
 
 /** Rechnet den Inhaltsdigest einer Dateiliste. */
@@ -265,7 +303,7 @@ async function collectUnitFiles(
   const explicit = new Set(includes.map((entry) => entry.replace(/\\/g, '/')))
 
   const walk = async (current: string): Promise<void> => {
-    const entries = (await readdir(current, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name, 'en'))
+    const entries = (await readdir(current, { withFileTypes: true })).sort((a, b) => byName(a.name, b.name))
     for (const entry of entries) {
       const absolute = join(current, entry.name)
       const relativePath = relative(root, absolute).split(sep).join('/')
@@ -289,19 +327,10 @@ async function collectUnitFiles(
   return staged
 }
 
-/** Ergebnis des Zusammenstellens: das Bündelmanifest und die Nutzlast. */
+/** Ein zusammengestelltes Bündel. */
 export interface BuiltBundle {
   readonly manifest: BundleManifest
   readonly payload: Buffer
-  /**
-   * Genau die Manifest-Bytes, über die der Digest gerechnet wurde.
-   *
-   * Sie werden **einmal** erzeugt und danach nur noch kopiert. Würde der
-   * Digest über eine andere Serialisierung gerechnet als die, die in die
-   * Datei geht, dann wäre er wertlos — genau dieser Fehler ist beim Bau
-   * dieses Pakets einmal aufgetreten, und deshalb steht das Feld hier.
-   */
-  readonly manifestBytes: Buffer
 }
 
 /** Optionen für {@link buildBundle}. */
@@ -337,10 +366,10 @@ export async function buildBundle(
   const staged: StagedFile[] = []
   for (const group of groups) {
     const files = await collectUnitFiles(group.directory, group.manifest.name, group.manifest.name === root.name ? includes : [])
-    files.sort((a, b) => a.path.localeCompare(b.path, 'en'))
+    files.sort((a, b) => byName(a.path, b.path))
     staged.push(...files)
   }
-  staged.sort((a, b) => a.unit.localeCompare(b.unit, 'en') || a.path.localeCompare(b.path, 'en'))
+  staged.sort((a, b) => byName(a.unit, b.unit) ||byName(a.path, b.path))
 
   const files: BundleFile[] = []
   let offset = 0
@@ -370,21 +399,15 @@ export async function buildBundle(
     closure,
     payloadBytes: payload.byteLength,
   }
-  const manifest: BundleManifest = {
-    ...draft,
-    contentDigest,
-    digest: digestLabel('0'.repeat(64)),
-  }
-  const provisional = Buffer.from(serializeBundleManifest(manifest), 'utf8')
-  const digest = computeBundleDigest(provisional, payload)
-  // Die Bytes ein zweites Mal erzeugen: `digest` ist jetzt gefüllt, alles
-  // andere ist unverändert — die Länge bleibt damit gleich, und der Digest
-  // beschreibt genau diese Bytes.
-  const finalBytes = Buffer.from(serializeBundleManifest({ ...manifest, digest }), 'utf8')
-  if (finalBytes.byteLength !== provisional.byteLength) {
-    throw new Error('Die Manifest-Bytes ändern ihre Länge, wenn der Digest eingesetzt wird')
-  }
-  return { manifest: { ...manifest, digest }, payload, manifestBytes: finalBytes }
+  // Der Digest wird über die kanonischen Manifest-Bytes mit **Platzhalter**
+  // und über die Nutzlast gerechnet. Er hängt damit an keinem Wert, der in
+  // seine eigene Berechnung eingeht, und ist aus der geschriebenen Datei
+  // allein nachrechenbar: `encodeBundle` serialisiert kanonisch, und die
+  // kanonische Form hängt nicht davon ab, über welchen Weg das Manifest
+  // entstanden ist.
+  const manifestWithPlaceholder: BundleManifest = { ...draft, contentDigest, digest: DIGEST_PLACEHOLDER }
+  const digest = bundleDigestOf(manifestWithPlaceholder, payload)
+  return { manifest: { ...manifestWithPlaceholder, digest }, payload }
 }
 
 /**
@@ -429,10 +452,19 @@ function padded(value: number): string {
   return text.padStart(12, '0')
 }
 
-/** Setzt ein Bündel zu den Bytes zusammen, die geschrieben werden. */
-export function encodeBundle(manifest: BundleManifest, payload: Uint8Array, manifestBytes?: Uint8Array): Buffer {
-  const bytes = manifestBytes === undefined ? Buffer.from(serializeBundleManifest(manifest), 'utf8') : Buffer.from(manifestBytes)
-  const h1 = sha256Hex(bytes)
+/**
+ * Setzt ein Bündel zu den Bytes zusammen, die geschrieben werden.
+ *
+ * `H1` in der Kopfzeile ist der Anfang des SHA-256 über die **kanonischen
+ * Manifest-Bytes mit Platzhalter** — dieselbe Größe, die auch in den
+ * Bündeldigest eingeht. Damit genügt der Dateiinhalt, um H1 nachzurechnen:
+ * Manifest lesen, `digest` auf den Platzhalter setzen, kanonisch
+ * serialisieren, hashen.
+ */
+export function encodeBundle(manifest: BundleManifest, payload: Uint8Array): Buffer {
+  const bytes = Buffer.from(serializeBundleManifest(manifest), 'utf8')
+  const canonical = Buffer.from(serializeBundleManifest({ ...manifest, digest: DIGEST_PLACEHOLDER }), 'utf8')
+  const h1 = sha256Hex(canonical)
   const header = Buffer.from(
     `${BUNDLE_MAGIC}\n${padded(manifest.format)} ${padded(bytes.byteLength)} ${padded(payload.byteLength)} ${padded(12)} \n    `,
     'ascii',
@@ -443,9 +475,9 @@ export function encodeBundle(manifest: BundleManifest, payload: Uint8Array, mani
   return Buffer.concat([header, bytes, Buffer.from(prefix(h1, 12), 'ascii'), Buffer.from(payload)])
 }
 
-/** Setzt ein zusammengestelltes Bündel zusammen; nutzt dessen eigene Manifest-Bytes. */
+/** Setzt ein zusammengestelltes Bündel zusammen. */
 export function encodeBuiltBundle(bundle: BuiltBundle): Buffer {
-  return encodeBundle(bundle.manifest, bundle.payload, bundle.manifestBytes)
+  return encodeBundle(bundle.manifest, bundle.payload)
 }
 
 /** Ein Prüfergebnis über die Bytes eines Bündels; sammelt alle Befunde. */
@@ -513,10 +545,6 @@ export function checkBundle(bytes: Uint8Array): BundleCheck {
   const manifestBytes = data.subarray(BUNDLE_HEADER_BYTES, BUNDLE_HEADER_BYTES + manifestLength)
   const h1 = data.toString('ascii', BUNDLE_HEADER_BYTES + manifestLength, BUNDLE_HEADER_BYTES + manifestLength + 12)
   const payload = data.subarray(BUNDLE_HEADER_BYTES + manifestLength + 12)
-  const actualH1 = prefix(sha256Hex(manifestBytes), 12)
-  if (h1 !== actualH1) {
-    errors.push(unitError('bundle_component_digest_mismatch', `H1 in der Kopfzeile ist "${h1}", das Manifest ergibt "${actualH1}".`, 'bundle'))
-  }
 
   let parsed: unknown
   try {
@@ -552,6 +580,19 @@ export function checkBundle(bytes: Uint8Array): BundleCheck {
   const source = (typeof sourceRaw === 'object' && sourceRaw !== null ? sourceRaw : {}) as Record<string, unknown>
   const sourceUnit = requireString(source, 'unit', errors, 'bundle:source.unit')
   const sourceVersion = requireString(source, 'version', errors, 'bundle:source.version')
+
+  // `closure` ist der Abschluss einschließlich des Quell-Units. Er muss — wie
+  // beim Schreiben — genau die Namen der enthaltenen Units nennen, sonst wäre
+  // der Digest über eine andere Beschreibung gerechnet als die, die in der
+  // Datei steht.
+  const closureRaw = manifest.closure
+  let closure: string[] = []
+  if (!Array.isArray(closureRaw) || closureRaw.some((entry) => typeof entry !== 'string')) {
+    errors.push(unitError('bundle_manifest_field_type', 'manifest.closure muss eine Liste von Namen sein.', 'bundle:closure'))
+  }
+  else {
+    closure = closureRaw as string[]
+  }
 
   const unitsRaw = manifest.units
   const units: BundleUnit[] = []
@@ -664,14 +705,6 @@ export function checkBundle(bytes: Uint8Array): BundleCheck {
     }
   }
 
-  const computedDigest = computeBundleDigest(manifestBytes, payload)
-  if (declaredDigest !== undefined && declaredDigest !== computedDigest) {
-    errors.push(unitError(
-      'bundle_digest_mismatch',
-      `Der Bündeldigest stimmt nicht: im Manifest steht ${declaredDigest}, die Bytes ergeben ${computedDigest}.`,
-      'bundle:digest',
-    ))
-  }
   const computedContent = computeContentDigest(files)
   if (contentDigest !== undefined && contentDigest !== computedContent) {
     errors.push(unitError('bundle_component_digest_mismatch', `Der Inhaltsdigest stimmt nicht: ${contentDigest} statt ${computedContent}.`, 'bundle:contentDigest'))
@@ -695,22 +728,48 @@ export function checkBundle(bytes: Uint8Array): BundleCheck {
     errors.push(unitError('bundle_source_manifest_invalid', `Das Quell-Unit "${sourceUnit}" steht nicht in manifest.units.`, 'bundle:source.unit'))
   }
 
-  if (errors.length > 0) return { ok: false, errors }
-
+  // Der Digest wird zuletzt geprüft und **über den Platzhalter** gerechnet:
+  // er hängt damit an keinem Wert, der in seine eigene Berechnung eingeht, und
+  // ein Angreifer kann das Manifest nicht so ändern, dass der Digest passt.
   const bundle: BundleManifest = {
     format: formatError ?? format,
     createdAt: createdAt ?? '',
     createdBy: createdBy ?? '',
-    source: { unit: sourceUnit as string, version: sourceVersion as string },
+    source: { unit: sourceUnit ?? '', version: sourceVersion ?? '' },
     entrypoint: entrypoint ?? '',
     units,
     files,
-    closure: Array.isArray(manifest.closure) ? (manifest.closure as string[]) : units.map((unit) => unit.name),
-    digest: declaredDigest as string,
-    contentDigest: contentDigest as string,
+    closure,
+    digest: declaredDigest ?? '',
+    contentDigest: contentDigest ?? '',
     payloadBytes: payload.byteLength,
   }
-  return { ok: true, errors: [], bundle: { manifest: bundle, payload: Buffer.from(payload), digest: declaredDigest as string, computedDigest } }
+  // H1 bindet die kanonischen Manifest-Bytes. Nachgerechnet wird über genau
+  // die Felder, die auch geschrieben werden — nicht über das rohe Objekt aus
+  // der Datei: sonst würde ein zusätzliches Feld im JSON den Digest brechen,
+  // obwohl der Inhalt stimmt.
+  {
+    const canonical = Buffer.from(serializeBundleManifest({ ...bundle, digest: DIGEST_PLACEHOLDER }), 'utf8')
+    const expectedH1 = prefix(sha256Hex(canonical), 12)
+    if (h1 !== expectedH1) {
+      errors.push(unitError('bundle_component_digest_mismatch', `H1 in der Kopfzeile ist "${h1}", das Manifest ergibt "${expectedH1}".`, 'bundle'))
+    }
+  }
+  const computedDigest = bundleDigestOf(bundle, payload)
+  if (declaredDigest !== undefined && declaredDigest !== computedDigest) {
+    errors.push(unitError(
+      'bundle_digest_mismatch',
+      `Der Bündeldigest stimmt nicht: im Manifest steht ${declaredDigest}, die Bytes ergeben ${computedDigest}.`,
+      'bundle:digest',
+    ))
+  }
+
+  if (errors.length > 0) return { ok: false, errors }
+  return {
+    ok: true,
+    errors: [],
+    bundle: { manifest: bundle, payload: Buffer.from(payload), digest: declaredDigest as string, computedDigest },
+  }
 }
 
 function requireString(

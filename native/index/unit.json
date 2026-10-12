@@ -9,6 +9,7 @@
     "args": ["tree", ".", "--symbols"]
   },
   "core": "optional",
+  "contract": "^0.2.0",
   "provides": ["workspace-index"],
   "requires": [],
   "platforms": ["windows", "linux", "darwin"],

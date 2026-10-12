@@ -9,6 +9,7 @@
     "args": ["sha256", "--file", "…"]
   },
   "core": "optional",
+  "contract": "^0.2.0",
   "provides": ["crypto-primitives"],
   "requires": [],
   "platforms": ["windows", "linux", "darwin"],

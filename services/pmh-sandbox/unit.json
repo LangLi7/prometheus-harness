@@ -9,6 +9,7 @@
     "args": ["assess", "--file-access", "read-write", "--read", "/usr", "--write", "/work"]
   },
   "core": "required_core",
+  "contract": "^0.2.0",
   "provides": ["sandbox-assessment"],
   "requires": [],
   "platforms": ["windows", "linux"],

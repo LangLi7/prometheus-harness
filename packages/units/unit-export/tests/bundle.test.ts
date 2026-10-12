@@ -13,14 +13,15 @@ import {
   BUNDLE_HEADER_BYTES,
   BUNDLE_MAGIC,
   buildBundle,
+  bundleDigestOf,
   checkBundle,
-  computeBundleDigest,
   computeContentDigest,
+  DIGEST_PLACEHOLDER,
   digestLabel,
+  encodeBuiltBundle,
   encodeBundle,
   loadBundleFile,
   planExtract,
-  serializeBundleManifest,
   validateRelativePath,
 } from '../src/bundle.ts'
 import { parseManifest } from '../src/manifest.ts'
@@ -259,10 +260,10 @@ describe('checkBundle', () => {
     const { bundle, cleanup } = await builtFixture()
     try {
       const manifest = { ...bundle.manifest, files: bundle.manifest.files.map((file, index) => index === 0 ? { ...file, path: '../ausserhalb.txt' } : file) }
-      const serialized = serializeBundleManifest({ ...manifest, digest: digestLabel('0'.repeat(64)) })
-      const rebuilt = computeBundleDigest(Buffer.from(serialized, 'utf8'), bundle.payload)
+      const manifestForDigest = { ...manifest, digest: DIGEST_PLACEHOLDER }
+      const rebuilt = bundleDigestOf(manifestForDigest, bundle.payload)
       const withDigest = { ...manifest, digest: rebuilt }
-      const check = checkBundle(encodeBuiltBundle({ manifest: withDigest, payload: bundle.payload, manifestBytes: undefined as never }))
+      const check = checkBundle(encodeBundle(withDigest, bundle.payload))
       expect(check.ok).toBe(false)
       expect(check.errors.map((error) => error.code)).toContain('path_traversal')
     }
@@ -279,9 +280,7 @@ describe('checkBundle', () => {
         units: [bundle.manifest.units[0] as (typeof bundle.manifest.units)[number]],
         files: bundle.manifest.files.filter((file) => file.unit === 'pmh-test-router'),
       }
-      const withPlaceholder = { ...manifest, digest: digestLabel('0'.repeat(64)) }
-      const serialized = serializeBundleManifest(withPlaceholder)
-      const digest = computeBundleDigest(Buffer.from(serialized, 'utf8'), bundle.payload)
+      const digest = bundleDigestOf({ ...manifest, digest: DIGEST_PLACEHOLDER }, bundle.payload)
       const check = checkBundle(encodeBundle({ ...manifest, digest }, bundle.payload))
       expect(check.ok).toBe(false)
       expect(check.errors.map((error) => error.code)).toContain('bundle_dependency_missing')
@@ -328,7 +327,7 @@ describe('validateRelativePath', () => {
     expect(validateRelativePath('unit.json')).toEqual([])
   })
 
-  const rejected: readonly [string, string, string][] = [
+  const rejected = [
     ['absoluter Pfad', '/etc/passwd', 'path_absolute'],
     ['Traversal mit ..', '../aussen.txt', 'path_traversal'],
     ['Traversal in der Mitte', 'a/../../aussen.txt', 'path_traversal'],
@@ -350,7 +349,7 @@ describe('validateRelativePath', () => {
     ['Doppelpunkt im Segment', 'a:b.txt', 'path_empty_segment'],
     ['Sternchen im Segment', 'a*b.txt', 'path_empty_segment'],
     ['Fragezeichen im Segment', 'a?b.txt', 'path_empty_segment'],
-  ]
+  ] as const satisfies readonly (readonly [string, string, string])[]
 
   for (const [label, path, code] of rejected) {
     test(`lehnt ${label} ab`, () => {
@@ -394,8 +393,7 @@ describe('planExtract', () => {
         ...bundle.manifest,
         files: bundle.manifest.files.map((file, index) => index === 0 ? { ...file, path: '../../entwischt.txt' } : file),
       }
-      const serialized = serializeBundleManifest({ ...manifest, digest: digestLabel('0'.repeat(64)) })
-      const digest = computeBundleDigest(Buffer.from(serialized, 'utf8'), bundle.payload)
+      const digest = bundleDigestOf({ ...manifest, digest: DIGEST_PLACEHOLDER }, bundle.payload)
       const check = checkBundle(encodeBundle({ ...manifest, digest }, bundle.payload))
       if (check.bundle !== undefined) {
         const plan = planExtract(check.bundle, root.path)

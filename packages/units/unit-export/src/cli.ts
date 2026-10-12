@@ -222,9 +222,11 @@ async function runList(args: ParsedArgs): Promise<number> {
   }
 
   for (const diagnostic of registry.diagnostics) {
-    console.error(`befund    [${diagnostic.code}] ${diagnostic.directory}: ${diagnostic.message}`)
+    console.error(`${diagnostic.severity === 'warning' ? 'warnung  ' : 'befund   '} [${diagnostic.code}] ${diagnostic.directory}: ${diagnostic.message}`)
   }
-  return registry.diagnostics.length === 0 ? 0 : 1
+  // Warnungen sind sichtbar, aber kein Fehlschlag: sie sagen etwas über den
+  // Ablageort, nicht über die Nutzbarkeit.
+  return registry.diagnostics.some((diagnostic) => diagnostic.severity === 'error') ? 1 : 0
 }
 
 async function main(): Promise<number> {

@@ -37,6 +37,9 @@ const (
 	// DefaultHistory ist die Anzahl der Rahmen, die je Strom fuer ein
 	// resync vorgehalten werden.
 	DefaultHistory = 64
+	// DefaultMaxDrops ist die Anzahl droppable Rahmen, die ein Client
+	// verlieren darf, bevor er getrennt wird. 0 hebt die Grenze auf.
+	DefaultMaxDrops = 64
 	// DefaultReadTimeout ist die Frist, in der ein angeschlossener Client
 	// seinen ersten Befehl schicken muss.
 	DefaultReadTimeout = 30 * time.Second
@@ -50,6 +53,9 @@ type Config struct {
 	// History ist die Anzahl der Rahmen, die je Strom vorgehalten werden,
 	// damit ein resync sie nachliefern kann statt nur den Zustand zu melden.
 	History int
+	// MaxDrops ist die Anzahl droppable Rahmen, die ein Client verlieren
+	// darf, bevor er getrennt wird. 0 hebt die Grenze auf.
+	MaxDrops int
 	// ReadTimeout ist die Frist fuer den ersten Befehl eines Clients.
 	ReadTimeout time.Duration
 }
@@ -61,6 +67,9 @@ func (c Config) Effective() Config {
 	}
 	if c.History < 0 {
 		c.History = 0
+	}
+	if c.MaxDrops < 0 {
+		c.MaxDrops = 0
 	}
 	if c.ReadTimeout <= 0 {
 		c.ReadTimeout = DefaultReadTimeout
@@ -327,7 +336,7 @@ func (h *Hub) verteilen(streamID string, source Source) {
 // Relay verteilt eine Nachricht an alle Clients des Stroms und vergibt dabei
 // die Sequenznummer. Clients, deren Warteschlange den Rahmen nicht mehr
 // aufnehmen kann, werden getrennt — aber erst nach der Sperre, damit das
-// Fan-out nie auf einerSenke wartet.
+// Fan-out nie auf einer Senke wartet.
 func (h *Hub) Relay(streamID string, m Message) uint64 {
 	var verworfen []*Session
 	var seq uint64
@@ -367,7 +376,12 @@ func (h *Hub) Relay(streamID string, m Message) uint64 {
 }
 
 // Remove nimmt eine Session aus Hub und Strom. Der Aufruf ist idempotent.
+//
+// Bleibt kein Client am Strom, wird auch der Upstream-Strom geschlossen: ein
+// Ereignisstrom ohne Empfaenger ist ein Leck, und ein spaeteres Anhaengen
+// oeffnet bewusst einen frischen Strom (der Ring waere ohnehin veraltet).
 func (h *Hub) Remove(s *Session) {
+	var leer string
 	h.mu.Lock()
 	if _, ok := h.clients[s.id]; !ok {
 		h.mu.Unlock()
@@ -376,10 +390,17 @@ func (h *Hub) Remove(s *Session) {
 	delete(h.clients, s.id)
 	if stream, ok := h.streams[s.streamID]; ok {
 		stream.Remove(s.id)
+		if stream.Clients() == 0 {
+			delete(h.streams, s.streamID)
+			leer = s.streamID
+		}
 	}
 	h.mu.Unlock()
 	s.delivered()
 	h.log.Info("Client abgehaengt", "client", s.id, "view", s.view, "strom", s.streamID)
+	if leer != "" {
+		h.log.Info("Upstream-Strom geschlossen: kein Client mehr", "strom", leer)
+	}
 }
 
 // Detach entfernt eine Session anhand ihrer Kennung.

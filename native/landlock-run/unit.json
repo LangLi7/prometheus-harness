@@ -9,6 +9,7 @@
     "args": ["--ro", "/usr", "--rw", "/work", "--", "bash", "-c", "…"]
   },
   "core": "optional",
+  "contract": "^0.2.0",
   "provides": ["landlock-confinement"],
   "requires": [],
   "platforms": ["linux"],

@@ -9,6 +9,7 @@
     "args": ["--path", "sessions.jsonl", "--hold-ms", "0"]
   },
   "core": "optional",
+  "contract": "^0.2.0",
   "provides": ["advisory-file-locking"],
   "requires": [],
   "platforms": ["linux", "darwin"],

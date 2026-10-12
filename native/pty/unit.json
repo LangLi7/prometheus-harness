@@ -9,6 +9,7 @@
     "args": []
   },
   "core": "optional",
+  "contract": "^0.2.0",
   "provides": ["persistent-terminal"],
   "requires": [],
   "platforms": ["windows", "linux", "darwin"],

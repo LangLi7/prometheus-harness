@@ -1,0 +1,18 @@
+{
+  "name": "unit-export",
+  "version": "0.1.0",
+  "kind": "plugin",
+  "language": "typescript",
+  "description": "Gibt ein Unit mit seinem Abhaengigkeitsabschluss als ein weitergebbares Buendel aus und nimmt ein Buendel an: Manifest, Registry, Buendelung, Export/Import mit Pruefsumme und Herkunft.",
+  "core": "optional",
+  "contract": "^0.2.0",
+  "provides": ["unit-export"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Art plugin, weil das Paket im JS-Kern laeuft: es bietet die Faehigkeit ueber src/index.ts als Cordis-Plugin an und ist zugleich ueber src/cli.ts ohne Core benutzbar; deshalb core optional.",
+    "Fundstelle: docs/decisions/hybrid-then-self-build.md Abschnitt 3.2 (Plugin-Export ueber die Harness) - Manifest, Registry, Buendelung, Export/Import ueber die Harness-API.",
+    "Vertragsfeld contract (^0.2.0) ist eine Erweiterung gegenueber units/README.md; die Begruendung steht im README unter Grenzen.",
+    "Deckt die erste Haelfte von Abschnitt 3.2 ab. Die zweite Haelfte - ein Plugin-Host, der ein Buendel laedt, einhaengt und wieder absteckt - ist nicht Teil dieses Pakets und steht im README unter Grenzen."
+  ]
+}

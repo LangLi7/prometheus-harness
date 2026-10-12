@@ -2,10 +2,17 @@
  * Rundlauf mit einem **echten** Unit aus diesem Projekt.
  *
  * Die Vorlagen der anderen Tests sind erfunden. Dieser Test nimmt ein
- * vorhandenes `unit.json` aus `services/`, `native/` oder `units/`, gibt es
- * aus, prüft das Bündel, installiert es in eine frische Wurzel und vergleicht
- * den Rückexport. Damit hängt der Nachweis an dem, was wirklich im Baum liegt,
- * nicht an einer Testvorlage.
+ * vorhandenes `unit.json` aus dem Baum, gibt es aus, prüft das Bündel,
+ * installiert es in eine frische Wurzel und vergleicht den Rückexport. Damit
+ * hängt der Nachweis an dem, was wirklich im Baum liegt, nicht an einer
+ * Testvorlage.
+ *
+ * **`units/` zuerst.** Der Auftrag nennt `units/` als Quelle. Dort liegt aber
+ * (Stand dieses Pakets) nur die `README.md` — kein `units/<name>/unit.json`.
+ * Die Suche ist deshalb eine Kette, keine Annahme: sie geht `units/` zuerst
+ * durch, dann die Sprachbäume `services/` und `native/`, und **sagt an, was sie
+ * benutzt hat**. Sobald ein echtes Unit unter `units/` liegt, greift dieser
+ * Test es automatisch auf, ohne dass hier etwas geändert werden muss.
  */
 
 import { describe, expect, test } from 'bun:test'
@@ -24,46 +31,96 @@ function projectRoot(): string {
   return resolve(import.meta.dir, '..', '..', '..', '..')
 }
 
-/** Die Verzeichnisse, in denen echte Units liegen können (per Glob gefunden, nicht angenommen). */
-const UNIT_SPACES = ['services', 'native', 'units'] as const
+/**
+ * Die Verzeichnisse, in denen echte Units liegen können, in Prüfreihenfolge.
+ *
+ * `units/` steht zuerst: das ist der Ort, den `units/README.md` für Plugins und
+ * Skills ohne eigenen Sprachbaum vorsieht und den der Auftrag als Quelle nennt.
+ * `services/` und `native/` folgen, weil ihre `unit.json` laut demselben README
+ * ebenfalls Deklarationen sind — nur eben in ihrem Sprachbaum.
+ */
+const UNIT_SPACES = ['units', 'services', 'native'] as const
 
-/** Findet echte Unit-Ordner mit `unit.json`. */
-async function findRealUnits(): Promise<string[]> {
-  const root = projectRoot()
+/** Findet echte Unit-Ordner mit `unit.json` — per Glob, nicht angenommen. */
+async function findRealUnitsIn(space: string): Promise<string[]> {
+  const directory = join(projectRoot(), space)
+  try {
+    if (!(await stat(directory)).isDirectory()) return []
+  }
+  catch {
+    return []
+  }
   const found: string[] = []
-  for (const space of UNIT_SPACES) {
-    const directory = join(root, space)
-    try {
-      if (!(await stat(directory)).isDirectory()) continue
-    }
-    catch {
-      continue
-    }
-    const glob = new Bun.Glob('*/unit.json')
-    for await (const match of glob.scan({ cwd: directory, absolute: true })) {
-      found.push(dirname(match))
-    }
+  const glob = new Bun.Glob('*/unit.json')
+  for await (const match of glob.scan({ cwd: directory, absolute: true })) {
+    found.push(dirname(match))
   }
   return found.sort()
 }
 
-/** Das erste echte Unit, dessen Abhängigkeiten im selben Sprachbaum liegen. */
-async function pickSelfContainedUnit(): Promise<{ readonly directory: string; readonly space: string }> {
-  const root = projectRoot()
-  for (const directory of await findRealUnits()) {
-    const manifest = await readManifest(directory)
-    if (!manifest.ok) continue
-    const space = UNIT_SPACES.find((candidate) => directory.startsWith(join(root, candidate))) ?? 'units'
-    const registry = await scanRegistry({ roots: [join(root, space)] })
-    const resolution = resolveDependencies(registry, manifest.value.name)
-    if (resolution.missing.length === 0 && resolution.order.length === 1 && registry.diagnostics.length === 0) {
-      return { directory, space }
+/** Alle echten Units im Baum, in Prüfreihenfolge der Sprachbäume. */
+async function findRealUnits(): Promise<string[]> {
+  const found: string[] = []
+  for (const space of UNIT_SPACES) found.push(...await findRealUnitsIn(space))
+  return found
+}
+
+/** Ein gefundenes Unit samt dem Sprachbaum, in dem es liegt. */
+interface RealUnit {
+  readonly directory: string
+  readonly space: string
+}
+
+/**
+ * Das bevorzugte echte Unit: abhängigkeitsfrei, ohne Befunde — und aus dem
+ * **ersten** Sprachbaum, der eines anbietet.
+ */
+async function pickSelfContainedUnit(): Promise<RealUnit> {
+  for (const space of UNIT_SPACES) {
+    for (const directory of await findRealUnitsIn(space)) {
+      const manifest = await readManifest(directory)
+      if (!manifest.ok) continue
+      const registry = await scanRegistry({ roots: [join(projectRoot(), space)] })
+      const resolution = resolveDependencies(registry, manifest.value.name)
+      if (resolution.missing.length === 0 && resolution.order.length === 1 && registry.diagnostics.length === 0) {
+        return { directory, space }
+      }
     }
   }
   throw new Error('Kein abhängigkeitsfreies echtes Unit gefunden — der Test ist aussagelos, bitte prüfen.')
 }
 
 describe('Rundlauf mit einem echten Unit', () => {
+  test('der Fundort ist `units/`, sobald dort ein Unit liegt — sonst der nächste Sprachbaum', async () => {
+    const underUnits = await findRealUnitsIn('units')
+    const picked = await pickSelfContainedUnit()
+    if (underUnits.length > 0) {
+      // Der Auftrag nennt `units/` als Quelle: liegt dort etwas Geeignetes,
+      // muss es auch genommen werden.
+      const fromUnits = []
+      for (const directory of underUnits) {
+        const manifest = await readManifest(directory)
+        if (!manifest.ok) continue
+        const registry = await scanRegistry({ roots: [join(projectRoot(), 'units')] })
+        const resolution = resolveDependencies(registry, manifest.value.name)
+        if (resolution.missing.length === 0 && resolution.order.length === 1 && registry.diagnostics.length === 0) {
+          fromUnits.push(directory)
+        }
+      }
+      if (fromUnits.length > 0) {
+        expect(picked.space).toBe('units')
+        expect(fromUnits).toContain(picked.directory)
+      }
+    }
+    else {
+      // Heute der Fall: `units/` enthält nur README.md. Der Test sagt an, woher
+      // er genommen hat, statt es zu verschweigen.
+      expect(picked.space).not.toBe('units')
+      expect(['services', 'native']).toContain(picked.space)
+      console.info(`[unit-export] Rundlauf-Quelle: ${picked.space}/${picked.directory.split(/[\\/]/).pop()} (units/ enthält noch kein Unit)`)
+    }
+  })
+
   test('mindestens ein echtes Unit ist vorhanden und gültig', async () => {
     const units = await findRealUnits()
     expect(units.length).toBeGreaterThan(0)
@@ -78,6 +135,9 @@ describe('Rundlauf mit einem echten Unit', () => {
 
   test('exportieren, prüfen, importieren, rückexportieren — Inhalt stimmt überein', async () => {
     const unit = await pickSelfContainedUnit()
+    // Der Fundort steht im Testnamen: wer den Nachweis liest, sieht, welches
+    // echte Unit geprüft wurde und aus welchem Sprachbaum es kam.
+    console.info(`[unit-export] Rundlauf über ${unit.space}/${unit.directory.split(/[\\/]/).pop()}`)
     const root = projectRoot()
     const source = await tempRoot('pmh-roundtrip-')
     const target = await tempRoot('pmh-roundtrip-ziel-')

@@ -9,6 +9,7 @@
     "args": ["--config", "supervisor.yaml"]
   },
   "core": "required_core",
+  "contract": "^0.2.0",
   "provides": ["process-supervision"],
   "requires": [],
   "platforms": ["windows", "linux", "darwin"],

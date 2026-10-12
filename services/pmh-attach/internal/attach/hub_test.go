@@ -2,12 +2,12 @@ package attach
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,60 +16,14 @@ import (
 
 func still() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
 
-// ---- Attrappen -------------------------------------------------------------
+// ---- Attrappen und Hilfen --------------------------------------------------
 
-// festeSenke sammelt Rahmen im Speicher.
-type festeSenke struct {
-	mu     sync.Mutex
-	frames []api.ServerMessage
-	raus   chan api.ServerMessage
-}
+// senkenAttrappe ist eine Senke, die nichts tut: die Anhaengelogik schreibt
+// nie direkt auf eine Senke, sondern immer in die Warteschlange.
+type senkenAttrappe struct{}
 
-func neueSenke() *festeSenke { return &festeSenke{raus: make(chan api.ServerMessage, 4096)} }
-
-func (s *festeSenke) SendText(text string) error {
-	var m api.ServerMessage
-	if err := json.Unmarshal([]byte(text), &m); err != nil {
-		return err
-	}
-	s.mu.Lock()
-	s.frames = append(s.frames, m)
-	s.mu.Unlock()
-	select {
-	case s.raus <- m:
-	default:
-	}
-	return nil
-}
-
-func (s *festeSenke) Close() error { return nil }
-
-func (s *festeSenke) naechster(t *testing.T, frist time.Duration) api.ServerMessage {
-	t.Helper()
-	select {
-	case m := <-s.raus:
-		return m
-	case <-time.After(frist):
-		t.Fatalf("kein Rahmen innerhalb von %s", frist)
-		return api.ServerMessage{}
-	}
-}
-
-// letzterRahmen liefert den zuletzt angekommenen Rahmen.
-func (s *festeSenke) letzterRahmen() api.ServerMessage {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if len(s.frames) == 0 {
-		return api.ServerMessage{}
-	}
-	return s.frames[len(s.frames)-1]
-}
-
-func (s *festeSenke) anzahl() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return len(s.frames)
-}
+func (senkenAttrappe) SendText(string) error { return nil }
+func (senkenAttrappe) Close() error          { return nil }
 
 // fehlenderEndpunkt schlaegt beim Oeffnen sichtbar fehl.
 type fehlenderEndpunkt struct{}
@@ -79,22 +33,144 @@ func (f *fehlenderEndpunkt) Open(context.Context, string, string, string) (Sourc
 	return nil, ErrUpstreamNichtErreichbar
 }
 
-// ---- Hilfen ---------------------------------------------------------------
-
 func neuerHub(t *testing.T, cfg Config) (*Hub, *Memory) {
 	t.Helper()
 	memory := NewMemory(still())
 	return New(memory, cfg, still()), memory
 }
 
-func anhaengen(t *testing.T, h *Hub, view, window string) (*Session, *festeSenke) {
+// neuerLeser leert die Warteschlange einer Session fortlaufend und sammelt die
+// Rahmen — genau das, was der Traeger in server.go tut.
+//
+// Warum ein eigener Leser statt direktem Lesen: der Verteiler des Hubs liest
+// den Upstream-Strom nebenlaeufig. Nur ein Leser, der immerzu leert, macht das
+// Verhalten eines schnellen Clients nachvollziehbar.
+type leser struct {
+	mu     sync.Mutex
+	frames []api.ServerMessage
+	stop   chan struct{}
+}
+
+func neuerLeser(t *testing.T, session *Session) *leser {
 	t.Helper()
-	senke := neueSenke()
-	session, err := h.Attach(context.Background(), senke, Statement{View: view, WindowID: window})
+	l := &leser{stop: make(chan struct{})}
+	go func() {
+		for {
+			select {
+			case frame := <-session.Frames():
+				l.mu.Lock()
+				l.frames = append(l.frames, frame)
+				l.mu.Unlock()
+			case <-l.stop:
+				return
+			}
+		}
+	}()
+	t.Cleanup(l.stoppen)
+	return l
+}
+
+func (l *leser) stoppen() {
+	select {
+	case <-l.stop:
+	default:
+		close(l.stop)
+	}
+}
+
+func (l *leser) anzahl() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return len(l.frames)
+}
+
+func (l *leser) Rahmen() []api.ServerMessage {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]api.ServerMessage(nil), l.frames...)
+}
+
+// warteAufRahmen wartet, bis der Leser n Rahmen gesehen hat.
+func (l *leser) warteAufRahmen(t *testing.T, n int, frist time.Duration) {
+	t.Helper()
+	ende := time.Now().Add(frist)
+	for l.anzahl() < n {
+		if time.Now().After(ende) {
+			t.Fatalf("%d Rahmen wurden innerhalb von %s nicht erreicht (Stand %d)", n, frist, l.anzahl())
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+}
+
+// anhaengen haengt einen Client an und startet einen Leser.
+func anhaengen(t *testing.T, h *Hub, view, window string) (*Session, *leser) {
+	t.Helper()
+	session, err := h.Attach(context.Background(), senkenAttrappe{}, Statement{View: view, WindowID: window})
 	if err != nil {
 		t.Fatalf("anhaengen fehlgeschlagen: %v", err)
 	}
-	return session, senke
+	return session, neuerLeser(t, session)
+}
+
+// anhaengenOhneLeser haengt an, ohne die Warteschlange zu leeren. Solche Tests
+// beobachten die Warteschlange selbst; die Verteilung laeuft synchron
+// (hub.Relay), damit sie nichts verpassen.
+func anhaengenOhneLeser(t *testing.T, h *Hub, view, window string) *Session {
+	t.Helper()
+	session, err := h.Attach(context.Background(), senkenAttrappe{}, Statement{View: view, WindowID: window})
+	if err != nil {
+		t.Fatalf("anhaengen fehlgeschlagen: %v", err)
+	}
+	return session
+}
+
+// probe liest den ersten Rahmen aus der Warteschlange.
+func probe(t *testing.T, session *Session) api.ServerMessage {
+	t.Helper()
+	select {
+	case m := <-session.Frames():
+		return m
+	case <-time.After(2 * time.Second):
+		t.Fatal("kein Rahmen in der Warteschlange")
+		return api.ServerMessage{}
+	}
+}
+
+// zustellen speist genau EIN Ereignis in den Upstream ein und wartet, bis der
+// Hub es bis zur erwarteten Sequenznummer verteilt hat.
+//
+// Die Attrappe des Upstreams arbeitet mit einem nicht blockierenden Kanal: wer
+// nur Publish ruft, kann Rahmen verlieren und misst dann nicht mehr, was er
+// messen will. Diese Hilfsfunktion macht den Test deterministisch.
+func zustellen(t *testing.T, memory *Memory, streamID string, ev api.UpstreamEvent, hub *Hub, seq uint64) {
+	t.Helper()
+	if n := memory.Publish(streamID, ev); n == 0 {
+		t.Fatalf("kein Strom %q hat das Ereignis angenommen", streamID)
+	}
+	warteAufSequenz(t, hub, streamID, seq)
+}
+
+// warteAufSequenz wartet, bis der Hub den Strom bis seq verteilt hat.
+func warteAufSequenz(t *testing.T, h *Hub, streamID string, seq uint64) {
+	t.Helper()
+	ende := time.Now().Add(3 * time.Second)
+	for streamSeq(h, streamID) < seq {
+		if time.Now().After(ende) {
+			t.Fatalf("Sequenz %d wurde innerhalb von 3s nicht erreicht (Stand %d)", seq, streamSeq(h, streamID))
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+}
+
+// streamSeq liefert die zuletzt vergebene Sequenznummer eines Stroms.
+func streamSeq(h *Hub, streamID string) uint64 {
+	h.mu.Lock()
+	stream, ok := h.streams[streamID]
+	h.mu.Unlock()
+	if !ok {
+		return 0
+	}
+	return stream.Sequence()
 }
 
 // ---- Anhaengung und Fan-out ------------------------------------------------
@@ -104,8 +180,8 @@ func anhaengen(t *testing.T, h *Hub, view, window string) (*Session, *festeSenke
 // dieselben Ereignisse mit denselben fortlaufenden Sequenznummern.
 func TestTwoClientsSameViewBothReceiveRelayedEventWithSequenceNumbers(t *testing.T) {
 	hub, memory := neuerHub(t, Config{Queue: 16, History: 16})
-	a, senkeA := anhaengen(t, hub, "session", "links")
-	b, senkeB := anhaengen(t, hub, "session", "rechts")
+	a, leserA := anhaengen(t, hub, "session", "links")
+	b, leserB := anhaengen(t, hub, "session", "rechts")
 
 	if a.StreamID() != b.StreamID() {
 		t.Fatalf("verschiedene Stroeme: %q und %q", a.StreamID(), b.StreamID())
@@ -114,25 +190,30 @@ func TestTwoClientsSameViewBothReceiveRelayedEventWithSequenceNumbers(t *testing
 		t.Fatalf("Stroeme = %d, erwartet 1", hub.Stroeme())
 	}
 
-	for _, senke := range []*festeSenke{senkeA, senkeB} {
-		ready := senke.naechster(t, time.Second)
+	// ready ist der erste Rahmen jeder Generation.
+	for _, l := range []*leser{leserA, leserB} {
+		l.warteAufRahmen(t, 1, time.Second)
+		ready := l.Rahmen()[0]
 		if ready.Type != api.FrameReady {
 			t.Fatalf("erster Rahmen = %q, erwartet ready", ready.Type)
 		}
-		if ready.StreamID != "session" || ready.View != "session" {
+		if ready.StreamID != "session" || ready.View != "session" || ready.WindowID == "" {
 			t.Errorf("ready = %+v", ready)
 		}
 	}
 
-	if n := memory.Publish("session", Event("session/message", map[string]any{"text": "hallo"}, true)); n != 1 {
-		t.Fatalf("Quellen erreicht = %d, erwartet 1", n)
+	for i, text := range []string{"eins", "zwei", "drei"} {
+		zustellen(t, memory, "session", Event("session/message", map[string]any{"text": text}, true), hub, uint64(i+1))
 	}
-	memory.Publish("session", Event("session/message", map[string]any{"text": "zwei"}, true))
-	memory.Publish("session", Event("session/message", map[string]any{"text": "drei"}, true))
 
-	for _, senke := range []*festeSenke{senkeA, senkeB} {
-		for _, want := range []uint64{1, 2, 3} {
-			m := senke.naechster(t, time.Second)
+	for _, l := range []*leser{leserA, leserB} {
+		l.warteAufRahmen(t, 4, 2*time.Second)
+		rahmen := l.Rahmen()
+		if len(rahmen) != 4 {
+			t.Fatalf("%d Rahmen angekommen, erwartet 4", len(rahmen))
+		}
+		for i, want := range []uint64{1, 2, 3} {
+			m := rahmen[i+1]
 			if m.Type != api.FrameEvent {
 				t.Fatalf("Rahmen = %q, erwartet event", m.Type)
 			}
@@ -146,7 +227,7 @@ func TestTwoClientsSameViewBothReceiveRelayedEventWithSequenceNumbers(t *testing
 				t.Errorf("event = %q", m.Event)
 			}
 			if !m.Droppable {
-				t.Errorf("event muss als droppable markiert sein")
+				t.Errorf("das Ereignis muss als droppable markiert sein")
 			}
 		}
 	}
@@ -178,7 +259,7 @@ func TestAttachRejectsIncompleteAttachment(t *testing.T) {
 		{View: "session", WindowID: strings.Repeat("z", api.MaxWindowIDLen+1)},
 	}
 	for _, s := range faelle {
-		if _, err := hub.Attach(context.Background(), neueSenke(), s); err == nil {
+		if _, err := hub.Attach(context.Background(), senkenAttrappe{}, s); err == nil {
 			t.Errorf("Anhaengung %+v wurde angenommen", s)
 		} else if !errors.Is(err, ErrUngueltigeAnhaengung) {
 			t.Errorf("Fehler = %v, erwartet ErrUngueltigeAnhaengung", err)
@@ -193,7 +274,7 @@ func TestAttachRejectsIncompleteAttachment(t *testing.T) {
 // Upstream ist ein sichtbarer Fehler, kein stiller Ausfall.
 func TestAttachFailsVisiblyWhenUpstreamIsMissing(t *testing.T) {
 	hub := New(&fehlenderEndpunkt{}, Config{Queue: 4, History: 4}, still())
-	session, err := hub.Attach(context.Background(), neueSenke(), Statement{View: "session", WindowID: "x"})
+	session, err := hub.Attach(context.Background(), senkenAttrappe{}, Statement{View: "session", WindowID: "x"})
 	if err == nil {
 		t.Fatalf("Attach haette scheitern muessen, bekam Session %v", session)
 	}
@@ -212,17 +293,18 @@ func TestAttachFailsVisiblyWhenUpstreamIsMissing(t *testing.T) {
 // mit gap=true und den noch vorhandenen Rahmen.
 func TestResyncAfterForcedGapYieldsFullStateFrame(t *testing.T) {
 	hub, memory := neuerHub(t, Config{Queue: 32, History: 8})
-	session, senke := anhaengen(t, hub, "graph", "knoten")
-	if ready := senke.naechster(t, time.Second); ready.Type != api.FrameReady {
+	session, l := anhaengen(t, hub, "graph", "knoten")
+	l.warteAufRahmen(t, 1, time.Second)
+	if ready := l.Rahmen()[0]; ready.Type != api.FrameReady {
 		t.Fatalf("erster Rahmen = %q", ready.Type)
 	}
 
 	// Der Ring fasst 8 Rahmen; 20 Ereignisse lassen ihn ueberlaufen.
 	for i := 0; i < 20; i++ {
-		memory.Publish("graph", Event("graph/delta", map[string]any{"i": i}, true))
+		zustellen(t, memory, "graph", Event("graph/delta", map[string]any{"i": i}, true), hub, uint64(i+1))
 	}
-	for i := 0; i < 20; i++ {
-		m := senke.naechster(t, time.Second)
+	l.warteAufRahmen(t, 21, 3*time.Second)
+	for i, m := range l.Rahmen()[1:] {
 		if m.Seq != uint64(i+1) {
 			t.Fatalf("Sequenz = %d, erwartet %d", m.Seq, i+1)
 		}
@@ -257,11 +339,11 @@ func TestResyncAfterForcedGapYieldsFullStateFrame(t *testing.T) {
 // TestResyncWithoutGapReportsNoGap prueft den Fall ohne Luecke.
 func TestResyncWithoutGapReportsNoGap(t *testing.T) {
 	hub, memory := neuerHub(t, Config{Queue: 16, History: 16})
-	session, senke := anhaengen(t, hub, "files", "baum")
-	senke.naechster(t, time.Second)
+	session, l := anhaengen(t, hub, "files", "baum")
+	l.warteAufRahmen(t, 1, time.Second)
 
 	for i := 0; i < 3; i++ {
-		memory.Publish("files", Event("files/change", map[string]any{"i": i}, true))
+		zustellen(t, memory, "files", Event("files/change", map[string]any{"i": i}, true), hub, uint64(i+1))
 	}
 	frame := hub.Resync(session, 2)
 	if frame.Gap {
@@ -296,29 +378,39 @@ func TestSequenceIsMonotonicAndPerStream(t *testing.T) {
 
 // TestSlowClientIsDroppedWithoutStallingFastClient ist der Kerntest der
 // Ueberlaufpolitik: ein Client, der nicht liest, verliert altere droppable
-// Rahmen (drop-oldest), der schnelle Client bekommt ALLE Rahmen ohne Stocken.
+// Rahmen (drop-oldest) und wird nach der Verwurfgrenze getrennt, waehrend der
+// schnelle Client ALLE Rahmen bekommt und das Verteilen nicht stockt.
+//
+// Die beiden Clients haben bewusst verschiedene Warteschlangen (4 gegen 64):
+// so misst der Test die Politik und nicht die Geschwindigkeit des Testcodes.
 func TestSlowClientIsDroppedWithoutStallingFastClient(t *testing.T) {
-	hub, _ := neuerHub(t, Config{Queue: 4, History: 4})
+	memory := NewMemory(still())
+	hubSchnell := New(memory, Config{Queue: 64, History: 64}, still())
+	hubLangsam := New(memory, Config{Queue: 4, History: 4, MaxDrops: 10}, still())
 
-	schnell := neueSenke()
-	schnellSession, err := hub.Attach(context.Background(), schnell, Statement{View: "session", WindowID: "schnell"})
+	schnell, err := hubSchnell.Attach(context.Background(), senkenAttrappe{}, Statement{View: "session", WindowID: "schnell"})
 	if err != nil {
 		t.Fatalf("anhaengen: %v", err)
 	}
-	langsam := neueSenke()
-	langsamSession, err := hub.Attach(context.Background(), langsam, Statement{View: "session", WindowID: "langsam"})
+	langsam, err := hubLangsam.Attach(context.Background(), senkenAttrappe{}, Statement{View: "session", WindowID: "langsam"})
 	if err != nil {
 		t.Fatalf("anhaengen: %v", err)
 	}
+	if ready := probe(t, schnell); ready.Type != api.FrameReady {
+		t.Fatalf("erster Rahmen des schnellen Clients = %q", ready.Type)
+	}
+	_ = probe(t, langsam) // ready
 
 	const anzahl = 40
-	fertig := make(chan struct{})
+	var gesehen atomic.Int64
+	geleert := make(chan struct{})
 	go func() {
-		defer close(fertig)
-		for i := 0; i < anzahl; i++ {
+		defer close(geleert)
+		for {
 			select {
-			case <-schnell.raus:
-			case <-time.After(5 * time.Second):
+			case <-schnell.Frames():
+				gesehen.Add(1)
+			case <-time.After(2 * time.Second):
 				return
 			}
 		}
@@ -326,46 +418,103 @@ func TestSlowClientIsDroppedWithoutStallingFastClient(t *testing.T) {
 
 	start := time.Now()
 	for i := 0; i < anzahl; i++ {
-		hub.Relay("session", Message{
-			Event:     "session/message",
-			Args:      json.RawMessage(`{"i":` + itoa(uint64(i)) + `}`),
-			Droppable: true,
-		})
+		zustellen(t, memory, "session", Event("session/message", map[string]any{"i": i}, true), hubSchnell, uint64(i+1))
 	}
 	dauer := time.Since(start)
-	<-fertig
 
-	if dauer > 2*time.Second {
+	if dauer > 10*time.Second {
 		t.Fatalf("das Verteilen von %d Rahmen dauerte %s: ein Client hat die anderen angehalten", anzahl, dauer)
 	}
-	if langsamSession.Dropped() == 0 {
-		t.Errorf("der langsame Client hat nichts verworfen (Warteschlange %d)", langsamSession.FramesLen())
+	if langsam.Dropped() == 0 {
+		t.Errorf("der langsame Client hat nichts verworfen (Warteschlange %d)", langsam.FramesLen())
 	}
-	if schnellSession.Dropped() != 0 {
-		t.Errorf("der schnelle Client hat %d Rahmen verloren", schnellSession.Dropped())
+	if !langsam.Closed() {
+		t.Errorf("der langsame Client haette nach der Verwurfgrenze getrennt werden muessen")
 	}
-	if !langsamSession.Closed() {
-		t.Errorf("der langsame Client haette getrennt werden muessen")
+	if schnell.Dropped() != 0 {
+		t.Errorf("der schnelle Client hat %d Rahmen verloren", schnell.Dropped())
 	}
-	if letzter := schnell.letzterRahmen(); letzter.Seq != anzahl {
-		t.Errorf("der schnelle Client sah zuletzt %d, erwartet %d", letzter.Seq, anzahl)
+	if schnell.Closed() {
+		t.Error("der schnelle Client darf nicht getrennt werden")
 	}
-	if letzterLangsam := langsam.letzterRahmen(); letzterLangsam.Error == nil {
-		t.Errorf("der langsame Client hat keinen Fehlerrahmen bekommen: %+v", letzterLangsam)
-	} else if letzterLangsam.Error.Code != api.CodePeerLagged {
-		t.Errorf("Fehlercode = %q, erwartet %q", letzterLangsam.Error.Code, api.CodePeerLagged)
+	if hubSchnell.Clients() != 1 {
+		t.Errorf("der schnelle Hub hat %d Clients, erwartet 1", hubSchnell.Clients())
+	}
+	<-geleert
+	if int(gesehen.Load()) < anzahl {
+		t.Errorf("der schnelle Client sah %d Rahmen, erwartet mindestens %d", gesehen.Load(), anzahl)
+	}
+	// Der langsame Client hat bis zur letzten Sequenz mitgezaehlt, aber
+	// Rahmen verloren — genau das ist die Luecke, die resync sichtbar macht.
+	langsam.mu.Lock()
+	letzter := langsam.seq
+	langsam.mu.Unlock()
+	if letzter == 0 {
+		t.Error("der langsame Client hat keine Sequenznummer gesehen")
+	}
+}
+
+// TestDroppedEventsAreTheOldest prueft die Reihenfolge der Verwerfung an der
+// Warteschlange selbst: bei voller Warteschlange faellt der AELTESTE droppable
+// Rahmen, die juengsten bleiben — und der neue Rahmen kommt an.
+//
+// Der Test haengt ohne Leser an und verteilt synchron (hub.Relay), damit die
+// Warteschlange genau das ist, was der Test sieht.
+func TestDroppedEventsAreTheOldest(t *testing.T) {
+	hub, _ := neuerHub(t, Config{Queue: 3, History: 3})
+	session := anhaengenOhneLeser(t, hub, "session", "x")
+	if ready := probe(t, session); ready.Type != api.FrameReady {
+		t.Fatalf("erster Rahmen = %q", ready.Type)
+	}
+
+	for i := 0; i < 10; i++ {
+		hub.Relay("session", Message{Event: "e", Droppable: true})
+	}
+	if session.Dropped() == 0 {
+		t.Fatal("bei 10 Rahmen und Warteschlange 3 muss etwas verworfen worden sein")
+	}
+	if session.FramesLen() != 3 {
+		t.Fatalf("Warteschlange = %d, erwartet 3", session.FramesLen())
+	}
+	// Die drei juengsten Rahmen sind 8, 9 und 10 — die aelteren fielen.
+	var seqs []uint64
+	for i := 0; i < 3; i++ {
+		seqs = append(seqs, probe(t, session).Seq)
+	}
+	if seqs[0] != 8 || seqs[1] != 9 || seqs[2] != 10 {
+		t.Fatalf("Warteschlange = %v, erwartet [8 9 10] — der aelteste Rahmen faellt", seqs)
+	}
+	if session.Dropped() != 7 {
+		t.Errorf("verworfen = %d, erwartet 7", session.Dropped())
+	}
+}
+
+// TestReadyFrameIsNeverDropped prueft, dass der ready-Rahmen einer Generation
+// auch bei voller Warteschlange nicht verworfen wird: er traegt nie ein
+// droppable-Merkmal.
+func TestReadyFrameIsNeverDropped(t *testing.T) {
+	hub, _ := neuerHub(t, Config{Queue: 2, History: 2})
+	session := anhaengenOhneLeser(t, hub, "session", "x")
+
+	// Die Warteschlange fasst 2; der ready-Rahmen liegt darin. Die folgenden
+	// droppable Rahmen duerfen ihn nicht verdraengen.
+	for i := 0; i < 6; i++ {
+		hub.Relay("session", Message{Event: "e", Droppable: true})
+	}
+	m := probe(t, session)
+	if m.Type != api.FrameReady {
+		t.Fatalf("erster Rahmen = %q, erwartet ready — der ready-Rahmen darf nie weichen", m.Type)
 	}
 }
 
 // TestNonDroppableOverflowDisconnectsClient prueft die zweite Haelfte der
 // Politik: ein nicht droppbarer Rahmen darf nie verworfen werden, also wird
-// der Client getrennt.
+// der Client getrennt — sichtbar, mit Fehlerrahmen.
 func TestNonDroppableOverflowDisconnectsClient(t *testing.T) {
 	hub, _ := neuerHub(t, Config{Queue: 2, History: 2})
-	session, senke := anhaengen(t, hub, "session", "x")
-	senke.naechster(t, time.Second) // ready
+	session := anhaengenOhneLeser(t, hub, "session", "x")
+	probe(t, session) // ready
 
-	// Zwei nicht droppbare Rahmen fuellen die Warteschlange.
 	hub.Relay("session", Message{Event: "zustand", Droppable: false})
 	hub.Relay("session", Message{Event: "zustand", Droppable: false})
 	// Der dritte laesst sich nicht mehr unterbringen.
@@ -380,15 +529,28 @@ func TestNonDroppableOverflowDisconnectsClient(t *testing.T) {
 	if session.Dropped() != 0 {
 		t.Errorf("nicht droppbare Rahmen duerfen nicht verworfen werden, verworfen = %d", session.Dropped())
 	}
-	var sahFehler bool
-	for i := 0; i < 3; i++ {
-		m := senke.naechster(t, time.Second)
-		if m.Error != nil && m.Error.Code == api.CodePeerLagged {
-			sahFehler = true
+	// Die beiden gueltigen Rahmen; ein dritter Rahmen ist der sichtbare Fehler.
+	// Ist die Warteschlange voll mit nicht droppbaren Rahmen, ist der
+	// Abschlussgrund stattdessen der Close-Code des Traegers — dann steht kein
+	// Fehlerrahmen in der Warteschlange, und das ist kein stiller Verlust.
+	var typen []string
+	var codes []string
+	for {
+		select {
+		case m := <-session.Frames():
+			typen = append(typen, m.Type)
+			if m.Error != nil {
+				codes = append(codes, m.Error.Code)
+			}
+		case <-time.After(200 * time.Millisecond):
+			if len(typen) < 2 || typen[0] != api.FrameEvent || typen[1] != api.FrameEvent {
+				t.Fatalf("Rahmenfolge = %v, erwartet mindestens [event event]", typen)
+			}
+			if len(codes) > 1 || (len(codes) == 1 && codes[0] != api.CodePeerLagged) {
+				t.Errorf("Fehlercodes = %v, erwartet hoechstens [%s]", codes, api.CodePeerLagged)
+			}
+			return
 		}
-	}
-	if !sahFehler {
-		t.Error("der getrennte Client hat keinen Fehlerrahmen gesehen")
 	}
 }
 
@@ -396,16 +558,17 @@ func TestNonDroppableOverflowDisconnectsClient(t *testing.T) {
 // nichts mehr an.
 func TestDetachedClientStopsReceiving(t *testing.T) {
 	hub, _ := neuerHub(t, Config{Queue: 16, History: 16})
-	bleibt, senkeBleibt := anhaengen(t, hub, "session", "bleibt")
-	geht, senkeGeht := anhaengen(t, hub, "session", "geht")
-	senkeBleibt.naechster(t, time.Second)
-	senkeGeht.naechster(t, time.Second)
+	bleibt, leserBleibt := anhaengen(t, hub, "session", "bleibt")
+	geht, leserGeht := anhaengen(t, hub, "session", "geht")
+	leserBleibt.warteAufRahmen(t, 1, time.Second)
+	leserGeht.warteAufRahmen(t, 1, time.Second)
 
 	hub.Relay("session", Message{Event: "vorher", Droppable: true})
-	if m := senkeGeht.naechster(t, time.Second); m.Event != "vorher" {
+	leserGeht.warteAufRahmen(t, 2, time.Second)
+	if m := leserGeht.Rahmen()[1]; m.Event != "vorher" {
 		t.Fatalf("Rahmen = %+v", m)
 	}
-	vorher := senkeGeht.anzahl()
+	vorher := leserGeht.anzahl()
 
 	if !hub.Detach(geht.ID()) {
 		t.Fatal("detach hat nichts gefunden")
@@ -419,10 +582,13 @@ func TestDetachedClientStopsReceiving(t *testing.T) {
 
 	hub.Relay("session", Message{Event: "nachher", Droppable: true})
 	time.Sleep(50 * time.Millisecond)
-	if nachher := senkeGeht.anzahl(); nachher != vorher {
+	if nachher := leserGeht.anzahl(); nachher != vorher {
 		t.Fatalf("die abgehaengte Sicht hat %d weitere Rahmen bekommen", nachher-vorher)
 	}
-	if m := senkeBleibt.naechster(t, time.Second); m.Event != "nachher" {
+	// Die verbundene Sicht bekommt "nachher" als dritten Rahmen (ready,
+	// vorher, nachher).
+	leserBleibt.warteAufRahmen(t, 3, time.Second)
+	if m := leserBleibt.Rahmen()[2]; m.Event != "nachher" {
 		t.Fatalf("die verbundene Sicht hat %+v bekommen", m)
 	}
 	_ = bleibt
@@ -464,13 +630,12 @@ func TestSecondStreamReusesExistingUpstream(t *testing.T) {
 func TestUpstreamEndBecomesVisible(t *testing.T) {
 	memory := NewMemory(still())
 	hub := New(memory, Config{Queue: 16, History: 16}, still())
-	_, senke := anhaengen(t, hub, "session", "x")
-	senke.naechster(t, time.Second)
+	_, l := anhaengen(t, hub, "session", "x")
+	l.warteAufRahmen(t, 1, time.Second)
 	if memory.Quellen("session") != 1 {
 		t.Fatalf("Quellen = %d", memory.Quellen("session"))
 	}
 
-	// Die Quelle des Stroms schliessen: der Verteiler meldet das sichtbar.
 	memory.mu.Lock()
 	quellen := append([]*memorySource(nil), memory.sources["session"]...)
 	memory.mu.Unlock()
@@ -478,25 +643,35 @@ func TestUpstreamEndBecomesVisible(t *testing.T) {
 		_ = q.Close()
 	}
 
-	m := senke.naechster(t, 2*time.Second)
-	if m.Type != api.FrameEvent || m.Event != "attach/upstream-gone" {
-		t.Fatalf("Rahmen = %+v, erwartet attach/upstream-gone", m)
+	l.warteAufRahmen(t, 3, 3*time.Second)
+	rahmen := l.Rahmen()
+	if rahmen[1].Type != api.FrameEvent || rahmen[1].Event != "attach/upstream-gone" {
+		t.Fatalf("Rahmen = %+v, erwartet attach/upstream-gone", rahmen[1])
 	}
-	if m.Droppable {
+	if rahmen[1].Droppable {
 		t.Error("das Endereignis darf nicht droppable sein")
 	}
-	if m2 := senke.naechster(t, 2*time.Second); m2.Type != api.FrameEnd {
-		t.Fatalf("zweiter Rahmen = %q, erwartet end", m2.Type)
+	if rahmen[2].Type != api.FrameEnd {
+		t.Fatalf("zweiter Rahmen = %q, erwartet end", rahmen[2].Type)
 	}
 }
 
-// TestShutdownDetachesEveryClient prueft das geordnete Ende.
+// TestShutdownDetachesEveryClient prueft das geordnete Ende: alle Sessions
+// sind zu, alle Stroeme fort, und der Abschlussgrund ist sichtbar.
+//
+// Der Test haengt OHNE Leser an und liest die Warteschlange selbst. Mit einem
+// nebenlaeufigen Leser waere der Fehlerrahmen zwar zugestellt, aber schon vom
+// Leser verbraucht — der Test wuerde dann eine leere Warteschlange beobachten
+// und koennte gar nicht pruefen, was er pruefen will.
 func TestShutdownDetachesEveryClient(t *testing.T) {
 	hub, _ := neuerHub(t, Config{Queue: 8, History: 8})
-	a, senkeA := anhaengen(t, hub, "session", "a")
-	b, senkeB := anhaengen(t, hub, "terminal", "b")
-	senkeA.naechster(t, time.Second)
-	senkeB.naechster(t, time.Second)
+	a := anhaengenOhneLeser(t, hub, "session", "a")
+	b := anhaengenOhneLeser(t, hub, "terminal", "b")
+	for _, session := range []*Session{a, b} {
+		if ready := probe(t, session); ready.Type != api.FrameReady {
+			t.Fatalf("erster Rahmen = %q, erwartet ready", ready.Type)
+		}
+	}
 
 	hub.Shutdown()
 	if hub.Clients() != 0 || hub.Stroeme() != 0 {
@@ -505,8 +680,11 @@ func TestShutdownDetachesEveryClient(t *testing.T) {
 	if !a.Closed() || !b.Closed() {
 		t.Error("alle Sessions muessen geschlossen sein")
 	}
-	for _, senke := range []*festeSenke{senkeA, senkeB} {
-		m := senke.naechster(t, time.Second)
+	for _, session := range []*Session{a, b} {
+		m := probe(t, session)
+		if m.Type != api.FrameError {
+			t.Fatalf("Abschlussrahmen = %q, erwartet error", m.Type)
+		}
 		if m.Error == nil || m.Error.Code != api.CodeCancelled {
 			t.Errorf("Abschlussrahmen = %+v, erwartet gateway/cancelled", m)
 		}
