@@ -25,6 +25,25 @@ Der umgekehrte Weg ist es nicht.
 
 ---
 
+### 2026-10-12 · 23:32 UTC · Backlog: erinnerte Technikliste (Abschnitt R)
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Betreiber legte die Technik-/Anforderungsliste erneut vor; Auftrag: als Backlog aufnehmen, **nichts** implementieren |
+| `HEAD` / `origin/main` | `9dcfe0dc` — **identisch**, zusätzlich **über die API** bestätigt (`2026-10-12T23:32:09Z`) |
+| Umfang | `docs/status/arbeitspakete.md` (neuer Abschnitt R), 2.676 versionierte Dateien |
+| Art | **reine Dokumentation** — keine Code-, Build- oder Web-Änderung, keine Installation |
+
+**Was aufgenommen wurde:** 25 Punkte der Technikliste mit Statusklasse **A** (belegt) /
+**B** (geplant) / **C** (neu) / **D** (Konflikt), je mit Phase und Beleg. Dazu **sechs
+ausdrücklich benannte Konflikte** — LangChain/LangGraph (Python-verankert, Regel verbietet
+Python), n8n (kein Kern-Orchestrator), Tesseract (nur über die Prozessgrenze), GUI/UI/Web
+(bleibt außen vor), Mirage-Tesseract (ungeprüft), NixOS-Installation (bleibt ausgeschlossen).
+
+**Warum das als eigener Push geführt wird:** eine Anforderungsliste, die nur im Chat steht,
+ist nach dem nächsten Kontextwechsel weg — und dann wird sie entweder doppelt gebaut oder
+stillschweigend als „erledigt" angenommen. Beides ist teurer als diese 60 Zeilen Doku.
+
 ## Einträge
 
 ### 2026-10-12 · 21:27 UTC · Ausgangsstand
