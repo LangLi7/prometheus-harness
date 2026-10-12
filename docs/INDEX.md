@@ -107,7 +107,15 @@ gleichzeitig starten. Unterbrechen half nicht, weil die Arbeiter Ersatz startete
 **Erwartete Arbeiterzahl nach dieser Regel:** 1 je Sprache je Ordner, also **2–3 statt 12+**.
 Der frühere Auftrag „je 18–46 Dateien an einen Arbeiter" ist damit ersetzt.
 
-## 7. Weitere Ablage
+## 7. Stand und Nachweise — *was tatsächlich gilt*
+
+| Dokument | In einem Satz |
+|---|---|
+| [status/README.md](status/README.md) | Die Regeln der Momentaufnahmen: jeder Snapshot mit Datum und Befehl, Gemessenes getrennt von Gedeutetem, der 4-Stunden-Takt und seine ehrliche Grenze |
+| [status/git-audit.md](status/git-audit.md) | Jeder Push mit Nachweis: lokaler `HEAD` gegen `origin/main` über die API geprüft, samt der Entscheidung „privat" |
+| [status/2026-10-12.md](status/2026-10-12.md) | Der erste Snapshot: Harness läuft (HTTP 200), Repository erstmals versioniert, und die sechs offenen Lücken L1–L6 |
+
+## 8. Weitere Ablage
 
 | Ordner | In einem Satz |
 |---|---|
