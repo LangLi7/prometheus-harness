@@ -4,7 +4,7 @@
 > geordnet, wie in einer Bibliothek. Wer hier landet, findet in einer Minute die richtige
 > Datei — ohne im Baum zu suchen.
 >
-> Stand: 12.10.2026 · 17 Arbeitsdokumente, 4 Ordner im Bestand, dazu der Doku-Bestand des
+> Stand: 12.10.2026 · 18 Arbeitsdokumente, 4 Ordner im Bestand, dazu der Doku-Bestand des
 > Cores mit 692 Dateien.
 
 ---
@@ -45,6 +45,7 @@ unangetastet.
 | [decisions/core-supply.md](decisions/core-supply.md) | **Entschieden:** der Agent-Core kommt als Abhängigkeit vom Upstream (Weg B, Hybrid) — besessen werden nur Host, Units und Dienste |
 | [decisions/hybrid-then-self-build.md](decisions/hybrid-then-self-build.md) | **Entschieden:** Hybrid ist der erste Meilenstein, Eigenbau (A) das Ziel — samt NixOS-Selbständerung, Plugin-Export, Web-Attach und den verbindlichen Subagent-Regeln |
 | [decisions/open-questions.md](decisions/open-questions.md) | Der Fragenkatalog mit Abhängigkeiten: Laufzeit, Umfang des Cores, Loop, Gedächtnis, Git-Plattform, Netzwerk |
+| [design/nixos-self-change.md](design/nixos-self-change.md) | Konzept für die Selbständerung des Systems als gestufter, umkehrbarer Vorgang (Vorschlag → Prüfung → Anwendung → Generation → Rückweg) mit austauschbarem Backend — **ohne** NixOS oder Nix zu installieren |
 
 ## 4. Gestaltung — *wie es aussehen und sich anfühlen soll*
 
@@ -114,6 +115,7 @@ Der frühere Auftrag „je 18–46 Dateien an einen Arbeiter" ist damit ersetzt.
 | [status/README.md](status/README.md) | Die Regeln der Momentaufnahmen: jeder Snapshot mit Datum und Befehl, Gemessenes getrennt von Gedeutetem, der 4-Stunden-Takt und seine ehrliche Grenze |
 | [status/git-audit.md](status/git-audit.md) | Jeder Push mit Nachweis: lokaler `HEAD` gegen `origin/main` über die API geprüft, samt der Entscheidung „privat" |
 | [status/2026-10-12.md](status/2026-10-12.md) | Der erste Snapshot: Harness läuft (HTTP 200), Repository erstmals versioniert, und die sechs offenen Lücken L1–L6 |
+| [status/arbeitspakete.md](status/arbeitspakete.md) | Das Register der Arbeitspakete mit eigener Todo-Liste je Paket, Phase und Nachweis — die Regel „abgehakt wird nur Belegtes" |
 
 ## 8. Weitere Ablage
 
