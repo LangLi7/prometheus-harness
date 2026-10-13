@@ -58,6 +58,64 @@ function zielVon(sql) {
 }
 
 /**
+ * Lädt den Datenbanktreiber — **mit Diagnose im Fehlerfall**.
+ *
+ * ## Der ungelöste Befund, der hier steht
+ *
+ * Im **sauberen Klon** scheiterte dieser Import, obwohl alles dastand:
+ *
+ * ```
+ * FEHLER: der Datenbanktreiber `postgres` ist nicht ladbar.
+ *   Arbeitsverzeichnis: C:\Users\Chang\pmh-sauber
+ *   Dieses Modul:       file:///C:/Users/Chang/pmh-sauber/scripts/migrate.mjs
+ *   node_modules da:    true
+ *   postgres da:        true
+ *   Grund:              Cannot find package 'postgres' imported from …migrate.mjs
+ * ```
+ *
+ * **Was gemessen und damit ausgeschlossen wurde:**
+ *
+ * | Messung | Ergebnis |
+ * |---|---|
+ * | `bun scripts/migrate.mjs` direkt, im selben Klon | **funktioniert** |
+ * | über `cmd /c bun scripts\migrate.mjs` | **funktioniert** |
+ * | `import('postgres')` aus `install.mjs` heraus | **funktioniert** |
+ * | statisch / dynamisch / in einer Funktion (Sonde) | **alle drei funktionieren** |
+ * | `node_modules/postgres` + `package.json` + `exports.bun` | **vorhanden** |
+ * | `node_modules` über dem Projektverzeichnis | **keines** |
+ * | mehrere `migrate.mjs` | **nur eine** |
+ *
+ * **Die Ursache ist NICHT gefunden.** Sie steht als Lücke im Beleg, nicht als
+ * Vermutung. Dieselbe Fassung lief im selben Klon unmittelbar danach durch — der
+ * Verdacht ist ein **Wettlauf** mit `bun install` im selben Lauf, aber das ist
+ * eine Vermutung und keine Messung.
+ *
+ * **Was bleibt:** die Diagnose in der Fehlermeldung. Kommt der Fehler wieder,
+ * nennt sie Arbeitsverzeichnis, Modulherkunft und den Zustand von `node_modules`
+ * — die drei Angaben, die zur Ursache führen würden.
+ *
+ * @param adresse - die Verbindungsadresse
+ * @returns die Verbindung
+ */
+async function oeffneStandard(adresse) {
+  try {
+    const { default: postgres } = await import('postgres')
+    return postgres(adresse, { max: 1, onnotice: () => undefined })
+  } catch (fehler) {
+    process.stderr.write(
+      'FEHLER: der Datenbanktreiber `postgres` ist nicht ladbar.\n' +
+        `  Arbeitsverzeichnis: ${process.cwd()}\n` +
+        `  Dieses Modul:       ${import.meta.url}\n` +
+        `  node_modules da:    ${existsSync(join(process.cwd(), 'node_modules'))}\n` +
+        `  postgres da:        ${existsSync(join(process.cwd(), 'node_modules', 'postgres'))}\n` +
+        `  Grund:              ${fehler instanceof Error ? fehler.message : String(fehler)}\n` +
+        '  Abhilfe: `bun install` im Projektverzeichnis ausführen.\n',
+    )
+    throw fehler
+  }
+}
+
+/**
  * Führt die Migrationen aus.
  *
  * @param optionen - Adresse, Ausgabe und Treiber, austauschbar für Prüfungen
@@ -88,28 +146,7 @@ export async function migriere(optionen = {}) {
   // Übersprungene Prüfungen sind keine. Mit einem austauschbaren Treiber bleibt
   // die Logik prüfbar: die Adressprüfung, der Abgleich der Fassung, der
   // Fehlerpfad und das Schließen der Verbindung.
-  const oeffne = optionen.oeffne ?? (async (a) => {
-    try {
-      const { default: postgres } = await import('postgres')
-      return postgres(a, { max: 1, onnotice: () => undefined })
-    } catch (fehler) {
-      // **Fail-loud mit Diagnose.** Der Import des Treibers hing zweimal an
-      // Rahmenbedingungen, die man von außen nicht sieht: das Arbeitsverzeichnis,
-      // die Herkunft dieses Moduls und ob `node_modules` überhaupt gefüllt ist.
-      // Eine Meldung „Cannot find package" ohne diese drei Angaben kostet eine
-      // halbe Stunde.
-      process.stderr.write(
-        'FEHLER: der Datenbanktreiber `postgres` ist nicht ladbar.\n' +
-          `  Arbeitsverzeichnis: ${process.cwd()}\n` +
-          `  Dieses Modul:       ${import.meta.url}\n` +
-          `  node_modules da:    ${existsSync(join(process.cwd(), 'node_modules'))}\n` +
-          `  postgres da:        ${existsSync(join(process.cwd(), 'node_modules', 'postgres'))}\n` +
-          `  Grund:              ${fehler instanceof Error ? fehler.message : String(fehler)}\n` +
-          '  Abhilfe: `bun install` im Projektverzeichnis ausführen.\n',
-      )
-      throw fehler
-    }
-  })
+  const oeffne = optionen.oeffne ?? oeffneStandard
 
   let sql
   try {
