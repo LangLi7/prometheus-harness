@@ -144,7 +144,7 @@ Der frühere Auftrag „je 18–46 Dateien an einen Arbeiter" ist damit ersetzt.
 | [protokoll/aufsicht/protokoll.md](protokoll/aufsicht/protokoll.md) | Chronologie der Prüfungen mit Befehl und Ergebnis, append-only |
 | [protokoll/aufsicht/protokoll.jsonl](protokoll/aufsicht/protokoll.jsonl) | dieselben Ereignisse maschinenlesbar, eine Zeile je Ereignis |
 | [protokoll/aufsicht/LAGE.md](protokoll/aufsicht/LAGE.md) | **eine Seite für Entscheidungen**: was jetzt zu tun ist (B16, B13, B14, B15), was erledigt ist, was nicht prüfbar war — und wie man alles nachfährt |
-| [protokoll/aufsicht/befunde.md](protokoll/aufsicht/befunde.md) | Befunde `B1`–`B17` mit Schwere, Beleg und Empfehlung — darunter die **widerlegte** Behauptung „kein Code ruft den Rust-Bestand auf" und der nicht belegte Satz „API ausgefallen" |
+| [protokoll/aufsicht/befunde.md](protokoll/aufsicht/befunde.md) | Befunde `B1`–`B19` mit Schwere, Beleg und Empfehlung — darunter die **widerlegte** Behauptung „kein Code ruft den Rust-Bestand auf", der nicht belegte Satz „API ausgefallen" und, offen benannt, **eigene** Fehler der Aufsicht |
 | [protokoll/aufsicht/aufgaben.md](protokoll/aufsicht/aufgaben.md) | Dauerauftrag, eigene Aufgabenliste und das, was die Aufsicht ausdrücklich **nicht** tut |
 | [protokoll/aufsicht/werkzeuge/settings-vergleich.mjs](protokoll/aufsicht/werkzeuge/settings-vergleich.mjs) | vergleicht die Live-Konfiguration gegen jede gefundene Sicherung, Abschnitt für Abschnitt, ohne Geheimwerte auszugeben |
 | [protokoll/aufsicht/werkzeuge/zugangs-lage.mjs](protokoll/aufsicht/werkzeuge/zugangs-lage.mjs) | vergleicht die Credential-Referenzen aller Harness-Homes und prüft eine Referenz live (nur Statuscode) |
@@ -159,6 +159,7 @@ Der frühere Auftrag „je 18–46 Dateien an einen Arbeiter" ist damit ersetzt.
 | [protokoll/aufsicht/hilfen/zugang-bereitstellen.mjs](protokoll/aufsicht/hilfen/zugang-bereitstellen.mjs) | legt den Modellzugang für ein Home bereit — Standard ist **nur anzeigen**, geschrieben wird nur mit `--anwenden` |
 | [protokoll/aufsicht/hilfen/rechte-probe-assertion.sql](protokoll/aufsicht/hilfen/rechte-probe-assertion.sql) | zusichernde Rechteprüfung statt „muss scheitern"-Kommentaren: `has_*_privilege()` fragt, übt keine Rechte aus und kann nichts löschen — Exit-Code auswertbar |
 | [protokoll/aufsicht/hilfen/anbieter-rauchtest.mjs](protokoll/aufsicht/hilfen/anbieter-rauchtest.mjs) | echter Anbieteraufruf **über den Adapter des Repos**: setzt den Schlüssel aus dem Speicher in die Umgebung (ohne ihn auszugeben) und belegt damit die Kette für `P8.12` |
+| [protokoll/aufsicht/hilfen/vorhandene-bausteine.md](protokoll/aufsicht/hilfen/vorhandene-bausteine.md) | Inventar dessen, was auf dieser Maschine **schon läuft** (SearXNG `:8081`, Firecrawl `:3002`, ein OpenAI-kompatibler Dienst `:3001` mit 1.075 Modellen, WSL2) — samt der Zugänge, die dafür noch fehlen: nutzen statt nachbauen |
 
 ---
 
