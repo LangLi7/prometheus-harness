@@ -2421,6 +2421,104 @@ dafür ist diese Rolle da. **Fairness:** der Vorschlag ist gut, der Nachweis sau
 4. **Das Meßwerkzeug prüft seinen eigenen Aufbau** — Auflösungsgrenze (100 Einträge dürfen **kein** Urteil ergeben), Aufwärmphase (Faktor > 1), Statistik gegen echte Zahlen (`min ≤ median ≤ p95 ≤ max`, 20 Läufe). Drei Prüfungen auf das Instrument selbst: die richtige Antwort auf die Fehlerklasse, die **V9** und **B35** gezeigt haben.
 
 **Grenze.** Ich habe **nichts** davon ausgeführt — **keine** Zahl in diesem Abschnitt ist eine eigene Laufzeitmessung.
+## B39 — Der NIST-Beleg in seinem Geheimnis-Entwurf nennt den **falschen Abschnitt** — und mischt zwei Fassungen — **N**
+
+**Anlaß.** Sein Commit `f424418` legt `docs/review/geheimnisse-entwurf.md` (452 Zeilen) vor und stützt die
+Entwurfsentscheidung auf **vier wörtliche Zitate**. Das erste lautet:
+
+> „NIST SP 800-63B **§5.1.1.2**: *All look-up secrets SHALL be stored in a hashed form using an approved
+> hashing function.*"
+
+**Nachgeprüft (16:58, Quellen unten).** Das **Zitat ist wörtlich echt** — aber die **Fundstelle ist
+falsch**:
+
+* §5.1.1.2 ist **„Memorized Secret Verifiers"**, also der Abschnitt über **Paßwörter**.
+* Die Regel über Look-up-Secrets steht in **§5.1.2.2 „Look-Up Secret Verifiers"**. NISTs **eigenes**
+  Dokument „Conformance Criteria for SP 800-63B" zitiert genau diese Anforderung als **„(5.1.2.2)"**.
+* **Zusätzlich eine Fassungsmischung:** der zitierte **Wortlaut** steht auf der Seite der
+  **Revision 4** (`pages.nist.gov/800-63-4/sp800-63b/…`), während die Nummer wie Revision 3 gelesen
+  wird. In Revision 3 lautet die Regel für Look-up-Secrets anders und trägt die Entropieschwelle
+  **in** der Regel („Look-up secrets having at least 112 bits of entropy SHALL be hashed with an
+  approved one-way function").
+
+**Und der Teil, der mehr wiegt als die Nummer:** ASVS 6.5.2 hat **zwei** Sätze. Zitiert ist der
+zweite („A standard hash function can be used if the secret has 112 bits of entropy or more"); der
+**erste** ist der, der das Projekt **bindet**: *lookup secrets with **less than 112 bits** of entropy
+… are hashed with an approved **password hashing algorithm***. Die Entropie entscheidet also — und
+genau dazu siehe **B40**.
+
+**Warum N und nicht mehr.** Kein Sicherheitsloch, kein falscher Schluß: der Entwurf bleibt in der
+Sache richtig, und er stützt sich daneben auf ASVS und das eigene Schema (`api_keys` hat nur `key_id`
+und `token_hash`). Aber es ist **genau die Klasse, die ich bei anderen beanstande** — ein Beleg, der
+nicht trägt, in einem Dokument, auf dem eine **Entwurfsentscheidung** ruht. Empfehlung: **eine Zeile**
+(§5.1.2.2 statt §5.1.1.2, und die Fassung dazuschreiben).
+
+**Quellen** (Suchlauf 16:58): <https://pages.nist.gov/800-63-3/sp800-63b.html> (5.1.2.2 Look-Up
+Secret Verifiers) · <https://www.nist.gov/document/conformance-criteria-sp-800-63b-authentication-and-lifecycle-management>
+(„they SHALL be hashed with an approved one-way function (5.1.2.2)") · <https://pages.nist.gov/800-63-4/sp800-63b/authenticators/>
+(Wortlaut der Revision 4) · <https://cornucopia.owasp.org/taxonomy/asvs-5.0/06-authentication/05-general-multi-factor-authentication-requirements>
+(ASVS 6.5.2, beide Sätze).
+
+## B40 — Die Entropiebedingung ist **erfüllt**, nicht „nicht erfüllt" — es fehlt die **Erzwingung** — **N** (Korrektur)
+
+**Seine Aussage** (`docs/review/geheimnisse-entwurf.md`): *die Bedingung „112 Bit Entropie", die dieses
+Projekt **noch NICHT erfüllt**: es gibt keinen Erzeuger, der die Entropie erzwingt.*
+
+**Gemessen (Quelltext, 17:00, `packages/auth/auth/src/index.ts`):**
+
+| Stelle | Was |
+|---|---|
+| `randomToken(bytes = 32)` (Zeile **342**) | zieht **32 Bytes aus `crypto.getRandomValues`**, kodiert base64url |
+| `newSessionToken()` (Zeile **385**) | ruft `randomToken(32)` → **256 Bit** |
+| `newCsrfPair()` (Zeile **397**) | ebenso → **256 Bit** |
+| `tokenHash()` (Zeile **365**) | SHA-256 hex, **64** Zeichen — die DB prüft `^[0-9a-f]{64}$` |
+
+**Also:** die Bedingung **ist erfüllt**, mit großem Abstand (2^256 gegen 2^112). Das einfache SHA-256 in
+`api_keys.token_hash` ist damit nach der von ihm selbst zitierten Regel **zulässig** — seine
+Entwurfsentscheidung trägt.
+
+**Was wirklich fehlt, ist die Erzwingung:** `randomToken` prüft nur `bytes ≥ 1`, und **kein Test und
+keine Zusicherung** hält fest, daß ein künftiger Schlüssel ≥112 Bit trägt. Ein Aufruf `randomToken(4)`
+wäre heute gültig und würde die Regel brechen. **Empfehlung statt Generator-Neubau: eine Zeile** —
+Zusicherung in der Erzeugung (`bytes >= 16`, also ≥128 Bit) plus ein Test, der die Länge prüft.
+
+**Warum das zählt.** „Erfüllt das Projekt noch nicht" lädt zu Arbeit ein, die **nicht nötig** ist, und
+verdeckt zugleich, was fehlt (die Prüfung). Das ist derselbe Unterschied wie bei **B16**: „nicht
+geprüft" ist nicht „nicht vorhanden".
+
+## V12 — Seine Argon2id-Zahl ist **in der Größenordnung bestätigt** — und hat **kein Meßskript** (Verifikation, kein Befund)
+
+**Seine Zahl.** Commit `162d319` trägt in `docs/review/BEFUNDE-ALLE.md` ein: **Argon2id-Median 19,7 ms**
+auf dieser Maschine.
+
+**Meine Nachmessung (17:00)**, mit **seinen** Parametern (`memoryCost: 19_456`, `timeCost: 2`,
+`parallelism: 1`, so in `recherche-passwort-und-apikeys.md:694`), 21 Läufe, Bun **1.4.0** auf
+win32/x64, `Bun.password.hash`:
+
+```
+n=21  median=22.8 ms  min=20.1 ms  max=27.5 ms
+```
+
+**Urteil: bestätigt in der Größenordnung.** Seine 19,7 ms liegen am **unteren Rand** meiner Streuung
+(mein Minimum: 20,1 ms). Bemerkenswert ist die **Streuung**: **7,4 ms** — größer als der Unterschied
+zwischen unseren Zahlen (2,9 ms). Eine einzelne Zahl ohne Verfahren und ohne Laufzahl ist damit
+**schwache Evidenz**; für einen Entwurf, der eine Kostenentscheidung darauf stützt, gehört das
+Verfahren daneben.
+
+**Zwei Randnotizen, die hierher gehören:**
+1. **Für die 19,7 ms gibt es im Repository kein Meßskript** (Suchlauf über `*.mjs`/`*.ts` nach
+   `argon|kosten|hash`: kein Werkzeug; die Zahl steht in Prosa). Das ist meine eigene Hausregel
+   **H7** („kein Wert in eine Datei, der nicht vorher in einer Shell gestanden hat"), angewandt auf
+   sein Dokument: **eine Zahl ohne Befehl ist nicht nachprüfbar** — ich habe sie deshalb selbst
+   gemessen.
+2. **Ein eigener Fehler, klein aber lehrreich:** mein erster Prüfaufruf war
+   `Bun.password.verify(pw, hash, { algorithm: 'argon2id', … })` und **warf**
+   `TypeError: Expected algorithm to be a string for 'verify'`. **Sein Code ist richtig** —
+   `packages/auth/auth/src/index.ts:211` ruft `Bun.password.verify(password, hash)` **ohne**
+   Optionsobjekt. Der Fehler war meiner.
+
+**Grenze.** Ich habe **nichts** von seinem Code gestartet: kein Benchmark, kein Dienst, kein Test. Die
+21 Hashläufe sind reine Rechenzeit (~0,5 s) und verfälschen seine Messungen nicht.
 ## V3 — Die CRLF-Klasse im JavaScript ist **geschlossen** (Verifikation, kein Befund)
 
 **Anlass.** Derselbe Fehler ist bei ihm **dreimal** aufgetreten: `setzeWerte` (`e9013a5`), `leseEnv`

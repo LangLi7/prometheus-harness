@@ -128,7 +128,31 @@ zielgesteuerten Code — deshalb wurde kein zielgesteuerter Code ausgeführt.
 | **H-1** | **48 von 55 Paketordnern sind leer.** Nur sieben enthalten Quelldateien (`agent`, `api`, `auth`, `core`, `llm`, `units`, `util`). Die leeren sind Reste der Vorlage und für Git unsichtbar, weil es keine Dateien gibt. Sie sehen aber wie geplante Pakete aus und werden beim Lesen für Arbeit gehalten. | Verzeichniszählung über `packages/*`, ohne `node_modules` |
 | **H-2** | **`docs/review/stack-aufklaerung.md:82` ist überholt.** Dort steht „pgvector **nicht installiert**, Redis ungenutzt". Gemessen ist pgvector **0.8.7 installiert und angelegt**. Wer der Bestandsaufnahme glaubt, hält den Vektorweg für versperrt. | `pg_available_extensions` und `pg_extension` |
 
-## 7. Was diese Datei nicht behauptet
+## 7. Last, Neuladen und Suche (gemessen 13.10.2026)
+
+Vollständig in [`last-und-suche.md`](last-und-suche.md). Alle Zahlen aus `pgbench` gegen eine
+**Wegwerf-Datenbank** `pmh_bench` (danach `DROP DATABASE`, Rückstand geprüft: 0); die echte
+Datenbank unberührt (1 Benutzer, 1 Arbeitsbereich, 20 Chats, 10 000 Nachrichten, Fassung 3).
+
+| ID | Schwere | Befund | Status | Beleg |
+|---|---|---|---|---|
+| **B-L1** | mittel | **Ein `UPDATE` je Nachricht auf die Chat-Zeile kostet 88 % des Durchsatzes.** Isoliert bei 10 Clients im selben Chat: nur Einfügen **8 030 tps**, mit `message_count` **938 tps**, mit `updated_at` (indiziert) **775 tps**. Ursache ist die Zeilensperre auf derselben `chats`-Zeile, nicht ein Indexproblem. Dazu: nur **13,1 %** HOT-Updates, weil `updated_at` im Index `chats_user_recent_idx` liegt. | **offen** | `pgbench -f bench_f/g/h.sql -c 10 -T 15`; `pg_stat_user_tables` (78883 Updates, 27 HOT vor der Behebung) |
+| **B-L2** | mittel | **Die Verbindungsgrenze ist 100 (97 nutzbar) und wird vor der Datenbank erreicht.** Ein Lauf mit 100 Clients scheiterte vollständig: `FATAL: remaining connection slots are reserved for roles with the SUPERUSER attribute`. Eine Verbindung je Agent ergibt bei 10 Nutzern × 3 Agenten × 2 Unteragenten **90** — die Grenze ist dann erreicht, ohne daß die Datenbank gefordert war (2 400 von ~8 000 tps). | **offen** | `show max_connections` → 100; `show superuser_reserved_connections` → 3 |
+| **B-L3** | mittel | **Der JSONL-Schreibpfad kostet Faktor 64 — und gibt trotzdem keine Haltbarkeit.** `flushEvery: 1` (die Vorgabe) ≈ 600–632 ms für 2000 Ereignisse gegen 9,4–12,0 ms gebündelt; Ursache ist die **Zahl der Aufrufe**, nicht die Reihenfolge und nicht ein `fsync`. Und: im ganzen Paket **null** Treffer für `sync(`/`fsync`/`datasync` — der Core synct an **fünf** Stellen. `flushEvery: 1` kauft Reihenfolge, keinen Sync. | **offen** | `benchmarks/session-open/lauf.mjs`; Mustersuche über `packages/agent/session-persistence-jsonl` |
+| **B-L4** | hoch | **Eine Sitzung, zwei Prozesse: stiller Datenverlust möglich.** Die Versprechenskette wirkt nur **innerhalb** eines Prozesses. `schneideAbgebrocheneZeileAb` schreibt die Datei beim Öffnen mit `writeFile` **neu** (`src/index.ts:544`) — ein zweiter Prozeß, der gerade angehängt hat, verliert seine Ereignisse. Genau der Fall „Agent und Unteragent". | **offen** | `src/index.ts:226` (Kette), `:544` (`writeFile`) |
+| **B-L5** | mittel | **Zwei Kopien desselben Inhalts — eine verschlüsselt, eine im Klartext.** `messages.content_cipher` ist verschlüsselt; der Ereignisstrom `.jsonl` wird mit `appendFile(path, block, 'utf8')` als **JSON-Klartext** geschrieben (`src/index.ts:308`). „Verschlüsselung at rest" gilt damit nur für **eine** Kopie. Positiv: der Strom liegt **außerhalb** der Datenbank, ein DBA kommt nicht heran. | **offen** (Entwurfsentscheidung) | `src/index.ts:308`; kein Verschlüsselungsschritt im Paket |
+| **B-L6** | Hinweis | **Der Atomaritätsbefund der Anhänge ist eine Beobachtung, keine Zusicherung.** 8 gleichzeitige Schreiber, 120 Zeilen je Schreiber, Zeilengrößen 600 B bis 1 MB: **960/960 Zeilen rissfrei**, je Schreiber vollständig. Das trägt, weil die Laufzeit **einen** `write()` je Ereignis absetzt — ein Umsetzungsdetail von Bun/Node und NTFS, kein Vertrag. | **Hinweis** | eigene Messung, 13.10.2026 |
+
+**Was entgegen der Erwartung *nicht* bricht — und das ist die gute Nachricht:** der
+Selbstbezug der Sitzung. 40 gleichzeitige **Unteragenten am selben Elternteil**: **16 463 tps,
+2,4 ms**. `FOR KEY SHARE`-Sperren sind miteinander verträglich. **Der Unteragenten-Baum ist
+die billigste Struktur in diesem Schema** — und die Regel des Betreibers („Agent und
+Unteragent wie ein Benutzer behandeln") ist damit meßbar die richtige.
+
+**Die gemessene Kapazität in einer Zeile:** die Maschine sättigt bei **~2 400 tps**; bei 10
+Nutzern ist die Datenbank **nicht** der Engpass, sondern der Schreibpfad der Sitzungsdatei.
+
+## 8. Was diese Datei nicht behauptet
 
 * **Keine Vollständigkeit.** Ein Lauf deckt keine 20.000 Zeilen ab. Der Vollaudit sagt am Ende
   selbst, was er **nicht** abgedeckt hat.

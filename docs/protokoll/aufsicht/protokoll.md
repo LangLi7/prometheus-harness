@@ -2618,7 +2618,8 @@ brauchbar ist.**
 | **B36** Teure Vorgabe des Sitzungsschreibers ohne Begründung | **offen, latent — ein Satz bis ein Wort** | `options.flushEvery ?? 1` an zwei Stellen (`index.ts:368`, `:518`) = ein Schreibvorgang **je Ereignis**. Sein Benchmark: 600–632 ms je 2000 Ereignisse gegen 9,4–12,0 ms gebündelt; **meine** Nachmessung: Faktor **184×** (Bun) / 206× (Node), Kette hilft nicht (1,03× / 0,99×). **Der Kern hat gar kein `flushEvery`** — er arbeitet mit `appendBatch(meta, events, …)`, also stapelweise per Vertrag. **Latent:** das Paket ist nicht verdrahtet (kein Profil-Eintrag, keine Referenz in `apps/cli`, keine Abhängigkeit). **Nachtrag 16:14 — kein `sync`:** im ganzen Paket **null** Treffer für `sync(`/`fsync`/`datasync` (Schreibpfad `appendFile`, `index.ts:308`); **der Kern synct an fünf Stellen** (`index.ts:611, 639, 666, 685, 697`), mit Verzeichnis-fsync und *„discard the crash tail"*. `flushEvery 1` kauft **Reihenfolge** und Rechtzeitigkeit, **keine Haltbarkeit** — die Entscheidung lautet jetzt: **wird Haltbarkeit zugesagt?** |
 | **B37** Der Eigentümer einer Sitzung wird nicht geschrieben | **offen, latent — Vorarbeit für RLS** | `conversation_sessions` **hat** `user_id uuid NOT NULL` und `workspace_id uuid` (Migration `0003`, Zeilen 135/136) und sagt selbst, warum: *„user_id und workspace_id sind unsere Zusätze. … hier steht nur der Kopf."* Aber **niemand schreibt** die Zeile: in `packages/**/*.ts` **7** Vorkommen (6 in Tests, 1 in der Kerntabellen-Liste `packages/api/readiness/src/index.ts:190`), **0** Treffer für ein `INSERT`. Der **JSONL-Kopf** auf der Platte hat **keinen** Eigentümer (0 Treffer für `ownerId\|userId\|workspaceId` in `session-persistence-jsonl/src`). Folge: mit der ersten geschriebenen Sitzung ist die Zuordnung **geraten**; die Bereitschaftsprüfung **verlangt** die Tabelle. Empfehlung: Kopfzeile in derselben Transaktion füllen, Prüfung „Sitzungsdatei ohne Kopfzeile", **erst danach** RLS |
 | **B38** Sein Mandantentrennungs-Vorschlag: die Löschregel ist nicht ausführbar | **offen, rechtzeitig — N** | `ON DELETE SET NULL` auf einem **zusammengesetzten** Verweis setzt **beide** Spalten auf NULL; gemessen 16:33: `UPDATE ONLY chat SET workspace_id = NULL, user_id = NULL` → `null value in column "workspace_id" violates not-null constraint`. **Sein B-S1 ist bestätigt** (vier Verweise auf **einspaltige** Ziele, **kein** zusammengesetzter Verweis im Schema, 11/11 Tabellen ohne RLS) und **sein Weg weist ab** — nur die Löschregel muß **`NO ACTION`** (oder `CASCADE`) lauten. Weiche Löschungen gibt es: `chats.deleted_at`, `workspaces.archived_at`. Werkzeug: [`hilfen/mandantentrennung-probe.sql`](hilfen/mandantentrennung-probe.sql) (`ROLLBACK`, Rückstand `0 \| 0`) |
-| **V10** Sein README-Paarungsprüfer | **falsifiziert — er kann scheitern** | Mit vier absichtlichen Brüchen in einer Kopie außerhalb des Baums (`%TEMP%\paar-probe`, der Prüfer leitet seine Wurzel aus dem Modulpfad ab): Basis **exit 0**, dann **je exit 1** für fehlenden Abschnitt, tote Sprungmarke, Linkziel nur in einer Fassung und verschobene Überschrift-Ebene — **mit Ortsangabe** („Anzahl der Überschriften verschieden: 24 gegen 23", „Sprungmarke ohne Ziel: gibt-es-nicht", beide Überschriftentexte). **Zwei gemessene Eigenschaften:** der Vergleich ist **positionell** (ein fehlender Abschnitt erzeugt mehrere Zeilen — die erste ist der Befund), und die Wurzel kommt aus dem **Modulpfad**, nicht aus dem Arbeitsverzeichnis |
+| **B39** Der NIST-Beleg nennt den falschen Abschnitt | **offen, ein Wort — N** | Zitat wörtlich echt, **Fundstelle falsch**: §5.1.1.2 = **Memorized Secret Verifiers** (Paßwörter), die Regel steht in **§5.1.2.2 Look-Up Secret Verifiers** (NISTs Konformitätsdokument zitiert „(5.1.2.2)"). Dazu **Fassungsmischung**: Wortlaut aus **Revision 4**, Nummer wie Revision 3 gelesen. **Wichtiger:** ASVS 6.5.2 zitiert nur den **zweiten** Satz; **bindend** ist der erste — unter 112 Bit Entropie ist ein **Passwort-Hashverfahren** verlangt. Der Schluß des Entwurfs bleibt richtig (**B40**) |
+| **B40** Die Entropiebedingung ist **erfüllt**, nicht „nicht erfüllt" | **offen, Korrektur — N** | `randomToken(bytes = 32)` (Zeile **342**) zieht **32 Bytes aus `crypto.getRandomValues`** = **256 Bit**; `newSessionToken()` (385), `newCsrfPair()` (397); `tokenHash()` (365) = SHA-256 hex, DB prüft `^[0-9a-f]{64}$`. Das einfache SHA-256 in `api_keys.token_hash` ist damit **zulässig**. **Es fehlt die Erzwingung:** `randomToken` prüft nur `bytes ≥ 1`, kein Test hält ≥112 Bit fest — `randomToken(4)` wäre heute gültig. **Eine Zeile** (Zusicherung `bytes >= 16` + Längentest) statt Generator-Neubau || **V10** Sein README-Paarungsprüfer | **falsifiziert — er kann scheitern** | Mit vier absichtlichen Brüchen in einer Kopie außerhalb des Baums (`%TEMP%\paar-probe`, der Prüfer leitet seine Wurzel aus dem Modulpfad ab): Basis **exit 0**, dann **je exit 1** für fehlenden Abschnitt, tote Sprungmarke, Linkziel nur in einer Fassung und verschobene Überschrift-Ebene — **mit Ortsangabe** („Anzahl der Überschriften verschieden: 24 gegen 23", „Sprungmarke ohne Ziel: gibt-es-nicht", beide Überschriftentexte). **Zwei gemessene Eigenschaften:** der Vergleich ist **positionell** (ein fehlender Abschnitt erzeugt mehrere Zeilen — die erste ist der Befund), und die Wurzel kommt aus dem **Modulpfad**, nicht aus dem Arbeitsverzeichnis |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |
@@ -2794,6 +2795,50 @@ versioniert** (7 unverfolgte Pfade).
 
 ---
 
+## 2026-10-13 16:57–17:05 — Fünfzigster Takt: **seine Zitate nachgeprüft** — eine Fundstelle falsch (B39), eine eigene Aussage zu streng (B40), seine Zahl nachgemessen (V12)
+
+**Er hat zweimal committet** (`162d319` Argon2id-Kosten + NIST-Beleg, `f424418` Geheimnis-Entwurf mit 452
+Zeilen). Arbeitsstand: **29** Pfade (22 geändert, 7 unverfolgt). **B33 offen** (0 Treffer für einen
+Origin-Zaun), **B13 offen** (3 Tötungszeilen).
+
+**Der Anlaß: vier wörtliche Zitate in einem Entwurf, auf dem eine Entscheidung ruht.** Also habe ich die
+**Belege** geprüft, nicht die Meinung.
+
+**B39 — Fundstelle falsch, Zitat echt.** Er zitiert *„NIST SP 800-63B §5.1.1.2: All look-up secrets
+SHALL be stored in a hashed form using an approved hashing function."* Der Satz ist **wörtlich echt** —
+aber **§5.1.1.2 ist „Memorized Secret Verifiers"** (Paßwörter), die Look-up-Secret-Regel steht in
+**§5.1.2.2 „Look-Up Secret Verifiers"**, und NISTs **eigenes** Konformitätsdokument zitiert genau diese
+Anforderung als „(5.1.2.2)". Dazu eine **Fassungsmischung**: der Wortlaut stammt aus **Revision 4**, die
+Nummer wird wie Revision 3 gelesen — dort trägt die Regel die 112-Bit-Schwelle **in** sich. **Wichtiger
+als die Nummer:** ASVS 6.5.2 hat **zwei** Sätze; zitiert ist der zweite (Standard-Hash ab 112 Bit
+erlaubt), **bindend** ist der erste — unter 112 Bit ist ein **Passwort-Hashverfahren** verlangt.
+
+**B40 — die Bedingung ist erfüllt, nicht „nicht erfüllt".** Er schreibt, das Projekt erfülle die
+112-Bit-Bedingung *noch nicht*. Gemessen im Quelltext: `randomToken(bytes = 32)` zieht **32 Bytes aus
+`crypto.getRandomValues`** = **256 Bit**; `newSessionToken()` und `newCsrfPair()` rufen es mit 32 auf;
+`tokenHash()` liefert SHA-256 hex (64 Zeichen, die DB prüft `^[0-9a-f]{64}$`). Damit ist das einfache
+SHA-256 in `api_keys.token_hash` nach der von ihm **selbst** zitierten Regel **zulässig** — seine
+Entscheidung trägt. **Was fehlt, ist die Erzwingung:** `randomToken` prüft nur `bytes ≥ 1`, kein Test
+hält ≥112 Bit fest; `randomToken(4)` wäre heute gültig. Empfehlung: **eine Zeile** statt
+Generator-Neubau.
+
+**V12 — seine 19,7 ms nachgemessen.** Mit **seinen** Parametern (m = 19 456 KiB, t = 2, p = 1), 21
+Läufe, Bun **1.4.0** auf win32/x64: **Median 22,8 ms**, min 20,1 ms, max 27,5 ms. **Bestätigt in der
+Größenordnung** — seine Zahl liegt am unteren Rand meiner Streuung. Aber die **Streuung (7,4 ms)** ist
+größer als der Unterschied unserer Zahlen (2,9 ms): eine Zahl ohne Verfahren und Laufzahl ist
+**schwache Evidenz**. Und: für die 19,7 ms gibt es **kein Meßskript** im Repository — meine eigene
+Hausregel **H7** („kein Wert in eine Datei, der nicht vorher in einer Shell gestanden hat"), angewandt
+auf sein Dokument.
+
+**Ein eigener Fehler, klein:** mein Prüfaufruf `Bun.password.verify(pw, hash, { algorithm: … })` **warf**
+`TypeError: Expected algorithm to be a string`. **Sein Code ist richtig** —
+`packages/auth/auth/src/index.ts:211` ruft `verify(password, hash)` **ohne** Optionsobjekt. Der Fehler
+war meiner; notiert, weil ich dieselbe Strenge bei ihm anlege.
+
+**Grenze:** nichts von seinem Code gestartet (kein Benchmark, kein Dienst, kein Test); die 21 Hashläufe
+sind rund **0,5 s** reine Rechenzeit und verfälschen seine Messungen nicht.
+
+---
 ## Registereintrag
 
 `docs/INDEX.md`, Abschnitt **9 — Protokoll der Aufsicht**: alle Dateien dieses Ordners sind dort mit
