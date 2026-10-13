@@ -98,3 +98,37 @@ Oberfläche ohne eigenen Endpunktweg wäre eine Hülle.
 | Ob `1008` von einem Auth-Riegel oder vom fehlenden Gateway kommt | die Sonde sendet kein gültiges Gateway-Eröffnungsrahmen; der Auth-Riegel ist ausgeschlossen, weil `/` mit demselben Cookie **200** liefert |
 | Ob die Vorlagen-Oberfläche mit einem funktionierenden Gateway vollständig arbeitet | es gibt auf diesem Wirt keinen funktionierenden Gateway-Zustand zum Vergleich |
 | Wie viele Endpunkte der Client wirklich braucht | die Kopfzeilen zeigen nur ein Skript (`./assets/index-…js`); die Aufrufe stehen im gebündelten Client, nicht im HTML |
+
+---
+
+## Korrektur vom 13.10.2026 — dieser Befund ist so nicht haltbar
+
+**Der Satz „API ausgefallen" ist widerlegt.** Er steht oben und bleibt stehen —
+eine Momentaufnahme wird nicht rückwirkend geändert. Aber er darf nicht ohne
+diesen Vermerk gelesen werden.
+
+**Was an ihm falsch war.** Die Sonde prüfte **geratene** Pfade mit `GET`. Der
+Gateway des Cores registriert aber **eine** Route `/api` und ruft sie als
+`POST /api/<namespace>/<methode>`. Ein beliebiger Pfad liefert deshalb **404,
+auch wenn alles läuft** — und die 401 kam von der **Anmeldesperre**, die vor
+jeder Weiterleitung greift. Beides sagt über den Zustand des Gateways **nichts**.
+
+**Nachgemessen am 13.10.2026 mit Anmeldung** (Cookie aus der Token-Weiterleitung):
+
+| Prüfung | Ergebnis |
+|---|---|
+| `POST /api/goals/create` | **`{"type":"server-response","rpcId":"invalid-request","result":{"ok":false,"error":{"code":"gateway/bad-request",…`** |
+| `POST /api/status` | **404** `not found` |
+| `WS /api/remote.mux` | **`HTTP/1.1 101 Switching Protocols`** |
+
+**Der Gateway lebt.** Das Unterscheidungsmerkmal ist der **JSON-RPC-Rahmen**:
+„tot" wäre eine 404 **ohne** Rahmen, „lebt" ist eine Antwort **mit** Rahmen.
+
+**Was das für die Entscheidung bedeutet.** Der eigene Endpunktweg bleibt richtig —
+aus einem **anderen** Grund als zuerst angenommen: die API der Vorlage ist ein
+**RPC-Kanal**, kein Weg für einfache HTTP-Endpunkte wie `GET /api/health`. Zwei
+verschiedene Dinge, zwei Begründungen.
+
+**Fundstelle.** Befund **B16** der Aufsicht
+(`docs/protokoll/aufsicht/befunde.md`), Werkzeug
+`docs/protokoll/aufsicht/werkzeuge/api-erreichbarkeit.mjs`.

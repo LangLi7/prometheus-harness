@@ -190,7 +190,7 @@ Nachgemessen am 13.10.2026:
 | **Host startet** | `bun run start` → Adresse mit Token; Aufruf **200**, 35.664 Zeichen; ohne Token **401**, mit falschem Token **401**; Start bis zur Adresse **1,1 s** |
 | **Eigener Endpunkt** | `GET /api/health` → **200** (offen) · `GET /api/ready` → **401** ohne Anmeldung, **200** mit Sitzungscookie · `POST` → **405** · genaue Pfade, kein Präfix — [Beleg](docs/status/beleg-eigener-endpunkt.md) |
 | **Anmeldung des Cores** | Token-Weiterleitung **303** + Cookie; `GET /` mit Cookie **200**, ohne Cookie **401** — greift |
-| **API des Cores** | **ausgefallen.** `/api/*` → **401/404**, WS `/api/remote.mux` → **1008 Policy Violation**. Ursache: der `typert`-Stapel registriert sich nicht, das Gateway hängt daran — [Beleg](docs/review/api-flaeche.md) |
+| **API des Cores** | **lebt — die frühere Zeile hier war falsch.** `POST /api/goals/create` **mit** Anmeldung → **`{"type":"server-response","rpcId":"invalid-request","result":{"ok":false,"error":{"code":"gateway/bad-request"…`** — der JSON-RPC-Rahmen. `WS /api/remote.mux` **mit** Cookie → **`101 Switching Protocols`** |
 | **Eigener Kern** | **16 Pakete · 762 Tests grün · 0 rot** (26 Dateien, mit echter PostgreSQL) · **zwei** Pakete davon sind verdrahtet (`health`, `readiness`), die übrigen laufen noch nur in Tests |
 | **Datenbank** | PostgreSQL **17.11** + pgvector **0.8.7**, Redis **7.4.9** — als Stack in **einer** Datei; Rechtemodell mit vier Rollen belegt wirksam |
 | **Stack** | `bun install` **0,1 s** · `tsgo --noEmit` **18 Pakete / 0 rot** · Start **1,1 s** — kein Build-Schritt |

@@ -313,6 +313,44 @@ Arbeitsverzeichnis, Modulherkunft, Zustand von `node_modules` und den Grund.
 | Prüfungen in beiden Zeilenenden | LF-Checkout und CRLF-Checkout | **115 pass** · **115 pass** |
 | Linux-Hülle auf WSL2 | `sh scripts/install.sh --ohne-stapel` | erkennt WSL2, Docker-Lage, `/mnt/` |
 
+## Nachtrag: eine Aussage in der eigenen README war falsch
+
+**Gefunden beim Lesen der Befunde der Aufsicht (B16)**, dann selbst nachgemessen.
+
+Die README führte bis hierher die Zeile:
+
+> **API des Cores** | **ausgefallen.** `/api/*` → **401/404**, WS `/api/remote.mux`
+> → **1008 Policy Violation**. Ursache: der `typert`-Stapel registriert sich nicht.
+
+**Das war nicht belegt.** Die Sonde hatte **geratene** Pfade geprüft. Der Gateway
+registriert aber **eine** Route `/api` und ruft sie als
+`POST /api/<namespace>/<methode>` — ein beliebiger Pfad liefert deshalb **404,
+auch wenn alles läuft**. Und die 401 kam von der **Anmeldesperre**, die vor jeder
+Weiterleitung greift.
+
+**Nachgemessen mit Anmeldung** (Cookie aus der Token-Weiterleitung):
+
+| Prüfung | Ergebnis |
+|---|---|
+| `POST /api/goals/create` mit Cookie | **`{"type":"server-response","rpcId":"invalid-request","result":{"ok":false,"error":{"code":"gateway/bad-request","message":"invalid …`** |
+| `POST /api/status` mit Cookie | **404** `not found` |
+| `WS /api/remote.mux` mit Cookie | **`HTTP/1.1 101 Switching Protocols`** |
+
+**Der Gateway lebt.** Der JSON-RPC-Rahmen ist das Unterscheidungsmerkmal: „tot"
+wäre eine 404 **ohne** Rahmen, „lebt" ist eine Antwort **mit** Rahmen — und der
+`gateway/bad-request` ist die richtige Antwort auf eine leere Anfrage.
+
+**Was daraus folgt.** Die Entscheidung „eigener Endpunktweg, **weil die Vorlage
+keine erreichbare API hat**" steht auf einem Satz, der so nicht gilt. Der eigene
+Endpunktweg bleibt richtig — aber aus dem **anderen** Grund: die API der Vorlage
+ist ein RPC-Kanal (`POST /api/<namespace>/<methode>`), kein Weg für einfache
+HTTP-Endpunkte wie `GET /api/health`. Zwei verschiedene Dinge, zwei Begründungen
+— und die alte war falsch.
+
+Die README-Zeile ist korrigiert. Der frühere Befund in
+`docs/review/api-flaeche.md` bleibt stehen und trägt jetzt einen Vermerk — eine
+Momentaufnahme wird nicht rückwirkend geändert, sondern durch eine neuere ergänzt.
+
 ## Was hier **nicht** belegt ist — ehrlich
 
 1. **Der Treiber-Import-Fehler ist nicht erklärt.** Er ist reproduzierbar
