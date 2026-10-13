@@ -2,7 +2,7 @@
 
 > **Was das ist.** Die Kurzfassung von [`befunde.md`](befunde.md) und [`protokoll.md`](protokoll.md):
 > was **jetzt** zu tun ist, was erledigt ist, was **nicht** geprüft werden konnte. Stand:
-> **2026-10-13, 15:35**. Die Einzelbelege stehen in `befunde.md` — hier steht nur, was eine
+> **2026-10-13, 16:08**. Die Einzelbelege stehen in `befunde.md` — hier steht nur, was eine
 > Entscheidung braucht.
 >
 > **Wer das schreibt.** Die **Aufsicht** (Wächter-Rolle), nicht der bauende Agent. Jede Zahl hier ist
@@ -14,6 +14,24 @@
 > Diese Tabelle ist die **eine** Seite für den Menschen: was wirkt, wer es tun kann, und womit.
 > **Nichts davon tue ich selbst** — H1 (kein Neustart), H3 (mein Schreibbereich ist `docs/protokoll/`)
 > und A3 (erst einstufen, dann vollziehen) gelten.
+
+### Sofort — die zwei Punkte, die nicht warten
+
+**1. `pg_hba.conf` steht auf `trust` für `127.0.0.1/32`.** Gemessen am 13.10. 16:01: ein **absichtlich
+falsches** Kennwort meldet sich als `pmh_app` an (`select 1` → 1) — es wird **kein** Kennwort geprüft,
+auch als Superuser nicht. Die Bindung liegt nur auf `127.0.0.1`; auf diesem Rechner laufen aber **neun
+`node`-Prozesse** und ein `vite`-Entwicklungsserver, „nur lokal" heißt hier also **jeder lokale Prozeß**.
+**Vor jedem geplanten Zugriff von außen** (Tunnel, Container, WSL) **muß** das auf `scram-sha-256` stehen.
+
+**2. Die vier Rollenkennwörter sind im Repository veröffentlicht.** Gemessen: die Werte in `.env` sind
+**identisch** mit `.env.example`, `docker-compose.yml` und `README.md` (19/19/17/19 Zeichen) — also nicht
+*abgeflossen*, sondern **von Anfang an öffentlich**, in jedem Klon und in jedem Push. **Löschen hilft
+nicht**; Historie und Kopien behalten sie. **Sie müssen ersetzt werden** — und davor steht Punkt 1, sonst
+ist die Drehung unwirksam *und* unüberprüfbar. **Nicht betroffen:** die *erzeugten* Geheimnisse
+(`PMH_MASTER_KEY`, Modellschlüssel) — **14 echte Werte, 0 Treffer** in 53 Commits.
+
+**Reihenfolge in einem Satz:** erst `pg_hba` scharf stellen, dann drehen, dann den Installer erneut
+laufen lassen.
 
 | # | Was | Wer | Warum zuerst | Befehl / Nachweis |
 |---|---|---|---|---|
@@ -71,6 +89,7 @@ nächsten Lauf. **Stand 14:12 gemessen:** null Hosts, null Launcher, **0,0 MB**.
 | **B33** | **Der neue Anhängepunkt `pmh-attach` hat keinen Zaun und keine Anmeldung** — während der Kern daneben beides hat (`requestRejection`). `conn.go` prüft nur `Connection: upgrade`/`Upgrade: websocket` (Protokoll, **keine** Autorisierung); die Suche nach `Origin` in `internal/` findet nur die **Testdatei**, die einen sendet. Alle `Bearer`-Stellen betreffen den **Upstream** — der Dienst ist dort **Client** | **Gut und gemessen:** Standardbindung `127.0.0.1`, Wildcard nur mit `--allow-wildcard`, **läuft nicht**, keine Abhängigkeiten, `go vet` exit 0 (V6). **Die gefährliche Kombination:** `--allow-wildcard` bindet an `0.0.0.0` **ohne** jedes Credential — und eine beliebige Webseite könnte ohne Origin-Prüfung mitlesen. **Latent**, weil noch kein echter Upstream hängt; akut, sobald er hängt | 1) Host/Origin-Prüfung wie im Kern vor dem Upgrade · 2) `--allow-wildcard` **an ein Token binden** (ohne Token abbrechen) |
 | **B34** | **Die Ueberschrift des Installations-Belegs verspricht mehr, als der Lauf voraussetzt.** Sie sagt „ohne Vorbedingung", die eigene Schritt-1-Ausgabe lautet aber `ok bun · ok docker · ok git`. Gemessen: **Bun** wird von `install.mjs` auf **beiden** Plattformen selbst installiert, `curl`/`git` von `install.sh`; **Docker** dagegen **von nichts** — Voraussetzung ist Docker **mit laufendem Dienst**. In seiner Container-Tabelle fehlt genau diese Spalte | Es ist eine **begruendete** Entscheidung, keine Nachlaessigkeit (Docker Desktop still zu installieren waere eine Lizenzentscheidung — so steht es in `install.mjs`). Aber wer auf einem **nackten** Rechner steht, haelt den Installer fuer kaputt. Fix: ein Halbsatz in der Ueberschrift + eine Spalte `docker` in der Tabelle | `Select-String -Path scripts\install.mjs -Pattern bun.sh/install` → belegt, dass Bun nachinstalliert wird |
 | **B35** | **Ist die neue Harness ressourceneffizienter?** Gemessen gegen **drei** Bäume. Gegen die *Quelle* (9.029 MB) sieht es gut aus — aber 8.642 MB davon sind `node_modules` (pnpm, also der Paketmanager). Gegen den **laufenden DSH-Arbeitsbaum** (1.553 MB) ist das Ziel **GROESSER: 1.870 MB (+317)** — davon **697,6 MB Rust-`target/`**. Ohne dieses nicht ausgelieferte Bauverzeichnis bleiben **1.172,8 MB → ~24 % kleiner** als DSH, bei **achtmal weniger eigenem Code** (60 `.ts` / 23.374 Zeilen gegen 2.542 / 562.378) | **Betrieb: nichts belegt, in keine Richtung.** Die laufende DSH-GUI belegt 2.407,9 MB (mit **dieser** Sitzung), ein frischer PMH-Host lag bei 184–198 MB (13:41 gemessen) — **nicht vergleichbar**, ein DSH-Host zu starten ist mir verwehrt (H1). **Der eigentliche Befund:** 49 Go- und 16 Rust-Dateien (20.379 Zeilen) gegen `packages` mit **0,9 MB** — **gebaut wird viel, verdrahtet ist wenig** | `Get-ChildItem -Recurse -File \| Measure-Object -Sum Length` je Baum; `node werkzeuge\zeilen-zahl.mjs <baum> ts tsx go rs` |
+| **B36** | **Die teure Vorgabe des eigenen Sitzungsschreibers steht ohne Begruendung da.** `options.flushEvery ?? 1` an zwei Stellen (`index.ts:368`, `:518`) - ein Schreibvorgang je Ereignis. Sein Benchmark misst dafuer 600-632 ms je 2000 Ereignisse gegen 9,4-12,0 ms gebuendelt; meine Nachmessung: Faktor **184x** (Bun) / 206x (Node), Kette hilft nicht (1,03x / 0,99x) | **Latent**: das Paket ist **nicht verdrahtet** - kein Profil-Eintrag, keine Referenz in `apps/cli`, keine Abhaengigkeit im Wurzel-`package.json`. Es laeuft heute nicht im Host; akut beim Anschliessen des Sitzungsspeichers. **Der Kern hat gar kein `flushEvery`** - seine Schnittstelle ist `appendBatch(meta, events, ...)`, also stapelweise per Vertrag; die Vorgabe ist die des Ports, und die Dokumentation nennt nur die Zahl, keinen Kompromiss | Entweder den Kompromiss neben die Vorgabe schreiben (was kauft sie, was kostet sie) oder die Vorgabe auf einen gebuendelten Wert setzen - ein Satz bis ein Wort |
 | **V4/V5** | **Sein Nachweis ist reproduziert** — über **15 Stunden** und bei laufender Arbeit: Export- und Inhalts-Digest, 20 Dateien / 223'508 B, Rückexport **identisch** zum Dokument von 00:2x. Mit festem `--created-at` sind die Bündel sogar **bit-gleich** (`06a69695…`) — seine Prosa in §1 bestreitet das zu allgemein, **sein eigener Test** behauptet es. Und `bun test` → **158 pass · 0 fail · 380 Prüfaufrufe · 6 Dateien**, exit 0, wie dokumentiert | **Die stärkste Form, die ein Nachweis haben kann: wiederholbar, nicht einmalig gelungen.** Die Suite habe ich bewußt gewählt (0 geänderte Dateien unter `packages/units/`) — nach **seiner eigenen** Regel aus §5 gegen Tests über einen halbfertigen Stand | zweimal exportieren mit **festem** `--created-at`, dann `Get-FileHash` beider Bündel vergleichen |
 
 | **B22** | **erledigt** — die Waisen sind **erklärt** (B23), **aufgeräumt** und die Ursache ist **behoben**: um 13:41:50 noch **sechs** (1,13 GB, Alter bis 11,4 min), um 13:42 **null**; sein Lauf um 13:43 hinterließ **drei** weitere (591,1 MB, Ports 5780/5781/5790), auch die sind um **14:12 weg** (null Hosts, null Launcher, 0,0 MB). Der Nachzähl-Schritt, den ich empfohlen hatte, steht jetzt **im Skript** (Zeilen 189–198) | Sechs Hosts = sechs Ports, sechs Harness-Homes, **1,13 GB**; dazu blockierten sie die eigenen nächsten Läufe (Fall 1 fiel deshalb um). **Bleibt nützlich:** [`hilfen/waisen-aufraeumen.ps1`](hilfen/waisen-aufraeumen.ps1) als Netz — Herkunft entscheidet, das Alter siebt nur die Kinder eines laufenden Tests aus (Trockenlauf; `-Anwenden` beendet) |

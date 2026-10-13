@@ -2468,6 +2468,63 @@ geprüft, ob ein Entwicklungsserver läuft. Nachgeholt: **es läuft einer** —
 **Server**-Pakete sicher bei „nicht in Kraft" (beim Start um 09:39 geladen), aber der **Client**-Anteil
 **kann** über HMR live sein. Die Bedingung meines Vorbehalts ist **erfüllt** — das gehört zur Aussage.
 
+## 2026-10-13 15:57–16:05 — Fünfundvierzigster Takt: **sein Benchmark-Befund verifiziert** (V9), die teure Vorgabe (B36) — und ein Fremdreview, das meinen **Ton** beanstandet
+
+**Was er geliefert hat.** `782f89d` (15:57) füllt `benchmarks/` (acht leere Ordner aus der Vorlage) mit
+einem Sammelläufer, Meßbausteinen und 33 Prüfungen der Meßbausteine — und **findet dabei einen echten
+Fehler im eigenen Code**: `flushEvery 1` → 2000 Ereignisse in **600–632 ms** (Budget 250 = **rot**),
+`flushEvery 256` → **9,4–12,0 ms**.
+
+**V9 — verifiziert, mit eigener Nachmessung.** Drei Dinge geprüft:
+
+1. **Die Vorgabe stimmt:** `options.flushEvery ?? 1` an **zwei** Stellen (`index.ts:368`, `:518`), Puffer
+   schreibt bei `length >= flushEvery` (Zeile 276) — bei 1 also nach **jedem** Ereignis.
+2. **Aber sie ist *seine*, nicht geerbte:** der **Kern** hat gar kein `flushEvery`; seine Schnittstelle ist
+   **`appendBatch(meta, events, …)`** (`session-persistence-jsonl/src/index.ts:422`) und nimmt ein **Feld**
+   von Ereignissen — stapelweise **per Vertrag**. Die Ein-Ereignis-Vorgabe hat der Port hinzugefügt, und
+   ihre Dokumentation nennt nur die Zahl: *„Vorgabe 1"* — **keine** Begründung, **kein** Wort über Kosten
+   oder Haltbarkeit.
+3. **Seine Mikromessung habe ich nachgemessen** — mit **seinen** Regeln (dreimal aufwärmen, Median aus
+   sieben Läufen, Streuung), in `%TEMP%`, mit Bun **und** Node:
+
+| 500 Zeilen à 280 Byte | seine Messung | **meine (Bun 1.4.0)** | meine (Node 24.19) |
+|---|---|---|---|
+| 500 × `appendFile` einzeln | 97,3 ms | **84,8** (75,5–93,7) | 119,3 |
+| 1 × `writeFile` gebündelt | 0,4 ms | **0,5** (0,4–0,9) | 0,6 |
+| 500 × `appendFile` in einer Kette | 99,6 ms | **87,4** | 118,2 |
+| **Faktor einzeln / gebündelt** | 240× | **184×** | 206× |
+| Kette gegen einzeln | ≈ 1,0 | **1,03×** | 0,99× |
+
+**Sein Befund hält:** es ist die **Zahl der Aufrufe**, nicht die Reihenfolge und nicht ein `fsync`. Meine
+Werte liegen niedriger als seine (184 statt 240) — bei Plattenmessungen zu erwarten, und genau deshalb
+ist seine Regel *„jede Zahl mit Streuung"* richtig. **Sein Meßgerüst ist selbst sauber:** Aufwärmen nie
+mitgezählt, Median statt Mittelwert, Messungen unter 1 ms abgelehnt, ein **werfendes Gate ist ein
+Befund**, fehlende Messungen werden **gemeldet statt genullt** — und die sieben leeren Gates werden als
+übersprungen **mit Grund** genannt: *„Ein Gate, das nichts mißt und grün meldet, nimmt den Platz der
+echten Prüfung ein."*
+
+**B36 (N, latent) — die teure Vorgabe steht ohne Begründung da.** Der Grund für `1` steht nirgends: es
+gibt **keinen** Hinweis, daß sie die *Haltbarkeit je Ereignis* kauft. Wenn ja, gehört das dorthin; wenn
+nicht, ist es die teure Vorgabe ohne Zweck. **Und das Paket ist nicht verdrahtet** — geprüft: kein
+Eintrag im Profil oder Profil-Patch, keine Referenz in `apps/cli`, keine Abhängigkeit im Wurzel-
+`package.json`. Es läuft heute also **nicht** im Host; akut wird es beim Anschließen des
+Sitzungsspeichers.
+
+**Und ein Fremdreview, das ich annehme.** Der Betreiber hat diese Spur einem **zweiten Modell** vorgelegt.
+Drei Punkte: `pg_hba: trust` (Sachpunkt), Kennwörter gelten als kompromittiert (Sachpunkt), und *„die
+Priorisierung würde ich ernster nehmen als seine Lobpassagen"* (Form).
+
+**Gemessen um 16:01, in dieser Minute:** `trust` gilt weiter, ein **falsches** Kennwort meldet sich als
+`pmh_app` an; die vier Rollenkennwörter sind weiterhin **identisch mit den veröffentlichten
+Vorlagenwerten**; die Bindung liegt nur auf `127.0.0.1` ✓. Beide Sachpunkte sind also **offen und
+bestätigt** — und der zweite ist präziser als „abgeflossen": sie **waren nie geheim**. Nicht betroffen:
+die erzeugten Geheimnisse (**14 Werte, 0 Treffer** in 53 Commits).
+
+**Was ich geändert habe, wegen der Formkritik:** die zwei Sicherheitspunkte stehen jetzt als Block
+**„Sofort"** über der Handlungsliste in `LAGE.md` — mit Folge und Befehl und **ohne jede Wertung**. Die
+Anerkennung bleibt in der Fairness-Tabelle, wo sie keine Entscheidung trägt. **Sechste eigene Korrektur
+dieser Sitzung, und die erste, die nicht aus einer Messung kommt, sondern aus einer Rückmeldung.**
+
 ---
 
 ## Offen / nächster Takt

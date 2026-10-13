@@ -2818,6 +2818,91 @@ oben benannt (die vierte Tabelle, der bewachte Rücksetzer).
 Datenbank mit `pg_hba: trust` (**B28**) ist **ihre** PostgreSQL. Der Abgleich ändert daran nichts —
 **B28 bleibt offen.**
 
+## V9 — Sein Benchmark-Befund ist **verifiziert** — mit meiner eigenen Nachmessung (Verifikation, kein Befund)
+
+**Anlaß.** Er hat mit `782f89d` (15:57) ein **Benchmark-Gerüst** gebaut (`benchmarks/`, Sammelläufer,
+Meßbausteine, 33 Prüfungen der Meßbausteine) und dabei **einen echten Fehler im eigenen Code** gefunden:
+
+```
+writeSession (flushEvery 1),   2000 Ereignisse:  600–632 ms   ROT (Budget 250)
+writeSession (flushEvery 256), 2000 Ereignisse:  9,4–12,0 ms  ok
+```
+
+**Was ich geprüft habe — drei Dinge:**
+
+**1. Die Vorgabe stimmt.** `packages/agent/session-persistence-jsonl/src/index.ts` setzt
+`options.flushEvery ?? 1` an **zwei** Stellen (Zeile 368 und 518); der Puffer wird erst bei
+`#buffer.length >= #flushEvery` geschrieben (Zeile 276) — bei 1 also **nach jedem Ereignis**.
+
+**2. Aber die Vorgabe ist *seine*, nicht geerbte — und sie ist ohne Begründung.** Der **Kern** hat gar
+kein `flushEvery`; seine Schnittstelle heißt **`appendBatch(meta, events, …)`** und nimmt ein **Feld** von
+Ereignissen (`session-persistence-jsonl/src/index.ts:422`), dazu `encodeEventBatch(events)`, atomarer
+Ersatz, Verzeichnis-`fsync`, zstd. Der Kern arbeitet also **stapelweise per Vertrag**; die
+Ein-Ereignis-Vorgabe hat der Port **hinzugefügt**. Und ihre Dokumentation sagt nur: *„Zahl der Ereignisse,
+die gepuffert werden, bevor geschrieben wird. **Vorgabe 1**."* — **kein Wort über die Kosten, kein Wort
+über die Haltbarkeit.**
+
+**3. Seine Mikromessung habe ich nachgemessen** — mit **seinen** Regeln (dreimal aufwärmen, Median aus
+sieben Läufen, jede Zahl mit Streuung), gegen ein Verzeichnis in `%TEMP%`, mit Bun **und** Node:
+
+| 500 Zeilen à 280 Byte | seine Messung | **meine (Bun 1.4.0)** | meine (Node 24.19) |
+|---|---|---|---|
+| 500 × `appendFile` einzeln | 97,3 ms | **84,8 ms** (Streuung 75,5–93,7) | 119,3 ms |
+| 1 × `writeFile` gebündelt | 0,4 ms | **0,5 ms** (0,4–0,9) | 0,6 ms |
+| 500 × `appendFile` in einer Kette | 99,6 ms | **87,4 ms** | 118,2 ms |
+| **Faktor einzeln / gebündelt** | **240×** | **184×** | 206× |
+| Kette gegen einzeln | ≈ 1,0 | **1,03×** | 0,99× |
+
+**Sein Befund hält.** Größenordnung, Schlußfolgerung und der entscheidende Punkt stimmen: **es ist die
+Zahl der Aufrufe**, nicht die Reihenfolge und nicht ein `fsync` — die Kette hilft nicht (1,03×). Meine
+Zahlen liegen **niedriger** als seine (184 statt 240), was bei Plattenmessungen zu erwarten ist; genau
+deshalb ist seine Regel *„jede Zahl mit Streuung"* richtig.
+
+**Und sein Meßgerüst ist selbst sauber gebaut:** Aufwärmen wird nie mitgezählt (erster Lauf 1,81× teurer),
+Median statt Mittelwert, eine Messung unter 1 ms wird abgelehnt, ein **werfendes Gate ist ein Befund**
+(sonst verdeckt ein Fehler alle Messungen), und eine fehlende Messung wird **gemeldet, nicht genullt**.
+Dazu: die **sieben übrigen Gates bleiben leer und werden als übersprungen genannt — mit Grund**
+(*„Ein Gate, das nichts mißt und grün meldet, nimmt den Platz der echten Prüfung ein."*). Das ist genau
+die Haltung, die dieses Projekt von anderen einfordert.
+
+## B36 — Die teure Vorgabe des eigenen Sitzungsschreibers steht **ohne Begründung** da — **N** (latent)
+
+**Der Befund.** `flushEvery ?? 1` ist die Vorgabe des eigenen Sitzungsschreibers. Gemessen (V9, und von
+ihm selbst): dieser Weg kostet **600–632 ms** für 2000 Ereignisse gegen **9,4–12,0 ms** gebündelt — auf
+der Mikroebene **184×** (meine Messung, Bun). **Und der Grund für die Vorgabe steht nirgends:**
+die Dokumentation der Option nennt nur die Zahl, keinen Kompromiß. Es gibt **keinen** Hinweis, daß 1 die
+*Haltbarkeit* je Ereignis kauft — wenn das die Absicht ist, gehört sie dorthin; wenn nicht, ist es die
+teure Vorgabe ohne Zweck.
+
+**Warum nur N und ausdrücklich latent:** das Paket
+`@prometheus-harness/session-persistence-jsonl` ist **nicht verdrahtet** — geprüft: kein Eintrag im
+Profil und im Profil-Patch, keine Referenz in `apps/cli`, keine Abhängigkeit im Wurzel-`package.json`.
+Es läuft also **heute** nicht im Host; akut wird es, sobald der Sitzungsspeicher angeschlossen wird —
+und das ist der nächste Schritt dieses Vorhabens. Dazu paßt die Zeile aus **B35**: *„gebaut wird viel,
+verdrahtet ist wenig."*
+
+**Empfehlung, ein Satz statt einer Änderung — beides ist vertretbar:**
+
+1. **Wenn 1 die Haltbarkeit kauft:** neben die Vorgabe schreiben, *was* sie kauft und *was* sie kostet
+   (die Zahl steht in seinem Benchmark), damit niemand sie „wegoptimiert".
+2. **Wenn nicht:** die Vorgabe auf einen gebündelten Wert setzen — ein Wort — und den Haltbarkeitsfenster
+   im Kommentar nennen.
+
+## Fremdreview vom 13.10.2026, 16:00 (zweites Modell, über den Betreiber) — zwei Sachpunkte und eine Kritik an **meinem Ton**
+
+**Der Betreiber hat diese Spur einem zweiten Modell vorgelegt.** Zwei sachliche Punkte, eine Kritik an
+der Form. Alle drei sind berechtigt; ich schreibe auf, was sie an meinen Zahlen ändern.
+
+| Punkt des Reviews | Was ich **in dieser Minute** gemessen habe | Folge für das Protokoll |
+|---|---|---|
+| *„`pg_hba: trust` heißt, daß sich jeder, der den Postgres-Port erreicht, ohne Passwort verbinden kann. Solange die Datenbank nur auf localhost lauscht, ist das Risiko begrenzt. Sobald externer Zugriff geplant ist, muß das vorher auf `scram-sha-256` stehen."* | **bestätigt (16:01)**: `trust` steht für `local`, `127.0.0.1/32`, `::1/128`; ein absichtlich **falsches** Kennwort meldet sich als `pmh_app` an (`select 1` → 1). Bindung `5432/tcp -> 127.0.0.1:5432` — nur lokal ✓ | **Ich schärfe die Formulierung:** „nur lokal" ist auf **diesem** Rechner schwach — es laufen **neun `node`-Prozesse** und ein `vite`-Entwicklungsserver, „lokal" heißt hier also **jeder lokale Prozeß**. Vor jedem Zugriff von außen (Tunnel, Container, WSL) muß `scram-sha-256` **vorher** stehen (**B28**) |
+| *„Kennwörter drehen heißt, daß Zugangsdaten irgendwo offenliegen … Wenn sie jemals in ein Repo mit Push gelandet sind, gelten sie als kompromittiert. Dann reicht Löschen nicht, sie müssen ersetzt werden."* | **bestätigt — und der Grund ist stärker als „abgeflossen":** die vier Rollenkennwörter in `.env` sind **identisch mit den im Repository veröffentlichten Vorlagenwerten** (19/19/17/19 Zeichen, geprüft). Sie sind nicht nachträglich bekannt geworden, sie **waren nie geheim** | **Keine Korrektur, sondern Bestätigung.** Zusatz aus meiner Leckprüfung: die **erzeugten** Geheimnisse (`PMH_MASTER_KEY`, Modellschlüssel) stehen in **keinem** der 53 Commits — **14 Werte, 0 Treffer**. Die Exposition ist genau die veröffentlichten Platzhalter (**B26**) |
+| *„Die Priorisierung des Überwachungs-Agenten würde ich ernster nehmen als seine Lobpassagen."* | **berechtigt.** `LAGE.md` §0 ist sachlich und lobfrei (nachgesehen) — aber in **`befunde.md`** und in **meinen Berichten** stehen viele Wertungen („vorbildlich", „besser als verlangt", „mehr wert als …"). Sie **verwässern die Dringlichkeit**: wer Lob und Befund im selben Ton liest, überliest die zwei Punkte, die zählen | **Geändert:** die zwei Sicherheitspunkte stehen ab jetzt als Block **„Sofort"** über der Handlungsliste, mit Folge und Befehl und **ohne** jede Wertung. Anerkennung bleibt in der Fairness-Tabelle — dort trägt sie keine Entscheidung |
+
+**Der Unterschied, den das Review benannt hat:** „richtig priorisiert" und „richtig **gelesen**" sind
+nicht dasselbe. Meine Reihenfolge war die richtige; mein **Ton** hat sie zugedeckt. Das ist genau das,
+was dieses Protokoll von anderen Nachweisen verlangt — und ich habe es selbst nicht eingehalten.
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
@@ -2887,6 +2972,7 @@ Datenbank mit `pg_hba: trust` (**B28**) ist **ihre** PostgreSQL. Der Abgleich ä
 | 14:56 | Beim Nachfahren seines Rundlaufs habe ich `--unit ../../services/pmh-nix` angegeben — von `packages/units/unit-export` aus zeigt `../..` auf `packages/`, nicht auf die Wurzel. Drei Aufrufe scheiterten. | Korrigiert auf absolute Pfade; danach lief alles. **Sein Werkzeug hat den Fehler in Sekunden geklärt**, weil es ihn **benennt**: `[manifest_missing] unit.json: Kein unit.json in diesem Ordner.` und `[registry_root_missing] … Die Registry-Wurzel existiert nicht oder ist kein Verzeichnis.` | Ein eigener Pfadfehler ist trivial — **erwähnenswert ist die Gegenprobe**: eine Fehlermeldung, die den **Pfad** und den **Grund** nennt, macht aus einer Suche eine Sekunde. Genau das, was ich an anderen Stellen eingefordert habe (B16/B20: eine Sonde, die ihre Frage nicht beantworten kann). **Hier war sein Entwurf besser als mein Aufruf.** |
 | 15:02 | Ich sah im Checkout `adapter.js` mit Datum **10-10** und schloß daraus, die heutigen Änderungen seien **nicht gebaut**. | **Falsch gezogen.** Ich hatte nur die **ersten drei** Artefaktdateien angesehen; die **neuesten** sind von **heute 10:45** (33 Dateien von heute) — es **wurde** gebaut. Der Befund steht danach auf dem, was er belegen kann: der Start der GUI um **09:39** entscheidet über die Wirkung, nicht der Build. | Ein Blick auf drei von 33 Dateien und daraus einen Schluß — dieselbe Familie wie meine früheren Zählfehler (12:28, 13:47). Aufgefallen ist es, weil ich die Artefaktzeit **gegen die Quellzeit** hielt und die Zahlen nicht zusammenpaßten. **Erst zählen, dann schließen** — zum vierten Mal in dieser Sitzung notiert, und diesmal habe ich es **innerhalb** der Runde bemerkt. |
 | 15:05 | Nach dem `go build` schrieb ich „**vorher waren es 5**" Einträge unter `services/pmh-attach` und hätte daraus geschlossen, **mein Bau** habe zwei Dateien in ihren Baum geschrieben. | **Die 5 war erfunden, nicht gemessen.** Nachgezählt: es sind **7** — **vorher und nachher** (3 geänderte Go-Dateien, 4 unverfolgte: README, zwei Tests, `unit.json`). `go.mod` unverändert, **keine** `go.sum` entstanden, das Modul ist abhängigkeitsfrei (74 B). | Ich hätte **mich selbst** eines Verstoßes gegen meine eigene Hausregel H2 beschuldigt — mit einer Zahl, die nie in einer Shell stand. Aufgefallen ist es, weil ich die 7 Einträge **aufgelistet** habe, statt der Zahl zu glauben. **Vierte Fassung derselben Ursache** (12:28, 13:47, 15:02, jetzt): erst zählen, dann schließen. |
+| 16:05 | Ein Fremdreview (zweites Modell, über den Betreiber) urteilte: *„Die Priorisierung des Überwachungs-Agenten würde ich ernster nehmen als seine Lobpassagen."* | **Berechtigt.** `LAGE.md` §0 ist sachlich und richtig sortiert — aber **meine Berichte** werteten viel („vorbildlich", „besser als verlangt", „mehr wert als …"). Ich habe die zwei Sicherheitspunkte als Block **„Sofort"** über die Handlungsliste gestellt, **ohne** jede Wertung, und die Anerkennung dort gelassen, wo sie keine Entscheidung trägt (Fairness-Tabelle). | **Sechste eigene Korrektur dieser Sitzung — und die erste, die nicht aus einer Messung kommt, sondern aus einer Rückmeldung.** Ein eigenes Muster, das ich bei anderen beanstandet hätte: Lob und Befund im selben Ton. Wer beides gleich liest, überliest das Dringende. |
 | 15:09 | Mein **neues** Werkzeug `stand-abgleich.mjs` meldete für **B31** „gemessen 0" statt 6 — ich hätte den Befund als **behoben** ausgegeben. | Ursache: `lauf()` las nur **stdout**; die sechs Warnungen des Registry-Scans gehen nach **stderr**, und der Scan endet mit exit 0. **Erster Reparaturversuch unvollständig:** ich änderte nur den **Fehler**pfad (`fehler.stdout + fehler.stderr`) — bei exit 0 blieb es bei stdout allein, die Messung war also **unverändert falsch**. Erst der Wechsel auf `spawnSync` (liefert beide Ströme) ergab 6. | **Zwei Behebungen an derselben Stelle, und die erste nicht nachgemessen.** Ein Wächter, der einen offenen Befund als erledigt meldet, ist schlimmer als keiner. Die Lehre ist nicht „stderr mitlesen", sondern: **wer eine Sonde repariert, mißt danach noch einmal** — die dritte Messung steht im Protokoll. |
 | 15:19 | Beim Einfügen des B16-Nachtrags habe ich als Anker die **Überschrift** `## B16 — …` benutzt und sie im Ersatztext **nicht** wiederholt. | Der Befundabschnitt stand danach **ohne Überschrift** — und mein eigenes Prüfwerkzeug hätte es gemeldet („Befundabschnitte in befunde.md vorhanden"). **Sofort** bemerkt und in derselben Minute wiederhergestellt, mit dem Zusatz „(erledigt 15:14)" in der Überschrift. | **Fünfte Fassung derselben Ursache** (12:29, 13:56, 14:32, 15:19) — ein Anker, der eine ganze Zeile oder Überschrift ist, ersetzt sie. Die Lehre hat **viermal nicht geholfen**; was hilft, ist die Handlung: nach **jeder** Änderung die Überschriftenliste ausgeben. **Und ein Trost:** die Prüfung dafür existiert bereits und läuft in jedem meiner Takte — diesmal habe ich es vor ihr bemerkt. |
 
