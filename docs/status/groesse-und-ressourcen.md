@@ -90,10 +90,26 @@ geladen). Das Kind mißt sich **selbst** (`process.hrtime.bigint()`,
 | `postgres` (SQL-Treiber) | 7,04 ms | 30 MB | 2 MB |
 | **unser Speicherpaket** | **3,23 ms** | 29 MB | 2 MB |
 | Kern: Modellschicht | 11,93 ms | 33 MB | 2 MB |
-| **Kern: App-Boot** | **26,82 ms** | **37 MB** | 3 MB |
+| **Kern: App-Boot** | **27–31 ms** (s. u.) | **37 MB** | 3 MB |
 
 > **Der Start kostet 25 MB, bevor irgendetwas geladen ist. Der Kern legt 12 MB und
-> 26,8 ms Importzeit drauf. Unser eigener Code: 3,2 ms.**
+> rund 29 ms Importzeit drauf. Unser eigener Code: 3,2 ms.**
+
+**Die Zeit ist eine Spanne, der Speicher ist ein Punkt.** Nachdem ich die Tabelle
+geschrieben hatte, zeigte ein Kontrollauf für „App-Boot" **28,7 ms** statt der notierten
+**26,82 ms**. Statt die Zahl zu glauben, habe ich **neun Läufe** derselben Sonde
+gemessen (`startkosten.mjs`, je exit 0):
+
+```
+26,82 · 28,70 · 28,75 · 28,81 · 28,94 · 29,24 · 29,56 · 29,86 · 29,87 · 30,29 · 31,1   ms
+```
+
+Das sind **27–31 ms**, Mittel rund **29 ms** — die erste Zahl war der schnellste Lauf,
+nicht der typische. Der **Speicher** dagegen war in **jedem** Lauf exakt **25 MB**
+(nichts) und **37 MB** (App-Boot). Deshalb steht die Zeit ab hier als Spanne: eine
+einzelne Importzeit ist keine Messung, sondern eine Stichprobe. Die Zahlen der übrigen
+Zeilen sind ebenfalls Einzelläufe aus derselben Reihe und damit mit derselben Vorsicht
+zu lesen; belastbar ist an ihnen die **Größenordnung** (0,75–12 ms) und der Speicher.
 
 **Damit ist die Frage „ressourceneffizient?" beantwortet** — jedenfalls zur Hälfte:
 
