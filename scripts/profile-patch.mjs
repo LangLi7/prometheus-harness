@@ -59,6 +59,17 @@ export const MARKE_ENDE = '# <<< pmh: eigene Einträge'
 const LEERE_LISTE = /^\s*\[\]\s*$/u
 
 /**
+ * Die Fähigkeitsprüfung für das PTC-Zwischenstück — siehe {@link bereichsZeilen}.
+ *
+ * **Warum als Ausdruck im YAML und nicht als Entscheidung hier.** Wird die
+ * Patch-Schicht auf einen anderen Rechner oder eine andere Laufzeit kopiert, muß
+ * sie dort **weiter stimmen**. Eine hier getroffene Entscheidung stünde als
+ * `disabled: true` fest und wäre auf Node **falsch** — dort funktioniert PTC.
+ */
+const PTC_FEHLT =
+  "typeof process.getBuiltinModule('node:module').stripTypeScriptTypes !== 'function'"
+
+/**
  * Die Zeilen, die wir in die Patch-Schicht eintragen.
  *
  * **Die Form ist `insert:` — die einzige, die Zeilen anfügt.** Siehe Dateikopf.
@@ -74,6 +85,46 @@ const LEERE_LISTE = /^\s*\[\]\s*$/u
  * der Webserver-Dienst existiert, statt uns in einen `undefined`-Zugriff laufen
  * zu lassen.
  *
+ * ## Das PTC-Zwischenstück wird abgeschaltet, wo es nicht laufen kann
+ *
+ * **Der Befund, der diese Zeilen erzwungen hat.** Der Host startete und lieferte
+ * HTTP 200 — aber **keine neue Sitzung ließ sich anlegen**:
+ *
+ * ```
+ * New session failed: agent-preset/invalid:
+ *   workflow-ptc (@deepseek-ai/dsh-workflow-ptc): waiting for ptcRuntime
+ *   tool-workflow (@deepseek-ai/dsh-tool-workflow): waiting for workflowEngine
+ * ```
+ *
+ * Die Ursache ist gemessen und liegt **nicht** bei uns:
+ *
+ * | Laufzeit | `process.getBuiltinModule('node:module').stripTypeScriptTypes` |
+ * |---|---|
+ * | Node v24.19.0 | **function** |
+ * | Bun 1.4.0 | **`undefined`** |
+ *
+ * `@deepseek-ai/dsh-ptc-runtime-node` **importiert** diese Funktion in Zeile 1
+ * seines `lib/index.js` und benutzt sie in Zeile 955, um TypeScript aus einem
+ * PTC-Programm zu entfernen. Unter Bun scheitert schon der Import
+ * (`Export named 'stripTypeScriptTypes' not found in module 'node:module'`),
+ * also registriert sich `ptcRuntime` nie, `workflow-ptc` wartet ewig, und die
+ * Voreinstellung `standard` gilt als ungültig. **Das PTC-Zwischenstück ist ein
+ * reines Node-Paket.**
+ *
+ * **Warum abschalten und nicht nachbauen.** Ein Ersatz für
+ * `stripTypeScriptTypes` wäre eine Attrappe an einer sicherheitsrelevanten Stelle:
+ * die Funktion bereitet Programmtext auf, der danach **ausgeführt** wird. Wer sie
+ * falsch nachbaut, führt falschen Code aus. Das Zwischenstück wird deshalb
+ * **ehrlich abgeschaltet**, wo es nicht laufen kann — und auf Node bleibt es an.
+ * Die Prüfung ist eine **Fähigkeitsprüfung**, keine Plattformabfrage: käme die
+ * Funktion in einer künftigen Bun-Fassung, schaltet sie sich selbst wieder ein.
+ *
+ * **Was das kostet, ehrlich benannt:** PTC (Werkzeuge in Stapeln aufrufen statt
+ * einzeln) steht unter Bun **nicht** zur Verfügung. Wer es braucht, muß den Host
+ * unter Node starten — dann sind aber unsere TypeScript-Pakete betroffen, die
+ * `Bun.CryptoHasher` und `Bun.password` benutzen (`packages/auth/auth`). Das ist
+ * eine offene Entscheidung, kein Zustand.
+ *
  * @param packages - Paketnamen in der Reihenfolge, in der sie eingehängt werden
  * @returns die YAML-Zeilen des Bereichs
  */
@@ -84,9 +135,66 @@ export function bereichsZeilen(packages) {
     zeilen.push(`    name: '${paket}'`)
     zeilen.push(`    inject: [webServer]`)
   }
+  // **Die Abschaltungen stehen NACH dem `insert`-Block**, weil sie bestehende
+  // Einträge der Bundle-Schicht treffen und nicht neue anlegen.
+  for (const id of PTC_EINTRAEGE) {
+    zeilen.push(`- id: ${id}`)
+    zeilen.push(`  disabled: !!js ${PTC_FEHLT}`)
+  }
+  for (const zeile of BLEIBENDE_EINTRAEGE) {
+    zeilen.push(zeile)
+  }
   zeilen.push(MARKE_ENDE)
   return zeilen
 }
+
+/**
+ * Einträge, die **nicht** von uns stammen, aber in unserem Bereich überleben müssen.
+ *
+ * ## Der Schaden, der diese Liste erzwungen hat
+ *
+ * `mitBereich` **ersetzt** unseren Bereich vollständig — das ist Absicht und macht
+ * den Aufruf wiederholbar. Die Kehrseite: **wer innerhalb der Marken von Hand
+ * etwas einträgt, verliert es beim nächsten Start.** Genau das ist passiert: ein
+ * anderer Agent hatte
+ *
+ * ```yaml
+ * - id: ui-settings-general
+ *   name: "@deepseek-ai/dsh-client-ui-settings-general"
+ *   config:
+ *     welcomeNoticeVersion: 2026-09-28.1
+ * ```
+ *
+ * zwischen die Marken geschrieben, um den Begrüßungshinweis der Oberfläche für
+ * diese Fassung als gesehen zu markieren. Der nächste Start hat den Eintrag
+ * **gelöscht** — und niemand hätte es bemerkt, außer am Wiederauftauchen eines
+ * Hinweises.
+ *
+ * **Warum er hier steht und nicht wieder von Hand hinein.** Solange er innerhalb
+ * der Marken liegt, ist er unser — also muß er **aus dem Erzeuger** kommen.
+ * Alles andere wäre eine Handänderung, die der nächste Start wieder wegnimmt.
+ *
+ * **Was daraus als Regel folgt:** wer in dieser Datei etwas eintragen will, trägt
+ * es **hier** ein, nicht in die erzeugte Profildatei. Der Bereich gehört dem
+ * Erzeuger.
+ */
+export const BLEIBENDE_EINTRAEGE = [
+  '- id: ui-settings-general',
+  '  name: "@deepseek-ai/dsh-client-ui-settings-general"',
+  '  config:',
+  '    welcomeNoticeVersion: 2026-09-28.1',
+]
+
+/**
+ * Die Einträge der Bundle-Schicht, die das PTC-Zwischenstück ausmachen.
+ *
+ * **Warum diese drei und in dieser Reihenfolge.** `ptc-runtime` ist der
+ * Laufzeitdienst, `workflow-ptc` die Ausführungsschicht darüber (`provider: spawn`),
+ * `tool-workflow` das Werkzeug, das der Agent sieht. Fällt der erste, warten die
+ * beiden anderen — deshalb müssen **alle drei** weg, sonst bleibt der Zustand
+ * „wartet".
+ */
+export const PTC_EINTRAEGE = ['ptc-runtime', 'workflow-ptc', 'tool-workflow']
 
 /**
  * Leitet die Eintrags-`id` aus einem Paketnamen ab.

@@ -25,6 +25,7 @@ import { join } from 'node:path'
 
 import {
   EIGENE_PAKETE,
+  PTC_EINTRAEGE,
   MARKE_ANFANG,
   MARKE_ENDE,
   bereichsZeilen,
@@ -89,12 +90,47 @@ describe('bereichsZeilen', () => {
     // YAML ist hier empfindlich: ein falscher Einzug macht aus einem Feldsatz
     // eine neue Listenposition — oder aus dem Listeneintrag eine zweite Zeile.
     const zeilen = bereichsZeilen(['@a/erst', '@b/zweit'])
-    const eintraege = zeilen.filter((z) => z.startsWith('  - id: '))
-    const felder = zeilen.filter((z) => z.startsWith('    '))
-    expect(eintraege).toHaveLength(2)
-    expect(felder).toHaveLength(4)
-    // Genau eine Zeile trägt den Listenstrich für `insert:`.
-    expect(zeilen.filter((z) => z.startsWith('- '))).toHaveLength(1)
+    // **Nur der `insert`-Block wird gezählt, nicht der ganze Bereich.** Seit der
+    // Bereich auch Abschaltungen und einen bleibenden Eintrag trägt, wäre eine
+    // Zählung über alle Zeilen falsch: sie würde bei jeder sinnvollen Ergänzung
+    // rot und müsste dann angepasst werden — und eine Prüfung, die man bei jeder
+    // Änderung anpasst, prüft nichts.
+    // **`i > 1`, nicht `i > 0`.** `zeilen[1]` IST `- insert:` — mit `i > 0` fand
+    // die Suche den Block selbst und schnitt ihn weg (der Block wäre leer gewesen,
+    // und die Prüfung meldete `undefined`). Der eigene Fehler, der zeigt, warum
+    // hier gezählt statt geschätzt wird.
+    const endeInsert = zeilen.findIndex((z, i) => i > 1 && z.startsWith('- '))
+    const insertBlock = zeilen.slice(1, endeInsert < 0 ? zeilen.length - 1 : endeInsert)
+    expect(insertBlock[0]).toBe('- insert:')
+    expect(insertBlock.filter((z) => z.startsWith('  - id: '))).toHaveLength(2)
+    expect(insertBlock.filter((z) => z.startsWith('    '))).toHaveLength(4)
+
+    // **Die obersten Einträge — und warum hier gezählt wird.**
+    // Der Bereich ist NICHT nur der `insert`-Block: er trägt zusätzlich die
+    // Abschaltungen des PTC-Zwischenschritts und einen bleibenden Eintrag der
+    // Oberfläche. Die Prüfung hält die Zusammensetzung fest, damit ein
+    // verschwundener Eintrag auffällt — genau der Fehler, der beim ersten
+    // Überschreiben des Bereichs passiert ist.
+    const oben = zeilen.filter((z) => z.startsWith('- '))
+    expect(oben[0]).toBe('- insert:')
+    expect(oben).toHaveLength(1 + PTC_EINTRAEGE.length + 1)
+    for (const id of PTC_EINTRAEGE) expect(oben).toContain(`- id: ${id}`)
+    expect(oben).toContain('- id: ui-settings-general')
+  })
+
+  test('die PTC-Abschaltung ist eine Fähigkeitsprüfung, keine Plattformabfrage', () => {
+    // **Warum das geprüft wird.** Stünde hier `disabled: true`, wäre der Eintrag
+    // auf **Node** falsch abgeschaltet — dort funktioniert PTC. Die Prüfung
+    // fragt die Fähigkeit ab und schaltet sich damit selbst wieder ein, wenn
+    // eine künftige Bun-Fassung `stripTypeScriptTypes` mitbringt.
+    const zeilen = bereichsZeilen(['@a/erst'])
+    const abschaltungen = zeilen.filter((z) => z.startsWith('  disabled: !!js '))
+    expect(abschaltungen).toHaveLength(PTC_EINTRAEGE.length)
+    for (const z of abschaltungen) {
+      expect(z).toContain("process.getBuiltinModule('node:module')")
+      expect(z).toContain('stripTypeScriptTypes')
+      expect(z).not.toContain('process.versions.bun')
+    }
   })
 })
 
@@ -186,13 +222,22 @@ describe('mitBereich', () => {
       .filter((z) => !z.trimStart().startsWith('#'))
       .join('\n')
     const eintraege = parseEinfach(ohneKommentare)
-    expect(eintraege).toHaveLength(1)
+    // **Der erste Eintrag ist der `insert`-Block; danach kommen die weiteren.**
+    // Früher stand hier `toHaveLength(1)` — das galt, solange der Bereich nur den
+    // `insert`-Block trug. Jetzt trägt er zusätzlich die Abschaltungen des
+    // PTC-Zwischenschritts und einen bleibenden Eintrag der Oberfläche. Geprüft
+    // wird deshalb der **erste** Eintrag genau und die Anzahl insgesamt.
+    expect(eintraege).toHaveLength(1 + PTC_EINTRAEGE.length + 1)
     expect(Object.keys(eintraege[0])).toEqual(['insert'])
     const eingefuegt = eintraege[0].insert
     expect(eingefuegt).toHaveLength(1)
     expect(eingefuegt[0].id).toBe('pmh-health')
     expect(eingefuegt[0].name).toBe('@prometheus-harness/health')
     expect(eingefuegt[0].inject).toEqual(['webServer'])
+    // **Und die Abschaltungen sind angekommen** — als oberste Einträge mit `id`.
+    const ids = eintraege.slice(1).map((e) => e.id)
+    for (const id of PTC_EINTRAEGE) expect(ids).toContain(id)
+    expect(ids).toContain('ui-settings-general')
   })
 })
 
@@ -207,6 +252,17 @@ describe('mitBereich', () => {
  *
  * **Was er nicht kann:** Anker, mehrzeilige Werte, `!!js`. Braucht er auch nicht.
  *
+ * **Die Erweiterung, die nötig wurde.** Ursprünglich verstand er **genau einen**
+ * Eintrag: `- insert:` mit einer Liste darunter. Der Bereich enthält aber
+ * inzwischen **mehrere** oberste Einträge: den `insert`-Block, die drei
+ * Abschaltungen des PTC-Zwischenschritts (Feldsätze ohne `insert`) und einen
+ * bleibenden Eintrag der Oberfläche. Der alte Leser **warf** bei ihnen — die
+ * Prüfung wäre rot geworden, obwohl die erzeugte Datei richtig ist.
+ *
+ * Ein oberster Eintrag ist jetzt entweder `- insert:` (mit einer Liste darunter,
+ * 2 Zeichen Einzug) oder ein **Feldsatz** (`- id: …` mit Feldern auf 2 Zeichen).
+ * Alles andere wirft weiterhin.
+ *
  * @param text - YAML ohne Kommentarzeilen
  * @returns die Liste der Einträge
  */
@@ -214,11 +270,22 @@ function parseEinfach(text) {
   const zeilen = text.split('\n').filter((z) => z.trim() !== '')
   const eintraege = []
   let liste
+  let verschachtelt = false
   for (const zeile of zeilen) {
     if (/^- insert:\s*$/u.test(zeile)) {
       const eintrag = { insert: [] }
       eintraege.push(eintrag)
       liste = eintrag.insert
+      continue
+    }
+    // **Ein oberster Feldsatz** — kein `insert`. Er beginnt bei Spalte 0 und
+    // seine Felder stehen auf 2 Zeichen Einzug.
+    const oberster = /^- (\w+): (.+)$/u.exec(zeile)
+    if (oberster !== null) {
+      const satz = {}
+      satz[oberster[1]] = wert(oberster[2])
+      eintraege.push(satz)
+      liste = undefined
       continue
     }
     const neuerEintrag = /^ {2}- (\w+): (.+)$/u.exec(zeile)
@@ -228,11 +295,27 @@ function parseEinfach(text) {
       liste.push(satz)
       continue
     }
-    const feld = /^ {4}(\w+): (.+)$/u.exec(zeile)
-    if (feld !== null && liste !== undefined && liste.length > 0) {
-      liste[liste.length - 1][feld[1]] = wert(feld[2])
+    const feld = /^ {2}(\w+): (.+)$/u.exec(zeile)
+    if (feld !== null && liste === undefined && eintraege.length > 0) {
+      eintraege[eintraege.length - 1][feld[1]] = wert(feld[2])
       continue
     }
+    const feldTief = /^ {4}(\w+): (.+)$/u.exec(zeile)
+    if (feldTief !== null && liste !== undefined && liste.length > 0) {
+      liste[liste.length - 1][feldTief[1]] = wert(feldTief[2])
+      continue
+    }
+    // **Ein Feld ohne Wert (`config:`) leitet eine Verschachtelung ein.** Der
+    // Bereich enthält genau so einen Fall: den `config:`-Block des bleibenden
+    // Oberflächen-Eintrags. Der Inhalt darunter ist hier ohne Bedeutung — geprüft
+    // wird, daß die Zeile **gültig** ist und nicht verworfen wird.
+    const feldLeer = /^ {2}(\w+):\s*$/u.exec(zeile)
+    if (feldLeer !== null && liste === undefined && eintraege.length > 0) {
+      eintraege[eintraege.length - 1][feldLeer[1]] = null
+      verschachtelt = true
+      continue
+    }
+    if (verschachtelt && /^ {4}\w+: /u.test(zeile)) continue
     throw new Error(`parseEinfach: unerwartete Zeile ${JSON.stringify(zeile)}`)
   }
   return eintraege
