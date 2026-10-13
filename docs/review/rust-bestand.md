@@ -160,7 +160,7 @@ Zeilen** reines Drumherum (`Cargo.toml`, README, `unit.json`, CLI-Zerlegung,
 JSON-Ausgabe, Tests) — zusammen **1.036 Zeilen**, die nichts tun außer die Tür zu
 öffnen. Bei einem einzigen Dienst fielen fünf davon weg.
 
-## 7. Empfehlung — vier Wege, nach Aufwand geordnet
+## 8. Empfehlung — vier Wege, nach Aufwand geordnet
 
 **Keine dieser Änderungen ist ausgeführt.** Sie stehen hier zur Entscheidung.
 
