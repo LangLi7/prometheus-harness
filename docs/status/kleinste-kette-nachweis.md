@@ -277,6 +277,68 @@ Grund als bisher dokumentiert — nicht weil Bun unter Windows eine Grenze hat,
 sondern weil die Profil-Auflösung dort 27 Kern-Einträge als inkompatibel
 abschaltet.
 
+### Die Ursache — gemessen, nicht geraten
+
+**Der Träger ist `C:\Users\Chang\.dsh\profiles\node_modules`.** Dort liegt eine
+**alte Installation des DeepSeek Harness**: 204 Pakete der Linie `0.1.1-rc.2`,
+darunter:
+
+```
+C:\Users\Chang\.dsh\profiles\node_modules\@deepseek-ai\dsh-llm\package.json
+  name = @deepseek-ai/dsh-llm    version = 0.1.1-rc.2
+```
+
+**Der Weg, auf dem sie gefunden wird.** Im Rumpf `@deepseek-ai/dsh-app-boot`
+sucht die Vorabprüfung das Manifest jeder Zeile so:
+
+```js
+const bare = barePackageName(specifier);
+if (bare !== void 0 && packages === void 0)
+  for (const path of createRequire(parentURL).resolve.paths(bare)) {
+    const filename = join(path, bare, "package.json");
+    if (existsSync(filename)) return readManifest(filename);   // ← der erste Treffer gewinnt
+  }
+```
+
+`parentURL` ist der **Auflösungsanker des Baums** — und der liegt **außerhalb**
+des Projektbaums, Richtung Harness-Home. Node sucht von dort **aufwärts**, und
+der erste Treffer ist `.dsh\profiles\node_modules\@deepseek-ai\dsh-llm\package.json`,
+die **alte** Fassung. Der Projektbaum wird **gar nicht mehr gefragt**.
+
+**Nachgemessen durch eine temporäre Instrumentierung des Rumpfes** (danach
+zurückgenommen — `node_modules` ist nicht versioniert): von **120** aufgelösten
+Paketpfaden zeigten **120** nach `…\.dsh\profiles\node_modules` und **0** in den
+Projektbaum.
+
+**Und deshalb funktioniert WSL2:** dort gibt es `~/.dsh/profiles/node_modules`
+**nicht** (gemessen; `~/.dsh` enthält nur `profiles` und `storages`). Die
+Node-Kette läuft dort bis in den Projektbaum durch, findet `0.2.1-alpha.2`, und
+**kein einziger** Eintrag wird deaktiviert.
+
+**Damit ist die Kette der Ursachen geschlossen:**
+
+```
+parentURL (Auflösungsanker) zeigt ins Harness-Home
+  → Node sucht von dort aufwärts
+    → erster Treffer: ~/.dsh/profiles/node_modules (alte 0.1.1-rc.2-Installation)
+      → peerDependencies ^0.1.1-rc.2 ≠ Laufzeit 0.2.1-alpha.2
+        → 27 Kern-Zeilen deaktiviert (llm, session, agent, webserver, web-startup …)
+          → kein Webserver, kein Token, kein HTTP
+            → connection (required) wartet auf webRuntime — Prozess endet mit Exitcode 0
+```
+
+**Was das nicht ist:** keine Bun-Grenze (die alte Erklärung), keine
+Reihenfolge-Frage (die zweite alte Erklärung), kein Fehler im Projektbaum. Es ist
+der **Überrest einer früheren Installation** außerhalb des Repositories, der über
+die Auflösungskette des Loaders wirkt.
+
+**Und was ich deshalb NICHT getan habe.** Die Behebung verlangt eine Änderung
+**außerhalb dieses Repositories** (`C:\Users\Chang\.dsh` entfernen, umbenennen
+oder den Anker umlenken) — und in `~/.dsh` liegt die Installation, mit der der
+Betreiber arbeitet. Eine fremde Installation zu löschen ist keine Aufräumaktion,
+sondern ein Eingriff. **Der Befund steht hier; die Entscheidung gehört dem
+Betreiber** (drei Wege in §8).
+
 ## 7. Was NICHT belegt ist — namentlich
 
 Diese Liste ist der wichtigste Abschnitt dieser Datei. Ein Bericht ohne
@@ -291,7 +353,9 @@ Fehlschläge ist entweder leer oder geschönt.
 | **Kein `unit.json` für die neuen Pakete** | `units/README.md` verlangt es für Units; die neuen Ordner liegen unter `packages/` wie die bereits vorhandenen (`llm`, `unit-export`). **Der Widerspruch ist nicht vom Executor zu entscheiden** | die Pakete sind nicht als Units deklariert und damit nicht exportierbar |
  (`read_file` als Attrappe) | die Werkzeug-Registry ist geprüft (19 Tests), aber kein **echtes** Werkzeug (Dateisystem, Shell) hängt daran | der Weg Werkzeug → Systemwirkung ist ungeprüft |
 | **Streaming fehlt** | `LlmProvider.complete` liefert die ganze Antwort; das ist die dokumentierte Entscheidung im Seam | die Oberfläche kann nichts anzeigen, während das Modell arbeitet |
-| **Die Herkunft der fremden Paketidentität `0.1.1-rc.2` ist nicht geklärt** | gemessen ist: sie liegt **nicht** auf diesem Rechner, und die Laufzeitversion ist korrekt (§6). Der Weg, auf dem die Kompatibilitätsprüfung unter Windows zu dieser Identität kommt, ist offen | ohne die Ursache ist der Windows-Start nicht zu reparieren — nur zu umgehen (WSL2) |
+| **Die Herkunft der fremden Paketidentität `0.1.1-rc.2` ist geklärt — die Behebung ist es nicht** | gemessen: die alte Installation liegt in `C:\Users\Chang\.dsh\profiles\node_modules` (204 Pakete, §6). Die Behebung verlangt einen Eingriff **außerhalb** dieses Repositories — darüber entscheidet der Betreiber | ohne Entscheidung bleibt Windows nativ blockiert; der Weg über WSL2 trägt weiterhin |
+| **Drei Wege zur Behebung — keiner ausgeführt** | (a) `C:\Users\Chang\.dsh\profiles\node_modules` entfernen oder umbenennen; (b) `DSH_HOME` für den pmh-Host fest auf `C:\Users\Chang\.pmh` setzen, damit der Anker nicht mehr dorthin zeigt; (c) den Auflösungsanker des Hosts ändern (Codeänderung in `apps/cli`) | alle drei ändern Verhalten **außerhalb** oder **an** der Grenze zwischen Host und Core. (c) ist zusätzlich riskant: `@deepseek-ai/cordis-plugin-include` gehört dem Core und wird **nicht** gepatcht |
+| **`~/.dsh` wird von einer anderen Installation benutzt** | dort liegt die Installation, mit der der Betreiber arbeitet (und über die diese Sitzung läuft). Ein Eingriff könnte **sie** treffen | ein Aufräumversuch könnte die laufende Umgebung beschädigen — deshalb **nicht** ausgeführt |
 
 ## 8. Was auf diesem Rechner nicht angefasst wurde
 

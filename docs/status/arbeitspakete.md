@@ -607,8 +607,13 @@ nachträglich korrigiert).
 | P9.7 | **Windows nativ: 27 Profil-Einträge werden als version-inkompatibel deaktiviert** | **belegt** — darunter `llm`, `session`, `agent`, `webserver`, `web`, `web-startup`. Folge: kein Token, kein HTTP, Exitcode 0 |
 | P9.8 | **Die Laufzeitversion ist korrekt (0.2.1-alpha.2)** — die Fehlermeldung nennt eine Fassung, die es auf diesem Rechner **nicht gibt** | **belegt** — Sonde: `dsh-app-boot/package.json` → 0.2.1-alpha.2; `dsh-llm` deklariert 0.2.1-alpha.2 mit Peer **nur** `cordis`; `bun pm ls` = eine Kopie; `0.1.1-rc.2` in `bun.lock`/`apps/cli`/allen 245 `@deepseek-ai`-Paketen: **0 Treffer** |
 | P9.9 | **Die bisherige Erklärung ist widerlegt** — es ist **keine** Bun-Laufzeitgrenze | **belegt** — unter WSL2 läuft dieselbe Laufzeit (Bun) und **null** Einträge werden deaktiviert. Das Verhalten ist **plattform**abhängig |
-| P9.10 | Herkunft der fremden Paketidentität `0.1.1-rc.2` | **offen — nicht geklärt** |
-| P9.11 | cmd-Nachweis, Ctrl+C, Waisenprozesse | **offen** |
+| P9.10 | **Herkunft der fremden Paketidentität `0.1.1-rc.2`** | **GEKLÄRT** — sie liegt in `C:\Users\Chang\.dsh\profiles\node_modules` (204 Pakete der Linie 0.1.1-rc.2). Der Auflösungsanker des Baums zeigt ins Harness-Home; Node sucht von dort aufwärts und findet den **ersten** Treffer — die alte Installation —, statt in den Projektbaum zu sehen. Messung: **120 von 120** aufgelösten Paketpfaden aus `.dsh`, **0** aus dem Projektbaum |
+| P9.11 | **Behebung** — drei Wege, keiner ausgeführt | **offen — Entscheidung des Betreibers.** (a) `C:\Users\Chang\.dsh\profiles\node_modules` entfernen/umbenennen; (b) `DSH_HOME` für den pmh-Host fest auf `C:\Users\Chang\.pmh` setzen; (c) den Auflösungsanker im Host ändern (Codeänderung, und `@deepseek-ai/cordis-plugin-include` gehört dem Core → **nicht** patchen). **Grund fürs Nichtstun:** in `~/.dsh` liegt die Installation, mit der der Betreiber arbeitet — ein Eingriff könnte sie treffen |
+| P9.12 | cmd-Nachweis, Ctrl+C, Waisenprozesse | **offen** |
+
+**Damit ist `t40` nicht mehr ein Rätsel, sondern eine Entscheidung.** Die Ursache
+ist benannt und gemessen; was fehlt, ist die Freigabe für einen Eingriff außerhalb
+dieses Repositories.
 
 ### Die Korrektur, ausdrücklich ausgesprochen
 

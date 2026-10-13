@@ -302,3 +302,36 @@ Snapshot nicht korrigiert, sondern ein **neuer** Befund daneben gestellt.
 2. **`credential-gh`** — fünfter Push, fünfte Warnung; unverändert offen.
 3. **`bun run typecheck`** bleibt in dieser Umgebung nur einzeln ausführbar
    (Sandkasten: benannte Pipes). 13 Einzelaufrufe, alle `exit 0`.
+
+### 2026-10-13 · 09:20 UTC · Die Ursache des Windows-Blockers ist gefunden (zehnter Push)
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Offener Punkt aus dem neunten Push: „die Herkunft der fremden Paketidentität ist ungeklärt" |
+| Umfang | `docs/status/kleinste-kette-nachweis.md` §6 (Ursache), `docs/status/arbeitspakete.md` P9.10–P9.12 |
+| Art | **Dokumentation.** Eine **temporäre** Instrumentierung des Rumpfes in `node_modules` (nicht versioniert) wurde nach der Messung **vollständig zurückgenommen** — geprüft: die Datei enthält keine Spur mehr |
+
+**Die Ursache, gemessen:** `C:\Users\Chang\.dsh\profiles\node_modules` enthält eine
+**alte Installation des DeepSeek Harness** (204 Pakete der Linie `0.1.1-rc.2`).
+Der Auflösungsanker des Baums (`parentURL`) zeigt ins Harness-Home; Node sucht von
+dort **aufwärts** und nimmt den **ersten** Treffer — die alte Installation. Der
+Projektbaum wird gar nicht gefragt.
+
+**Messung der Instrumentierung:** **120 von 120** aufgelösten Paketpfaden zeigten
+nach `…\.dsh\profiles\node_modules`, **0** in den Projektbaum.
+
+**Gegenprobe WSL2:** `~/.dsh/profiles/node_modules` existiert dort **nicht**
+(`~/.dsh` enthält nur `profiles` und `storages`) → die Kette läuft in den
+Projektbaum durch → `0.2.1-alpha.2` → **0 Deaktivierungen** → HTTP 200.
+
+#### Was dieses Audit stehen lässt — und warum hier **nichts** geändert wurde
+
+Die Behebung verlangt einen Eingriff **außerhalb dieses Repositories**
+(`C:\Users\Chang\.dsh` entfernen, umbenennen oder den Anker umlenken). In `~/.dsh`
+liegt die Installation, mit der der Betreiber arbeitet — und über die diese
+Sitzung selbst läuft. **Ein Aufräumversuch könnte die laufende Umgebung
+beschädigen.** Deshalb: Befund gemessen, Behebung **nicht** ausgeführt, drei Wege
+benannt (P9.11). Die Entscheidung gehört dem Betreiber.
+
+**Das ist die wichtigste offene Entscheidung des Vorhabens:** sie blockiert den
+Windows-Start und damit `t40`.
