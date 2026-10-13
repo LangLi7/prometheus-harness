@@ -25,10 +25,15 @@ import {
   erzeugeUserStore,
   istDoppelt,
   ladeProfil,
+  ladeUmschlag,
+  listeGeheimnisse,
+  speichereGeheimnis,
   speichereProfil,
+  speichereUmschlag,
   zaehleAdmins,
   type SqlZugang,
 } from '../src/index.ts'
+import { entschluessele } from '@prometheus-harness/secrets'
 
 // ---------------------------------------------------------------------------
 // Die Attrappe
@@ -572,6 +577,87 @@ describe('Prüfspur', () => {
 // ---------------------------------------------------------------------------
 // Alles zusammen
 // ---------------------------------------------------------------------------
+
+describe('Geheimnisse: zwei Ebenen, damit niemand Klartext ablegt', () => {
+  const UMSCHLAG = {
+    valueCipher: new Uint8Array([1, 2, 3]),
+    wrappedKey: new Uint8Array([4, 5]),
+    masterKeyVersion: 1,
+    keyHint: 'abcd1234',
+  }
+
+  test('die BYTE-Ebene schreibt ein UPSERT und übergibt Puffer', async () => {
+    // `bytea` aus einem `Buffer` — ein `Uint8Array` ohne den Umweg über den
+    // Puffer kann je nach Fassung als Liste von Zahlen ankommen.
+    const sql = attrappe([[]])
+    await speichereUmschlag(sql, '11111111-1111-4111-8111-111111111111', 'DEEPSEEK_API_KEY', UMSCHLAG)
+    expect(sql.aufrufe[0]?.anweisung).toContain('ON CONFLICT (user_id, ref) DO UPDATE')
+    expect(Buffer.isBuffer(sql.aufrufe[0]?.werte[2])).toBe(true)
+    expect(Buffer.isBuffer(sql.aufrufe[0]?.werte[3])).toBe(true)
+    expect(sql.aufrufe[0]?.werte[4]).toBe(1)
+    expect(sql.aufrufe[0]?.werte[5]).toBe('abcd1234')
+  })
+
+  test('die BYTE-Ebene liest die vier Felder und nichts weiter', async () => {
+    const sql = attrappe([
+      [
+        {
+          value_cipher: new Uint8Array([9]),
+          wrapped_key: new Uint8Array([8]),
+          master_key_version: 2,
+          key_hint: 'ffff0000',
+        },
+      ],
+    ])
+    const gelesen = await ladeUmschlag(sql, '11111111-1111-4111-8111-111111111111', 'X')
+    expect(gelesen?.masterKeyVersion).toBe(2)
+    expect(gelesen?.keyHint).toBe('ffff0000')
+    expect(sql.aufrufe[0]?.anweisung).toContain('WHERE user_id = $1 AND ref = $2')
+  })
+
+  test('ohne Zeile kommt undefined', async () => {
+    expect(await ladeUmschlag(attrappe([[]]), '11111111-1111-4111-8111-111111111111', 'X')).toBeUndefined()
+  })
+
+  test('die LISTE holt keinen Geheimtext — nur Name, Fassung und Hinweis', async () => {
+    // **Warum das geprüft wird.** „Welche Geheimnisse liegen hier?" braucht
+    // keinen Hauptschlüssel. Wer sie über `ladeUmschlag` beantwortet, holt jedes
+    // Geheimnis einzeln — und hat dann Klartext im Speicher, den niemand braucht.
+    const sql = attrappe([[{ ref: 'A', master_key_version: 1, key_hint: 'aaaa0000', updated_at: new Date('2026-01-01T00:00:00Z') }]])
+    const liste = await listeGeheimnisse(sql, '11111111-1111-4111-8111-111111111111')
+    expect(liste).toHaveLength(1)
+    expect(liste[0]?.ref).toBe('A')
+    expect(liste[0]?.updatedAt).toBe('2026-01-01T00:00:00.000Z')
+    const anweisung = sql.aufrufe[0]?.anweisung ?? ''
+    expect(anweisung).toContain('key_hint')
+    // **Kein `value_cipher` und kein `wrapped_key` in der Abfrage.**
+    expect(anweisung).not.toContain('value_cipher')
+    expect(anweisung).not.toContain('wrapped_key')
+  })
+
+  test('die UMSCHLAG-Ebene übergibt eine VERPACKTE Zeile — nie den Klartext', async () => {
+    // Der Kern dieser Ebene: es gibt keinen Weg hindurch, der Klartext in die
+    // Spalte `value_cipher` schreibt.
+    const sql = attrappe([[]])
+    const haupt = { schluessel: new Uint8Array(32).fill(7), version: 1, herkunft: 'Prüfung' }
+    const klartext = new TextEncoder().encode('geheim-1234567890')
+    await speichereGeheimnis(sql, haupt, {
+      userId: '11111111-1111-4111-8111-111111111111',
+      ref: 'DEEPSEEK_API_KEY',
+      klartext,
+    })
+    const geschrieben = sql.aufrufe[0]?.werte[2] as Buffer
+    expect(Buffer.isBuffer(geschrieben)).toBe(true)
+    // Der Klartext steht NICHT in dem, was geschrieben wird.
+    expect(geschrieben.includes(Buffer.from(klartext))).toBe(false)
+    // Und er läßt sich mit demselben Hauptschlüssel wieder öffnen.
+    const zurueck = entschluessele(
+      Buffer.from(geschrieben),
+      entschluessele(sql.aufrufe[0]?.werte[3] as Buffer, haupt.schluessel),
+    )
+    expect(new TextDecoder().decode(zurueck)).toBe('geheim-1234567890')
+  })
+})
 
 describe('erzeugeSpeicher', () => {
   test('baut alle drei Speicher über demselben Zugang', async () => {

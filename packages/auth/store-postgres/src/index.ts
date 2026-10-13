@@ -50,6 +50,11 @@ import type {
 // Felder von `SandboxPolicy`" aus `services/pmh-sandbox`. Ein eigener,
 // gleich aussehender Typ hier wäre eine zweite Wahrheit über dieselbe Sache.
 import type { Dateizugriff, Isolation } from '@prometheus-harness/permissions'
+// **Die Kryptographie kommt aus `secrets`.** Der Speicher entscheidet nicht, wie
+// verschlüsselt wird — aber die Umschlag-Ebene (`speichereGeheimnis`) verpackt,
+// damit ein Aufrufer das Verschlüsseln nicht vergessen kann. Die Byte-Ebene
+// (`speichereUmschlag`) tut es ausdrücklich nicht; siehe deren Begründung.
+import { entpacke, verpacke, type Hauptschluessel } from '@prometheus-harness/secrets'
 
 // ---------------------------------------------------------------------------
 // Der Datenbankzugang
@@ -579,6 +584,187 @@ export async function speichereProfil(sql: SqlZugang, userId: string, isolation:
       isolation.prozesse,
     ],
   )
+}
+
+// ---------------------------------------------------------------------------
+// Die Geheimnisse des Benutzers
+// ---------------------------------------------------------------------------
+
+/**
+ * Legt einen **Umschlag** ab — die Bytes, ohne Kryptographie.
+ *
+ * ## Warum es zwei Ebenen gibt
+ *
+ * Diese Funktion nimmt fertige Bytes. Sie **entscheidet nichts** und
+ * **verschlüsselt nichts** — sie schreibt, was hereinkommt. Darüber liegt
+ * {@link speichereGeheimnis}, das den Klartext verpackt.
+ *
+ * **Warum trotzdem beide Ebenen nötig sind.** Die Byte-Ebene ist die, die eine
+ * Prüfung ansprechen kann, ohne einen Hauptschlüssel zu brauchen — und die, die
+ * eine **Rotation** benutzt: sie schreibt einen neuen Umschlag mit **demselben**
+ * `value_cipher`. Die Umschlag-Ebene ist die, die ein Aufrufer benutzt, damit er
+ * das Verschlüsseln nicht **vergessen** kann.
+ *
+ * Der Name sagt, was hereinkommt: `Umschlag`, nicht `Geheimnis`.
+ *
+ * @param sql - der Datenbankzugang
+ * @param userId - der Benutzer
+ * @param ref - der Name des Geheimnisses, in der Schreibweise der Umgebungsvariablen
+ * @param umschlag - die vier Werte aus `verpacke`
+ */
+export async function speichereUmschlag(
+  sql: SqlZugang,
+  userId: string,
+  ref: string,
+  umschlag: {
+    readonly valueCipher: Uint8Array
+    readonly wrappedKey: Uint8Array
+    readonly masterKeyVersion: number
+    readonly keyHint: string
+  },
+): Promise<void> {
+  await ausfuehren(
+    sql,
+    `INSERT INTO user_secrets (id, user_id, ref, value_cipher, wrapped_key, master_key_version, key_hint)
+     VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)
+     ON CONFLICT (user_id, ref) DO UPDATE
+       SET value_cipher = EXCLUDED.value_cipher,
+           wrapped_key = EXCLUDED.wrapped_key,
+           master_key_version = EXCLUDED.master_key_version,
+           key_hint = EXCLUDED.key_hint,
+           updated_at = now()`,
+    [
+      userId,
+      ref,
+      // **`Buffer.from` und kein direktes Uint8Array.** Der Treiber schreibt
+      // `bytea` aus einem Puffer; ein `Uint8Array` ohne Umweg über den Puffer
+      // kann je nach Fassung als Liste von Zahlen ankommen.
+      Buffer.from(umschlag.valueCipher),
+      Buffer.from(umschlag.wrappedKey),
+      umschlag.masterKeyVersion,
+      umschlag.keyHint,
+    ],
+  )
+}
+
+/**
+ * Liest einen **Umschlag** — die Bytes, ohne Kryptographie.
+ *
+ * @param sql - der Datenbankzugang
+ * @param userId - der Benutzer
+ * @param ref - der Name
+ * @returns der Umschlag oder `undefined`
+ */
+export async function ladeUmschlag(
+  sql: SqlZugang,
+  userId: string,
+  ref: string,
+): Promise<
+  | {
+      readonly valueCipher: Uint8Array
+      readonly wrappedKey: Uint8Array
+      readonly masterKeyVersion: number
+      readonly keyHint: string
+    }
+  | undefined
+> {
+  const gefunden = await zeilen<{
+    value_cipher: Uint8Array
+    wrapped_key: Uint8Array
+    master_key_version: number
+    key_hint: string
+  }>(
+    sql,
+    `SELECT value_cipher, wrapped_key, master_key_version, key_hint
+       FROM user_secrets WHERE user_id = $1 AND ref = $2`,
+    [userId, ref],
+  )
+  const zeile = gefunden[0]
+  if (zeile === undefined) return undefined
+  return {
+    valueCipher: zeile.value_cipher,
+    wrappedKey: zeile.wrapped_key,
+    masterKeyVersion: zeile.master_key_version,
+    keyHint: zeile.key_hint,
+  }
+}
+
+/** Ein Geheimnis, **ohne** seinen Inhalt: nur Name, Fassung und Hinweis. */
+export interface GeheimnisAnzeige {
+  readonly ref: string
+  readonly masterKeyVersion: number
+  readonly keyHint: string
+  readonly updatedAt: string
+}
+
+/**
+ * Listet die Geheimnisse eines Benutzers — **ohne Klartext und ohne Geheimtext**.
+ *
+ * **Warum das eine eigene Funktion ist.** „Welche Geheimnisse liegen hier?" ist
+ * eine Frage, die ein Bediener ständig hat, und sie braucht **keinen**
+ * Hauptschlüssel. Wer sie über `ladeUmschlag` beantwortet, holt jedes Geheimnis
+ * einzeln — und hat dann Klartext im Speicher, den niemand braucht.
+ *
+ * @param sql - der Datenbankzugang
+ * @param userId - der Benutzer
+ * @returns die Anzeigen, nach Name sortiert
+ */
+export async function listeGeheimnisse(sql: SqlZugang, userId: string): Promise<readonly GeheimnisAnzeige[]> {
+  const gefunden = await zeilen<{
+    ref: string
+    master_key_version: number
+    key_hint: string
+    updated_at: unknown
+  }>(
+    sql,
+    `SELECT ref, master_key_version, key_hint, updated_at
+       FROM user_secrets WHERE user_id = $1 ORDER BY ref`,
+    [userId],
+  )
+  return gefunden.map((zeile) => ({
+    ref: zeile.ref,
+    masterKeyVersion: zeile.master_key_version,
+    keyHint: zeile.key_hint,
+    updatedAt: alsIso(zeile.updated_at),
+  }))
+}
+
+/**
+ * Legt ein Geheimnis ab — und **verpackt es dabei**.
+ *
+ * **Warum diese Ebene existiert.** Sie ist die, die ein Aufrufer benutzt. Er
+ * übergibt Klartext und Hauptschlüssel und kann das Verschlüsseln nicht
+ * vergessen: es gibt keinen Weg durch diese Funktion, der Klartext in die Spalte
+ * `value_cipher` schreibt.
+ *
+ * @param sql - der Datenbankzugang
+ * @param haupt - der Hauptschlüssel
+ * @param eingabe - Benutzer, Name und Klartext
+ */
+export async function speichereGeheimnis(
+  sql: SqlZugang,
+  haupt: Hauptschluessel,
+  eingabe: { readonly userId: string; readonly ref: string; readonly klartext: Uint8Array },
+): Promise<void> {
+  await speichereUmschlag(sql, eingabe.userId, eingabe.ref, verpacke(eingabe.klartext, haupt))
+}
+
+/**
+ * Liest ein Geheimnis — und **entpackt es dabei**.
+ *
+ * @param sql - der Datenbankzugang
+ * @param haupt - der Hauptschlüssel
+ * @param eingabe - Benutzer und Name
+ * @returns der Klartext oder `undefined`, wenn kein solches Geheimnis liegt
+ */
+export async function ladeGeheimnis(
+  sql: SqlZugang,
+  haupt: Hauptschluessel,
+  eingabe: { readonly userId: string; readonly ref: string },
+): Promise<Uint8Array | undefined> {
+  const umschlag = await ladeUmschlag(sql, eingabe.userId, eingabe.ref)
+  if (umschlag === undefined) return undefined
+  return entpacke(umschlag, haupt)
 }
 
 /** Die drei Speicher, die der Regelkern braucht. */
