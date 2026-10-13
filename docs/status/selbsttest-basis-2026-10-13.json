@@ -1,0 +1,172 @@
+{
+  "zeitpunkt": "2026-10-13T14:26:31.129Z",
+  "dauerSekunden": 9,
+  "punkte": 16,
+  "gesamt": 18,
+  "note": "16/18",
+  "kritischFehlgeschlagen": 0,
+  "gruppen": [
+    {
+      "gruppe": "Skills",
+      "bestanden": 1,
+      "gesamt": 2
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "bestanden": 11,
+      "gesamt": 12
+    },
+    {
+      "gruppe": "Umgebung",
+      "bestanden": 2,
+      "gesamt": 2
+    },
+    {
+      "gruppe": "Projektstand",
+      "bestanden": 2,
+      "gesamt": 2
+    }
+  ],
+  "offenePunkte": [
+    {
+      "gruppe": "Skills",
+      "name": "SKILL.md mit gültigem Frontmatter",
+      "detail": "open-code-review: description fehlt oder zu kurz | open-code-review-delegate: description fehlt oder zu kurz | typesafe-ai: description fehlt oder zu kurz",
+      "schwere": "hoch"
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "name": "Modus website",
+      "detail": "analyse.mjs: fetch failed",
+      "schwere": "hoch"
+    }
+  ],
+  "alle": [
+    {
+      "gruppe": "Skills",
+      "name": "Skills-Verzeichnis lesbar",
+      "bestanden": true,
+      "detail": "36 Ordner",
+      "schwere": "mittel"
+    },
+    {
+      "gruppe": "Skills",
+      "name": "SKILL.md mit gültigem Frontmatter",
+      "bestanden": false,
+      "detail": "open-code-review: description fehlt oder zu kurz | open-code-review-delegate: description fehlt oder zu kurz | typesafe-ai: description fehlt oder zu kurz",
+      "schwere": "hoch"
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "name": "analyse --check läuft",
+      "bestanden": true,
+      "detail": "Fähigkeitsprüfung antwortet",
+      "schwere": "mittel"
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "name": "verfügbar: node",
+      "bestanden": true,
+      "detail": "v24.19.0",
+      "schwere": "mittel"
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "name": "verfügbar: git",
+      "bestanden": true,
+      "detail": "git version 2.45.1.windows.1",
+      "schwere": "mittel"
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "name": "verfügbar: docker",
+      "bestanden": true,
+      "detail": "29.8.2",
+      "schwere": "mittel"
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "name": "verfügbar: rg",
+      "bestanden": true,
+      "detail": "ripgrep 15.2.0 (rev e89fff89ac)",
+      "schwere": "mittel"
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "name": "verfügbar: uv",
+      "bestanden": true,
+      "detail": "uv 0.12.5 (210d1f678 2026-08-14 x86_64-pc-windows-msvc)",
+      "schwere": "mittel"
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "name": "verfügbar: markitdown",
+      "bestanden": true,
+      "detail": "markitdown 0.1.8",
+      "schwere": "mittel"
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "name": "verfügbar: gitingest",
+      "bestanden": true,
+      "detail": "Usage: gitingest [OPTIONS] [SOURCE]\r",
+      "schwere": "mittel"
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "name": "Modus codebase",
+      "bestanden": true,
+      "detail": "Bericht erzeugt",
+      "schwere": "hoch"
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "name": "Modus website",
+      "bestanden": false,
+      "detail": "analyse.mjs: fetch failed",
+      "schwere": "hoch"
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "name": "Modus logs",
+      "bestanden": true,
+      "detail": "Bericht erzeugt",
+      "schwere": "hoch"
+    },
+    {
+      "gruppe": "Werkzeuge",
+      "name": "Modus review",
+      "bestanden": true,
+      "detail": "Bericht erzeugt",
+      "schwere": "hoch"
+    },
+    {
+      "gruppe": "Umgebung",
+      "name": "Docker-Bereitschaftsprüfung",
+      "bestanden": true,
+      "detail": "Docker bereit (Server 29.8.2) — war schon an",
+      "schwere": "niedrig"
+    },
+    {
+      "gruppe": "Umgebung",
+      "name": "Git-Zustand lesbar",
+      "bestanden": true,
+      "detail": "33 offene Änderungen",
+      "schwere": "mittel"
+    },
+    {
+      "gruppe": "Projektstand",
+      "name": "Review der eigenen Skills läuft",
+      "bestanden": true,
+      "detail": "5 Dateien geprüft",
+      "schwere": "mittel"
+    },
+    {
+      "gruppe": "Projektstand",
+      "name": "keine kritischen Befunde in den eigenen Skills",
+      "bestanden": true,
+      "detail": "15 Befunde, davon 0 kritisch",
+      "schwere": "mittel"
+    }
+  ]
+}

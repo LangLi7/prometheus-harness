@@ -121,12 +121,45 @@ Dasselbe Muster für `conversation_sessions.workspace_id` und `chats.workspace_i
 fremden Eigentümer muß **abgewiesen** werden. Heute gelingt er. Eine Prüfung, die nur
 „`user_id` ist NOT NULL" feststellt, fängt das nicht.
 
-**Grenze dieses Vorschlags.** `ON DELETE SET NULL` auf einem zusammengesetzten
-Fremdschlüssel setzt **beide** Spalten auf `NULL` — `user_id` ist aber `NOT NULL`. Das ist
-eine echte Spannung und muß entschieden werden: entweder bleibt der Verweis bestehen
-(`ON DELETE NO ACTION`) oder `parent_session` wird beim Löschen der Mutter vom Anwendungscode
-entkoppelt. **Das habe ich nicht entschieden und nicht gemessen** — es gehört in die
-Entwurfsentscheidung, nicht in eine stille Migration.
+**Die Grenze dieses Vorschlags — inzwischen nachgemessen, und der Vorschlag scheitert daran.**
+
+Ich hatte hier geschrieben, `ON DELETE SET NULL` auf einem zusammengesetzten Fremdschlüssel
+setze **beide** Spalten auf `NULL`, während `user_id` `NOT NULL` ist, und das sei eine offene
+Spannung. **Die Aufsicht hat sie gemessen** (`docs/protokoll/aufsicht/hilfen/mandantentrennung-probe.sql`,
+Lauf vom 13.10.2026, 16:33, an eigenen Wegwerf-Tabellen in einer Transaktion mit `ROLLBACK`):
+
+| Was die Aufsicht gemessen hat | Ergebnis |
+|---|---|
+| Weist der zusammengesetzte Verweis den Fremdverweis ab? | **ja** — `violates foreign key constraint "chat_raum_same_user_fkey"`; der eigene Verweis gelingt |
+| Was tut `ON DELETE SET NULL` bei `NOT NULL`? | **es ist nicht ausführbar.** PostgreSQL führt das Löschen als `UPDATE ONLY chat SET workspace_id = NULL, user_id = NULL` aus und scheitert an `null value in column "workspace_id" violates not-null constraint` |
+
+**Das trifft beide** vorgeschlagenen Verweise — `chats.workspace_id` **und**
+`conversation_sessions.parent_session` —, weil `user_id` in beiden Tabellen `NOT NULL` ist.
+Der Weg ist richtig, die **Löschregel** war falsch.
+
+**Die korrigierte Behebung.**
+
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS conversation_sessions_id_user_key
+  ON conversation_sessions (id, user_id);
+ALTER TABLE conversation_sessions
+  DROP CONSTRAINT conversation_sessions_parent_session_fkey,
+  ADD CONSTRAINT conversation_sessions_parent_same_user_fkey
+    FOREIGN KEY (parent_session, user_id) REFERENCES conversation_sessions (id, user_id)
+    ON DELETE NO ACTION;   -- NICHT SET NULL: user_id ist NOT NULL
+```
+
+Für dieses Schema spricht `NO ACTION`, weil es **weiche** Löschungen kennt —
+`chats.deleted_at` und `workspaces.archived_at`, beide gemessen vorhanden. Wer hart löschen
+will, muß vorher entkoppeln. `ON DELETE CASCADE` wäre die andere zulässige Wahl; sie reißt
+aber beim Löschen eines Arbeitsbereichs dessen Chats mit, was die weiche Löschung gerade
+vermeiden soll.
+
+**Was daran der Lernpunkt ist, ehrlich benannt.** Ich hatte die Spannung **gesehen** und sie
+als offene Entwurfsfrage abgelegt, statt sie in fünf Minuten zu messen. Ein Vorschlag, der
+nicht ausführbar ist, ist keine Behebung — und „das gehört in die Entwurfsentscheidung" war
+hier eine Verschiebung, keine Abwägung. Die Aufsicht hat ihn geprüft und dabei den Fehler
+gefunden. Das ist der Zweck einer zweiten Instanz, und sie hat ihn erfüllt.
 
 ---
 
