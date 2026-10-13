@@ -2261,6 +2261,72 @@ Abbilds**, kein Versehen dieses Projekts. Benannt gehört es trotzdem, weil zwis
 3. **Dann** die Kennwörter drehen ([`hilfen/kennwoerter-drehen.mjs`](hilfen/kennwoerter-drehen.mjs)) —
    vorher ist es Kosmetik.
 
+## V3 — Die CRLF-Klasse im JavaScript ist **geschlossen** (Verifikation, kein Befund)
+
+**Anlass.** Derselbe Fehler ist bei ihm **dreimal** aufgetreten: `setzeWerte` (`e9013a5`), `leseEnv`
+(`d0f48b6`), dazu `.gitattributes` (`631694a`). Ein Fehler, der dreimal auftritt, ist eine **Klasse** —
+also habe ich nicht den Einzelfall geprüft, sondern **jede** Stelle, an der zeilenweise gelesen wird.
+
+**Alle Fundstellen von `split('\n')` in `scripts/` — einzeln beurteilt:**
+
+| Stelle | Wie das Zeilenende behandelt wird | Bei CRLF-Eingabe |
+|---|---|---|
+| `install-teile.mjs:186` (`setzeWerte`) | trennt `\r` **ausdrücklich** ab (`ende`), Muster `[^\r\n]*`, hängt `ende` wieder an | **sicher — und die Form bleibt erhalten** |
+| `install-teile.mjs:216` (`gesetzteNamen`) | Präfix-Muster `/^\s*([A-Z][A-Z0-9_]*)=/` — das Zeilenende ist gleichgültig | sicher |
+| `install.mjs:384` (`leseEnv`) | `[^\r\n]*` | sicher |
+| `install.mjs:413` (`containerUmgebung`) | `zeile.trim()` **vor** dem Muster | sicher |
+| `install.mjs:438`, `:528`, `:610` | **nur Ausgabe** (die letzte Zeile einer Befehlsausgabe wird gedruckt) | unkritisch |
+| Tests `install-teile.test.mjs:165/207/216` | bauen die Eingabe **ausdrücklich** als `split('\n').join('\r\n')` | **die Klasse ist jetzt getestet** |
+
+**Urteil: geschlossen.** Kein `.*$` mehr hinter einem `=`, jede Lesestelle schließt `\r` aus oder
+entfernt es, und die Prüfungen enthalten einen CRLF-Fall. **Das ist die systematische Antwort auf einen
+systematischen Fehler** — und sie kam von ihm, nicht von mir. Ich habe hier nur nachgesehen.
+
+## B29 — `.gitattributes` ist da, aber die **Arbeitskopie** widerspricht ihm noch — **N**
+
+**Der Anlass ist dieselbe Klasse wie V3**, eine Ebene tiefer: er hat `.gitattributes` angelegt
+(`631694a`) — gründlich und mit dem gemessenen Fehlerbild im Kopf (`/bin/sh^M: bad interpreter`).
+Gemessen mit `git ls-files --eol`:
+
+| Gruppe | Anzahl | Bedeutung |
+|---|---|---|
+| `attr/text eol=lf` **aber** `w/crlf` | **11** | die Arbeitskopie hat CRLF, obwohl die Regel LF verlangt |
+| `w/mixed` (gemischt in **einer** Datei) | **3** | LF und CRLF gemischt |
+| `attr/text eol=crlf` aber `w/lf` | 13 | PowerShell-Skripte — laut eigener Begründung unkritisch |
+| `attr/text=auto` + `w/crlf` | 4 | auf Windows mit `autocrlf` erwartbar |
+
+**Die 11 Dateien:** drei `.md` in `docs/` — und **acht `.ts`** in `packages/units/unit-export/`
+(`src/bundle.ts`, `src/cli.ts`, `src/index.ts`, `src/registry.ts`, vier Tests).
+
+**Was das praktisch heißt — und was nicht.**
+
+* **Der Bestand ist sauber:** der Index hat für **1752 von 1773** Dateien LF, und Git normalisiert beim
+  `git add` nach Attribut. **Ein CRLF kann nicht ins Repository gelangen**, und eine **frische
+  Auscheckung** bekommt LF. Der Widerspruch betrifft **nur diese Arbeitskopie** — die Dateien wurden
+  vor `.gitattributes` ausgecheckt.
+* **Eine latente Falle bleibt:** `packages/units/unit-export/src/cli.ts` beginnt mit
+  `#!/usr/bin/env bun` — **mit CRLF im Shebang**. Wird die Datei **direkt** ausgeführt (in WSL:
+  `./packages/units/unit-export/src/cli.ts`), scheitert sie mit
+  `/usr/bin/env: 'bun\r': No such file or directory` — **genau das Fehlerbild, das sein eigener
+  `.gitattributes`-Kopf beschreibt**. Über `bun run src/cli.ts` (so steht es in `package.json`) ist es
+  **harmlos**, weil Bun die Datei selbst liest.
+* **Die zwei fremden gemischten Dateien** (`docs/review/ABSCHLUSS-MELDUNG.txt`,
+  `docs/review/verification-log.txt`) haben je **eine** CRLF-Zeile unter 19 bzw. 56 — kosmetisch.
+
+**Reparatur, drei Befehle** (bringt die Arbeitskopie auf die eigene Regel, ohne den Index zu ändern):
+
+```powershell
+cd C:\Users\Chang\prometheus-harness
+git add --renormalize .          # Index nach Attribut normalisieren
+git checkout -- .                # Arbeitskopie neu aus dem Index schreiben
+git ls-files --eol | Select-String 'w/crlf\s+attr/text eol=lf'   # muss leer sein
+```
+
+**Ein Hinweis ohne Befund, weil nicht geprüft:** `docs/reference/verify/*.txt` (4 Dateien,
+`text=auto`, Arbeitskopie CRLF) sind **Größen- und Hash-Listen**. Wer sie gegen einen Baum mit anderen
+Zeilenenden hält, bekommt Abweichungen von **einem Byte je Zeile**. Ob das dort geschieht, habe ich
+**nicht** untersucht — die Gefahr gehört aber benannt.
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
@@ -2322,6 +2388,7 @@ Abbilds**, kein Versehen dieses Projekts. Benannt gehört es trotzdem, weil zwis
 | 14:20 | Mein **neues** Werkzeug `leck-pruefung.mjs` meldete beim ersten Lauf: *„⚠ 2 Wert(e) stehen in der Historie oder in verfolgten Dateien — das ist ein Leck"* — gemeint waren `PGADMIN_PASSWORD` und `REDIS_URL`. | **Kein Leck.** Beide Werte **sind die Vorlagewerte** (`bitte-aendern-pgadmin` bzw. `redis://127.0.0.1:6379`) und stehen deshalb selbstverständlich in `.env.example`, `docker-compose.yml` und `README.md`. Ich habe das Werkzeug um die Trennung **Geheimnis ↔ Vorlagenwert** erweitert (`--vorlage .env.example`); der zweite Lauf meldet **0 Lecks** und führt die neun Vorlagenwerte getrennt. | Ein Scanner **ohne Vergleichsbasis** schlägt bei jedem Standardwert Alarm. Ein Werkzeug, das falsch Alarm schlägt, wird ignoriert — und dann übersieht es den echten Fall. Dieselbe Lehre wie 14:00, eine Ebene tiefer: **erst die eigene Messung prüfen, dann melden.** Aus dem Fehlalarm ist ein **echter** Befund geworden (**B26**): die zwei Werte sind nicht geheim, aber sie sind **die Kennwörter der laufenden Datenbank**. |
 | 14:32 | **Denselben Fehler wie um 12:29 und 13:56 noch einmal gemacht:** beim Einfügen der Zeilen B26/B27 in die Lage-Tabelle habe ich als Anker die **ganze B25-Zeile** benutzt und sie im Ersatztext **nicht** wiederholt — B25 war damit aus der Tabelle **verschwunden**. | Sofort bemerkt (Tabelle nachgezählt: B23, B24, **B26**, B27 — B25 fehlte) und in derselben Minute **wiederhergestellt**. | **Dritter Fall derselben Ursache.** Die Lehre stand schon zweimal in dieser Tabelle, und ich habe sie trotzdem wiederholt — ein Anker, der eine **ganze Zeile** ist, ersetzt diese Zeile. Was wirklich hilft, ist nicht die Lehre, sondern die **Handlung danach**: die Tabelle nach **jeder** Änderung vollständig ausgeben und die Nummernfolge prüfen. |
 | 14:44 | In **B26** stand als Beleg: *„die laufende Datenbank authentifiziert mit veröffentlichten Kennwörtern"* — gestützt auf eine TCP-Anmeldung, die **gelang**. | **Der Beleg trug nicht.** `pg_hba.conf` setzt `trust` für `127.0.0.1/32`: es wird **kein** Kennwort geprüft. Ein absichtlich **falsches** Kennwort meldet sich als `pmh_app` **und** als `pmh_admin` an. B26 ist oben berichtigt; der wahre Sachverhalt steht in **B28**. | **Ich habe genau den Fehler gemacht, den ich in B16 bei anderen diagnostiziert habe:** eine Sonde, deren **Methode** die Frage nicht beantworten kann — und ich habe ihr Ergebnis als Antwort gelesen. Gefunden hat es nicht mein Nachdenken, sondern die **Gegenprobe an einem Wegwerf-Container**: dort fiel auf, dass das *alte* Kennwort nach der Drehung **noch funktionierte**. Lehre: **eine Anmeldung, die gelingt, beweist nichts, solange nicht geprüft ist, dass eine falsche scheitert.** Beide neuen Werkzeuge prüfen das jetzt ausdrücklich. |
+| 14:50 | `git ls-files --eol` zeigte **meine eigene** `docs/protokoll/aufsicht/protokoll.jsonl` als `w/mixed`: **28 von 175 Zeilen endeten mit CRLF**, 147 mit LF. | Ursache **gemessen**: die ersten Zeilen kamen aus dem Schreibwerkzeug (LF), jede angehängte aus `Add-Content` — und das benutzt auf Windows **CRLF**. Die Datei ist auf LF normalisiert (175 Zeilen, 0 CRLF, 175 gültige JSON-Zeilen); ab jetzt hänge ich mit `Set-Content -NoNewline` und vorgegebenem `\n` an. | **Ich habe über die CRLF-Klasse geschrieben und sie in meiner eigenen Spur gehabt** — in der Datei, die das Herzstück des Auftrags ist. Aufgefallen ist es nur, weil ich ausnahmsweise die Zeilenenden **meiner** Dateien gemessen habe. Dritte Bestätigung desselben Musters: der Fehler sitzt dort, wo niemand nachsieht. |
 
 ---
 

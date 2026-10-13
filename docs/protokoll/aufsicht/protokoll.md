@@ -2011,6 +2011,39 @@ nur Längen und Fingerabdrücke.
 **Aufgeräumt:** der Wegwerf-Container ist entfernt, die Probe-Dateien gelöscht, ihr Stapel
 (`pmh-postgres`, `pmh-redis`) **unberührt**.
 
+## 2026-10-13 14:43–14:55 — Fünfunddreißigster Takt: die CRLF-Klasse ist **geschlossen** (V3) — die Arbeitskopie widerspricht der eigenen Regel (B29) — und mein eigener Protokollspeicher war gemischt
+
+**Der Anlass war eine Serie, kein Einzelfall.** Derselbe Fehler ist bei ihm **dreimal** aufgetreten
+(`setzeWerte` in `e9013a5`, `leseEnv` in `d0f48b6`, dazu `.gitattributes` in `631694a`). Ein Fehler, der
+dreimal auftritt, ist eine **Klasse** — also habe ich nicht den Einzelfall geprüft, sondern **jede**
+Stelle, an der zeilenweise gelesen wird.
+
+**V3 — geschlossen, und zwar systematisch.** Alle `split('\n')`-Fundstellen in `scripts/` sind einzeln
+beurteilt: `setzeWerte` trennt `\r` **ausdrücklich** ab und hängt es wieder an, `gesetzteNamen` benutzt
+ein Präfix-Muster (das Zeilenende ist gleichgültig), `leseEnv` `[^\r\n]*`, `containerUmgebung` ein
+`trim()` vor dem Muster, die drei übrigen Stellen sind **reine Ausgabe** — und die **Tests** enthalten
+jetzt einen CRLF-Fall (`split('\n').join('\r\n')`, dreimal). Kein `.*$` mehr hinter einem `=`.
+**Das ist die systematische Antwort auf einen systematischen Fehler, und sie kam von ihm, nicht von mir.**
+
+**B29 — die Nachbarklasse ist offen, aber der Bestand ist sauber.** `.gitattributes` verlangt LF für
+`.ts`/`.md`; die **Arbeitskopie** hat bei **11** Dateien CRLF (drei `.md` in `docs/`, **acht `.ts`** in
+`packages/units/unit-export/`), drei Dateien sind **gemischt**. Gemessen: der **Index** hat für
+**1752 von 1773** Dateien LF, Git normalisiert beim `git add` nach Attribut — **ein CRLF kann nicht ins
+Repository**, und eine **frische Auscheckung** bekommt LF. Der Widerspruch betrifft **nur diese
+Arbeitskopie** (ausgecheckt, bevor `.gitattributes` existierte). **Was bleibt:** `unit-export/src/cli.ts`
+trägt `#!/usr/bin/env bun` **mit CRLF im Shebang**; direkt ausgeführt (in WSL) scheitert es, weil
+`/usr/bin/env` den Interpreter `bun\r` nicht findet — **genau das Fehlerbild, das sein eigener
+`.gitattributes`-Kopf beschreibt**. Über `bun run src/cli.ts` ist es harmlos, weil Bun die Datei selbst
+liest. Reparatur: `git add --renormalize .` und `git checkout -- .`.
+
+**Der eigene Fehler dieses Takts — und er sitzt in meiner eigenen Spur.** `git ls-files --eol` zeigte
+**meine** `protokoll.jsonl` als **gemischt**: **28 von 175 Zeilen** endeten mit CRLF. Ursache
+**gemessen**: die ersten Zeilen kamen aus dem Schreibwerkzeug (LF), jede angehängte aus `Add-Content` —
+und das benutzt auf Windows **CRLF**. Normalisiert: 175 Zeilen, **0 CRLF**, 175 gültige JSON-Zeilen;
+ab jetzt hänge ich mit `Set-Content -NoNewline` und vorgegebenem Zeilenende an. **Ich habe über die
+CRLF-Klasse geschrieben und sie in der Datei gehabt, die das Herzstück dieses Auftrags ist.** Aufgefallen
+ist es nur, weil ich ausnahmsweise die Zeilenenden **meiner** Dateien gemessen habe.
+
 ---
 
 ## Offen / nächster Takt
@@ -2044,6 +2077,8 @@ nur Längen und Fingerabdrücke.
 | **B26** Datenbank benutzt die Kennwörter aus dem Repository | **BERICHTIGT — die Anmelde-Aussage fällt** | Gemessen bleibt: die vier Rollenkennwörter in `.env` sind **identisch** mit den Vorlagenwerten (Längen/Gleichheit), und die Kette ist belegt (CRLF-Fehler in `setzeWerte` → 0 Werte geschrieben → `.env` behielt die Vorlage → Init nur beim ersten Start → Compose-Ausweichwerte entwerteten das `:?`). **Gefallen ist „meldet sich über TCP damit an"** — es wird überhaupt kein Kennwort geprüft (**B28**). Mein Beleg hatte denselben Fehler, den ich in B16 bei anderen diagnostiziert habe: eine Sonde, deren Methode die Frage nicht beantworten kann. Ursprünglicher Stand: Ursache: `docker-compose.yml` liefert **Ausweichwerte** (`:-bitte-aendern-*`, fünf Stellen) und entwertet die scharfe Prüfung in `docker/02-roles.sh`; PostgreSQL setzt Kennwörter nur beim **ersten** Init, und das Volume blieb (Container 14:25 neu, Volume von 12:05). **Schwere M, nicht H — gemessen:** alle Ports nur an `127.0.0.1`. **Der Autor kennt den Fall** und sein Werkzeug meldet nur (richtig); es fehlt der Schritt **aus Weg A heraus**. Empfehlung: (1) `${VAR:?…}` statt Ausweichwert in compose, (2) laufenden Stapel **drehen** (`ALTER ROLE … PASSWORD` als `pmh_admin`), `.env` nachziehen, Migrationen laufen lassen |
 | **B27** Die Größe der Bäume misst den Fortschritt nicht | **beantwortet (Auskunft)** | Ziel **1.867 MB**, Quelle **9.029 MB** — aber **8.642 MB (96 %)** der Quelle sind `node_modules`, und im Ziel sind **1.490 MB** `node_modules` + Rust-`target`; eigener Quelltext **~4 MB**. Die echten Zahlen: **54 Commits in 15 Stunden**, **1.224 Dateien · +42.338 / −97.781 Zeilen** seit dem ersten Commit, **~147 Dateien / ~49.200 Zeilen** eigener Quelltext, **51 Testdateien**. Der Zielbaum **muss** kleiner sein — 97.781 gelöschte Zeilen sind abgeworfener Ballast |
 | **B28** Die Datenbank verlangt über die Schleife kein Kennwort | **offen — vor der Drehung** | `pg_hba.conf` (Bildvorgabe, vom Projekt nirgends gesetzt) hat `host all all 127.0.0.1/32 **trust**`. Gemessen: ein **absichtlich falsches** Kennwort meldet sich als `pmh_app` **und** als `pmh_admin` an — auch der Superuser kommt ohne Kennwort hinein. Damit ist das **Rechtemodell** des Projekts über die Schleife **nicht durchgesetzt**, und **eine Drehung ohne diese Datei ist kosmetisch**. **M, mit Entlastung:** Vorgabe des offiziellen Abbilds, Ports nur an `127.0.0.1`. Reihenfolge: `host all all 127.0.0.1/32 scram-sha-256` als erste Zeile + `select pg_reload_conf()` (gemessen wirksam), dauerhaft machen, **dann** drehen |
+| **B29** Die Arbeitskopie widerspricht der eigenen `.gitattributes` | **offen, klein — drei Befehle** | **11** Dateien mit `attr eol=lf` und `w/crlf` (drei `.md`, acht `.ts` in `packages/units/unit-export`), **3** gemischt, 13 `.ps1` unkritisch. **Der Index ist sauber** (1752 von 1773 LF) → ein CRLF kann nicht ins Repository, eine frische Auscheckung bekommt LF. **Latent:** `unit-export/src/cli.ts` trägt `#!/usr/bin/env bun` mit **CRLF im Shebang** und scheitert beim **direkten** Aufruf (WSL). Fix: `git add --renormalize .` und `git checkout -- .` |
+| **V3** Die CRLF-Klasse im JavaScript | **geschlossen — verifiziert** | Alle `split('\n')`-Stellen in `scripts/` einzeln beurteilt: `setzeWerte` trennt `\r` ausdrücklich ab und hängt es wieder an, `gesetzteNamen` nutzt ein Präfix-Muster, `leseEnv` `[^\r\n]*`, `containerUmgebung` `trim()`, die übrigen sind reine Ausgabe — und die **Tests** enthalten jetzt einen CRLF-Fall. Kein `.*$` mehr hinter einem `=` |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |
