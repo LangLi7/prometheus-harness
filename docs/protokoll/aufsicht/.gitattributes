@@ -17,9 +17,11 @@
 # **Warum eine eigene Datei und keine Änderung an der Wurzel.** Schreibbereich der Aufsicht ist
 # `docs/protokoll/` (Hausregel H3). Eine `.gitattributes` in einem Unterordner gilt **nur** für diesen
 # Unterordner — die Wirkung ist damit genau so groß wie nötig. Der Vorschlag für die Wurzel
-# (`*.jsonl text eol=lf`) steht als Empfehlung im Befund **B29**; vollziehen kann ihn nur der bauende
+# (`/.gitattributes text eol=lf
+*.jsonl text eol=lf`) steht als Empfehlung im Befund **B29**; vollziehen kann ihn nur der bauende
 # Agent.
 
+/.gitattributes text eol=lf
 *.jsonl text eol=lf
 *.md    text eol=lf
 *.sql   text eol=lf
