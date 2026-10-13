@@ -2794,6 +2794,30 @@ live sein, weil Vite ihn über HMR ausliefert. **Ich habe das nicht bis zum Ende
 ich im Browser der GUI nachsehen) — aber die Bedingung, unter der mein Vorbehalt stand, ist **erfüllt**,
 und das gehört zur Aussage dazu.
 
+## V8 — Sein Datenbank-Abgleich ist **verifiziert** — und er ist besser als seine eigene Zusammenfassung (Verifikation, kein Befund)
+
+**Anlaß.** Er hat um 15:38 mit `e64f17d` einen Befund vorgelegt: *„unsere Datenbank ist NICHT die des
+Kerns — und es gibt einen Namenskonflikt"* (`docs/review/datenbank-abgleich.md`, 307 Zeilen). Er
+beantwortet damit eine **Betreiberfrage**, die ich nie gestellt hatte. Drei Behauptungen — alle drei
+nachgemessen:
+
+| Behauptung | Prüfung | Ergebnis |
+|---|---|---|
+| Der Kern hält in SQL **nur einen wegwerfbaren Suchindex** | `packages/session-query/session-query-sqlite/src/schema.ts` | **bestätigt, wörtlich**: Zeile 1 *„SQLite schema for the disposable session full-text read model"*, Zeile 7 *„Incompatible versions reset in place"*; die Tabellen `search_state`, `persisted_sessions`, `persisted_docs` (**VIRTUAL TABLE … USING fts5**) |
+| **Keine Migrationen**, weil es nichts zu migrieren gibt | ebenda + `README.md:23` | **bestätigt — und die Wirklichkeit ist strenger als seine Zusammenfassung:** die README nennt den Rücksetzer **bewacht** (*„only a recognized incompatible schema containing derived tables rebuilds in place. An unrelated or canonical database is refused. Never point `path` at the session-persistence database."*). Das ist eine gute Konstruktion, die in seinem Befund **zu kurz** kommt. **Zur Vollständigkeit seiner Liste:** es gibt eine **vierte** Tabelle, `temp.live_docs` (TEMP-Schatten, verbindungsgebunden) — sie ändert seine Aussage nicht, gehört aber in die Aufzählung |
+| **Ihre** Tabelle `sessions` hält **Anmeldungen**, nicht Gespräche | `information_schema.columns`, nur Spaltennamen | **bestätigt**: `id, user_id, token_hash, csrf_hash, user_agent, ip_first_seen, idle_expires_at, absolute_expires_at, created_at, last_seen_at, revoked_at, revoked_reason`. Ihre Gespräche liegen in **`chats`** und **`messages`** (zehn Tabellen im Schema `pmh`) — der **Namenskonflikt ist real** |
+| Der Kern kennt an einer Sitzung **keinen Benutzer** | `packages/core/session/src/types.ts:61` (`SessionHeader`) | **bestätigt**: `cwd?`, `parentSession?`, `delegationDepth?` — **kein** `userId`, `workspaceId` oder `chatId`; die Suche nach diesen drei Namen im ganzen Sitzungspaket ergibt **null** Treffer |
+
+**Urteil:** sauber gemessen, richtig geschlossen. **Die Struktur zu kopieren wäre falsch**, und seine
+Begründung trägt: *„der Kern speichert, was er zum **Suchen** braucht; wir speichern, was wir zum
+**Betreiben** brauchen"* — mit den drei Gegensatzpaaren (Wahrheit im JSONL gegen PostgreSQL · Rücksetzen
+gegen Migrieren · kein Benutzer gegen `user_id` überall). **Zwei Kleinigkeiten zur Vollständigkeit** sind
+oben benannt (die vierte Tabelle, der bewachte Rücksetzer).
+
+**Für meine eigenen Befunde heißt das:** der Kern hält seine Daten in **SQLite** und **wegwerfbar**; die
+Datenbank mit `pg_hba: trust` (**B28**) ist **ihre** PostgreSQL. Der Abgleich ändert daran nichts —
+**B28 bleibt offen.**
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
