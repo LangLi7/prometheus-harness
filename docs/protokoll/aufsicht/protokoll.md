@@ -1651,6 +1651,109 @@ beendet den **Launcher**, nicht dessen Kind-Host; `start.mjs` würde `taskkill /
 bekommt aber kein SIGINT/SIGTERM. Kleinster Fix: `taskkill /pid <pid> /T /F` — genau der Aufruf, den
 `start.mjs` intern schon benutzt.
 
+## 2026-10-13 13:40–13:56 — Dreißigster Takt: **die neue Aufräumfunktion des Port-Tests läuft nie** (B23)
+
+**Der Anlass ist eine gute Nachricht, die ich prüfen wollte.** `scripts/port-test.ps1` ist **neu
+geschrieben** (Dateizeit **13:42:32**, **285** statt 158 Zeilen): die Tötung nach **Name und Alter** —
+mein Befund **B13** — ist **weg**, ersetzt durch `SammleBaum`/`BeendeBaum` (Nachfahren einsammeln,
+Blätter zuerst, `taskkill /F`) samt Vorspann, der B13 beim Namen nennt. **Genau die empfohlene
+Richtung.** Ich habe den Test **einmal** ausgeführt, um zu sehen, ob **B22** damit behoben ist.
+
+**Er ist es nicht — und der Grund ist ein Wort.** `function BeendeBaum([int]$pid)` (**Zeile 86**):
+**`$pid` ist in PowerShell eine automatische, schreibgeschützte Variable.** Der Parameter lässt sich
+nicht binden, **der Funktionsrumpf wird nie erreicht**, und der Fehler ist **nicht terminierend** — das
+Skript läuft weiter, als wäre nichts gewesen. Isoliert und wiederholbar:
+
+```
+pwsh -NoProfile -Command 'function F([int]$pid) { "Rumpf erreicht" }; F 123; "danach"'
+  danach
+  WriteError: Die Variable „pid" kann nicht überschrieben werden, da sie schreibgeschützt oder konstant ist.
+pwsh -NoProfile -Command 'function F([int]$prozessId) { "Rumpf erreicht" }; F 123; "danach"'
+  Rumpf erreicht
+  danach
+```
+
+**Im Lauf schlagen damit alle acht Aufrufe fehl** (Zeilen **147, 102, 211, 214, 266** — 102 fünfmal),
+und die Ausgabe zeigt die Folgen, nicht die Ursache:
+
+```
+=== FALL 1: Port 5780 frei -> er wird genommen ===
+  FEHLER: Port 5780 ist nach dem Aufraeumen noch belegt
+  [pmh] Port 5780 ist belegt — gewählt: 5782 (belegt: 5780, 5781)
+  FEHLER: Fall 1 nicht erkannt
+=== FALL 2: … FEHLER: Halter beendet sich —   (Halter laeuft, PID )
+=== Ergebnis: 1 Befund(e) ===
+```
+
+**Drei Folgen, alle gemessen.** (1) **Fall 1 fällt um**, weil die **Waise des vorigen Laufs** den Port
+hält — der Test deutet das als Fehler der **Portwahl**, obwohl es die **Abräumung** ist. (2) Der
+**Halter** kann 5780 nicht binden (`FEHLER: Halter beendet sich`) — Fall 2 und 3 prüfen damit
+**nichts**. (3) **`Ergebnis: 1 Befund(e)` untertreibt**: zwei Meldungen stammen aus `$fehler++`
+**innerhalb einer Funktion** und zählen nicht — ein `$fehler++` im Funktionsrumpf schreibt eine
+**lokale** Kopie.
+
+**Zweiter Defekt derselben Familie:** `BelegePort` gibt bei scheiterndem Halter die Ausgabe von
+`Get-Content "$log.err" | Select-Object -First 1` **in die Pipeline** und danach `$null` zurück — die
+Rückgabe ist der **Fehlertext**, nicht leer. Deshalb greift `if ($h -eq $null)` **nicht**, der Zweig
+„UEBERSPRUNGEN: … dieser Test prueft nichts" erscheint **nie**, und der Test läuft mit einem Halter
+weiter, den es nicht gibt (sichtbar: „(Halter laeuft, PID )" — die PID ist leer).
+
+**Der kleinste Fix:** `[int]$prozessId` statt `[int]$pid`; `$script:fehler++` an den beiden Stellen im
+Funktionsrumpf; die Diagnosezeile in `BelegePort` mit `Write-Host` aus der Rückgabe nehmen. **Und am
+Skriptende nachzählen**, ob noch Prozesse dieses Projekts laufen — die Portprüfung deckt **einen** Port
+ab und lässt Launcher und Halter unentdeckt.
+
+**Meine Hypothese aus B22 ist damit fällig — und ich korrigiere sie.** Dort stand der Mechanismus als
+**Vermutung aus dem Quelltext** („`Stop-Process -Force` liefert kein SIGINT/SIGTERM"). Gegenprobe:
+**`Get-Process bun` sieht die Prozesse** (sechs gemessen, Name `bun`, Pfad `…\.bun\bin\bun.exe`), und
+die **alte** Fassung hatte Fenster von **1, 5 und 2 Minuten** — die sechs Waisen waren **1,13 bis
+11,4 min** alt, lagen also in jedem Fenster. Beides zusammen heißt: die Zeilen haben in jenen Läufen
+**nicht gewirkt**. **Warum, ist von hier aus nicht entscheidbar** (Abbruch vor der Schlussabräumung?
+dritte Fassung auf der Platte?). Gestützt wird der Abbruch-Verdacht dadurch, dass mein eigener Lauf
+**länger** dauerte: die beiden `WarteAufFreienPort`-Schleifen laufen bei belegtem Port je **8 s** in
+den Fehler. **Empfehlung daraus:** die Abräumung **je Testfall** ist die richtige Stelle; die
+Schlussabräumung darf nicht die einzige sein.
+
+**Zeitachse, jede Zahl gemessen:**
+
+| Zeit | Ereignis |
+|---|---|
+| 13:24 / 13:30 / 13:35 | Läufe mit der **alten** Fassung |
+| **13:41:50** | Ich messe **sechs** Waisen, Alter 5,9–11,4 min, **1.129,7 MB**, je HTTP 200 auf `/api/health` |
+| ~13:42:00–13:42:30 | Der bauende Agent **entfernt die sechs selbst**; Kontrolle: **null** `bun`-Prozesse, alle sechs Ports ohne Antwort |
+| **13:42:32** | `scripts/port-test.ps1` **neu geschrieben** |
+| 13:42:40–13:43:26 | Sein **Zeugentest** läuft: er startet einen **fremden** `bun`-Prozess („ZEUGE: fremder bun-Prozess, muss ueberleben"), lässt `port-test.ps1` laufen und prüft danach, ob der Zeuge überlebt und ob Waisen bleiben — **er prüft B13 nach** |
+| **13:47** | **Mein** Lauf derselben Datei: acht `WriteError`-Zeilen, dann `Ergebnis: 1 Befund(e)` |
+
+**Was ich dabei selbst verursacht habe — offen gesagt.** Mein Lauf hat **eigene Waisen** hinterlassen,
+weil die Abräumung ja nicht wirkt; ich habe sie **entfernt** (Abbruch des Hintergrundauftrags samt
+Baum; Kontrolle: **null** Prozesse dieses Projekts). Und ich habe damit **parallel** zu seinem
+laufenden Zeugentest gemessen — ein Eingriff, der **meine** Zahl verfälschen konnte und seiner
+Prüfung Prozesse vor die Füße stellen konnte. **Ich wiederhole das nicht** (Hausregel **H5** ist in
+`befunde.md` §„Grenzen" um genau diese eine Ausnahme ergänzt).
+
+**Dazu zwei Randbefunde, die ich nicht verschweigen will:**
+
+- **Die Ausführungsrichtlinie dieses Rechners blockiert jede `.ps1`.** `CurrentUser = Restricted`
+  schlägt `LocalMachine = RemoteSigned`; `pwsh -File …` bricht schon beim **Laden** ab
+  (`SecurityError`). Ohne `-ExecutionPolicy Bypass` läuft **kein** PowerShell-Skript dieses Projekts —
+  auch `port-test.ps1` nicht. Ihre eigene Belegdatei nennt den Schalter (`beleg-startadresse.md`
+  Zeile 79), aber **kein** Aufrufer im Repository tut es.
+- **Die unversionierte Arbeit ist groß:** **34** Dateien, **2.394** Einfügungen, **226** Löschungen,
+  darunter `native/flock` (Rust) und **20** Go-Dateien. Nicht beanstandet — es ist ein Arbeitsstand.
+  **Gemessen und gut:** `cargo`/`rustc` **1.96.0** und Go sind installiert; `native/flock` ist damit
+  überhaupt baubar.
+
+**Ein Hinweis, den ich aus ihrer eigenen Doku ziehe** (`apps/cli/README.md` Zeile 77): dort steht der
+`ptc-runtime-node`-Importfehler als **H4 mit „Ursache nicht eingegrenzt"**. Ihr **eigener**
+übersetzter Upgrade-Leitfaden (`docs/dsh/translation_de/upgrade-guide/v0.2.1-alpha.1/ssh-helper-launch`)
+sagt für **genau dieses Paket**: `dsh-ptc-runtime-node` **ersetzt** `nodeExecutable` und
+`bootstrapPath` durch **`launch`**. Das ist die erste Spur, die ich zu H4 habe — ich habe sie **nicht**
+nachgemessen und nenne sie deshalb als **Spur**, nicht als Befund.
+
+Befund **B23** steht vollständig in [`befunde.md`](befunde.md) — mit Beweis, den zwei weiteren
+Defekten derselben Familie und dem Ein-Wort-Fix.
+
 ---
 
 ## Offen / nächster Takt
@@ -1668,7 +1771,7 @@ bekommt aber kein SIGINT/SIGTERM. Kleinster Fix: `taskkill /pid <pid> /T /F` —
 | **B10** Betreiber-Weisung nachgemessen | **erledigt** — Kernbehauptungen exakt bestätigt (Krypto, Umschlagverschlüsselung, Historien-Negativbefund), **ein harter Fehler**: die Vorlage-Tabelle zitiert den Arbeitsbaum |
 | **B11** Boot-Sonde räumt nach Name und Alter auf | **offen, liegt beim bauenden Agenten** | Zeile 103 beendet **jeden** `bun`-Prozess der letzten zwei Minuten — der andere Agent kann mitten im Lauf sterben. Zeile 102 (eigene PID) genügt |
 | **B12** Sprachwahl-Recherche geprüft | **erledigt** — PTY-Messung **vollständig reproduziert**, offene Zeilendifferenz **aufgeklärt** (555 Leerzeilen), **ein Fehler**: Entscheidung 4 trägt den in B6 widerlegten Satz „kein Code ruft es auf" — er steht damit in **zwei** Dokumenten |
-| **B13** Töten nach Prozessname und Alter | **offen, wächst** | inzwischen **sechs** Stellen (Fenster 1/2/2/3/3/**5** Minuten) — die sechste entstand beim **vierten Testfall** durch Mitkopieren. Entlastet: die DSH-GUI läuft auf `node` und ist **nicht** betroffen; kein Skript tötet einen Portbesitzer |
+| **B13** Töten nach Prozessname und Alter | **teilweise behoben — von sechs Stellen sind drei übrig** | **Behoben (Verdienst des bauenden Agenten):** `scripts/port-test.ps1` ist bereinigt — die Zeilen sind **weg**, ersetzt durch `SammleBaum`/`BeendeBaum` nach **Herkunft**; **aber** die Ersatzfunktion läuft nicht (**B23**). **Offen:** `boot-schleife.ps1:103` (2 min), `api-test.ps1:33` (3 min), `api-flaeche.ps1:92` (3 min). Diese drei töten weiterhin **jeden** `bun` im Fenster — auch den Zeugenprozess, mit dem der bauende Agent gerade diese Frage selbst prüft. Entlastet bleibt: die DSH-GUI läuft auf `node` und ist nicht betroffen |
 | **B14** Umschlagverschlüsselung = Schema, nicht Code | **offen, Hinweis liegt vor** | `value_cipher`/`wrapped_key` nur in der Migration; `user_secrets`/`api_keys` nur in Testdateien; `PMH_MASTER_KEY` und `MIGRATION_DATABASE_URL` werden von **nichts** gelesen. Die Weisung §3 ist für das Schema wahr, für den Code nicht |
 | **B15** Startseite + Baum-Beschriftung | **teilweise erledigt** | **Erledigt:** die Zahlen nennen jetzt ihre **Definition**, und mit ihr **reproduzieren sie exakt** (120 Dateien / 1,53 MB · 16 Pakete). **Offen:** der in B6 widerlegte Satz „nichts ruft sie auf" steht weiter auf der Startseite, und die drei Bäume bleiben falsch beschriftet („unveränderter Upstream" = gepatchter Arbeitsbaum) — die Ursache von B10 |
 | **B16** „API ausgefallen" **widerlegt** | **entschieden — gemessen am laufenden Host** | Angemeldet (Token aus ihrem eigenen Protokoll) antwortet **`POST /api/goals/create`** auf **ihrem** Host mit **HTTP 200 und JSON-RPC-Rahmen** — der Gateway **lebt**. Damit ist die README-Zeile „API des Cores ausgefallen" falsch und die Begründung „die Vorlage hat keine erreichbare API" hinfällig. **Offen bleibt:** der WS-Pfad `/api/remote.mux` scheitert auf **beiden** Installationen schon beim Handschlag |
@@ -1677,7 +1780,8 @@ bekommt aber kein SIGINT/SIGTERM. Kleinster Fix: `taskkill /pid <pid> /T /F` —
 | **B19** Registrierter Pfad umgeht auch den Zaun | **erledigt** | Commit `38aa3ff`: `verbindung.requestRejection({ headers })` — Zaun **und** Anmeldung; bei fehlendem Dienst **Fail-closed 503**. Die Umsetzung ist besser als die Empfehlung, und ich rechne sie mir **nicht** zu (seine Sonde lief 12:59, mein Befund kam 13:08) |
 | **B20** Zwei eigene Artefakte widersprechen sich | **offen, Design-Frage (verschärft)** | `/api/ready` mit **null Sonden** liefert **`bereit: true`** und **HTTP 200**; ihr **Test** hält das fest („nichts zu prüfen — und das ist bereit"), ihre **`.env.example`** sagt dagegen, der Endpunkt melde `ok`, „**statt ‚bereit' zu behaupten**". Die **neue README-Statuscode-Tabelle** (401/403/503) lässt genau diesen Fall aus. Drei Auswege: `bereit`/Status an `sonden.length > 0` binden (503) · drei Zustände statt Boolean (`null` = nicht geprüft) · nur den Wortlaut der Vorlage an den Code anpassen |
 | **B21** „Kette" bedeutet zweierlei | **offen, klein** | Die bindende Reihenfolge meint mit „Kleinste Kette" *Adapter → Agent-Loop → Session*; das Entscheidungsdokument nennt *Plugin → Route → Antwort* „**die ganze Kette**". Ein Leser kann den Meilenstein für erreicht halten. Empfehlung: eigenes Wort („Ladekette") · dazu: `readiness` verbindet PostgreSQL/Redis (Schritt-2-Territorium) — als **Sonde** legitim, aber die Grenze steht nirgends |
-| **B22** Port-Tests hinterlassen laufende Hosts | **offen, dringlich** | **Sechs** Host-Instanzen antworten auf `/api/health` (HTTP 200), Alter **1,4–6,9 min** — beide Aufräum-Fenster (1 und 5 min) überschritten. Ihr Fall 3 meldet deshalb „Kein freier Port … belegt sind 5780": eine **Waise** erfüllt die Voraussetzung, nicht der Halter. Fix: `taskkill /pid <pid> /T /F` (wie `start.mjs` Zeile 163) statt Launcher-PID + Namensfilter |
+| **B22** Port-Tests hinterlassen laufende Hosts | **beantwortet — Ursache gemessen (B23)** | **Sechs** Waisen (1.129,7 MB, Alter bis 11,4 min, je HTTP 200) um **13:41:50** gemessen; der bauende Agent hat sie um **13:42** **selbst entfernt**. Die Ursache ist **nicht** die Portwahl: die **neue** Aufräumfunktion läuft nie (**B23**), also hinterlässt **jeder** Lauf einen Satz — sein Lauf um 13:43 tat es erneut. Fix: **ein Wort** (`$prozessId` statt `$pid`) + Nachzählen am Skriptende |
+| **B23** Die Aufräumfunktion des Port-Tests läuft nie | **offen, dringlich — ein Wort** | `function BeendeBaum([int]$pid)` (Zeile 86): **`$pid` ist schreibgeschützt**, der Rumpf wird **nie erreicht**, der Fehler ist **nicht terminierend**. **Acht** Aufrufe schlagen fehl (147/102/211/214/266). Folgen: Fall 1 meldet „nicht erkannt" (die Waise hält den Port), der Halter kann nicht binden, und `Ergebnis: 1 Befund(e)` **untertreibt**, weil `$fehler++` im Funktionsrumpf lokal zählt. Zweiter Defekt derselben Familie: `BelegePort` gibt den **Fehlertext** statt `$null` zurück → der Schutz „dieser Test prueft nichts" greift nie |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |
@@ -1685,7 +1789,7 @@ bekommt aber kein SIGINT/SIGTERM. Kleinster Fix: `taskkill /pid <pid> /T /F` —
 | Nachweis, dass `~/.pmh` als Home den `P7.7`-Fehler nicht zurückholt | offen — Sonde vor einer Vorgabeänderung |
 | Route `openai` im Katalog | offen — Schlüssel lieferte 403 |
 | Widerspruch zu `atomic-write`-Tests | **offen** — 17 rot gegen 19 grün (nicht von mir ausgeführt, H5) |
-| Nächster Takt | neue Commits (`git log c728464..HEAD`), `settings.yaml` (10/12), Container-Generation, ob `rechte-probe-assertion.sql` übernommen wurde |
+| Nächster Takt | **ob `BeendeBaum` umbenannt ist** (B23 — ein Wort, sofort prüfbar) · ob die **drei** restlichen B13-Zeilen fallen · ob die **34** unversionierten Dateien (`native/flock`, 20 Go-Dateien) committet werden · neue Commits (`git log c728464..HEAD`), `settings.yaml` (10/12), Container-Generation, ob `rechte-probe-assertion.sql` übernommen wurde |
 
 ---
 

@@ -1710,6 +1710,128 @@ beweist **nicht**, dass jede Kern-API nutzbar ist.
 
 ---
 
+## B23 — Die neue Aufräumfunktion des Port-Tests **läuft nie**: `$pid` ist schreibgeschützt — **H**
+
+**Anlass.** `scripts/port-test.ps1` ist **neu geschrieben** (Arbeitsstand, **unversioniert**; Dateizeit
+**13:42:32**, **285** statt 158 Zeilen). Die Tötung nach **Name und Alter** — mein Befund **B13** — ist
+**verschwunden** und durch genau das ersetzt, was ich empfohlen hatte: `SammleBaum` (Nachfahren
+einsammeln) und `BeendeBaum` (Blätter zuerst, dann die Wurzel, zusätzlich `taskkill /F`). Der Vorspann
+nennt B13 beim Namen. **Die Absicht ist genau die richtige.** Ich habe den Test **einmal** ausgeführt,
+um zu prüfen, ob **B22** damit behoben ist — er ist es **nicht**.
+
+**Die Ursache, in einer Zeile.** `BeendeBaum([int]$pid)` — **`$pid` ist in PowerShell eine
+automatische, schreibgeschützte Variable** (die Prozess-ID der laufenden Sitzung). Der Parameter lässt
+sich nicht binden, **der Funktionsrumpf wird nie erreicht**, und der Fehler ist **nicht terminierend**:
+das Skript läuft weiter, als wäre nichts geschehen.
+
+**Beweis, isoliert und wiederholbar** — derselbe Rumpf, nur der Parametername ist anders:
+
+```powershell
+pwsh -NoProfile -Command 'function F([int]$pid) { "Rumpf erreicht: $pid" }; F 123; "danach"'
+#   danach
+#   WriteError: Die Variable „pid" kann nicht überschrieben werden, da sie schreibgeschützt oder konstant ist.
+
+pwsh -NoProfile -Command 'function F([int]$prozessId) { "Rumpf erreicht: $prozessId" }; F 123; "danach"'
+#   Rumpf erreicht: 123
+#   danach
+```
+
+**Im Testlauf schlägt damit *jeder* Aufruf fehl — acht Stellen:**
+
+| Zeile | Aufruf | Folge |
+|---|---|---|
+| 147 | `BeendeBaum $proc.Id` (in `StarteHost`) | der Host **jedes** Testfalls bleibt laufen |
+| 102 | `BeendeBaum $p` (in `BeendeEigene`) | die Schlussabräumung tut nichts |
+| 211 / 214 | `BeendeBaum $h2.Id` / `BeendeBaum $h.Id` | die **Halter** bleiben laufen |
+| 266 | `BeendeBaum $p4.Id` | der Host für Fall 4 bleibt laufen |
+
+**Was der Lauf daraufhin gemeldet hat** (echte Ausgabe, gekürzt):
+
+```
+=== FALL 1: Port 5780 frei -> er wird genommen ===
+  FEHLER: Port 5780 ist nach dem Aufraeumen noch belegt
+  [pmh] Port 5780 ist belegt — gewählt: 5782 (belegt: 5780, 5781)
+  FEHLER: Fall 1 nicht erkannt
+=== FALL 2: Port 5780 belegt -> Ausweichen mit Begruendung ===
+  FEHLER: Halter beendet sich —   (Halter laeuft, PID )
+=== FALL 4: … ===
+  OK: mit Token -> 200, 35664 Zeichen
+  OK: ohne Token -> 401 (geschuetzt)
+=== Ergebnis: 1 Befund(e) ===
+```
+
+Drei Folgen, alle gemessen:
+
+1. **Fall 1 fällt um**, weil die **Waise des vorigen Laufs** den Port hält: der Host weicht auf 5782
+   aus, der Test deutet das als „Fall 1 nicht erkannt" — also als Fehler der **Portwahl**, obwohl es
+   die **Abräumung** ist.
+2. **Der Halter kann 5780 nicht binden** (`FEHLER: Halter beendet sich`) — dieselbe Waise. Fall 2 und 3
+   prüfen damit **nichts**.
+3. **`Ergebnis: 1 Befund(e)` untertreibt.** Zwei Meldungen stammen aus `$fehler++` **innerhalb einer
+   Funktion** (`StarteHost`, Zeile 152) und zählen deshalb **nicht**: `$fehler++` im Funktionsrumpf
+   schreibt eine **lokale** Kopie. Dieselbe Familie wie `$pid` — PowerShell-Gültigkeit, nicht Logik.
+
+**Zweiter Defekt derselben Familie** (unabhängig vom ersten): `BelegePort` gibt bei scheiterndem Halter
+die Ausgabe von `Get-Content "$log.err" | Select-Object -First 1` **in die Pipeline** und danach `$null`
+zurück — die Rückgabe ist damit der **Fehlertext**, nicht leer. Folge: die Prüfung `if ($h -eq $null)`
+(Zeile 188) greift **nicht**, der Zweig „UEBERSPRUNGEN: … dieser Test prueft nichts" erscheint **nie**,
+und der Test läuft mit einem Halter weiter, den es nicht gibt — sichtbar an „(Halter laeuft, PID )",
+die PID ist leer.
+
+**Der kleinste Fix — ein Wort:**
+
+```powershell
+function BeendeBaum([int]$prozessId) {   # statt [int]$pid
+```
+
+Dazu `$script:fehler++` statt `$fehler++` an den beiden Stellen im Funktionsrumpf, und in `BelegePort`
+die Diagnosezeile mit `Write-Host` (oder `| Out-Null`) aus der Rückgabe nehmen.
+
+**Und eine Empfehlung, die den Fehler dauerhaft sichtbar macht:** am Skriptende **nachzählen**, statt
+nur den Port zu prüfen. Die Portprüfung deckt nur **einen** Port ab — die Launcher und die Halter
+bleiben dabei unentdeckt:
+
+```powershell
+$rest = @(Get-CimInstance Win32_Process -Filter "Name='bun.exe'" |
+  Where-Object { $_.CommandLine -like '*prometheus-harness*' })
+if ($rest.Count) { Write-Host ("FEHLER: {0} Prozess(e) dieses Projekts laufen noch" -f $rest.Count); $fehler++ }
+```
+
+### Nachtrag zu **B22** — der Mechanismus ist jetzt **gemessen**, und er war ein anderer
+
+In B22 stand der Mechanismus als **Hypothese aus dem Quelltext** („`Stop-Process -Force` liefert kein
+SIGINT/SIGTERM, deshalb stirbt das Kind nicht mit"). Für die **neue** Fassung ist der Mechanismus jetzt
+gemessen: **das Aufräumen läuft nie** (B23). Für die **alte** Fassung bleibt er **offen** — und die
+Gegenprobe spricht gegen meine Hypothese:
+
+| Messung | Ergebnis |
+|---|---|
+| `Get-Process bun` (jetzt, mit sechs laufenden Bun-Prozessen) | **sieht sie** — Name `bun`, Pfad `…\.bun\bin\bun.exe`; die Namenszeile war also **wirksam-destruktiv**, nicht blind |
+| Alte Fassung (HEAD): Fenster | 1 min in `StarteHost`, **5 min** am Skriptende, 2 min beim vierten Fall |
+| Waisen um 13:41:50 | **1,13 min bis 11,4 min** alt — sie lagen in **jedem** dieser Fenster |
+| Schluss | Die Zeilen haben in jenen Läufen **nicht gewirkt**. Ob das Skript vorher **abgebrochen** wurde oder auf der Platte eine **dritte** Fassung lag, kann ich **nicht** belegen |
+
+**Gestützt wird der Abbruch-Verdacht durch meinen eigenen Lauf:** er dauerte länger als sonst, weil die
+beiden `WarteAufFreienPort`-Schleifen bei belegtem Port je **8 s** in den Fehler laufen. Fall 1 + 2 + 3
++ 4 kommen damit in die Nähe üblicher Werkzeug-Zeitlimits. **Empfehlung:** die Aufräumung **je Testfall**
+(vorhanden, Zeile 147) ist die richtige Stelle — die Schlussabräumung darf **nicht** die einzige sein.
+
+### Nachtrag zu **B13** — von sechs Stellen sind **drei** übrig
+
+| Datei | Zeile | Fenster | Stand |
+|---|---|---|---|
+| `scripts/port-test.ps1` | 40 / 102 / 154 (alt) | 1 min / 5 min / 2 min | **behoben** — die Zeilen sind **weg**, ersetzt durch `SammleBaum`/`BeendeBaum` (aber siehe B23: die Ersatzfunktion läuft nicht) |
+| `docs/status/messsonden/boot-schleife.ps1` | 103 | 2 min | **offen** |
+| `docs/status/messsonden/api-test.ps1` | 33 | 3 min | **offen** |
+| `docs/status/messsonden/api-flaeche.ps1` | 92 | 3 min | **offen** |
+
+Die drei verbliebenen Stellen stehen in **Messsonden** — sie töten weiterhin **jeden** `bun`-Prozess im
+Fenster, also auch einen fremden `bun test`, `bun install` oder den Zeugenprozess, den der bauende
+Agent gerade selbst benutzt, um genau diese Frage zu prüfen. **Der laufende Zeugentest ist damit ein
+Ereignis, das die eigene Sonde beenden kann.**
+
+---
+
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
 
 | Behauptung des bauenden Agenten | Gegenprobe | Ergebnis |
@@ -1751,6 +1873,9 @@ beweist **nicht**, dass jede Kern-API nutzbar ist.
 | 12:29 | Beim Einfügen der B13-Zeile in die Offen-Tabelle habe ich die **B12**-Zeile ersetzt statt ergänzt. | Sofort bemerkt und in derselben Minute wiederhergestellt; die Tabelle danach nachgeprüft (B10–B13 vollständig, Zeilen 786–789). | Ein Anker, der nur einen Teil der Zielzeile enthält, ersetzt diese vollständig. Kontrolle nach jeder Tabellenänderung: zählen, nicht annehmen. |
 | 13:06 | **Der schwerste eigene Fehler dieser Sitzung:** in `hilfen/vorhandene-bausteine.md` schrieb ich den Fingerabdruck eines Schlüssels als **`95624be3e0c1`** — **ohne ihn gemessen zu haben.** | Nachgemessen in zwei frischen Shells: **`d0be03708b89`** (Länge 59, stabil). Die Datei nennt jetzt den gemessenen Wert, den erfundenen und den Vorgang. | Eine Zahl, die aussieht wie eine Messung und keine ist, ist **genau** der Fehler, den diese Rolle bei anderen sucht (die 12,7-s-Zahl, die den Compiler maß; der 731-MB-Wert; die 404 auf geratenen Pfaden). Dass ich ihn selbst gemacht habe, gehört hierher — nicht in eine stille Korrektur. **Lehre: kein Wert in eine Datei, der nicht vorher in einer Shell gestanden hat.** |
 
+| 13:48 | In **B22** stand der Mechanismus als **Hypothese aus dem Quelltext**: „`Stop-Process -Force` liefert kein SIGINT/SIGTERM, deshalb stirbt das Kind nicht mit." | Der Mechanismus ist jetzt **gemessen** — aber ein **anderer**: das Aufräumen der **neuen** Fassung läuft nie, weil `$pid` schreibgeschützt ist (**B23**). Für die **alte** Fassung ist er **weiterhin offen**; ihre Fenster hätten greifen müssen, und `Get-Process bun` **sieht** die Prozesse (gemessen). | Ich hatte den Quelltext **gelesen**, aber **nicht ausgeführt** — und die Hypothese dann so notiert, dass sie wie eine Erklärung aussah. Genau der Unterschied, den ich bei anderen einfordere: eine Vermutung aus dem Quelltext ist kein Beleg. |
+| 13:47 | `(Get-Content befunde.md \| Measure-Object -Line).Lines` → **1374** Zeilen, während dieselbe Datei bis Zeile **1756** reicht. | **Derselbe Fehler wie um 11:53** in dieser Tabelle, nur an einer Datei, die ich gerade selbst prüfte: `Measure-Object -Line` zählt **Leerzeilen nicht**. Nachgemessen: 5 Elemente (3 nicht leer) → **3**. Richtig: **1766** Zeilen, davon 392 leer. | Ich habe den Fehler **wiederholt, den ich selbst schon dokumentiert hatte**. Die Korrektur steht hier, weil diese Tabelle sonst den Eindruck erweckt, ich hätte daraus gelernt. |
+
 ---
 
 ## Grenzen dieser Prüfung (was **nicht** belegt ist)
@@ -1758,8 +1883,14 @@ beweist **nicht**, dass jede Kern-API nutzbar ist.
 - Ich habe **keinen** echten Modellaufruf mit dem Schlüssel des Ziel-Projekts gefahren — nur einen
   lesenden Kontenaufruf (`/user/balance`). Ob der Ziel-Host mit gesetztem Zugang **wirklich** bis zur
   Antwort kommt, ist **nicht** gemessen.
-- Ich habe **keine** Tests des Ziel-Repos ausgeführt (Hausregel H5). Alle Testzahlen in diesem
-  Dokument sind **Zitate** aus den Nachweisen des bauenden Agenten, nicht meine Messung.
+- Ich habe **keine** Tests des Ziel-Repos ausgeführt (Hausregel H5) — **mit einer Ausnahme**, die hier
+  stehen muss: am **13.10. um 13:47** habe ich **`scripts/port-test.ps1` einmal ausgeführt**, um zu
+  prüfen, ob **B22** durch die neue Fassung behoben ist. Das ist die einzige Testausführung dieser
+  Sitzung; sie hat **eigene Waisen** hinterlassen (die Abräumung wirkt ja nicht, siehe **B23**), die ich
+  um **13:44** nachweislich **entfernt** habe. Sie lief **parallel** zu einem laufenden Zeugentest des
+  bauenden Agenten — ein Eingriff, den ich nicht wiederhole (siehe **B23**, Zeitachse).
+  Alle **übrigen** Testzahlen in diesem Dokument sind **Zitate** aus den Nachweisen des bauenden
+  Agenten, nicht meine Messung.
 - Der Zustand unter **WSL2** wurde von mir nur oberflächlich gesehen (`wsl -l -v`: Ubuntu und
   docker-desktop laufen, kali-linux gestoppt). Die WSL2-Nachweise des bauenden Agenten habe ich
   **nicht** nachgefahren.
