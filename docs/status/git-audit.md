@@ -416,3 +416,57 @@ die Adresse jetzt auf: mit Token **200 / 35.664 Zeichen**, ohne Token **401**.
 4. **`bun run typecheck`** bleibt in dieser Umgebung nur einzeln ausführbar.
 5. **`native/flock`** ist mitgeändert, aber in diesem Lauf **nicht** geprüft —
    `cargo test` lief nicht.
+
+---
+
+### 2026-10-13 · Erster eigener Endpunkt im Host (P8.13, erster Teil)
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Der Kern war gebaut, aber **nicht verdrahtet**: „eine Kette, die nur im Test läuft, ist keine Kette" |
+| Umfang | `packages/api/health/` (neu: `package.json`, `src/index.ts`, `tsconfig.json`, `tests/health.test.ts`), `scripts/profile-patch.mjs` (neu), `scripts/tests/profile-patch.test.mjs` (neu), `scripts/start.mjs`, `README.md`, `docs/INDEX.md`, `docs/status/beleg-eigener-endpunkt.md` (neu) |
+| Art | **Codeänderung im Repo.** Kein `~/.dsh`-Zugriff; die Profildatei liegt in `.pmh-build/` und ist nicht versioniert |
+| Nachweis | [beleg-eigener-endpunkt.md](beleg-eigener-endpunkt.md) |
+| Tests | **669 pass · 0 fail** (25 Dateien, mit echter PostgreSQL) · ohne Testdatenbank **655 pass · 14 skip · 0 fail** |
+| Typecheck | **17 tsconfig.json, 17 grün, 0 rot** |
+| Im Host | `GET /api/health` → **200** mit unserem JSON; `POST` → **405**; `/api/health/mehr` → **404** |
+
+**Der Befund.** `packages/api/health` hängt sich über den offiziellen Dienst
+`ctx.webServer.register` ein — nicht über eine eigene Serverinstanz. Eine zweite
+Instanz hätte die eigentliche Frage nicht beantwortet und wäre eine zweite
+Wahrheit über Adresse und Anmeldung geworden.
+
+**Vier eigene Fehler, jeder von einer Messung gefunden:**
+
+1. `ctx.on('dispose', …)` — ein Lebenszyklus-Haken, den Cordis **nicht kennt**.
+   Der Aufräumer feuerte nie; nach dem Abhängen antwortete die Route weiter mit
+   **200** und zeigte auf einen toten Kontext. Richtig ist `ctx.effect()`.
+2. Die Patch-Zeile war die **Änderungsform** (`id` + `name` ohne `insert`). Der
+   Loader hätte eine Zeile mit dieser id gesucht, keine gefunden und **nichts**
+   eingehängt — der Host wäre ohne den Endpunkt weitergelaufen.
+3. Zeilen an `[]` angehängt. `[]` ist die **leere Liste**, kein Platzhalter; der
+   Host brach mit `end of the stream or a document separator is expected` ab.
+4. `insert:` ohne Listenstrich — eine Abbildung statt einer Liste:
+   `must be a top-level YAML array of loader patch entries`.
+
+**Fehler 2 bis 4 sind derselbe Fehler in drei Stufen:** die Form des Eintrags
+wurde **angenommen** statt in der Quelle nachgelesen. Aufgefallen ist jeder erst,
+als der Host wirklich starten sollte — die Prüfungen konnten ihn nicht finden,
+weil sie die Form prüften, die ich mir ausgedacht hatte. Die Prüfdatei parst die
+erzeugten Zeilen deshalb jetzt und weist die Form `insert:` nach.
+
+#### Offene Punkte, die dieser Eintrag stehen lässt
+
+1. **`credential-gh`** — achter Push, achte Warnung; unverändert offen.
+2. **Fremde, nicht committete Arbeit im Arbeitsbaum** — 27 geänderte und 8
+   unversionierte Dateien, unverändert. Nicht von diesem Lauf, **nicht
+   committet**; `go build`/`go test` in beiden Diensten waren **exit 0**.
+3. **Die Kette ist erst zum Teil verdrahtet.** `health` läuft im Host. Adapter,
+   Agent-Loop und Session laufen weiterhin nur in Tests — P8.13 ist damit
+   **begonnen, nicht erledigt**.
+4. **`/api/health` ist ohne Anmeldung erreichbar** — bewußt und begründet, aber
+   es gibt **keine** Prüfung, die das festhält.
+5. **Der `Content-Length`-Kopf wurde in der Antwort nicht sauber ausgelesen**
+   (PowerShell zeigte `System.String[]`). Die Absicht ist im Handler ausgeführt,
+   die gesendeten Kopfdaten sind **nicht belegt**.
+6. **Nur Windows gemessen.** Bun 1.4.0, Windows nativ; Linux ungemessen.

@@ -558,7 +558,7 @@ Wiederaufnahme aus der Datei fährt.
 | P8.10 | **Formatversion 4** der Vorlage mit den vier Migrationen (v0→v4) | **offen** — dieses Paket beginnt bei `v1`; die Migrationskette ist **leer** und meldet das begründet (§6 des Nachweises) |
 | P8.11 | Verdichtung (Compaction) | **offen** — eigenes Paket; `token-meter` zählt, kürzt nicht |
 | P8.12 | Aufruf gegen den **echten** Anbieter | **offen** — kein Schlüssel in dieser Umgebung; kein Nachweis gegen den Dienst |
-| P8.13 | Kette in der **Anwendung** (Host startet und bedient sie) | **offen** — hängt an P7.7 |
+| P8.13 | Kette in der **Anwendung** (Host startet und bedient sie) | **begonnen** — der **erste eigene Endpunkt** läuft im Host (`GET /api/health` → **200** über `ctx.webServer.register`). Adapter, Agent-Loop und Session sind **weiterhin nicht** angeschlossen. Beleg: [beleg-eigener-endpunkt.md](beleg-eigener-endpunkt.md) |
 | P8.14 | `unit.json` für die neuen Pakete | **offen — Widerspruch** (`units/README.md` verlangt Units unter `units/`; die vorhandenen Pakete liegen unter `packages/`). Nicht vom Executor zu entscheiden |
 | P8.15 | Ein **echtes** Werkzeug (Dateisystem, Shell) an der Registry | **offen** — nur eine Attrappe geprüft |
 
