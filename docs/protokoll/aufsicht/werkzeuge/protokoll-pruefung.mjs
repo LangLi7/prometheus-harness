@@ -85,7 +85,12 @@ if (start === -1) {
   // Die erste Fassung dieser Regel suchte die Nummer als Teilzeichenkette — damit galt „B2" als
   // genannt, weil „B22" ihn enthält. Ein Suchmuster, das zu weit greift, misst das Falsche.
   const genannt = new Set(
-    [...lage.matchAll(/\*\*([^*]+)\*\*/g)]
+    // **Zeilenverankert**: nur der Beginn einer Tabellenzeile zählt (`| **B37** | …`), und gebündelte
+    // Marken werden getrennt (`**B3/B17**`, `**V4/V5**`). Die erste Fassung suchte die Nummer als
+    // Teilzeichenkette — dann galt „B2" als genannt, weil „B22" ihn enthält. Die zweite scannte das
+    // ganze Dokument nach `**…**` — dann **verschluckte eine unpaarige Marke weiter oben die nächste
+    // Nummer** (B24 wurde gefunden, B25 nicht). Beide Messungen waren falsch, jede auf ihre Weise.
+    [...lage.matchAll(/^\| \*\*([^*|\n]+)\*\*/gm)]
       .flatMap((treffer) => treffer[1].split('/'))
       .map((teil) => teil.trim())
       .filter((teil) => /^(B|V)\d+$/.test(teil)),
