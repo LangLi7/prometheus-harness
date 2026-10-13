@@ -600,16 +600,54 @@ hinterlassen**, während sie „0 Befunde" meldete.
 
 #### Offene Punkte — ehrlich
 
-1. **`port-test.ps1` Fall 3 wird übersprungen.** Der Halter beendet sich dort
-   ohne auflösbaren Grund; der Exit-Code und **beide** Protokolle waren leer.
-   Die Ursache ist **nicht** gefunden. Fall 1, 2 und 4 laufen und prüfen — Fall 3
-   wird **nicht** als grün gezählt.
+1. **`port-test.ps1` Fall 3 ist behoben (siehe Eintrag darunter).** Die Ursache
+   war ein Reihenfolgefehler im Test, nicht der Halter.
 2. **Die Befunde B16, B18, B15, B14, B1–B12 der Aufsicht sind nicht bearbeitet.**
    Insbesondere **B16** („API ausgefallen" ist nicht belegt) widerlegt eine
    Aussage, die in **meiner** README steht.
 3. **`credential-gh`** — elfter Push, elfte Warnung.
 4. **Fremde, nicht committete Arbeit im Arbeitsbaum** — unverändert.
 5. **Nur Windows gemessen.**
+
+---
+
+### 2026-10-13 · Port-Test: Fall 3 lief nie (zwölfter Push)
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Nach dem `$pid`-Fix (B23) kam Fall 3 weiter — und scheiterte mit `EADDRINUSE` |
+| Umfang | `scripts/port-test.ps1` |
+| Art | **Codeänderung im Repo** |
+| Prozeßprüfung | **4 Fälle, 0 Befunde, exit 0, 0 Waisen** |
+
+**Der Befund.** Der Halter aus Fall 2 wurde erst **nach** Fall 3 beendet. Port
+5780 war also noch belegt, als Fall 3 seinen **eigenen** Halter darauf binden
+wollte — der scheiterte mit `EADDRINUSE` und beendete sich. Die Meldung
+(„Halter beendet sich") sah nach einem Problem des Halters aus; die Ursache war
+ein **Reihenfolgefehler im Test**.
+
+**Warum das erst jetzt auffiel.** Bis zum `$pid`-Fix (B23) **lief die
+Aufräumfunktion nie** — sie warf bei jeder Zuweisung einen Fehler. Fall 3
+scheiterte damals schon vorher und wurde als „übersprungen" gezählt, während das
+Skript **exit 0** meldete. Zwei Fehler deckten einander zu.
+
+**Was jetzt nachgewiesen statt behauptet ist:**
+
+| Nachweis | Vorher | Jetzt |
+|---|---|---|
+| Aufräumen nach PID statt Name+Alter | ✗ (B13) | ✓ |
+| Der echte Port wird geprüft, nicht der gefragte | ✗ | ✓ |
+| Kein Host-Prozess überlebt | ✗ (12 Waisen) | **0 Waisen** |
+| Exit-Code trägt das Urteil | ✗ (immer 0) | **exit 1 bei Befunden** |
+| Alle vier Fälle laufen | ✗ (Fall 3 übersprungen) | **4 Fälle, 0 Befunde** |
+
+#### Offene Punkte
+
+1. **Die Befunde B16, B15, B14, B1–B12 der Aufsicht sind nicht bearbeitet** —
+   insbesondere **B16** widerlegt eine Aussage in **meiner** README.
+2. **`credential-gh`** — zwölfter Push, zwölfte Warnung.
+3. **Fremde, nicht committete Arbeit im Arbeitsbaum** — unverändert.
+4. **Nur Windows gemessen.**
 
 | Prüfung | Ergebnis |
 |---|---|
