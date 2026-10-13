@@ -73,6 +73,9 @@ import { erzeugeSpeicher, type SqlZugang } from '@prometheus-harness/store-postg
 import { claimAblageImHome } from './claim-ablage.ts'
 import { wegAbmelden, wegAnmelden, wegIch, wegRegistrieren } from './http.ts'
 import { PFAD_ABMELDEN, PFAD_ANMELDEN, PFAD_ICH, PFAD_REGISTRIEREN, type Umgebung } from './wege.ts'
+// **Die Anmeldeseite** — HTML und JavaScript, ausgeliefert von unserem eigenen Weg.
+// Sie ist additiv: sie entscheidet keine Regel, sie zeigt die Antworten der Wege.
+import { PFAD_SEITE, PFAD_SEITE_API, PFAD_SEITE_JS, seitenWege } from './seite.ts'
 
 export { ABLAGEDATEI, claimAblageImHome } from './claim-ablage.ts'
 
@@ -295,12 +298,15 @@ export function apply(ctx: Context): void {
       { kind: 'exact', path: PFAD_ANMELDEN, handler: wegAnmelden(umgebung) },
       { kind: 'exact', path: PFAD_ABMELDEN, handler: wegAbmelden(umgebung) },
       { kind: 'exact', path: PFAD_ICH, handler: wegIch(umgebung) },
+      // **Die Anmeldeseite kommt dazu, die vier Wege bleiben unberührt.** Sie ist
+      // additiv: sie entscheidet nichts, sie zeigt nur, was die Wege antworten.
+      ...seitenWege(),
     ]
     const ab = wege.map((weg) => ctx.webServer.register(weg))
     return () => {
       for (const einer of ab.reverse()) einer()
     }
-  }, `${name} ${PFAD_REGISTRIEREN} ${PFAD_ANMELDEN} ${PFAD_ABMELDEN} ${PFAD_ICH}`)
+  }, `${name} ${PFAD_REGISTRIEREN} ${PFAD_ANMELDEN} ${PFAD_ABMELDEN} ${PFAD_ICH} ${PFAD_SEITE} ${PFAD_SEITE_API} ${PFAD_SEITE_JS}`)
 }
 
 export default apply
