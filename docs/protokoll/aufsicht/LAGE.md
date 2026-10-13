@@ -210,3 +210,51 @@ git -C C:\Users\Chang\prometheus-harness diff --shortstat (git -C C:\Users\Chang
 arbeitet (**H1**); kein Schreiben in dessen Baubereich (**H2**); keine Geheimwerte in Protokollen
 (**H4**); Korrektur statt Löschung eigener Fehler (**H6**). Vollständig in
 [`README.md`](README.md) §2.
+---
+
+## 6. Bilanz dieser Sitzung (13.10.2026)
+
+> **Wofür dieser Abschnitt da ist.** Die Handlungsliste in §0 sagt, was **jetzt** zu tun ist. Hier steht,
+> was diese Aufsicht **insgesamt** vorgelegt hat — damit ein Nachfolger nicht alles nachlesen muß.
+
+**Die Spur, in Zahlen** (gemessen am 13.10.2026, 15:21):
+
+| Größe | Wert |
+|---|---|
+| Befundabschnitte | **33** (`B1`–`B34`, ohne das zurückgezogene `B7`) |
+| Verifikationen | **7** (`V1`–`V7` — geprüfte Behauptungen des Bauenden, kein Befund) |
+| eigene Korrekturen | **29** Zeilen in der H6-Tabelle (Fehler **der Aufsicht**) |
+| Dateien | **28** — alle versioniert |
+| Chronik | **201** JSONL-Zeilen + dieselbe Zahl Abschnitte in `protokoll.md` |
+| Umfang | **703 KB** |
+| Werkzeuge / Hilfen | **13 / 6** |
+
+**Was der bauende Agent auf Grund dieser Befunde erledigt hat** (jeweils gemessen, nicht behauptet):
+
+| Befund | Stand |
+|---|---|
+| **B16** „API ausgefallen" | **vollständig erledigt** (`a0524f4`): README berichtigt, alter Satz **bleibt stehen** samt Vermerk, Fundstelle genannt — und der WS-Teil, den ich offen ließ, ist durch **seine** Messung geklärt (`101 Switching Protocols`) |
+| **B20** zwei widersprüchliche Artefakte | **erledigt — besser als vorgeschlagen**: dritter Zustand `ungeprueft`, `STANDARD_MINDEST_SONDEN = 1`, Abschalter |
+| **B23** `$pid` schreibgeschützt | **erledigt** bis auf `$script:fehler`; die undichte Rückgabe hat er **tiefer** geheilt als verlangt |
+| **B22** Waisen der Port-Tests | **erledigt** — Waisenprüfung steht jetzt im Skript, 0 Waisen gemessen |
+| **B13** Töten nach Name und Alter | **teilweise**: `port-test.ps1` bereinigt, **drei** Messsonden offen |
+| **B19** Zaun + Anmeldung | **erledigt** (seine Umsetzung war besser als die Empfehlung) |
+| **B26** Kennwörter aus der Vorlage | **Ursache erledigt** (sein CRLF-Fix) — die **Wirkung** hängt an **B28** |
+
+**Was offen bleibt — und ausdrücklich beim Betreiber oder beim bauenden Agenten liegt:** die neun Punkte
+in §0. Die Schlussmessung des Standabgleichs ergab: **12 von 12 unverändert offen**, keiner still erledigt.
+
+**Was diese Rolle geliefert hat, das bleibt:**
+
+1. **Die Handlungsliste** (§0) — neun Punkte, nach **Wirkung** sortiert, jeder mit Befehl.
+2. **Der Standabgleich** (`werkzeuge/stand-abgleich.mjs`) — prüft in einem Aufruf, ob ein offener Befund
+   noch offen ist. Er kann jederzeit laufen und meldet selbst, wenn einer erledigt wurde.
+3. **Die Leckprüfung** (`werkzeuge/leck-pruefung.mjs`) — definitiver Negativbefund: **14 echte Geheimwerte,
+   0 Treffer** in 53 Commits und im ganzen Arbeitsbaum.
+4. **Zwei geprüfte Hilfen**, die der Betreiber ohne mich benutzen kann:
+   `hilfen/kennwoerter-drehen.mjs` (Drehung ohne Datenverlust, beide Zweige ausgeführt) und
+   `hilfen/waisen-aufraeumen.ps1` (Aufräumen **nach Herkunft**, nicht nach Name und Alter).
+5. **Der Beleg, daß es auch andersherum geht:** zwei **eigene** Befunde mußte ich zurückziehen —
+   die B22-Hypothese (falscher Mechanismus) und die B26-Anmeldebehauptung (mein Test prüfte kein
+   Kennwort, `pg_hba: trust`). Und **fünf** eigene Ankerfehler stehen in der Korrekturtabelle. Die
+   Aufsicht, die Fehler bei anderen sucht, führt ihre eigenen vollständig.

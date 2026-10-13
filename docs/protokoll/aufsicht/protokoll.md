@@ -2364,6 +2364,55 @@ beide Hälften.**
 Handlungsliste in §0 gilt weiter. B16 stand dort nicht mehr (es war schon als entschieden geführt); es
 steht jetzt auch in §1 als **erledigt**.
 
+## 2026-10-13 15:21–15:28 — Dreiundvierzigster Takt (**Abschluß**): Bilanz, Übergabe — und was ich **nicht** behaupte
+
+**Die Spur, in Zahlen** (Schlussmessung 15:21):
+
+| Größe | Wert |
+|---|---|
+| Befundabschnitte | **33** (`B1`–`B34`, ohne das zurückgezogene `B7`) |
+| Verifikationen | **7** (`V1`–`V7` — geprüfte Behauptungen des Bauenden) |
+| eigene Korrekturen | **29** Zeilen in der H6-Tabelle |
+| Dateien / Umfang | **28** / **703 KB**, alle versioniert |
+| Chronik | **201** JSONL-Zeilen + dieselbe Zahl Abschnitte |
+| Werkzeuge / Hilfen | **14 / 7** · **24** eigene Commits |
+
+**Erledigt auf Grund dieser Befunde** (jeweils gemessen): **B16** vollständig (README berichtigt, der alte
+Satz bleibt stehen, Fundstelle genannt — und der WS-Teil durch **seine** Messung geklärt), **B20** (besser
+als vorgeschlagen), **B23** bis auf einen Rest, **B22**, **B19**, **B26** (Ursache), **B13** teilweise.
+
+**Offen** (Schlussmessung des Standabgleichs: **12 von 12 unverändert offen**, keiner still erledigt):
+die neun Punkte in `LAGE.md` §0 — `pg_hba`, Kennwörter, Modellzugang, DSH-Aufzeichnung, der Zaun des neuen
+Anhängepunkts, `$script:fehler`, drei Messsonden-Zeilen, `.gitattributes`, `B31`, `cargo` in WSL.
+
+**Was ich übergebe — und es läuft ohne mich weiter:**
+
+1. **Die Handlungsliste** (`LAGE.md` §0): neun Punkte nach **Wirkung** sortiert, jeder mit *wer* / *warum
+   zuerst* / *Befehl*.
+2. **Der Standabgleich** (`werkzeuge/stand-abgleich.mjs`): ein Aufruf, zwölf Prüfungen, und er **meldet
+   selbst**, wenn ein Befund erledigt ist.
+3. **Die Leckprüfung** (`werkzeuge/leck-pruefung.mjs`): **14 echte Geheimwerte, 0 Treffer** in 53 Commits.
+4. **Zwei geprüfte Hilfen** für den Betreiber: `kennwoerter-drehen.mjs` (in **beiden** Zweigen ausgeführt,
+   inklusive des Falls „`pg_hba: trust` — die Drehung wäre kosmetisch") und `waisen-aufraeumen.ps1`.
+5. **Die Bilanz** (`LAGE.md` §6).
+
+**Und die Grenzen, ausdrücklich — was ich in 43 Takten *nicht* belegt habe:**
+
+* Ich habe die Läufe des Bauenden **nicht** nachgefahren, deren Ausführung Zustand ändert: den Installer
+  (schreibt `.env`, startet den Stapel, migriert), die komplette Testsuite (braucht echte PostgreSQL).
+  Nachgefahren habe ich **eine** Suite (`unit-export`, 158 Tests) — nach **seiner eigenen** Regel nur,
+  weil ihre Dateien nicht in der Änderungsliste standen.
+* Die **WebSocket**-Messung (`101 Switching Protocols`) ist **seine**, nicht meine (B16-Nachtrag).
+* Ob die **DSH-Anpassungen nach einem Neustart** wirken, ist **nicht gemessen** — den Neustart darf ich
+  nicht herbeiführen (**H1**); die Aussage steht deshalb als Vorhersage mit Befehl, nicht als Beleg.
+* `B31` (Namensabweichungen), `B32` (nicht in Kraft), `B34` (Docker-Vorbedingung) sind **gelesen und
+  gezählt**, nicht durch einen Lauf bewiesen.
+
+**Die Aufsicht, die bei anderen nach Fehlern sucht, führt ihre eigenen vollständig:** **zwei** eigene
+Befunde mußte ich **zurückziehen** (die B22-Hypothese und die B26-Anmeldebehauptung — mein Test prüfte
+kein Kennwort), **fünf** Ankerfehler stehen in der Korrekturtabelle, und **drei** eigene Werkzeugfehler
+wurden von Gegenproben gefunden. Jeder davon steht mit Zeit, Anlaß und Behebung in `befunde.md`.
+
 ---
 
 ## Offen / nächster Takt

@@ -73,12 +73,19 @@
 
 ## 4. Nächster Takt — was dann gemessen wird
 
-1. **Zuerst `Get-Date`** — jede Zeitangabe dieses Takts kommt aus der Shell (Lehre **W41**).
-2. **Neue Commits** seit `0c11d36`? `git log --oneline 0c11d36..HEAD` und Abgleich mit `origin/main`.
-3. **Ist `$script:fehler` in `port-test.ps1` angekommen?** (W39, ein Wort — sofort prüfbar.)
-4. **Sind die drei B13-Zeilen weg?** (W38 — `boot-schleife.ps1:103`, `api-test.ps1:33`, `api-flaeche.ps1:92`.)
-5. **Ist in WSL ein Rust-Compiler dazugekommen?** (W37 — dann laufen die 15 `flock`-Vertragstests.)
-6. **`settings.yaml`**: Abschnitte weiterhin **10**, Routen **12**, Referenzen **12**? Wenn nicht: sofort Befund.
-7. **Prozesslage**: Waisen dieses Projekts (`hilfen/waisen-aufraeumen.ps1` im Trockenlauf)? Lebt die GUI?
-8. **Datenbank** (read-only): Tabellen je Schema, `schema_migrations`, verwaiste Volumes weiterhin **18**?
-9. **Die 33 unversionierten Pfade**: wächst der Berg weiter, oder wird er committet?
+**Der kürzeste Weg ist ein Aufruf.** `werkzeuge/stand-abgleich.mjs` prüft **alle zwölf offenen Befunde**
+in einem Lauf und meldet selbst, wenn einer erledigt ist (Rückgabewert **1**). Was er nicht abdeckt,
+steht darunter.
+
+1. **Zuerst `Get-Date`** — jede Zeitangabe kommt aus der Shell (Lehre **W41**; fünf eigene Verstöße stehen in der Korrekturtabelle).
+2. **Neue Commits** seit `499273f`? `git log --oneline 499273f..HEAD` und Abgleich mit `origin/main`.
+3. **Die neun Punkte aus `LAGE.md` §0** der Reihe nach — jeder nennt seinen eigenen Nachweis-Befehl.
+4. **`settings.yaml`**: Abschnitte weiterhin **10**, Routen **12**, Referenzen **12**? Wenn nicht: sofort Befund.
+5. **Prozesslage**: Waisen dieses Projekts (`hilfen/waisen-aufraeumen.ps1` im Trockenlauf — **Altersschwelle beachten**: die Kinder eines *laufenden* Tests gehören ihm, siehe die drei Prozesse um 15:17)? Lebt die GUI (PID 22260, Start **09:39**, `tsx` auf `src`)?
+6. **Datenbank** (read-only): Tabellen je Schema, `schema_migrations` Fassung **2**, verwaiste Volumes — **19** bei der Schlussmessung (Bestandsaufnahme, kein Befund: eines hält ein intaktes PG-17-Cluster).
+7. **Die 29 unversionierten Pfade** (`native/flock`, `services/pmh-nix`, `services/pmh-attach`) und sieben unverfolgte Dateien: wächst der Berg, oder wird er committet?
+8. **Der DSH-Checkout**: weiterhin **11** unversionierte Einträge? Der Zweig `dsh-custom` wartet (**B32**), und die Änderungen wirken erst nach einem **Neustart** der GUI.
+
+**Zum Abschluß dieser Sitzung:** die Rolle ist **übergeben**, nicht beendet. Handlungsliste (`LAGE.md` §0),
+Bilanz (§6), Standabgleich und die geprüften Hilfen sind so gebaut, daß sie **ohne** diese Sitzung
+weiterlaufen — und jede Zahl darin nennt ihren Befehl.
