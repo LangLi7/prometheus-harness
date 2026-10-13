@@ -17,7 +17,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { QUELLEN, zahlAus } from './schema-stand.mjs'
+import { DATENBANKEN, QUELLEN, fuehreAus, zahlAus } from './schema-stand.mjs'
 
 /** Ein Wegwerf-Verzeichnis mit einer Datei. */
 function mit(inhalt) {
@@ -75,5 +75,60 @@ describe('zahlAus — die Zahl aus dem Quelltext', () => {
     expect(existsSync(join(process.cwd(), QUELLEN.readiness))).toBe(true)
     // Und die Sonde trägt die Zeile, die das Muster sucht.
     expect(zahlAus(process.cwd(), QUELLEN.readiness, /ERWARTETE_SCHEMAFASSUNG = (\d+)/u)).toBeGreaterThan(0)
+  })
+})
+
+describe('Der BEFUND-Zweig — mit eingespeister Datenbankabfrage', () => {
+  /** Fährt das Skript mit einer erfundenen Datenbanklage. */
+  function mitLage(fassungen) {
+    const aus = []
+    const fasse = (db) => fassungen[db]
+    const code = fuehreAus(['pruefen'], { ...process.env, PMH_VERZEICHNIS: process.cwd() }, (t) => aus.push(t), fasse)
+    return { code, text: aus.join('') }
+  }
+
+  test('alle gleich: Exit 0', () => {
+    // Die echte Codefassung ist 7 — hier bekommen BEIDE Datenbanken 7.
+    const { code, text } = mitLage({ pmh: 7, pmh_test: 7 })
+    expect(code).toBe(0)
+    expect(text).toContain('Alles gleich')
+  })
+
+  test('eine Datenbank zurück: Exit 1 und der Befund im Wortlaut', () => {
+    // **Der Fall, der wirklich eingetreten ist** (pmh 5 gegen Code 7). Der Zweig
+    // war bis jetzt nur durch einen Lauf von Hand belegt.
+    const { code, text } = mitLage({ pmh: 5, pmh_test: 7 })
+    expect(code).toBe(1)
+    expect(text).toContain('ZURUECK (2)')
+    expect(text).toContain('BEFUND')
+    expect(text).toContain('meldet sie als NICHT BEREIT')
+    expect(text).toContain('NICHT pmh_test')
+  })
+
+  test('keine Datenbank erreichbar: Exit 2, und NICHT 0', () => {
+    // **Der wichtigste Fall.** Ein Skript, das bei fehlender Infrastruktur „grün"
+    // sagt, behauptet eine Prüfung, die nicht stattgefunden hat.
+    const { code, text } = mitLage({})
+    expect(code).toBe(2)
+    expect(text).toContain('NICHT MESSBAR')
+  })
+
+  test('eine erreichbar, eine nicht: keine Entwarnung', () => {
+    const { code, text } = mitLage({ pmh_test: 7 })
+    expect(code).toBe(0)
+    expect(text).toContain('nicht erreichbar')
+    // und die erreichbare war gleich — der Bericht nennt beides
+    expect(text).toContain('gleich')
+  })
+
+  test('ohne Befehl: Exit 1', () => {
+    const aus = []
+    expect(fuehreAus([], process.env, (t) => aus.push(t), () => 7)).toBe(1)
+  })
+
+  test('die zwei verglichenen Datenbanken sind die aus dem Auftrag', () => {
+    // Eine Prüfung gegen den Baum: wer `pmh` hier herausnimmt, vergleicht die
+    // Betriebsdatenbank nicht mehr — und genau die war der Befund.
+    expect(DATENBANKEN.map((d) => d.db)).toEqual(['pmh', 'pmh_test'])
   })
 })

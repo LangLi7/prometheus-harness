@@ -90,9 +90,13 @@ export function fassungAus(db) {
  * @param {readonly string[]} argv - die Argumente ohne `node` und Skriptpfad
  * @param {Readonly<Record<string, string | undefined>>} umgebung - Umgebungsvariablen
  * @param {(text: string) => void} schreibe - Ausgabe
+ * @param {(db: string) => number | undefined} fasse - die Datenbankabfrage
+ *   (**Einschub für die Prüfung**: ohne ihn ließe sich der Zweig „Datenbank
+ *   nicht erreichbar" nur mit gestopptem Docker fahren — und der Zweig, den man
+ *   nie fährt, ist der, in dem der Fehler sitzt)
  * @returns {number} der Exit-Code
  */
-export function fuehreAus(argv, umgebung = process.env, schreibe = (t) => process.stdout.write(t)) {
+export function fuehreAus(argv, umgebung = process.env, schreibe = (t) => process.stdout.write(t), fasse = fassungAus) {
   if (argv[0] !== 'pruefen') {
     schreibe(
       'Aufruf:\n' +
@@ -120,7 +124,7 @@ export function fuehreAus(argv, umgebung = process.env, schreibe = (t) => proces
   let zurueck = 0
   let unerreichbar = 0
   for (const { name, db } of DATENBANKEN) {
-    const fassung = fassungAus(db)
+    const fassung = fasse(db)
     if (fassung === undefined) {
       unerreichbar += 1
       zeilen.push(`  ${name.padEnd(22)} nicht erreichbar`)
