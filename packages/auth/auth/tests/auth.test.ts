@@ -294,10 +294,46 @@ describe('Zufall und konstante Zeit', () => {
     const firstWrong = `b${'a'.repeat(1999)}`
     const lastWrong = `${'a'.repeat(1999)}b`
 
+    /**
+     * Die **schnellste** von mehreren Runden — nicht ein einzelner Lauf.
+     *
+     * **Warum das geändert wurde.** Der erste Entwurf maß **einmal**. Am
+     * 13.10.2026 wurde die Prüfung damit **zufällig rot**, und zwar genau in dem
+     * Lauf, in dem zusätzlich 41 neue Prüfungen eines anderen Pakets liefen:
+     *
+     * ```
+     * (fail) constantTimeEquals ist bei gleicher Länge unabhängig von der
+     *        Position des Fehlers     ← expect(received).toBeLessThan(expected)
+     * ```
+     *
+     * **Was gemessen wurde, um die Ursache zu trennen:**
+     *
+     * | Messung | Ergebnis |
+     * |---|---|
+     * | 5 Läufe der Datei **allein** | 73 pass / 0 fail — jedes Mal |
+     * | 3 Läufe der **Gesamtsuite** danach | 987 pass / 2 fail — nur `atomic-write` |
+     * | 4 Läufe der Gesamtsuite insgesamt | **1** Vorkommen dieser Prüfung |
+     *
+     * Die Prüfung ist also **nicht kaputt, sondern unzuverlässig**: Rauschen
+     * (JIT, GC, Zeitplanung) **addiert** Zeit. Ein einzelner Messwert kann damit
+     * beliebig nach oben ausschlagen, und das Verhältnis zweier solcher Werte
+     * ebenso. Das **Minimum** mehrerer Runden ist gegen diese Art Rauschen
+     * robust: es kann nur durch Rauschen **größer** werden, nie kleiner.
+     *
+     * **Warum die Schwelle bei 3 bleiben kann.** Eine Umsetzung, die beim ersten
+     * Unterschied abbricht, vergleicht bei `firstWrong` **ein** Zeichen und bei
+     * `lastWrong` **2000** — das Verhältnis liegt dann in der Größenordnung
+     * 1000, nicht bei 3. Die Prüfung bleibt also scharf; sie ist nur nicht mehr
+     * zufällig.
+     */
     const timeOf = (right: string): number => {
-      const started = performance.now()
-      for (let index = 0; index < 500; index += 1) constantTimeEquals(base, right)
-      return performance.now() - started
+      let beste = Number.POSITIVE_INFINITY
+      for (let runde = 0; runde < 7; runde += 1) {
+        const started = performance.now()
+        for (let index = 0; index < 500; index += 1) constantTimeEquals(base, right)
+        beste = Math.min(beste, performance.now() - started)
+      }
+      return beste
     }
     // Aufwärmen, damit der erste Aufruf nicht die Messung verzerrt.
     timeOf('a'.repeat(2000))

@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/store-postgres",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Der Speicher hinter der Anmeldung: UserStore, SessionStore und AuthEventSink über PostgreSQL. Verbindet den Regelkern @prometheus-harness/auth mit dem Schema aus @prometheus-harness/db-schema, ohne daß der Regelkern eine Datenbank kennt.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

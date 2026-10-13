@@ -56,6 +56,13 @@ export {
   type AuthEvent,
   type AuthEventSink,
   type LoginOutcome,
+  // **`NewUser` steht hier seit dem 13.10.2026 — und fehlte vorher.** Die
+  // Schnittstelle kommt in der **öffentlichen** Signatur von `UserStore.create`
+  // vor. Wer `UserStore` nachbauen will, muß den Parametertyp nennen können;
+  // ohne Ausfuhr muß er ihn abschreiben. Gefunden hat es der Typlauf von
+  // `@prometheus-harness/store-postgres`, nicht das Lesen:
+  // `error TS2305: Module '"@prometheus-harness/auth"' has no exported member 'NewUser'`.
+  type NewUser,
   type RegisterOptions,
   type RegisterOutcome,
   type UserRecord,
