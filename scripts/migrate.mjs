@@ -24,7 +24,8 @@
  * @module scripts/migrate
  */
 
-import { dirname, resolve } from 'node:path'
+import { existsSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { SCHEMA_VERSION, migrate } from '../packages/auth/db-schema/src/index.ts'
@@ -88,8 +89,26 @@ export async function migriere(optionen = {}) {
   // die Logik prüfbar: die Adressprüfung, der Abgleich der Fassung, der
   // Fehlerpfad und das Schließen der Verbindung.
   const oeffne = optionen.oeffne ?? (async (a) => {
-    const { default: postgres } = await import('postgres')
-    return postgres(a, { max: 1, onnotice: () => undefined })
+    try {
+      const { default: postgres } = await import('postgres')
+      return postgres(a, { max: 1, onnotice: () => undefined })
+    } catch (fehler) {
+      // **Fail-loud mit Diagnose.** Der Import des Treibers hing zweimal an
+      // Rahmenbedingungen, die man von außen nicht sieht: das Arbeitsverzeichnis,
+      // die Herkunft dieses Moduls und ob `node_modules` überhaupt gefüllt ist.
+      // Eine Meldung „Cannot find package" ohne diese drei Angaben kostet eine
+      // halbe Stunde.
+      process.stderr.write(
+        'FEHLER: der Datenbanktreiber `postgres` ist nicht ladbar.\n' +
+          `  Arbeitsverzeichnis: ${process.cwd()}\n` +
+          `  Dieses Modul:       ${import.meta.url}\n` +
+          `  node_modules da:    ${existsSync(join(process.cwd(), 'node_modules'))}\n` +
+          `  postgres da:        ${existsSync(join(process.cwd(), 'node_modules', 'postgres'))}\n` +
+          `  Grund:              ${fehler instanceof Error ? fehler.message : String(fehler)}\n` +
+          '  Abhilfe: `bun install` im Projektverzeichnis ausführen.\n',
+      )
+      throw fehler
+    }
   })
 
   let sql
