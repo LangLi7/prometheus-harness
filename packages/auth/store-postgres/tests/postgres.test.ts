@@ -118,6 +118,51 @@ let zugang: SqlZugang
 beforeAll(async () => {
   if (!adresseGesetzt(URL_FROM_ENV)) return
   sql = postgres(URL_FROM_ENV, { max: 2, onnotice: () => undefined })
+
+  // ---------------------------------------------------------------------------
+  // DIE SICHERUNG: niemals gegen die Betriebsdatenbank
+  // ---------------------------------------------------------------------------
+  // **Warum sie hier steht und nicht in einer Anleitung.**
+  //
+  // Am 13.10.2026 gemessen: in `pmh.auth_events` standen drei Zeilen, die
+  // **beweisbar** aus diesem Test stammen — `user_agent = 'Prüfgerät'`,
+  // `ip = 203.0.113.7` und `203.0.113.9`. Dieser Test sollte gegen `pmh_test`
+  // laufen. Mindestens ein Lauf hat also in die **Betriebsdatenbank**
+  // geschrieben.
+  //
+  // ```
+  // docker exec pmh-postgres psql -U pmh_admin -d pmh -tAc \
+  //   "select kind, host(ip), user_agent from pmh.auth_events where user_agent='Prüfgerät';"
+  // ```
+  //
+  // **Die Ursache ist nicht belegt** — und sie muß es auch nicht sein. Der
+  // Schaden wäre nicht das Schreiben, sondern das **Löschen**: der
+  // Integrationstest des Schemas beginnt mit `DROP TABLE … CASCADE` (Befund
+  // **M-1**), und dieselbe Verwechslung hätte die Betriebsdatenbank abgeräumt.
+  //
+  // Deshalb wird hier **vor** allem anderen geprüft, worauf die Verbindung
+  // zeigt. Der Vergleich ist nicht „heißt die Datenbank `_test`?" — eine
+  // Namensregel ist eine Konvention, die jemand brechen kann. Verglichen wird
+  // mit **derselben Angabe, die die Anwendung benutzt**: `DATABASE_URL`. Zeigen
+  // beide auf dieselbe Datenbank, ist der Lauf ein Fehler und kein Testlauf.
+  const angabe = await sql.unsafe<{ db: string; benutzer: string }[]>(
+    'SELECT current_database() AS db, current_user AS benutzer',
+  )
+  const hier = angabe[0]?.db ?? '?'
+
+  const betrieb = process.env.DATABASE_URL
+  if (adresseGesetzt(betrieb)) {
+    const nameDerAnwendung = new URL(betrieb).pathname.replace(/^\//u, '')
+    if (nameDerAnwendung !== '' && nameDerAnwendung === hier) {
+      await sql.end({ timeout: 5 })
+      throw new Error(
+        `ABBRUCH: dieser Test schreibt Daten und zeigt auf „${hier}" — dieselbe Datenbank wie die Anwendung ` +
+          `(DATABASE_URL). Er ist für eine Wegwerf-Datenbank gedacht: ` +
+          `setze PMH_TEST_DATABASE_URL auf eine andere Datenbank (siehe docs/status/mandantentrennung.md §10).`,
+      )
+    }
+  }
+
   zugang = {
     async unsafe(anweisung: string, werte: readonly unknown[] = []): Promise<unknown> {
       // Die Umdeutung steht hier, weil der Treiber `ParameterOrJSON<never>[]`

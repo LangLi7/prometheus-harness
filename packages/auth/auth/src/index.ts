@@ -75,6 +75,16 @@ export {
   SESSION_COOKIE_NAME,
   SESSION_COOKIE_NAME_SECURE,
   SESSION_FRESH_MS,
+  // **`SESSION_NOT_USABLE` steht hier seit dem 13.10.2026 — und fehlte vorher.**
+  // Der Kommentar an der Konstante begründet, warum sie überhaupt existiert:
+  // ein unbekanntes und ein widerrufenes Token dürfen **wörtlich dieselbe**
+  // Meldung bekommen, damit die Antwort nicht verrät, ob ein geratenes Token je
+  // existiert hat. Eine Konstante, die der Aufrufer nicht importieren kann,
+  // zwingt ihn, den Text **abzuschreiben** — und genau dann laufen die beiden
+  // Fassungen auseinander, wogegen sie da ist.
+  // Gefunden hat es der Ladelauf von `@prometheus-harness/auth-http`:
+  // `SyntaxError: Export named 'SESSION_NOT_USABLE' not found`.
+  SESSION_NOT_USABLE,
   SessionError,
   clearSessionCookie,
   cookieNameFor,

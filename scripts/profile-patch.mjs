@@ -369,5 +369,16 @@ export function patchPfad(home, profil) {
  * von `health` ein und fordert es über `inject: ['readyness']`. Der Loader wartet
  * selbst, bis der Dienst da ist — die Reihenfolge hier ist deshalb nicht
  * kritisch, aber sie ist lesbar: erst der Endpunkt, dann was er prüft.
+ *
+ * **`auth-http` steht seit dem 13.10.2026 hier** — es ist das erste Paket, das
+ * nicht nur liest, sondern **schreibt**: es hängt vier Wege unter
+ * `/api/pmh/auth` ein und legt Benutzer und Sitzungen in PostgreSQL an. Es
+ * braucht `DATABASE_URL`; fehlt die Angabe, meldet es das und hängt sich
+ * **nicht** ein, statt den Host scheitern zu lassen. Danach steht es im
+ * Protokoll des Hosts, nicht in einem 404.
  */
-export const EIGENE_PAKETE = ['@prometheus-harness/health', '@prometheus-harness/readiness']
+export const EIGENE_PAKETE = [
+  '@prometheus-harness/health',
+  '@prometheus-harness/readiness',
+  '@prometheus-harness/auth-http',
+]
