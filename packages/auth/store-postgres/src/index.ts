@@ -295,12 +295,19 @@ export function erzeugeUserStore(sql: SqlZugang): UserStore {
       try {
         // `RETURNING id`, damit die Kennung aus der Datenbank kommt und nicht
         // aus der Annahme, daß sie so geschrieben wurde, wie sie hereinkam.
+        //
+        // **`role` gehört in die Anweisung.** Vorher fehlte die Spalte hier, und
+        // `register` konnte die Rolle deshalb gar nicht durchreichen — sie landete
+        // im Rückgabewert und nicht in der Zeile (gemessen am 13.10.2026:
+        // Antwort `"role":"admin"`, Datenbank `rolle=user`). Die Vorgabe `user`
+        // entspricht der Spaltenvorgabe des Schemas: wer nichts sagt, bekommt
+        // keinen Admin.
         const angelegt = await zeilen<{ id: string }>(
           sql,
-          `INSERT INTO users (id, email, password_hash, display_name)
-           VALUES ($1, $2, $3, $4)
+          `INSERT INTO users (id, email, password_hash, display_name, role)
+           VALUES ($1, $2, $3, $4, $5)
            RETURNING id`,
-          [user.id, user.email, user.passwordHash, user.displayName],
+          [user.id, user.email, user.passwordHash, user.displayName, user.role ?? 'user'],
         )
         return angelegt[0]?.id
       } catch (fehler) {
@@ -486,6 +493,44 @@ export interface AuthSpeicher {
   readonly benutzer: UserStore
   readonly sitzungen: SessionStore
   readonly spur: AuthEventSink
+  /**
+   * Wie viele Administratoren es gibt.
+   *
+   * **Warum das hier steht und nicht im Regelkern.** `UserStore.count()` zählt
+   * **alle** Konten. Für die Frage „ist die Erstinbetriebnahme noch offen?"
+   * genügt das nicht: eine Datenbank mit fünf Benutzern und **keinem** Admin ist
+   * genauso ausgesperrt wie eine leere — nur schlimmer, weil Daten darin liegen.
+   * Gemessen am 13.10.2026 in der Betriebsdatenbank:
+   *
+   * ```
+   * benutzer=4  davon_admins=0
+   * ```
+   *
+   * Dort konnte danach **niemand** mehr ein Konto anlegen. `UserStore` hat keine
+   * Methode dafür, und der Regelkern soll auch keine bekommen: „wie viele Admins
+   * gibt es" ist eine Frage an den **Speicher**, nicht eine Regel der Anmeldung.
+   */
+  readonly anzahlAdmins: () => Promise<number>
+}
+
+/**
+ * Zählt die Administratoren.
+ *
+ * Siehe die Begründung an {@link AuthSpeicher.anzahlAdmins}: die Frage „ist noch
+ * jemand da, der verwalten darf?" ist nicht dieselbe wie „gibt es Konten?".
+ *
+ * @param sql - der Datenbankzugang
+ * @returns die Zahl der Konten mit der Rolle `admin`
+ */
+export async function zaehleAdmins(sql: SqlZugang): Promise<number> {
+  // `::int` und nicht blank: `count` kommt als **Text** zurück (bigint paßt nicht
+  // in eine JavaScript-Zahl), und `Number('3')` wäre eine Umdeutung an der
+  // falschen Stelle.
+  const gefunden = await zeilen<{ n: number }>(
+    sql,
+    `SELECT count(*)::int AS n FROM users WHERE role = 'admin'`,
+  )
+  return gefunden[0]?.n ?? 0
 }
 
 /**
@@ -506,5 +551,6 @@ export function erzeugeSpeicher(sql: SqlZugang): AuthSpeicher {
     benutzer: erzeugeUserStore(sql),
     sitzungen: erzeugeSessionStore(sql),
     spur: erzeugeSpurensenke(sql),
+    anzahlAdmins: () => zaehleAdmins(sql),
   }
 }

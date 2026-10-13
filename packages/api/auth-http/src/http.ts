@@ -36,6 +36,7 @@ import {
   abmelden,
   anmelden,
   cookieWert,
+  CSRF_KOPFZEILE,
   MAX_KOERPER_BYTES,
   registrieren,
   sitzungsCookieName,
@@ -220,6 +221,7 @@ export function wegRegistrieren(umg: Umgebung): Weg {
         return
       }
       const daten = (koerper.wert ?? {}) as Record<string, unknown>
+      const csrf = req.headers[CSRF_KOPFZEILE]
       sende(
         res,
         await registrieren(umg, {
@@ -227,6 +229,14 @@ export function wegRegistrieren(umg: Umgebung): Weg {
           email: daten['email'],
           password: daten['password'],
           displayName: daten['displayName'],
+          claimToken: daten['claimToken'],
+          // **Der Nachweis kommt aus dem KOPF, nicht aus dem Körper.** Ein
+          // Sitzungstoken oder ein CSRF-Wert im Körper wäre bei einer
+          // protokollierten Anfrage im Klartext mitgeschrieben; im Kopf steht er
+          // ohnehin. Und ein Körperfeld könnte von einer fremden Seite gesetzt
+          // werden — ein Kopf mit diesem Namen nicht ohne Weiteres.
+          token: cookieWert(cookieKopf(req), sitzungsCookieName(umg)),
+          csrfKopf: typeof csrf === 'string' ? csrf : undefined,
         }),
       )
     },

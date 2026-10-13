@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "description": "Auflösung des Harness-Home: PMH_HOME → DSH_HOME → ~/.pmh",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "typecheck": "tsgo --noEmit",
     "test": "bun test"

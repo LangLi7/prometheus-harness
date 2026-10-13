@@ -22,6 +22,7 @@ import {
   pmhHomePath,
   resolveAgentsHome,
   resolveHomeDetailed,
+  resolveEigenesHome,
   resolvePmhHome,
 } from '../src/index'
 
@@ -125,5 +126,67 @@ describe('canonicalizeWatchPath', () => {
   test('ein fehlendes Suffix wird wiederhergestellt', async () => {
     const missing = await canonicalizeWatchPath(join('.', 'gibt-es-nicht-12345', 'tiefer', 'datei.yml'))
     expect(missing.endsWith(join('gibt-es-nicht-12345', 'tiefer', 'datei.yml'))).toBe(true)
+  })
+})
+
+/**
+ * `resolveEigenesHome` — die Auflösung **ohne** Rückfall auf `DSH_HOME`.
+ *
+ * **Warum es diese Funktion überhaupt gibt, gemessen am 13.10.2026:**
+ *
+ * ```
+ * PMH_HOME = (leer)
+ * DSH_HOME = C:\Users\Chang\.dsh
+ * resolvePmhHome() -> C:\Users\Chang\.dsh        ← falsch für eigene Dateien
+ * ```
+ *
+ * `scripts/claim.mjs` legte dort `claim.txt`, `claim-ablage.json` und `geraet` an.
+ * `~/.dsh` gehört dem **anderen** Harness und ist als „niemals verändern"
+ * gekennzeichnet — ein Werkzeug, das dorthin schreibt, weil eine
+ * Umgebungsvariable gesetzt ist, verletzt diese Grenze ohne Absicht und ohne
+ * Warnung.
+ */
+describe('Das eigene Home — ohne Rückfall auf DSH_HOME', () => {
+  test('nimmt PMH_HOME, wenn es gesetzt ist', () => {
+    const eigen = join(homedir(), 'eigenes-pmh')
+    expect(resolveEigenesHome(undefined, { PMH_HOME: eigen, DSH_HOME: 'C:\\Users\\jemand\\.dsh' })).toBe(
+      resolve(eigen),
+    )
+  })
+
+  test('fällt auf ~/.pmh zurück und NICHT auf DSH_HOME', () => {
+    // **Der gemessene Fall.** Ist nur `DSH_HOME` gesetzt, darf das Ergebnis
+    // trotzdem nicht dorthin zeigen.
+    const ergebnis = resolveEigenesHome(undefined, { DSH_HOME: 'C:\\Users\\jemand\\.dsh' })
+    expect(ergebnis).toBe(resolve(defaultPmhHome()))
+    expect(ergebnis).not.toContain('.dsh')
+  })
+
+  test('wirft, wenn PMH_HOME auf ein DSH-Home zeigt', () => {
+    // **Eine Konvention, die man brechen kann, ist keine Grenze.** Auch wenn
+    // jemand `PMH_HOME` ausdrücklich auf das DSH-Home setzt, wird nicht
+    // geschrieben — der Lauf bricht ab.
+    expect(() => resolveEigenesHome(undefined, { PMH_HOME: 'C:\\Users\\jemand\\.dsh' })).toThrow(
+      /DeepSeek Harness/u,
+    )
+  })
+
+  test('wirft auch bei einem ausdrücklich übergebenen DSH-Pfad', () => {
+    expect(() => resolveEigenesHome('C:\\Users\\jemand\\.dsh', {})).toThrow(/DeepSeek Harness/u)
+  })
+
+  test('ein Verzeichnis, das nur ähnlich heißt, geht durch', () => {
+    // Die Sperre greift auf den **Verzeichnisnamen** `.dsh` und auf die
+    // Gleichheit mit `DSH_HOME` — nicht auf eine Zeichenkette irgendwo im Pfad.
+    // Sonst wäre `…/pmh-dsh-pruefung` verboten, obwohl es niemandem gehört.
+    expect(resolveEigenesHome('C:\\Users\\jemand\\pmh-dsh-pruefung', {})).toContain('pmh-dsh-pruefung')
+  })
+
+  test('und die alte Auflösung bleibt unverändert — sie hat ihren Zweck', () => {
+    // `resolvePmhHome` folgt weiterhin der Kette `PMH_HOME → DSH_HOME → ~/.pmh`.
+    // Für einen **Umzug** aus einem bestehenden DSH-Home ist das richtig; nur für
+    // eigene **Dateien** ist es falsch. Beide Regeln stehen nebeneinander, statt
+    // eine durch die andere zu ersetzen.
+    expect(resolvePmhHome(undefined, { DSH_HOME: 'C:\\Users\\jemand\\.dsh' })).toBe(resolve('C:\\Users\\jemand\\.dsh'))
   })
 })

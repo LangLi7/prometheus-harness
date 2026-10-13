@@ -65,6 +65,19 @@ import {
 // `AuthEventSink`) und weiß nichts davon, daß sie zusammengebaut werden. Die
 // Zusammenfassung ist eine Sache des Speichers.
 import type { AuthSpeicher } from '@prometheus-harness/store-postgres'
+// **Die Erstinbetriebnahme und die Rechte.** Beide Pakete gab es vorher schon —
+// mit 21 bzw. 30 eigenen Prüfungen und **ohne einen einzigen Aufrufer**. Ein
+// Recht, das niemand abfragt, ist keines.
+import {
+  CLAIMDATEI,
+  entferneClaimdatei,
+  erstinbetriebnahmeOffen,
+  leseMaschinenbindung,
+  leseOderErzeugeGeraeteId,
+  pruefeClaim,
+  type ClaimAblage,
+} from '@prometheus-harness/claim'
+import { akteurAus, darfBenutzerAnlegen, isolationAnsicht, type IsolationAnsicht } from './rechte.ts'
 
 // ---------------------------------------------------------------------------
 // Die Wege
@@ -157,6 +170,17 @@ export interface Umgebung {
   readonly jetzt: () => Date
   /** Wartefunktion für die Verzögerung — austauschbar, damit Prüfungen nicht warten. */
   readonly warten: (ms: number) => Promise<void>
+  /**
+   * Das Harness-Home.
+   *
+   * **Warum die Wege es brauchen.** Zwei Dinge hängen daran: die
+   * **Erstinbetriebnahme** (der Claim ist an Rechner, lokalen Nutzer und eine
+   * Gerätekennung aus diesem Verzeichnis gebunden) und die **Isolation** eines
+   * Akteurs (sein Schreibbereich ist das Home).
+   */
+  readonly home: string
+  /** Wo der Claim der Erstinbetriebnahme liegt. */
+  readonly claimAblage: ClaimAblage
 }
 
 /** Wer die Anfrage stellt. */
@@ -180,6 +204,12 @@ export interface RegistrierEingabe extends Herkunft {
   readonly email: unknown
   readonly password: unknown
   readonly displayName: unknown
+  /** Das Claim-Token der Erstinbetriebnahme — nur beim **ersten** Konto nötig. */
+  readonly claimToken?: unknown
+  /** Das Sitzungstoken des anlegenden Admins — nur wenn schon Benutzer existieren. */
+  readonly token?: string | undefined
+  /** Der CSRF-Wert aus der Kopfzeile — Pflicht auf dem Admin-Weg. */
+  readonly csrfKopf?: string | undefined
 }
 
 /**
@@ -219,14 +249,106 @@ export async function registrieren(umg: Umgebung, eingabe: RegistrierEingabe): P
     })
   }
 
+  // ---------------------------------------------------------------------------
+  // DAS TOR — wer darf ein Konto anlegen?
+  // ---------------------------------------------------------------------------
+  const jetzt = umg.jetzt()
+  const anzahl = await umg.speicher.benutzer.count()
+  const admins = await umg.speicher.anzahlAdmins()
+  let rolle: 'admin' | 'user'
+
+  // **Zwei Bedingungen, und die zweite ist der gemessene Fall.**
+  //
+  // `erstinbetriebnahmeOffen` ist die Regel des Claim-Pakets: offen, solange es
+  // **kein Konto** gibt. Sie deckt den ersten Start ab.
+  //
+  // Die zweite Bedingung deckt einen Zustand, den die erste übersieht: eine
+  // Datenbank mit Konten, aber **ohne Administrator**. Am 13.10.2026 in der
+  // Betriebsdatenbank gemessen:
+  //
+  // ```
+  // benutzer=4  davon_admins=0
+  // ```
+  //
+  // Dort konnte **niemand** mehr ein Konto anlegen — die Erstinbetriebnahme war
+  // nach der ersten Bedingung zu, und einen Admin, der hätte anlegen dürfen, gab
+  // es nicht. Vor der Verdrahtung dieses Tores ging es (schlecht, aber es ging);
+  // das Tor hätte daraus eine Aussperrung gemacht.
+  //
+  // **Warum das sicher ist.** Der Weg bleibt an das Claim-Token **und** an die
+  // Bindung an Rechner, lokalen Nutzer und Gerätekennung gebunden. Lokaler Zugang
+  // ist die Vertrauenswurzel — genau so, wie `erzeugeClaim` es in die Datei
+  // schreibt. Wer keinen Zugang zum Dateisystem hat, kommt auch hier nicht durch.
+  const claimWeg = erstinbetriebnahmeOffen(anzahl) || admins === 0
+
+  if (claimWeg) {
+    // **Der erste Weg: lokaler Zugang.** Ohne dieses Geheimnis wäre die Regel
+    // „der erste darf" eine Einladung — wer den Port vor dem Eigentümer
+    // erreicht, bekäme das Adminkonto.
+    if (typeof eingabe.claimToken !== 'string' || eingabe.claimToken.trim() === '') {
+      return schlecht(
+        403,
+        'claim-fehlt',
+        'Dies ist die Erstinbetriebnahme: das erste Konto braucht das Claim-Token aus ' +
+          `${CLAIMDATEI} im Harness-Home. Ohne es könnte jeder, der den Port erreicht, ` +
+          'das Adminkonto anlegen.',
+      )
+    }
+    // `leseOderErzeugeGeraeteId` **zuerst**: die Bindung braucht die
+    // Gerätekennung, und beim allerersten Lauf gibt es die Datei noch nicht. Sie
+    // wird dabei angelegt (Modus 0600) — ohne sie wäre die Bindung nicht prüfbar,
+    // sondern nur behauptet.
+    leseOderErzeugeGeraeteId(umg.home)
+    const bindung = leseMaschinenbindung(umg.home)
+    const claimUrteil = await pruefeClaim(eingabe.claimToken, bindung, umg.claimAblage, jetzt)
+    if (!claimUrteil.gueltig) {
+      // **Die Regel gehört in die Antwort.** Der Eigentümer sitzt hier selbst;
+      // „anderer-rechner" ist eine nützlichere Auskunft als „ungültig".
+      return schlecht(403, `claim-${claimUrteil.regel}`, claimUrteil.grund)
+    }
+    rolle = 'admin'
+  } else {
+    // **Der zweite Weg: ein angemeldeter Admin.** Reihenfolge: Sitzung, dann
+    // CSRF, dann das Recht. Ohne Sitzung ist der CSRF-Wert bedeutungslos, und
+    // eine Prüfung, die zuerst das Unwichtigere prüft, verrät mehr als nötig.
+    if (eingabe.token === undefined || eingabe.token === '') {
+      return schlecht(401, 'nicht-angemeldet', SESSION_NOT_USABLE)
+    }
+    const geprueft = await verifySession(umg.speicher.sitzungen, eingabe.token).catch(() => undefined)
+    if (geprueft === undefined) {
+      return schlecht(401, 'nicht-angemeldet', SESSION_NOT_USABLE)
+    }
+    // **CSRF auf diesem Weg.** Ein Konto anzulegen ist eine Zustandsänderung im
+    // Namen eines Angemeldeten — dieselbe Begründung wie beim Abmelden.
+    if (!verifyCsrf(geprueft.session, eingabe.csrfKopf ?? '')) {
+      return schlecht(403, 'csrf-fehlt', 'Der CSRF-Wert fehlt oder stimmt nicht.')
+    }
+    const handelnder = await umg.speicher.benutzer.findById(geprueft.session.userId)
+    if (handelnder === undefined) {
+      return schlecht(401, 'nicht-angemeldet', SESSION_NOT_USABLE)
+    }
+    const recht = darfBenutzerAnlegen(akteurAus(handelnder, umg.home), eingabe.email, jetzt)
+    if (!recht.erlaubt) {
+      return schlecht(403, `recht-${recht.regel}`, recht.grund)
+    }
+    rolle = 'user'
+  }
+
   const ergebnis = await register(umg.speicher.benutzer, umg.hasher, eingabe.email, eingabe.password, anzeigename, {
     ...(umg.maxUsers === undefined ? {} : { maxUsers: umg.maxUsers }),
+    role: rolle,
     sink: umg.speicher.spur,
     ...(eingabe.ip === undefined ? {} : { ip: eingabe.ip }),
     ...(eingabe.userAgent === undefined ? {} : { userAgent: eingabe.userAgent }),
   })
 
   if (ergebnis.ok) {
+    // **Die Claim-Datei weg, sobald das Adminkonto steht.** Bliebe sie liegen,
+    // läge das Token weiter auf der Platte — und ein Token, das nicht mehr gilt,
+    // aber noch existiert, ist eine Einladung, es wieder gültig zu machen
+    // (`packages/auth/claim` begründet das so). Den Claim selbst hat
+    // `pruefeClaim` bereits als verbraucht markiert.
+    if (rolle === 'admin') entferneClaimdatei(umg.home)
     return gut(
       {
         id: ergebnis.user.id,
@@ -458,12 +580,23 @@ export async function werBinIch(umg: Umgebung, eingabe: { readonly token: string
 
   await touchSession(umg.speicher.sitzungen, geprueft, DEFAULT_SESSION_POLICY, umg.jetzt)
 
+  // **Die Isolation gehört in die Antwort.** Ohne sie müßte die Oberfläche
+  // raten, was sie darf: welche Pfade lesbar sind, ob Netz und Prozesse erlaubt
+  // sind. Geraten wird falsch — und dann versucht sie etwas, das abgewiesen wird,
+  // oder sie läßt etwas bleiben, das erlaubt gewesen wäre.
+  //
+  // **Warum eine eigene Ansicht und nicht die Isolation selbst.** Was in einer
+  // Antwort steht, ist öffentlich. Eine benannte Auswahl ist eine Stelle, an der
+  // man sieht, was hinausgeht; ein durchgereichtes Objekt ist eine, an der man es
+  // nicht sieht. Siehe `isolationAnsicht`.
+  const akteur = akteurAus(benutzer, umg.home)
   return gut({
     id: benutzer.id,
     email: benutzer.email,
     displayName: benutzer.displayName,
     role: benutzer.role,
-  } satisfies BenutzerAnsicht)
+    isolation: isolationAnsicht(akteur.isolation),
+  } satisfies BenutzerAnsicht & { readonly isolation: IsolationAnsicht })
 }
 
 // ---------------------------------------------------------------------------

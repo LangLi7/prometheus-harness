@@ -24,6 +24,7 @@ import {
   erzeugeSpurensenke,
   erzeugeUserStore,
   istDoppelt,
+  zaehleAdmins,
   type SqlZugang,
 } from '../src/index.ts'
 
@@ -191,6 +192,42 @@ describe('Benutzer anlegen: nur die vergebene Adresse wird geschluckt', () => {
     })
     expect(ergebnis).toBe('22222222-2222-4222-8222-222222222222')
   })
+
+  test('schreibt die Rolle MIT — sonst bleibt sie im Rückgabewert stecken', async () => {
+    // **Der gemessene Fehler vom 13.10.2026.** `register` gab
+    // `role: options.role ?? 'user'` **zurück**, übergab sie aber nicht an
+    // `store.create`. Der Aufrufer bekam „admin" gemeldet, die Datenbank hielt
+    // „user" — und der Erstlogin hätte ein Konto gemeldet, mit dem sich nichts
+    // verwalten läßt.
+    //
+    // Diese Prüfung nagelt fest, daß die Rolle in der **Anweisung** steht und
+    // nicht nur in einer Absicht.
+    const sql = attrappe([[{ id: '22222222-2222-4222-8222-222222222222' }]])
+    await erzeugeUserStore(sql).create({
+      id: '11111111-1111-4111-8111-111111111111',
+      email: 'ada@example.org',
+      passwordHash: 'argon2id$…',
+      displayName: 'Ada',
+      role: 'admin',
+    })
+    expect(sql.aufrufe[0]?.anweisung).toContain('role')
+    // Position 5 ist `role` — die einzige Stelle, an der die Rolle tatsächlich
+    // wirksam wird.
+    expect(sql.aufrufe[0]?.werte[4]).toBe('admin')
+  })
+
+  test('ohne Angabe wird ein gewöhnlicher Benutzer daraus', async () => {
+    // Die Vorgabe entspricht der Spaltenvorgabe des Schemas: wer nichts sagt,
+    // bekommt keinen Admin.
+    const sql = attrappe([[{ id: '22222222-2222-4222-8222-222222222222' }]])
+    await erzeugeUserStore(sql).create({
+      id: '11111111-1111-4111-8111-111111111111',
+      email: 'ada@example.org',
+      passwordHash: 'argon2id$…',
+      displayName: 'Ada',
+    })
+    expect(sql.aufrufe[0]?.werte[4]).toBe('user')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -259,6 +296,21 @@ describe('Benutzer suchen', () => {
   test('zählt Benutzer als Zahl, auch wenn keine Zeile kommt', async () => {
     expect(await erzeugeUserStore(attrappe([[]])).count()).toBe(0)
     expect(await erzeugeUserStore(attrappe([[{ n: 7 }]])).count()).toBe(7)
+  })
+
+  test('zählt Administratoren — und zwar NUR Administratoren', async () => {
+    // **Warum das eine eigene Frage ist.** „Gibt es Konten?" und „gibt es jemanden,
+    // der verwalten darf?" sind zwei verschiedene Dinge. Gemessen am 13.10.2026:
+    // `benutzer=4  davon_admins=0` — dort konnte niemand mehr ein Konto anlegen,
+    // weil die Erstinbetriebnahme nach der Kontenzahl beurteilt wurde.
+    const sql = attrappe([[{ n: 2 }]])
+    expect(await zaehleAdmins(sql)).toBe(2)
+    // Die Bedingung steht in der Anweisung — nicht in einer Absicht.
+    expect(sql.aufrufe[0]?.anweisung).toContain(`role = 'admin'`)
+  })
+
+  test('ohne Administrator ist die Zahl null, nicht undefiniert', async () => {
+    expect(await zaehleAdmins(attrappe([[]]))).toBe(0)
   })
 
   test('schreibt den Passwort-Hash fort und rührt updated_at an', async () => {

@@ -25,6 +25,9 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import type { ClaimAblage } from '@prometheus-harness/claim'
 import {
   CSRF_COOKIE,
   cookieKopf,
@@ -70,7 +73,15 @@ function giftig<T extends object>(name: string): T {
   })
 }
 
-/** Eine Umgebung, deren Speicher jeder Zugriff scheitern läßt. */
+/**
+ * Eine Umgebung, deren Speicher jeder Zugriff scheitern läßt.
+ *
+ * **Das Home ist ein Pfad, den es nicht gibt, und der Claim-Speicher ist
+ * giftig.** Beides ist Absicht: die Fälle dieser Datei müssen **vor** dem Tor
+ * entschieden werden (falsche Methode, zu großer Körper, kein JSON). Ein Fall,
+ * der das Tor erreicht, würde auf einen nicht vorhandenen Claim-Speicher
+ * treffen und **laut** scheitern — statt still durchzugehen.
+ */
 function umgebungOhneSpeicher(): Umgebung {
   return {
     speicher: giftig<AuthSpeicher>('speicher'),
@@ -80,6 +91,8 @@ function umgebungOhneSpeicher(): Umgebung {
     maxUsers: undefined,
     jetzt: () => new Date(),
     warten: async () => undefined,
+    home: join(tmpdir(), 'pmh-pruefung-gibtsnicht'),
+    claimAblage: giftig<ClaimAblage>('claimAblage'),
   }
 }
 

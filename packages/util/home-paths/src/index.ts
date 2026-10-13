@@ -29,7 +29,7 @@
 
 import { opendir } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { dirname, isAbsolute, join, resolve, sep } from 'node:path'
+import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path'
 
 /** Verzeichnisname der Prometheus-Harness-Installation unterhalb des OS-Home. */
 export const PMH_HOME_DIR_NAME = '.pmh'
@@ -128,6 +128,67 @@ function displayFor(raw: string, resolvedPath: string): string {
  */
 export function resolvePmhHome(configured?: string, env: HomeEnv = process.env): string {
   return resolveHomeDetailed(configured, env).path
+}
+
+/**
+ * Unser Home — **ohne** Rückfall auf `DSH_HOME`.
+ *
+ * ## Warum es diese zweite Auflösung gibt
+ *
+ * `resolvePmhHome` folgt der Kette `PMH_HOME → DSH_HOME → ~/.pmh`. Das ist für
+ * einen Umzug aus einem bestehenden DeepSeek-Harness sinnvoll: wer dort schon ein
+ * Home hat, soll es weiterbenutzen.
+ *
+ * **Für eigene Dateien ist dieser Rückfall aber falsch** — und am 13.10.2026 ist
+ * genau das passiert, gemessen:
+ *
+ * ```
+ * PMH_HOME = (leer)
+ * DSH_HOME = C:\Users\Chang\.dsh
+ * scripts/claim.mjs -> "Home: C:\Users\Chang\.dsh"
+ * ```
+ *
+ * Das Skript legte `claim.txt`, `claim-ablage.json` und `geraet` in **`~/.dsh`** an.
+ * `~/.dsh` gehört dem **anderen** Harness und ist als „niemals verändern"
+ * gekennzeichnet — ein Werkzeug, das dorthin schreibt, weil eine Umgebungsvariable
+ * gesetzt ist, verletzt diese Grenze **ohne Absicht und ohne Warnung**.
+ *
+ * ## Die Regel
+ *
+ * `PMH_HOME`, sonst `~/.pmh`. **Kein `DSH_HOME`.** Und eine harte Sperre: liegt
+ * das Ergebnis auf dem DSH-Home oder endet es auf `.dsh`, wird **geworfen** statt
+ * geschrieben. Eine Konvention, die man brechen kann, ist keine Grenze; ein
+ * Fehler, der den Lauf abbricht, ist eine.
+ *
+ * @param configured explizite Konfiguration; gewinnt gegen die Env-Variable.
+ * @param env Umgebungsquelle; standardmäßig `process.env`.
+ * @returns der Pfad unseres Homes
+ * @throws Error, wenn der Pfad auf ein DSH-Home zeigt
+ */
+export function resolveEigenesHome(configured?: string, env: HomeEnv = process.env): string {
+  let pfad: string
+  if (configured !== undefined) {
+    pfad = resolve(expandHomePath(configured))
+  } else {
+    const ausEnv = env[PMH_HOME_ENV]
+    pfad = ausEnv !== undefined && !isBlank(ausEnv) ? resolve(expandHomePath(ausEnv)) : resolve(defaultPmhHome())
+  }
+
+  // Die harte Sperre. Verglichen wird gegen `DSH_HOME` **und** gegen den
+  // Verzeichnisnamen — wer `DSH_HOME` nicht gesetzt hat, aber auf `~/.dsh` zeigt,
+  // soll genauso abgewiesen werden.
+  const dshAusEnv = env[DSH_HOME_ENV]
+  const dshHome = dshAusEnv !== undefined && !isBlank(dshAusEnv) ? resolve(expandHomePath(dshAusEnv)) : undefined
+  const namensTreffer = basename(pfad) === '.dsh'
+
+  if (namensTreffer || (dshHome !== undefined && pfad === dshHome)) {
+    throw new Error(
+      `ABBRUCH: das eigene Home zeigt auf „${pfad}" — das Home des DeepSeek Harness. ` +
+        'Dorthin schreibt dieses Projekt nicht. Setze PMH_HOME auf ein eigenes Verzeichnis ' +
+        '(Vorgabe: ~/.pmh) oder übergib einen Pfad ausdrücklich.',
+    )
+  }
+  return pfad
 }
 
 /** Der zweite Root der Vorlage, unverändert übernommen: `~/.agents` bzw. `$DSH_AGENTS_HOME`. */

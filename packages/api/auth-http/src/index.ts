@@ -68,9 +68,20 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { Argon2PasswordHasher, DEFAULT_SESSION_POLICY, MemoryRateLimiter } from '@prometheus-harness/auth'
+import { resolveEigenesHome } from '@prometheus-harness/home-paths'
 import { erzeugeSpeicher, type SqlZugang } from '@prometheus-harness/store-postgres'
+import { claimAblageImHome } from './claim-ablage.ts'
 import { wegAbmelden, wegAnmelden, wegIch, wegRegistrieren } from './http.ts'
 import { PFAD_ABMELDEN, PFAD_ANMELDEN, PFAD_ICH, PFAD_REGISTRIEREN, type Umgebung } from './wege.ts'
+
+export { ABLAGEDATEI, claimAblageImHome } from './claim-ablage.ts'
+
+export {
+  akteurAus,
+  darfBenutzerAnlegen,
+  isolationAnsicht,
+  type IsolationAnsicht,
+} from './rechte.ts'
 
 export {
   PFAD_ABMELDEN,
@@ -224,9 +235,10 @@ export function macheSqlZugang(adresse: string, max = 4): SqlZugang {
  *
  * @param sql - der Datenbankzugang (echt, nur aufgeschoben)
  * @param angaben - die Angaben aus der Außenwelt
+ * @param home - das Harness-Home (Erstinbetriebnahme und Isolation)
  * @returns die Umgebung
  */
-export function umgebungAus(sql: SqlZugang, angaben: Angaben): Umgebung {
+export function umgebungAus(sql: SqlZugang, angaben: Angaben, home: string): Umgebung {
   return {
     speicher: erzeugeSpeicher(sql),
     hasher: new Argon2PasswordHasher(),
@@ -235,6 +247,8 @@ export function umgebungAus(sql: SqlZugang, angaben: Angaben): Umgebung {
     maxUsers: angaben.maxUsers,
     jetzt: () => new Date(),
     warten: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    home,
+    claimAblage: claimAblageImHome(home),
   }
 }
 
@@ -261,7 +275,19 @@ export function apply(ctx: Context): void {
     return
   }
 
-  const umgebung = umgebungAus(macheSqlZugang(angaben.adresse), angaben)
+  // **Woher das Home kommt.** Aus `PMH_HOME`, sonst `~/.pmh` — und **nicht** aus
+  // `DSH_HOME`. Der erste Entwurf nahm `resolvePmhHome()`, dessen Kette
+  // `PMH_HOME → DSH_HOME → ~/.pmh` lautet. Auf diesem Rechner ist `DSH_HOME`
+  // gesetzt, also zeigte das Home auf `~/.dsh` — das Home des **anderen**
+  // Harness. Gemessen am 13.10.2026: `scripts/claim.mjs` legte dort drei Dateien
+  // an. `resolveEigenesHome()` wirft, wenn der Pfad auf ein DSH-Home zeigt.
+  //
+  // Unsere Dateien — Gerätekennung, Claim — gehören in **unser** Home; das Home
+  // des Kerns (`--home` des Hosts) ist ein dritter Ort und dort liegen seine
+  // Sitzungen.
+  const home = resolveEigenesHome()
+
+  const umgebung = umgebungAus(macheSqlZugang(angaben.adresse), angaben, home)
 
   ctx.effect(() => {
     const wege: readonly WebRoute[] = [

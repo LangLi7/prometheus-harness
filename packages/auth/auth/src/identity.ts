@@ -56,6 +56,30 @@ export interface NewUser {
   readonly email: string
   readonly passwordHash: string
   readonly displayName: string
+  /**
+   * Die Rolle des neuen Kontos; ohne Angabe `user`.
+   *
+   * **Warum das Feld hier steht — und vorher fehlte.** `RegisterOptions` hatte
+   * schon ein `role`, und `register` schrieb es in den **Rückgabewert**:
+   *
+   * ```ts
+   * user: { …, role: options.role ?? 'user' }
+   * ```
+   *
+   * An `store.create` wurde es aber **nicht** übergeben — es konnte nicht, denn
+   * dieses Feld gab es nicht. Am 13.10.2026 gemessen:
+   *
+   * ```
+   * Antwort des Weges:  {"role":"admin"}
+   * Zeile in der Datenbank: rolle=user
+   * ```
+   *
+   * Der Aufrufer bekam also **gesagt**, es sei ein Admin — und die Datenbank
+   * hielt einen gewöhnlichen Benutzer. Das ist schlimmer als ein ignoriertes
+   * Feld: der Erstlogin hätte ein „Admin"-Konto gemeldet, mit dem sich nichts
+   * verwalten läßt, und die Ursache läge drei Schichten entfernt.
+   */
+  readonly role?: 'user' | 'admin'
 }
 
 /** Ein Eintrag der Prüfspur. **Ohne** Klartext-Geheimnisse und ohne Nachrichteninhalte. */
@@ -375,11 +399,15 @@ export async function register(
 
   const newId = options.newId ?? ((): string => crypto.randomUUID())
   const passwordHash = await hasher.hash(password)
+  // **Die Rolle geht MIT.** Sie wurde vorher nur im Rückgabewert behauptet —
+  // siehe die Begründung an `NewUser.role`.
+  const role = options.role ?? 'user'
   const id = await store.create({
     id: newId(),
     email: emailCheck.value,
     passwordHash,
     displayName: displayName.trim(),
+    role,
   })
 
   if (id === undefined) {
