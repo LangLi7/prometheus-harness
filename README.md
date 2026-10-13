@@ -70,36 +70,77 @@ prüft und schreibt nichts:
 ```bash
 bun install                     #  0,1 s
 bun x tsgo --noEmit -p <paket>  #  2,1 s über 17 Pakete, 0 Fehler
-bun run start                   #  1,1 s bis zum Token
+bun run start                   #  1,1 s bis zur Adresse
 ```
+
+### Prüfen
+
+```bash
+bun test packages scripts apps   # 669 grün, 0 rot — 25 Dateien, 5,6 s
+
+# Die 14 PostgreSQL-Prüfungen laufen nur mit einer Testdatenbank.
+# Sie brauchen die OWNER-Rolle: Migrationen sind DDL, pmh_app darf das nicht.
+PMH_TEST_DATABASE_URL=postgres://pmh_owner:bitte-aendern-owner@127.0.0.1:5432/pmh \
+  bun test packages scripts apps
+```
+
+**Ohne** diese Variable werden jene Fälle **übersprungen** — nicht bestanden. Ein
+Lauf ohne sie meldet `655 pass · 14 skip · 0 fail` und sagt damit ehrlich, was er
+nicht geprüft hat.
 
 ## Stand
 
-**Phase: der Core läuft — ein eigener Agent läuft noch nicht.**
+**Phase: der Core läuft — und der erste eigene Endpunkt antwortet.**
 
-Beides ist wahr und der Unterschied ist wichtig: die Oberfläche des Cores wird
-ausgeliefert, aber **kein Paket unseres Kerns ist angeschlossen**. Nachgemessen am
-13.10.2026:
+Nachgemessen am 13.10.2026:
 
 | Nachweis | Ergebnis |
 |---|---|
 | **Host startet** | `bun run start` → Adresse mit Token; Aufruf **200**, 35.664 Zeichen; ohne Token **401**, mit falschem Token **401**; Start bis zur Adresse **1,1 s** |
+| **Eigener Endpunkt** | `GET /api/health` → **200** mit unserem JSON — **im Host**, nicht nur im Test; `POST` → **405**; `?x=1` → **200**, `/api/health/mehr` → **404** — [Beleg](docs/status/beleg-eigener-endpunkt.md) |
 | **Anmeldung des Cores** | Token-Weiterleitung **303** + Cookie; `GET /` mit Cookie **200**, ohne Cookie **401** — greift |
-| **API** | **ausgefallen.** `/api/*` → **404** (18 Pfade geprüft), WS `/api/remote.mux` → **1008 Policy Violation**. Ursache: der `typert`-Stapel registriert sich nicht, das Gateway hängt daran — [Beleg](docs/review/api-flaeche.md) |
-| **Eigener Kern** | **14 Pakete, 17.733 Zeilen TypeScript, 262 + 108 Tests grün** — aber **nicht verdrahtet**: er läuft in Tests, nicht in der Anwendung |
+| **API des Cores** | **ausgefallen.** `/api/*` → **401/404**, WS `/api/remote.mux` → **1008 Policy Violation**. Ursache: der `typert`-Stapel registriert sich nicht, das Gateway hängt daran — [Beleg](docs/review/api-flaeche.md) |
+| **Eigener Kern** | **15 Pakete · 669 Tests grün · 0 rot** (25 Dateien, mit echter PostgreSQL) · **ein** Paket davon ist verdrahtet (`health`), die übrigen laufen noch nur in Tests |
 | **Datenbank** | PostgreSQL **17.11** + pgvector **0.8.7**, Redis **7.4.9** — als Stack in **einer** Datei; Rechtemodell mit vier Rollen belegt wirksam |
-| **Stack** | `bun install` **0,1 s** · `tsgo --noEmit` **2,1 s / 17 Pakete / 0 rot** · Start **1,1 s** — kein Build-Schritt |
+| **Stack** | `bun install` **0,1 s** · `tsgo --noEmit` **17 Pakete / 0 rot** · Start **1,1 s** — kein Build-Schritt |
 | **Go-Dienste** | `pmh-nix` 60 Tests · `pmh-attach` 63 Tests · `pmh-supervisor` **2 rot** (auch auf `HEAD`) |
 | **Rust** | 6.569 Zeilen in 6 Crates — **nichts ruft sie auf**, kein Skript baut sie — [Beleg](docs/review/rust-bestand.md) |
+
+### Der erste eigene Endpunkt
+
+`packages/api/health` hängt sich über den **offiziellen Dienst** `ctx.webServer`
+ein — nicht über eine eigene Serverinstanz. Eine zweite Instanz hätte nicht
+gezeigt, was hier gezeigt werden soll, und wäre eine zweite Wahrheit über Adresse
+und Anmeldung.
+
+```
+$ curl -s http://127.0.0.1:3081/api/health
+{"status":"ok","service":"@prometheus-harness/health","version":"0.1.0",
+ "uptimeMs":17862,"runtime":"bun 1.4.0"}
+```
+
+**Er ist keine Zustandsprüfung.** Er prüft nicht die Datenbank, nicht Redis, nicht
+die LLM-Anbindung. Er beantwortet die eine Frage, die vor allen anderen kommt:
+*läuft unser Code im Host?* Ein `/api/health`, das „ok" sagt, obwohl die Datenbank
+liegt, wäre schlimmer als keines.
+
+**Erreichbar ohne Token** — bewußt, und nur weil er nichts preisgibt und der
+Lauscher auf `127.0.0.1` gebunden ist. Für jeden weiteren Endpunkt ist das **nicht**
+automatisch richtig.
+
+Eingetragen wird das Paket bei **jedem** Start von `scripts/start.mjs` in die
+Patch-Schicht des Profils (idempotent, eigener markierter Bereich, fremde
+Einträge bleiben stehen) — die Profildatei selbst liegt in `.pmh-build/` und ist
+nicht versioniert.
 
 ### Was noch nicht gebaut ist — mit Zahlen
 
 | | dieses Projekt | Referenz (Upstream-Fork) |
 |---|---:|---:|
-| Quellcode (`packages/`, `services/`, `native/`, `apps/cli/src`) | **112 Dateien · 1,4 MB** | 5.205 Dateien · 49 MB |
-| Applikationspakete | **14** | 245 |
+| Quellcode (`packages/`, `services/`, `native/`, `apps/cli/src`; `.ts`, `.go`, `.rs`, `.mjs`, `.sql`, `.ps1`) | **118 Dateien · 1,4 MB** | 5.205 Dateien · 49 MB |
+| Applikationspakete | **15** | 245 |
 
-**Unser Quellcode ist rund 46-mal kleiner als der Anwendungscode der Referenz.** Das
+**Unser Quellcode ist rund 44-mal kleiner als der Anwendungscode der Referenz.** Das
 ist kein Größen-, sondern ein Fortschrittsmaß — die Zerlegung steht in
 [groessenvergleich-zur-referenz.md](docs/review/groessenvergleich-zur-referenz.md).
 
@@ -108,6 +149,7 @@ ist kein Größen-, sondern ein Fortschrittsmaß — die Zerlegung steht in
 ```
 apps/cli            der Host: lädt das Profil, komponiert den Cordis-Baum, reicht die Oberfläche aus
 apps/web            die Oberfläche (unverändert aus der Vorlage) — Vorlage für unsere eigene
+packages/api        health — der erste eigene Endpunkt, über ctx.webServer im Host eingehängt
 packages/llm        LLM-Seam · llm-deepseek · llm-retry · token-meter
 packages/core       agent-tools · agent-loop
 packages/agent      session-format · session-persistence-jsonl
@@ -117,6 +159,7 @@ packages/util       atomic-write · home-paths · scope
 services/           pmh-attach · pmh-nix · pmh-supervisor (Go) · pmh-sandbox (Rust)
 native/             6 Rust-Crates (Sperren, PTY, atomares Schreiben, Landlock) — derzeit ungenutzt
 docker/             Stack-Einrichtung: Erweiterungen, Rollen, Rechte
+scripts/            Start · Portwahl · Anmeldeadresse · Profil-Verdrahtung · Prüfungen
 docs/               Konzept, Entscheidungen, Nachweise, Recherche
 ```
 

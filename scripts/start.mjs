@@ -54,6 +54,7 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { choosePort, describePortChoice, portFromEnv } from './port-wahl.mjs'
+import { EIGENE_PAKETE, patchPfad, verdrahte } from './profile-patch.mjs'
 import { announceAuthUrl } from './token-adresse.mjs'
 
 /** Wurzel des Projekts, abgeleitet aus dem Modulpfad — nie aus dem Aufrufort. */
@@ -334,6 +335,28 @@ async function main() {
     if (existsSync(hostEntry)) {
       process.stdout.write(`[pmh] Host: apps/cli (Profil "${options.profile}")\n`)
       process.stdout.write(`[pmh] Harness-Home: ${options.home}\n`)
+
+      // **Unser Code in den Host eintragen — bei jedem Start.**
+      //
+      // Warum das hier geschieht und nicht in einer eingecheckten Datei: die
+      // Patch-Schicht des Profils liegt in `.pmh-build/`, und das ist **nicht**
+      // versioniert. Eine handgeschriebene Datei dort wäre beim nächsten Klon
+      // weg. Der Eintrag steht deshalb im Repo (`scripts/profile-patch.mjs`) und
+      // wird hier in die Profildatei geschrieben — idempotent, ein eigener
+      // markierter Bereich, fremde Einträge bleiben unangetastet.
+      try {
+        const eintrag = verdrahte(patchPfad(options.home, options.profile), EIGENE_PAKETE)
+        const was = eintrag.geaendert ? 'eingetragen' : 'schon eingetragen'
+        process.stdout.write(`[pmh] Eigene Pakete ${was}: ${EIGENE_PAKETE.join(', ')}\n`)
+      } catch (cause) {
+        // Fail-loud: ohne den Eintrag läuft unser Endpunkt nicht, und der Start
+        // würde trotzdem „erfolgreich" aussehen. Das ist genau die stille
+        // Abweichung, die vermieden werden soll.
+        process.stdout.write(
+          `[pmh] FEHLER: eigene Pakete konnten nicht eingetragen werden — ` +
+            `${cause instanceof Error ? cause.message : String(cause)}\n`,
+        )
+      }
 
       // **Die Portwahl — „binden statt fragen"** (siehe `port-wahl.mjs`).
       //

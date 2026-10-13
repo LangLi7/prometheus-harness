@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/health",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Erster eigener Endpunkt: GET /api/health als Cordis-Plugin über ctx.webServer.register. Beweist, dass unser Code im Host-Baum läuft — nicht nur in Tests.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

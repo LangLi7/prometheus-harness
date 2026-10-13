@@ -121,12 +121,44 @@ Der frühere Auftrag „je 18–46 Dateien an einen Arbeiter" ist damit ersetzt.
 | [status/windows-start-nachweis.md](status/windows-start-nachweis.md) | Der Windows-Start (`t40`): drei `bun`-Einträge, zwei defekt; der Launcher funktioniert, der Host kommt unter Windows nativ **nicht** hoch (HTTP 200 nur unter WSL2) |
 | [status/plugin-export-nachweis.md](status/plugin-export-nachweis.md) | Der Rundlauf des Unit-Exports: Export → Import → Rückexport mit **identischem** Digest (`sha256:ac37e0ec…`) |
 | [status/messsonden/README.md](status/messsonden/README.md) | Vier kleine Sonden, mit denen die Messungen aus `kleinste-kette-nachweis.md` §6 nachvollziehbar sind — Laufzeitversion, Paketauflösung, Host-Start unter Windows und WSL2 |
+| [status/beleg-startadresse.md](status/beleg-startadresse.md) | **Die Startadresse war unbenutzbar**: die README nannte eine Adresse, die mit **401** antwortet. Der Starter gibt jetzt die Adresse **mit** Token aus — samt der drei Fehler im eigenen Code, die erst eine Prüfung fand |
+| [status/beleg-eigener-endpunkt.md](status/beleg-eigener-endpunkt.md) | **Der erste eigene Endpunkt läuft im Host**: `GET /api/health` → **200** über `ctx.webServer.register`, eingetragen über die Patch-Schicht des Profils. Mit den **vier** Fehlern auf dem Weg (erfundener Lebenszyklus-Haken, falsche Patch-Form in drei Stufen) und der genauen Bestimmung der Anmeldegrenze |
 
 ## 8. Weitere Ablage
 
 | Ordner | In einem Satz |
 |---|---|
 | [source/README.md](source/README.md) | Rohmaterial und Auszüge, die noch nicht ausgewertet sind (derzeit leer) |
+
+---
+
+## 9. Protokoll der Aufsicht — *die zweite, unabhängige Spur*
+
+> Angelegt **13.10.2026**. Der bauende Agent belegt seine Arbeit unter `status/`; die **Aufsicht**
+> (Wächter-Rolle) führt daneben eine eigene Spur: Gegenproben, Zugangslage, Befunde. Getrennt, damit
+> eine Prüfung den geprüften Nachweis nicht verändert.
+
+| Dokument | In einem Satz |
+|---|---|
+| [protokoll/aufsicht/README.md](protokoll/aufsicht/README.md) | Auftrag und Hausregeln der Aufsicht — darunter **H1: kein Neustart** von DSH/`~/.dsh`/`~/.pmh`, solange der andere Agent arbeitet (Prompt-Caching) |
+| [protokoll/aufsicht/protokoll.md](protokoll/aufsicht/protokoll.md) | Chronologie der Prüfungen mit Befehl und Ergebnis, append-only |
+| [protokoll/aufsicht/protokoll.jsonl](protokoll/aufsicht/protokoll.jsonl) | dieselben Ereignisse maschinenlesbar, eine Zeile je Ereignis |
+| [protokoll/aufsicht/LAGE.md](protokoll/aufsicht/LAGE.md) | **eine Seite für Entscheidungen**: was jetzt zu tun ist (B16, B13, B14, B15), was erledigt ist, was nicht prüfbar war — und wie man alles nachfährt |
+| [protokoll/aufsicht/befunde.md](protokoll/aufsicht/befunde.md) | Befunde `B1`–`B17` mit Schwere, Beleg und Empfehlung — darunter die **widerlegte** Behauptung „kein Code ruft den Rust-Bestand auf" und der nicht belegte Satz „API ausgefallen" |
+| [protokoll/aufsicht/aufgaben.md](protokoll/aufsicht/aufgaben.md) | Dauerauftrag, eigene Aufgabenliste und das, was die Aufsicht ausdrücklich **nicht** tut |
+| [protokoll/aufsicht/werkzeuge/settings-vergleich.mjs](protokoll/aufsicht/werkzeuge/settings-vergleich.mjs) | vergleicht die Live-Konfiguration gegen jede gefundene Sicherung, Abschnitt für Abschnitt, ohne Geheimwerte auszugeben |
+| [protokoll/aufsicht/werkzeuge/zugangs-lage.mjs](protokoll/aufsicht/werkzeuge/zugangs-lage.mjs) | vergleicht die Credential-Referenzen aller Harness-Homes und prüft eine Referenz live (nur Statuscode) |
+| [protokoll/aufsicht/werkzeuge/takt-pruefung.mjs](protokoll/aufsicht/werkzeuge/takt-pruefung.mjs) | die wiederkehrende Prüfung in einem Aufruf: Konfigurations-Invarianten, Zugänge, Git-Zustand, Prozesse, Datenbank (alles lesend) |
+| [protokoll/aufsicht/werkzeuge/zeilen-zahl.mjs](protokoll/aufsicht/werkzeuge/zeilen-zahl.mjs) | zählt Dateien und Zeilen über die git-Dateiliste und **meldet jede unlesbare Datei namentlich** — statt sie still mit 0 zu zählen |
+| [protokoll/aufsicht/werkzeuge/bun-faehigkeiten.mjs](protokoll/aufsicht/werkzeuge/bun-faehigkeiten.mjs) | misst die Laufzeit-Behauptungen nach, die über den Rust-Bestand entscheiden: Verzeichnis-fsync, Krypto, Dateisperre, atomarer Ersatz |
+| [protokoll/aufsicht/werkzeuge/init-skript-probe.mjs](protokoll/aufsicht/werkzeuge/init-skript-probe.mjs) | prüft ein Einrichtungs-Skript gegen den echten Server **ohne Zustandsänderung** — der SQL-Block läuft in `BEGIN … ROLLBACK` |
+| [protokoll/aufsicht/werkzeuge/geheimnis-historie.mjs](protokoll/aufsicht/werkzeuge/geheimnis-historie.mjs) | definitiver Negativbefund zur Git-Historie: sucht die **echten** Werte aus dem Credential-Speicher in allen Commits (kein Muster-Scanner, keine Ausgabe von Werten) |
+| [protokoll/aufsicht/werkzeuge/zeilen-klassen.mjs](protokoll/aufsicht/werkzeuge/zeilen-klassen.mjs) | trennt Leerzeilen, Kommentare und Code — damit „6.014 gegen 6.569" nicht Vermutung bleibt, sondern eine Zählweise wird |
+| [protokoll/aufsicht/werkzeuge/pty-probe.mjs](protokoll/aufsicht/werkzeuge/pty-probe.mjs) | misst die PTY-Behauptungen nach: echtes ConPTY über `Bun.spawn({ terminal })`, `node-pty` unter Bun, `bun:ffi` gegen `kernel32!MoveFileExW` |
+| [protokoll/aufsicht/werkzeuge/api-erreichbarkeit.mjs](protokoll/aufsicht/werkzeuge/api-erreichbarkeit.mjs) | prüft, ob der API-Weg **erreichbar** ist: `POST` auf registrierte und unregistrierte Endpunkte, unterschieden am **JSON-RPC-Rahmen** — eine 404 allein beweist nichts |
+| [protokoll/aufsicht/hilfen/zugang-bereitstellen.mjs](protokoll/aufsicht/hilfen/zugang-bereitstellen.mjs) | legt den Modellzugang für ein Home bereit — Standard ist **nur anzeigen**, geschrieben wird nur mit `--anwenden` |
+| [protokoll/aufsicht/hilfen/rechte-probe-assertion.sql](protokoll/aufsicht/hilfen/rechte-probe-assertion.sql) | zusichernde Rechteprüfung statt „muss scheitern"-Kommentaren: `has_*_privilege()` fragt, übt keine Rechte aus und kann nichts löschen — Exit-Code auswertbar |
+| [protokoll/aufsicht/hilfen/anbieter-rauchtest.mjs](protokoll/aufsicht/hilfen/anbieter-rauchtest.mjs) | echter Anbieteraufruf **über den Adapter des Repos**: setzt den Schlüssel aus dem Speicher in die Umgebung (ohne ihn auszugeben) und belegt damit die Kette für `P8.12` |
 
 ---
 
