@@ -2291,6 +2291,75 @@ Abbilds**, kein Versehen dieses Projekts. Benannt gehört es trotzdem, weil zwis
 3. **Dann** die Kennwörter drehen ([`hilfen/kennwoerter-drehen.mjs`](hilfen/kennwoerter-drehen.mjs)) —
    vorher ist es Kosmetik.
 
+### Nachtrag 13.10.2026, 16:14 — **KORREKTUR: der Befund gilt für Socket und Container, nicht für den Host** — **M → N**
+
+**Anlaß.** Ein Fremdreview (drittes Dokument, über den Betreiber) hielt meiner Aussage entgegen, der Test
+müsse *von Windows aus* wiederholt werden: „Wenn Docker-Portweiterleitung im Spiel ist, sollte das
+scheitern." **Er hatte recht, ich hatte den falschen Weg gemessen.**
+
+**Nachgemessen — dieselbe Methode, zwei Wege:**
+
+| Weg | Absichtlich **falsches** Kennwort | Ergebnis |
+|---|---|---|
+| **Windows → `127.0.0.1:5432`** (Portweiterleitung, `postgres`-Modul, 16:13) | `pmh_app` | **ABGELEHNT** — `password authentication failed for user "pmh_app"` |
+| derselbe Weg | `pmh_admin` | **ABGELEHNT** |
+| **im Container**, `host=/var/run/postgresql` (Unix-Socket, 16:14) | `pmh_admin` | **ANMELDUNG GEHT** |
+| **im Container**, `-h 127.0.0.1` (meine Messung von 16:01) | `pmh_app`, `pmh_admin` | **ANMELDUNG GEHT** |
+
+**Was das heißt.** Der `trust`-Bereich umfaßt den **Unix-Socket** und die **Schleife des Containers** —
+nicht den Host. Die Portweiterleitung liefert die Verbindung so aus, daß sie unter die **letzte** Zeile
+`host all all all scram-sha-256` fällt; dort **wird** geprüft. Wer vom Host, aus dem Netz oder aus einem
+anderen Container kommt, braucht ein gültiges Kennwort.
+
+**Zurückgezogen wird deshalb:**
+1. „Auf diesem Rechner laufen neun `node`-Prozesse … ‚nur lokal' heißt hier also jeder lokale Prozeß" —
+   **falsch**. Mein Test lief `docker exec … -h 127.0.0.1`, also **im Container**.
+2. „Eine Kennwortdrehung ohne diese Datei zu ändern ist **kosmetisch**" — **falsch**. Die Drehung wirkt
+   auf jedem Weg, der heute benutzt wird (Anwendung `pmh_app`, pgAdmin, Netz).
+3. Damit sinkt **B28 von M auf N (latent)**. Es bleibt: wer **im Container** arbeitet, umgeht das
+   Rechtemodell und darf jede Rolle wählen — und Docker-Rechte sind Root-Äquivalent, also ist der
+   praktische Zugewinn der Absicherung klein, aber die Datei ist der **einzige** Ort, an dem das
+   Rechtemodell durchgesetzt wird. Die Empfehlung „dauerhaft schärfen" bleibt, sie ist nur **nicht mehr
+   Vorbedingung** für die Drehung.
+
+**Die Lehre, und sie ist meine.** Zum dritten Mal in dieser Sitzung war eine **Sonde** das Problem, nicht
+die Sache: 13:44 (TCP-Anmeldung, die gelingen konnte, ohne etwas zu beweisen), 15:09 (nur stdout gelesen)
+und jetzt (den falschen Weg gemessen und den Schluß auf „jeder lokale Prozeß" verallgemeinert). Neu ist
+die Richtung: die Korrektur kam von **außen** — und sie stimmt. Mein Befund stand 40 Minuten in der
+Fassung „M" auf der Entscheidungsseite und hätte dort eine **Reihenfolge** bestimmt, die niemand braucht.
+
+## B37 — Der Eigentümer einer Sitzung ist im Schema **vorgesehen**, wird aber **von niemandem geschrieben** — **N** (latent, Vorarbeit für RLS)
+
+**Der Befund.** Gemessen am 13.10. um **16:14**:
+
+* `conversation_sessions` (Migration `packages/auth/db-schema/migrations/0003_sitzungen_und_gespraeche.sql`,
+  Zeilen 81–158) trägt `user_id uuid NOT NULL REFERENCES users (id)` (Zeile 135) und `workspace_id uuid`
+  (Zeile 136) samt drei Indizes — und sagt im eigenen `COMMENT ON TABLE` (Zeilen 157–158): *„Die Felder
+  spiegeln SessionHeader des Kerns; **user_id und workspace_id sind unsere Zusätze**. Die Ereignisse
+  selbst liegen im JSONL-Strom — hier steht nur der Kopf."*
+* Ein **Schreiber** fehlt. `conversation_sessions` kommt in `packages/**/*.ts` **siebenmal** vor: sechsmal
+  in Tests, einmal als Eintrag der Kerntabellen-Liste der Bereitschaftsprüfung
+  (`packages/api/readiness/src/index.ts:190`) — **null** Treffer für ein `INSERT` (auch nicht für
+  `insertConversationSession` o. ä.).
+* Der **JSONL-Kopf** auf der Platte hat **keinen** Eigentümer: **0** Treffer für
+  `ownerId|userId|workspaceId` in `packages/agent/session-persistence-jsonl/src`.
+
+**Warum das zählt.** Zwei Orte beschreiben dieselbe Sitzung. Der eine (Datei auf der Platte) existiert,
+der andere (Kopfzeile in der Datenbank) ist leer. Solange **keine** Sitzung geschrieben wird, ist das
+folgenlos — mit der ersten geschriebenen Sitzung ist die Zuordnung nur noch **geraten**: Dateinamen
+tragen keine Benutzerkennung, und Ereignisse lassen sich nachträglich keinem Benutzer zuordnen. Und die
+Tabelle ist **nicht optional**: die Bereitschaftsprüfung **verlangt** sie (`Kern-Tabellen fehlen: …,
+conversation_sessions`).
+
+**Die Entscheidung, die dahintersteckt, ist richtig.** Der Dateikopf bleibt der **Formatvertrag des
+Kerns** (unangetastet), der Eigentümer steht in der **Datenbank**. Genau deshalb ist dieser Befund
+**kein** Widerspruch zur Migrationsentscheidung — es fehlt der **Schreiber**, nicht die Spalte.
+
+**Empfehlung.** 1. Beim Bau des Schreibpfads die Kopfzeile **in derselben Transaktion** wie die
+Sitzungszeile füllen. 2. Eine Prüfung, die eine Sitzungsdatei **ohne** Kopfzeile meldet — sonst entsteht
+der Bestand still. 3. **Erst danach** RLS (siehe Fremdreview unten: ohne Setzer für `app.user_id` macht
+jede Regel jede Abfrage leer).
+
 ## V3 — Die CRLF-Klasse im JavaScript ist **geschlossen** (Verifikation, kein Befund)
 
 **Anlass.** Derselbe Fehler ist bei ihm **dreimal** aufgetreten: `setzeWerte` (`e9013a5`), `leseEnv`
@@ -2946,7 +3015,74 @@ während in der deutschen Fassung `#bekannte-grenzen-und-offene-arbeit` auf ein 
 zeigte — deshalb gibt es `pruefeSprungmarken`. **Ein Prüfer, der seine eigene Blindheit dokumentiert und
 behebt, ist die richtige Antwort auf genau die Fehlerklasse, die dieses Protokoll bei anderen sucht.**
 
+## Fremdreview 13.10.2026, 16:10 (zweites Modell, zweite Runde) — eine Hypothese **widerlegt**, ein Punkt **verschärft**, ein Vorschlag eingeordnet
+
+Sechs Punkte; fünf nachgemessen, einer ist Zustimmung.
+
+| Punkt des Reviews | Messung (diese Minute) | Folge |
+|---|---|---|
+| *„Dann steht in der Compose-Datei wahrscheinlich `POSTGRES_HOST_AUTH_METHOD=trust`"* | **widerlegt.** Die Variable steht in `docker-compose.yml`, `.env` und `.env.example` **nirgends**; der Container kennt sie nicht (`POSTGRES_HOST_AUTH_METHOD=[]`); die **letzte** Zeile von `pg_hba.conf` ist `host all all all scram-sha-256` — genau das, was das Abbild schreibt, **wenn** die Variable nicht gesetzt ist. Die drei `trust`-Zeilen sind **initdb-Vorgabe**, keine Projektentscheidung | Die **Schlußfolgerung** bleibt richtig (Datei im Volume ändern oder Volume neu anlegen) — der **Weg** ist ein anderer. Praktisch wichtig: **wer nach einer Variable sucht und keine findet, hält den Befund für erledigt** |
+| *„`password_encryption = scram-sha-256` prüfen"* | **bereits erfüllt**: `show password_encryption` → `scram-sha-256` | nichts zu tun |
+| *„Beide Punkte gehören in einen Schritt, nicht in zwei Tage Abstand"* | Zustimmung; genau so steht es in `LAGE.md` §0 **„Sofort"** | — |
+| *„`\password rolle` in psql, nicht per Kommandozeilenargument"* | Mein Helfer setzt die Kennwörter über **stdin** (`docker exec -i … psql`), nicht als Argument — dieselbe Hygiene. `\password` ist die richtige **Hand**variante; sie läßt sich aber nicht reproduzierbar skripten (sie fragt zweimal), und der Helfer muß den Wert kennen, um ihn in die `.env` zu schreiben | beide Wege belegt, keiner falsch |
+| *„Secret-Scanner (Gitleaks) als pre-commit-Hook"* | **keine Hook-Infrastruktur**: kein `.husky`, kein `.pre-commit-config.yaml`, kein `lefthook.yml`, **keine** aktiven Git-Hooks, `gitleaks` nicht im PATH. `.github/` ist **absichtlich ignoriert** (`.gitignore:69–76`): *„eine Kopie des Referenz-Forks … passt nicht auf unsere Sprachen und unser Layout. Eigene CI entsteht neu und dann ausdrücklich."* (Die Zahl stimmt: `.github` hat **56** Dateien.) | **Ergänzend, nicht überflüssig:** meine Prüfung ist **wertbasiert** (14 bekannte Werte, 0 Treffer) — sie findet nur, was sie kennt; Gitleaks findet **Muster**, die niemand kennt. Er gehört in die **neue, ausdrückliche** CI. Heute wäre er eine neue Einrichtung, kein Schalter |
+| *„Bei einem Absturz gehen die Ereignisse seit dem letzten Flush verloren"* (zu B36) | **trifft — schärfer als gedacht** (Nachtrag unten) | die Empfehlung wird präziser |
+
+### Nachtrag zu B36 — `flushEvery 1` kauft **Reihenfolge**, aber **keine Haltbarkeit**
+
+Gemessen: im ganzen Paket `packages/agent/session-persistence-jsonl` gibt es **null** Treffer für `sync(`,
+`fsync` oder `datasync`; der Schreibpfad benutzt `appendFile` (`index.ts:308`) und `writeFile`. **Der Kern
+dagegen synct an fünf Stellen** (`handle.sync()` in `session-persistence-jsonl/src/index.ts:611, 639,
+666, 685, 697`), darunter ein **Verzeichnis-fsync** (*„fsync a POSIX directory so a just-created/renamed
+entry is crash-durable"*) und das Abschneiden des Absturzrests (*„discard the crash tail"*).
+
+**Damit ist die Annahme widerlegt, die Vorgabe `1` kaufe die Haltbarkeit je Ereignis:** sie kauft die
+**Reihenfolge** (die Kette, dokumentiert in `index.ts:15/226`) und die **Rechtzeitigkeit** des
+Schreibaufrufs — aber **keinen Sync**. Ein Absturz kann auch bei `flushEvery 1` Daten verlieren.
+
+**Präzisere Empfehlung als vorher** — es geht nicht mehr um das Benennen eines Kompromisses, sondern um
+eine Entscheidung, **ob Haltbarkeit zugesagt wird**:
+
+* **Ja** → der Sync **fehlt** (der Kern hat ihn); dann ist `flushEvery` frei wählbar.
+* **Nein** → dann gehört *„Ereignisse seit dem letzten Sync können verloren gehen"* **neben die
+  Vorgabe**, und `1` ist als Vorgabe schwer zu begründen.
+
 ---
+
+## Fremdreview 13.10.2026, 16:14 (drittes Dokument: ein Modell hat das **Zip-Archiv** gelesen) — vier Aussagen bestätigt, **zwei** präzisiert, eine **trägt nicht**
+
+Gelesen wurde ein Archiv `prometheus-harness-main.zip` — **gemessen** (16:13, 2076 Einträge): oberster
+Ordner `prometheus-harness-main/`, **nur** `.env.example` (kein `.env`), **kein** `.pmh-build`, **kein**
+`node_modules`, keine `.pem`/`.key`/`id_rsa`/`.ssh`, **kein** `.git`. Es ist der **versionierte** Stand
+(Archiv eines privaten Repos). **Folge:** die *erzeugten* Geheimnisse (`PMH_MASTER_KEY`,
+Modellschlüssel) haben den Rechner **nicht** verlassen; im Archiv stehen nur die **ohnehin
+veröffentlichten** Rollenkennwörter (**B26**). Mein Protokoll ist mit **31** Einträgen darin — es enthält
+nach Hausregel **H4** keine Geheimwerte.
+
+| Aussage des Reviews | Nachgemessen | Urteil |
+|---|---|---|
+| 1. **„Keine Row-Level-Security"** — Suche nach `ROW LEVEL SECURITY`/`CREATE POLICY` findet nichts | **0 Treffer** in `*.sql` (und schon um 12:14 in `*.ts`). **Neu gemessen:** alle **11** Tabellen in `pmh` gehören `pmh_owner`, `relrowsecurity = false` und `relforcerowsecurity = false` **überall**; `app.user_id` ist **nicht gesetzt** | **bestätigt** |
+| 2. **„Das Session-Format hat kein `ownerId`/`userId`/`workspaceId` … auch im Rework nicht ergänzt"** | Der **JSONL-Kopf** auf der Platte hat sie tatsächlich nicht (0 Treffer für `ownerId\|userId\|workspaceId` in `packages/agent/session-persistence-jsonl/src`). **Aber:** `conversation_sessions` **hat** `user_id uuid NOT NULL` und `workspace_id uuid` (Migration `0003`, Zeilen 135–136) — und die Migration sagt selbst, warum: *„Die Felder spiegeln SessionHeader des Kerns; **user_id und workspace_id sind unsere Zusätze**. Die Ereignisse selbst liegen im JSONL-Strom — hier steht nur der Kopf."* | **halb richtig, falsch verortet** — daraus wird **B37**: die Spalte **existiert**, aber **niemand schreibt sie** (0 Treffer für ein `INSERT` außerhalb von Tests) |
+| 3. **„Der Adapter streamt nicht — `stream: false`"** | `packages/llm/llm-deepseek/src/index.ts:264`: `stream: false` | **bestätigt** |
+| 4. **„Verschlüsselte Provider-Schlüssel fehlen im Code (`AES-256-GCM`, `PMH_MASTER_KEY`)"** | **0 Treffer** in `packages/**/*.ts`. **Schärfer als im Review:** das Schema hat sogar eine Spalte `messages.content_cipher bytea` — die Verschlüsselung ist **vorgesehen**, nicht gebaut (mein **B14**) | **bestätigt** |
+| 5. **„Meine `trust`-Vermutung war falsch; teste von Windows aus — das sollte scheitern"** | **Genau so gemessen:** von Windows aus wird ein falsches Kennwort **abgelehnt**, im Container (Socket und Schleife) **nicht** | **richtig — und mein Befund war zu weit gefaßt** (Nachtrag zu **B28** oben) |
+| 6. **„Die Rollen sind per `rechtprobe.sql` testbar"** | `docker/rechtprobe.sql` **existiert** — ist aber laut **B9** **nicht** selbstprüfend: `ON_ERROR_STOP off`, die „muss scheitern"-Fälle sind von „gar nicht gescheitert" **nicht unterscheidbar**, und bei einem Regress würde `TRUNCATE users` **wirklich** zuschlagen. Lesbar ist es, **urteilend nicht** | **trägt nicht** — das Archiv hat die **Beschreibung** des Projekts übernommen, nicht sein Verhalten |
+
+### Antwort auf seine Frage („soll ich die RLS-Migration schreiben?")
+
+**Noch nicht — erst die Vorbedingungen, sonst ist die Migration still wirkungslos.**
+
+* **Was dafür spricht (gemessen):** die Anwendung verbindet sich als **`pmh_app`** (`DATABASE_URL`; nur die
+  Rolle gemessen, nie das Kennwort), also **nicht** als Eigentümer und **nicht** als Superuser —
+  RLS **würde** für sie greifen. Migrationen laufen als `pmh_owner` → sie blieben unberührt.
+* **Was fehlt, bevor eine Regel etwas tut:** (a) **`FORCE ROW LEVEL SECURITY`** oder die ausdrückliche
+  Entscheidung, daß `pmh_owner` als Eigentümer **vorbeikommt** (Vorgabe für Eigentümer) — und
+  `pmh_admin` ist **Superuser** und kommt **immer** vorbei; (b) ein **Setzer** für `app.user_id` in
+  **jedem** Zugriffspfad (`SET LOCAL` je Transaktion) — heute ist die Variable **nirgends** gesetzt, eine
+  Regel darauf macht **jede** Abfrage leer; (c) die **Identität** selbst: die Kopfzeile existiert, aber
+  niemand füllt sie (**B37**).
+* **Was zuerst billig ist:** den **Schreiber** der Kopfzeile bauen (`INSERT` mit `user_id`) — solange
+  keine Sitzungsdateien auf der Platte liegen, ist jede spätere Zuordnung **Raten**.
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
 
@@ -3019,6 +3155,10 @@ behebt, ist die richtige Antwort auf genau die Fehlerklasse, die dieses Protokol
 | 16:11 | **Zweimal hintereinander** (B35 um 15:50, B36 um 16:11) habe ich einen Befundabschnitt angelegt und nur **eine** der beiden Tabellenzeilen nachgetragen — `LAGE.md` §1 **oder** die Offen-Tabelle in `protokoll.md`. Beide Male hat es **mein eigenes Prüfwerkzeug** gemeldet (`kein Abschnitt ohne Tabellenzeile — ohne Zeile: 35/36`). | Beide Male in derselben Minute nachgetragen. **Neue Regel im Ablauf:** ein Befund ist erst fertig, wenn **beide** Zeilen stehen (Lageblatt **und** Offen-Tabelle) — und `protokoll-pruefung.mjs` läuft **vor** dem Commit, nicht nach ihm. | Ich habe das Werkzeug gebaut, damit es **meine** Flüchtigkeit findet — und es hat sie zweimal gefunden. Bemerkenswert ist die Richtung: die Fehler gingen **nicht** in die Befunde, sondern in die **Verwaltung** darüber. Genau dort sieht niemand hin. |
 | 15:09 | Mein **neues** Werkzeug `stand-abgleich.mjs` meldete für **B31** „gemessen 0" statt 6 — ich hätte den Befund als **behoben** ausgegeben. | Ursache: `lauf()` las nur **stdout**; die sechs Warnungen des Registry-Scans gehen nach **stderr**, und der Scan endet mit exit 0. **Erster Reparaturversuch unvollständig:** ich änderte nur den **Fehler**pfad (`fehler.stdout + fehler.stderr`) — bei exit 0 blieb es bei stdout allein, die Messung war also **unverändert falsch**. Erst der Wechsel auf `spawnSync` (liefert beide Ströme) ergab 6. | **Zwei Behebungen an derselben Stelle, und die erste nicht nachgemessen.** Ein Wächter, der einen offenen Befund als erledigt meldet, ist schlimmer als keiner. Die Lehre ist nicht „stderr mitlesen", sondern: **wer eine Sonde repariert, mißt danach noch einmal** — die dritte Messung steht im Protokoll. |
 | 15:19 | Beim Einfügen des B16-Nachtrags habe ich als Anker die **Überschrift** `## B16 — …` benutzt und sie im Ersatztext **nicht** wiederholt. | Der Befundabschnitt stand danach **ohne Überschrift** — und mein eigenes Prüfwerkzeug hätte es gemeldet („Befundabschnitte in befunde.md vorhanden"). **Sofort** bemerkt und in derselben Minute wiederhergestellt, mit dem Zusatz „(erledigt 15:14)" in der Überschrift. | **Fünfte Fassung derselben Ursache** (12:29, 13:56, 14:32, 15:19) — ein Anker, der eine ganze Zeile oder Überschrift ist, ersetzt sie. Die Lehre hat **viermal nicht geholfen**; was hilft, ist die Handlung: nach **jeder** Änderung die Überschriftenliste ausgeben. **Und ein Trost:** die Prüfung dafür existiert bereits und läuft in jedem meiner Takte — diesmal habe ich es vor ihr bemerkt. |
+| 16:14 | Mein Vergleich „hat der **Kern** ein `sync`?" kam **leer** zurück — ich hätte gemeldet, **auch der Kern synce nicht**, also das **Gegenteil** der Wahrheit, und damit meinen eigenen B36-Nachtrag entkräftet. Zweitens hielt ich die **23 CI-Workflow-Dateien** in `.github/` für unangepasstes totes Gewicht. | Ursache des leeren Laufs: `Get-ChildItem <ordner> -File -Include *.ts` **ohne** `-Recurse` — dann greift `-Include` nicht. Mit dem Suchwerkzeug nachgemessen: der Kern synct an **fünf** Stellen. Die Workflows: `.gitignore:69–76` begründet den Ausschluß **ausdrücklich** („passt nicht auf unsere Sprachen und unser Layout. Eigene CI entsteht neu und dann ausdrücklich"), und die Zahl stimmt (`.github` = **56** Dateien). Die Sorge ist **fallengelassen**, nicht veröffentlicht. | **Dritte Fassung derselben Ursache** (12:14 zu weit gefaßt, 14:00 zu wörtlich, jetzt **leer**): ein Suchmuster, das still nichts findet, sieht aus wie ein Beweis. **Neue Regel:** kommt ein Suchlauf leer zurück, prüfe ich **das Muster** — mit einer Suche nach etwas, das es geben **muß**. Beide Fehler gingen in Richtung *Vorwurf*; der zweite fiel vor dem Schreiben auf, der erste nach einer Gegenmessung. |
+| 16:14 | **Mein B28-Befund stand 40 Minuten in einer Fassung, die den falschen Weg gemessen hatte.** Ich habe mit `docker exec … -h 127.0.0.1` die **Schleife im Container** gemessen und daraus verallgemeinert: „auf diesem Rechner heißt ‚nur lokal' jeder lokale Prozeß" — und **daraus eine Reihenfolge** abgeleitet („erst `pg_hba`, dann drehen, sonst ist die Drehung kosmetisch"). | Beide Wege nachgemessen: **Windows → `127.0.0.1:5432`** lehnt ein absichtlich falsches Kennwort **ab**, der **Unix-Socket im Container** nicht. Befund auf **N** korrigiert, **zwei Sätze** in `LAGE.md` zurückgezogen, die Reihenfolge in §0 **gedreht**. Gefunden hat es ein **Fremdreview** — es hatte recht, ich nicht. | **Dritte Fassung derselben Ursache** (13:44: eine Anmeldung, die gelingen konnte, ohne etwas zu beweisen; 15:09: nur stdout gelesen; jetzt: den falschen Weg gemessen). Die Richtung ist neu: der Fehler ging **nicht** in einen Befund gegen den bauenden Agenten, sondern in **meine eigene Entscheidungsseite** — dort richtet er den größten Schaden an, weil er eine **Reihenfolge** bestimmt. **Neue Regel: eine Sonde nennt den Weg, den sie gemessen hat** (Host? Container? Socket?) — sonst ist ihr Ergebnis nicht übertragbar. |
+| 16:12 | Ich habe in **drei** Dateien Uhrzeiten geschrieben, die **in der Zukunft** lagen — H6-Zeile „16:18", `protokoll.md` „Nachtrag **16:20**", `LAGE.md` „Stand **16:14**" — bei einer Uhr, die auf **16:11** stand. | Aufgefallen, als ich für diesen Takt die Uhrzeit **gemessen** habe (`16:11:43`); die beiden Datumszeilen auf **16:14** korrigiert, der `LAGE.md`-Stand auf die gemessene Zeit gesetzt. | **Wiederholung eines eigenen, bereits dokumentierten Fehlers** (erfundene Zeitstempel, in einer früheren Runde „bis 45 Minuten in der Zukunft"). Neu ist nur, daß ich ihn **innerhalb desselben Takts** bemerkt habe — und daß ich ihn begangen habe, **während** ich über Meßdisziplin schrieb. Die Regel bleibt: **keine Uhrzeit in eine Datei, die nicht vorher in einer Shell gestanden hat.** |
+| 16:30 | Beim Schreiben von Takt 47 habe ich eine **PowerShell-Hilfsfunktion** benutzt, die ihre Erfolgsmeldung **und** den neuen Text ausgab. PowerShell sammelt **beides** ein — die vier Meldungen landeten **in der Datei**, der ersten Zeile vorangestellt: `  ok      Takt 47   ok      B37-Zeile   ok      B29 11 -> 12   ok      B36 Nachtrag 16:20 -> 16:14 # Protokoll der Aufsicht — Chronologie`. | Sofort nach dem Schreiben **gemessen** — ich habe ausdrücklich nach den Meldungen **in** der Datei gesucht, nicht nur nach dem Ergebnis — und den vorangestellten Text mit einem gezielten `.Replace` entfernt. Danach: Zeile 1 = `# Protokoll der Aufsicht — Chronologie`, **2692** Zeilen, **0** CRLF, und `git diff` zeigt **nur** die beabsichtigten Änderungen. Die **drei** verbliebenen `  ok  `-Treffer sind **echt**: sie zitieren die Ausgabe der Bereitschaftsprobe (V2, Zeilen 1581–1583). | **Neue Ursache, neue Regel:** eine Funktion, die **meldet und zurückgibt**, schreibt in PowerShell beides in den Wert. Ab jetzt melde ich mit `Write-Host` oder die Funktion gibt **nur** den Wert zurück. Bemerkenswert ist, was geholfen hat: **dieselbe Routine wie immer** — den Zustand nach der Änderung ausgeben —, nur diesmal **vor** dem Commit statt danach. |
 
 ---
 
