@@ -42,6 +42,29 @@ describe('Das Werkzeug findet die FORMEN, nicht einen Namen', () => {
     }
   })
 
+  test('Schraegstriche im Windows-Pfad gelten NICHT als POSIX-Home', () => {
+    // Vite schreibt absolute Pfade mit Schraegstrichen: `C:/Users/x/...`. Das ist
+    // ein Windows-Pfad. Vorher kam er als "POSIX-Home" heraus — also mit einer
+    // Form, die auf einem Linux-Wirt gar nicht existiert.
+    const wurzel = baum()
+    try {
+      writeFileSync(
+        join(wurzel, 'schraeg.mjs'),
+        "const A = 'C:/Users/erika/repo/x.js'\nconst B = '/mnt/c/Users/erika/repo'\nconst C = '/home/otto/repo'\n",
+        'utf8',
+      )
+      const funde = untersuche(wurzel, 'schraeg.mjs')
+      expect(funde.map((f) => f.form)).toEqual(['Windows-Benutzerprofil', 'WSL-Abbild', 'POSIX-Home'])
+      // Gegenprobe: dieselbe Zeile wird nur EINMAL gezaehlt, nicht zweimal.
+      expect(funde).toHaveLength(3)
+      expect(funde[0]?.text).toBe('C:/Users/erika')
+      expect(funde[1]?.text).toBe('/mnt/c/Users/erika')
+      expect(funde[2]?.text).toBe('/home/otto')
+    } finally {
+      rmSync(wurzel, { recursive: true, force: true })
+    }
+  })
+
   test('Platzhalter sind KEIN Fund', () => {
     const wurzel = baum()
     try {
@@ -70,6 +93,12 @@ describe('Das Werkzeug findet die FORMEN, nicht einen Namen', () => {
     expect(ausgenommen('node_modules/x/y.mjs')).toBe(true)
     expect(ausgenommen('docs/dsh/original/a.md')).toBe(true)
     expect(ausgenommen('docs/status/b.md')).toBe(false)
+    expect(ausgenommen('website/.vitepress/cache/deps/@theme_index.js')).toBe(true)
+    expect(ausgenommen('website/.bun-cache/postcss@8.5.29@@@1/lib/input.d.ts')).toBe(true)
+    // Gegenprobe: der QUELLTEXT derselben Seite bleibt geprueft. Nur der erzeugte
+    // Cache faellt raus — sonst waere die Ausnahme ein Freibrief fuer ganz website/.
+    expect(ausgenommen('website/docs.ts')).toBe(false)
+    expect(ausgenommen('website/.vitepress/config.ts')).toBe(false)
   })
 })
 

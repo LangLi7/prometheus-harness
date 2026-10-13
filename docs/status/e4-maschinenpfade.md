@@ -143,3 +143,78 @@ wie beim Lizenztext: eine Prüfung findet ihren eigenen Bericht.
 
 **Für E4 zählt die erste Zeile** — die Werkzeuge der Aufsicht. Die 357 sind der
 Hinweis, wie groß die Aufgabe **vor einer Veröffentlichung** wirklich ist.
+
+## Nachtrag — das Werkzeug hat sich selbst korrigiert
+
+Eine Gegenprobe („prüft das Werkzeug eigentlich, was es behauptet?") hat **drei
+Fehler** gefunden, zwei im Werkzeug und **einen in meiner Prüfung**.
+
+**1. Erzeugter Cache wurde mitgezählt.** `website/.vitepress/cache/` (30 Funde) und
+`website/.bun-cache/` sind Vite-Artefakte; sie backen absolute Pfade dieser Maschine
+in generierten Code ein. Das ist derselbe Fall wie `dist` und gehört in die
+Ausnahmeliste. Der Test prüft jetzt **beides**: daß der Cache fällt **und** daß der
+Quelltext derselben Seite (`website/docs.ts`, `website/.vitepress/config.ts`) weiter
+geprüft wird — sonst wäre die Ausnahme ein Freibrief für ganz `website/`.
+Wirkung: **106 → 103** Dateien, **36 → 33** ausführbare.
+
+**2. Ein Windows-Pfad mit Schrägstrichen galt als „POSIX-Home".** Vite schreibt
+`C:/Users/<wer>/...`; darauf griff das Muster für POSIX-Home (`/Users/…`), während das
+Windows-Muster Backslashes **verlangte**. 48 „POSIX"-Funde waren zur Hälfte
+Windows-Pfade — also eine Form, die auf einem Linux-Wirt gar nicht existiert. Jetzt
+akzeptiert das Windows-Muster beide Trenner und das POSIX-Muster hat Lookbehinds gegen
+Laufwerksbuchstabe und `/mnt/<x>` (sonst zählt derselbe Pfad zweimal).
+Aufschlüsselung **281/48/7 → 304/30/8**.
+
+**3. Mein eigener Gegenprüfbefehl war falsch — nicht das Werkzeug.** Ich hatte mit
+`C:\\Users\\[A-Za-z]` nachgezählt und für `b1-nachziehen.mjs` „**0 Funde**" gemeldet.
+Die Datei enthält aber `C:\\Users\\Chang` — **doppelt** geschriebene Backslashes, weil
+sie in einer JS-Zeichenkette stehen. Mein Muster erwartete **einen** Backslash und
+übersah damit genau die echten Treffer. Das Werkzeug (`\\+`, „ein oder mehr") hatte
+recht: **5 Funde**. *Eine Gegenprobe mit einem selbstgebauten Muster ist keine
+Gegenprobe, sondern eine zweite Meinung — sie muß selbst belegt sein.*
+
+### Was von den 342 wirklich Auftrag ist
+
+| Größe | Zahl |
+|---|---|
+| Funde im ganzen Baum | **342** in **103** Dateien (304 Windows, 30 POSIX, 8 WSL) |
+| davon **ausführbare** Dateien (`.mjs/.ts/.js/.sh/.ps1`) | **33** |
+| davon Prosa/Beleg (`.md/.json/.yml`) | **70** |
+| Cache-Reste nach der Korrektur | **0** |
+
+Die Trennung ist der Punkt: **Belege dürfen und müssen den Meßrechner nennen** —
+`groesse-und-ressourcen.md` sagt in Zeile 7, auf welchem Rechner die Zahlen gemessen
+wurden. Das ist keine Portabilitätssünde, sondern die Voraussetzung dafür, daß eine
+Zahl überprüfbar ist. Ein pauschales „alle Pfade ersetzen" würde die Belege
+**entwerten**. Auftrag ist nur, was **ausgeführt** wird.
+
+Nachgeprüft, Datei für Datei, für alle ausführbaren Funde in **unseren** Paketen und
+Skripten: die Treffer sind
+
+* **erfundene Namen** in Prüfvorlagen (`/home/u1`, `erika`, `otto`, `jemand`) — berechtigt,
+* das **Werkzeug selbst** und sein Test, die die Muster zwangsläufig zitieren,
+* `scripts/install.mjs:254` `existsSync('/mnt/c/Users')` — **WSL-Erkennung**, muß so sein.
+
+**Genau ein echter Fund in unserem Code:** `apps/cli/tests/flags.test.ts` benutzte den
+**echten** Benutzernamen als Vorlage. Ersetzt durch `erika`.
+
+> **Ehrlichkeitsvorbehalt.** Diese Änderung ist **nicht durch einen Lauf belegt**:
+> `apps/cli/tests/flags.test.ts` lädt `../src/main.ts`, und das startet den Host, der
+> auf diesem Rechner an `typert-loader` scheitert („*2 required plugins did not
+> activate*"). Die Datei ist damit **gar nicht ausführbar** — auch in der Fassung aus
+> `HEAD` nicht; ich habe beide Fassungen laufen lassen, beide **0 pass / 1 fail**. Da
+> der Name nirgends im Code ausgewertet wird (in `apps/cli/src` steht er nur in
+> Kommentaren), ist der Austausch verhaltensgleich — aber **geprüft ist er nicht**.
+> Nur das Werkzeug selbst ist belegt: **8 pass, 0 fail**.
+
+Der **echte** E4-Auftrag bleibt unverändert und ist der schlimmste Posten: die 5 Funde
+in `docs/protokoll/aufsicht/hilfen/b1-nachziehen.mjs` stehen **im Code** und zeigen auf
+`C:\Users\Chang\.dsh\settings.yaml` samt Sicherungskopien — also auf das Home des
+**anderen** Harness. Das ist maschinengebunden **und** gehört der Aufsicht-Rolle; die
+Umstellung braucht ihre Zustimmung.
+
+**Und eine Zahl, die sich bewegt.** Zwischen zwei Läufen derselben Prüfung sah ich
+357/100 und 336/103 — nicht wegen der Korrekturen, sondern weil am Baum **gleichzeitig
+gearbeitet** wird (die Aufsicht legt Dateien unter `services/` an; eine davon,
+`services/pmh-attach/README.md`, hat einen Treffer). Jede Zahl in diesem Dokument ist
+deshalb eine **Momentaufnahme** und keine Eigenschaft des Projekts.

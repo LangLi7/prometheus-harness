@@ -41,13 +41,17 @@ import { basename, dirname, join } from 'node:path'
 
 /** Die Formen, die als maschinengebunden gelten. */
 export const MUSTER = [
-  { name: 'Windows-Benutzerprofil', re: /[A-Za-z]:\\+Users\\+[^\\/\s"'`]+/u },
+  // Beide Trenner: `C:\Users\x` UND `C:/Users/x`. Ein Windows-Pfad mit
+  // Schraegstrichen kam vorher als "POSIX-Home" heraus (siehe Test).
+  { name: 'Windows-Benutzerprofil', re: /[A-Za-z]:[\\/]+Users[\\/]+[^\\/\s"'`]+/u },
   { name: 'WSL-Abbild', re: /\/mnt\/[a-z]\/Users\/[^/\s"'`]+/u },
-  { name: 'POSIX-Home', re: /(?:\/home|\/Users)\/[^/\s"'`]+/u },
+  // Kein Laufwerksbuchstabe und kein /mnt/<x> davor — sonst zaehlt derselbe
+  // Windows-Pfad noch einmal als POSIX-Home.
+  { name: 'POSIX-Home', re: /(?<![A-Za-z]:)(?<!\/mnt\/[a-z])(?:\/home|\/Users)\/[^/\s"'`]+/u },
 ]
 
 /** Verzeichnisse und Pfade, die nicht durchsucht werden. */
-export const AUSGENOMMEN = ['node_modules', '.git', 'target', '.pmh-build', '.bun-tmp', 'dist', 'docs/dsh', 'docs/design']
+export const AUSGENOMMEN = ['node_modules', '.git', 'target', '.pmh-build', '.bun-tmp', '.bun-cache', '.vitepress/cache', 'dist', 'docs/dsh', 'docs/design']
 
 /** Dateiendungen, die als Text gelesen werden. */
 const TEXTENDUNGEN = ['.mjs', '.js', '.ts', '.tsx', '.ps1', '.sh', '.sql', '.md', '.json', '.yml', '.yaml', '.txt', '.cmd', '.bat', '.toml', '.gitattributes', '.gitignore']

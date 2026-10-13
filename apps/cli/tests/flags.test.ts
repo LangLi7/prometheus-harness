@@ -28,8 +28,11 @@ describe('Kommandozeile des Hosts', () => {
   })
 
   test('erkennt --home mit Wert', () => {
-    const flags = parseHostFlags(['web', '--home', 'C:\\Users\\Chang\\.pmh'])
-    expect(flags.home).toBe('C:\\Users\\Chang\\.pmh')
+    // Erfundener Name wie in den uebrigen Pruefungen: ein echter Benutzername in
+    // einer Vorlage ist ein maschinengebundener Pfad, auch wenn er nur ein Argument
+    // ist (gefunden von `scripts/maschinenpfade.mjs`).
+    const flags = parseHostFlags(['web', '--home', 'C:\\Users\\erika\\.pmh'])
+    expect(flags.home).toBe('C:\\Users\\erika\\.pmh')
     expect(flags.profile).toBe('web')
   })
 
