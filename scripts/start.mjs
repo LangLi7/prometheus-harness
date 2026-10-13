@@ -246,23 +246,26 @@ async function buildAndStartGo(dir, name, args) {
  * | `--no-go` | die Go-Dienste **nicht** starten (nur den Host) |
  * | `--port <n>` | Port für den Host (Vorgabe 5199) |
  * | `--profile <n>` | Profil für den Host (Vorgabe `web`) |
+ * | `--home <dir>` | eigenes Harness-Home (Vorgabe `.pmh-build/harness-home` im Repo) |
  *
  * @param {readonly string[]} argv
- * @returns {{host: boolean, go: boolean, port: string, profile: string}}
+ * @returns {{host: boolean, go: boolean, port: string, profile: string, home: string}}
  */
 function parseArgs(argv) {
   let host = true
   let go = true
   let port = '5199'
   let profile = 'web'
+  let home = join(ROOT, '.pmh-build', 'harness-home')
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--no-host') host = false
     else if (arg === '--no-go') go = false
     else if (arg === '--port') { port = argv[i + 1] ?? port; i += 1 }
     else if (arg === '--profile') { profile = argv[i + 1] ?? profile; i += 1 }
+    else if (arg === '--home') { home = argv[i + 1] ?? home; i += 1 }
   }
-  return { host, go, port, profile }
+  return { host, go, port, profile, home }
 }
 
 /**
@@ -281,7 +284,25 @@ async function main() {
     const hostEntry = join(ROOT, 'apps', 'cli', 'src', 'main.ts')
     if (existsSync(hostEntry)) {
       process.stdout.write(`[pmh] Host: apps/cli (Profil "${options.profile}", Port ${options.port})\n`)
-      launch('host', BUN, [hostEntry, options.profile, '--port', options.port, '--no-open'], {
+      process.stdout.write(`[pmh] Harness-Home: ${options.home}\n`)
+      // **Warum der Launcher ein eigenes Home mitgibt — mit dem Befund, der es
+      // erzwungen hat.** Der Profilpfad des Hosts ist der **Auflösungsanker**
+      // der Profil-Bündel. Steht im Harness-Home eine fremde Installation des
+      // Core, gewinnt sie über die Node-Auflösungskette — sie wird **vor** dem
+      // eigenen Projektbaum gefunden.
+      //
+      // Gemessen am 13.10.2026, Windows nativ: mit `DSH_HOME=C:\Users\Chang\.dsh`
+      // (dort liegen 204 Pakete der Linie 0.1.1-rc.2, während der Projektbaum
+      // 0.2.1-alpha.2 trägt) wurden **27** Profil-Einträge als
+      // „version-inkompatibel" abgeschaltet — darunter `llm`, `session`,
+      // `agent`, `webserver`, `web-startup`. Kein Webserver, kein HTTP.
+      //
+      // Mit eigenem Home: **0** Abschaltungen, Token, HTTP 200.
+      //
+      // Die fremde Installation wird dabei **nicht** angetastet: sie gehört einer
+      // anderen, laufenden Harness. Der Host bekommt sein eigenes Home — die
+      // Korrektur liegt dort, wo sie hingehört.
+      launch('host', BUN, [hostEntry, options.profile, '--port', options.port, '--home', options.home, '--no-open'], {
         cwd: ROOT,
         kind: 'host',
       })

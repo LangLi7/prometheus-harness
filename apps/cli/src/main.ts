@@ -130,6 +130,31 @@ export interface HostFlags {
   readonly port: string | undefined
   /** Patch-Overlays in Auftretens-Reihenfolge (`--patches a.yml,b.yml`, wiederholbar). */
   readonly patches: readonly string[]
+  /**
+   * Eigenes Harness-Home (`--home <dir>`).
+   *
+   * **Warum das ein Flag des Hosts ist — mit dem Befund, der es erzwungen hat
+   * (gemessen, 13.10.2026).** Der Host setzt `profileContext.home`. Von diesem
+   * Home hängt der **Auflösungsanker** der Profil-Bündel ab. Steht im
+   * Harness-Home eine **fremde** Installation (etwa eine ältere Fassung des
+   * Core), gewinnt sie über die Node-Auflösungskette: sie wird **vor** dem
+   * eigenen Projektbaum gefunden.
+   *
+   * Gemessen auf diesem Wirt, Windows nativ, mit `DSH_HOME=C:\Users\Chang\.dsh`:
+   * dort liegen 204 Pakete der Linie `0.1.1-rc.2`, während der Projektbaum
+   * `0.2.1-alpha.2` trägt. Folge: **27 von 120** Profil-Einträgen wurden als
+   * „version-inkompatibel" deaktiviert — unter ihnen `llm`, `session`, `agent`,
+   * `webserver` und `web-startup`. Der Webserver kam nicht hoch, der
+   * Pflicht-Eintrag `connection` wartete auf `webRuntime`, der Prozess endete mit
+   * Exitcode 0. Mit **eigenem Home** (`C:\Users\Chang\.pmh`): **0**
+   * Deaktivierungen, Token, HTTP **200**.
+   *
+   * **Warum die fremde Installation nicht angetastet wird.** Sie gehört nicht
+   * diesem Projekt, sondern einer anderen, laufenden Harness. Sie zu ändern wäre
+   * ein Eingriff in eine fremde Installation. Der richtige Ort für die Korrektur
+   * ist **hier**: der Host wählt sein eigenes Home.
+   */
+  readonly home: string | undefined
   /** Die Argumente, die dem gebooteten Baum gehören. */
   readonly inner: readonly string[]
 }
@@ -162,6 +187,7 @@ export function parseHostFlags(argv: readonly string[]): HostFlags {
   const inner: string[] = []
   let profile: string | undefined
   let port: string | undefined
+  let home: string | undefined
   /** Position des ausdrücklich genannten Unterkommandos, falls es eines gibt. */
   let subcommand: string | undefined
 
@@ -169,8 +195,9 @@ export function parseHostFlags(argv: readonly string[]): HostFlags {
     const arg = argv[index]
     if (arg === undefined) continue
 
-    // `--profile x`, `--port x`, `--patches x` — Wert im nächsten Argument.
-    const takesValue = arg === '--profile' || arg === '-p' || arg === '--port' || arg === '--patches'
+    // `--profile x`, `--port x`, `--patches x`, `--home x` — Wert im nächsten Argument.
+    const takesValue =
+      arg === '--profile' || arg === '-p' || arg === '--port' || arg === '--patches' || arg === '--home'
     if (takesValue) {
       const value = argv[index + 1]
       if (value === undefined || value.startsWith('-')) {
@@ -182,6 +209,7 @@ export function parseHostFlags(argv: readonly string[]): HostFlags {
       index += 1
       if (arg === '--profile' || arg === '-p') profile = value
       else if (arg === '--port') port = value
+      else if (arg === '--home') home = value
       else {
         // Mehrere Dateien in einem Argument sind erlaubt, damit ein Skript
         // nicht für jede Datei ein eigenes Flag schreiben muss.
@@ -200,6 +228,10 @@ export function parseHostFlags(argv: readonly string[]): HostFlags {
     }
     if (arg.startsWith('--port=')) {
       port = arg.slice('--port='.length)
+      continue
+    }
+    if (arg.startsWith('--home=')) {
+      home = arg.slice('--home='.length)
       continue
     }
     if (arg.startsWith('--patches=')) {
@@ -227,9 +259,55 @@ export function parseHostFlags(argv: readonly string[]): HostFlags {
     profile: profile ?? subcommand,
     port,
     patches,
+    home,
     inner,
   }
 }
+
+/**
+ * Schaltet den HMR-Eintrag ab — **gemessener Bun-Befund, kein Umgehen**.
+ *
+ * **Das Problem.** Das Basis-Bündel (`@deepseek-ai/dsh-base`) bringt diese Zeile mit:
+ *
+ * ```yaml
+ * - id: hmr
+ *   name: '@deepseek-ai/dsh-hmr'
+ *   disabled: !!js "!ctx.get('profileContext')"
+ * ```
+ *
+ * Sie ist absichtlich **nur dann aktiv, wenn ein `profileContext` existiert** — also
+ * genau dann, wenn ein Profil-Launcher läuft. Unser Host setzt diesen Kontext, damit
+ * die Bündel aufgelöst werden. Damit wird HMR aktiv — und scheitert, weil es
+ * Node-Interna braucht:
+ *
+ * ```js
+ * if (process.execArgv.includes('--expose-internals')) try { return require(id) } catch {}
+ * if (!this.ctx.loader.internal) throw new Error('--expose-internals is required for HMR service')
+ * ```
+ *
+ * Unter Bun gibt es dieses Flag nicht; der Start endet mit
+ * `startup failed: 1 required plugin did not activate` (gemessen 13.10.2026,
+ * Windows nativ, Bun 1.4.0).
+ *
+ * **Warum Abschalten hier richtig ist und nicht bloß bequem.**
+ * `hmr` steht **nicht** in `requiredStartupEntryIds` des Boot-Moduls — Pflicht sind nur
+ * `agent-loop`, `webserver`, `web-runtime`, `modules`, `connection`, `headless-runner`,
+ * `acp` und `sdk-jsonrpc-server`. HMR ist eine **Entwicklungs-Bequemlichkeit**
+ * (Nachladen bei Quelltextänderung im laufenden Prozess). Der Verlust ist genau dieses
+ * Nachladen — nichts, was der Harness zum Arbeiten braucht.
+ *
+ * **Warum eine Patch-Zeile und kein Flag.** Der Loader wertet das Feld aus:
+ * `disabledOf(options)` → `Boolean(options.disabled)` für einen echten Boolean, sonst
+ * die `!!js`-Auswertung. Ein späteres Patch überstimmt das frühere, und `PatchOptions`
+ * erlaubt `disabled?: boolean | null` ausdrücklich. Damit ist es die **vorgesehene**
+ * Stelle, keinen Eintrag zu deaktivieren — kein Eingriff in fremden Code.
+ *
+ * **Was der Aufrufer noch tun kann.** Wird der Eintrag später doch gebraucht (etwa unter
+ * einer Laufzeit mit `--expose-internals`), ist er über `--patches` wieder
+ * einschaltbar: das Overlay des Aufrufers wird **nach** dieser Zeile angehängt und
+ * gewinnt damit.
+ */
+const HMR_DISABLE_PATCH: PatchOptions = { id: 'hmr', disabled: true }
 
 /**
  * Hängt die Overlays **hinter** die Profil-Schichten.
@@ -334,6 +412,28 @@ async function main(): Promise<void> {
   const flags = parseHostFlags(process.argv.slice(2))
   const profileName = flags.profile ?? PROFILE_NAME
 
+  // **Das eigene Home, bevor irgendetwas aufgelöst wird.** `--home` setzt
+  // `DSH_HOME` — die Variable, die die Auflösungskette dieses Hosts liest. Das
+  // muss **vor** `ensureProfile` und `loadProfile` geschehen: beide leiten ihren
+  // Pfad aus dem Home ab, und der Profilpfad ist zugleich der
+  // **Auflösungsanker** der Bündel. Genau daran hing der Windows-Blocker
+  // (siehe {@link HostFlags.home}).
+  //
+  // **Warum `DSH_HOME` und nicht `PMH_HOME`:** dieser Host benutzt die
+  // Home-Auflösung des Core-Pakets (`@deepseek-ai/dsh-home-paths`), und das
+  // kennt nur `DSH_HOME`. Das eigene Paket mit der Kette
+  // `PMH_HOME → DSH_HOME → ~/.pmh` (`packages/util/home-paths`) ist für
+  // die neuen Kern-Pakete gedacht; für den Host würde es eine zweite
+  // Auflösung einführen — und zwei Auflösungen für denselben Begriff sind
+  // genau die doppelte Semantik, die dieses Projekt vermeidet.
+  if (flags.home !== undefined) {
+    process.env.DSH_HOME = flags.home
+  }
+  const home = resolveDshHome()
+  if (flags.home !== undefined) {
+    process.stderr.write(`${BIN}: Harness-Home: ${home} (--home)\n`)
+  }
+
   const dir = ensureProfile(profileName)
   const rootConfig = join(dir, PROFILE_ROOT_FILENAME)
 
@@ -352,7 +452,7 @@ async function main(): Promise<void> {
     installAnchor: HOST_ANCHOR,
     startedBundles: profile.layers.map((layer) => layer.packageName),
     cwd: process.cwd(),
-    home: resolveDshHome(),
+    home,
     overlays: [],
     // Pflichtfeld mit `string | undefined`: der Upstream liest den Startwert des
     // Telemetrie-Schalters durch (jeder nicht-leere Wert schaltet ab, auch "0").
@@ -364,9 +464,10 @@ async function main(): Promise<void> {
   const ctx = await boot(
     BIN,
     rootConfig,
-    // Overlays **hinter** die Profil-Schichten: ein Overlay gewinnt gegen die
-    // Profil-Datei — das ist der Sinn eines `--patch`-Arguments.
-    mergePatches(readProfilePatches(BIN, profileContext, profile), overlays),
+    // Reihenfolge ist bindend: Profil-Schichten, dann die HMR-Abschaltung des
+    // Hosts, dann die Overlays des Aufrufers. So kann ein `--patches`-Argument
+    // HMR ausdrücklich wieder einschalten, wenn die Laufzeit es trägt.
+    mergePatches(readProfilePatches(BIN, profileContext, profile), [HMR_DISABLE_PATCH, ...overlays]),
     async (hostCtx) => {
     hostCtx.provide('profileContext', profileContext)
     provideCmdline(hostCtx, {

@@ -500,8 +500,8 @@ damit sie nicht später als „vergessen" oder als „stillschweigend übernomme
 | P7.4 | PATH-Befund: `bun.ps1` blockiert, `bun.cmd` inkompatibel, `.bun\bin\bun.exe` trägt | **erledigt** — dokumentiert |
 | P7.5 | `scripts/start.mjs` mit `process.execPath`, Go-Build, Logs, umgekehrtem Beenden | **erledigt** |
 | P7.6 | HMR-Abschaltung als Patch-Zeile (`disabled: true`) | **erledigt** — `hmr` ist nicht Pflicht |
-| P7.7 | **Host-Start unter Windows nativ** | **BLOCKIERT** — `connection (required): cannot get property "webRuntime" without inject` |
-| P7.8 | `bun run start` **mit Go-Diensten** | **offen** — hängt an P7.7 |
+| P7.7 | **Host-Start unter Windows nativ** | **BEHOBEN (13.10.2026)** — Ursache: der Auflösungsanker der Bündel zeigte in ein fremdes Harness-Home (`DSH_HOME=C:\Users\Chang\.dsh` mit einer älteren Core-Installation) → 27 Kern-Einträge deaktiviert. Behebung: Flag `--home`, Vorgabe `.pmh-build/harness-home` im Repo. Gemessen: **0** Deaktivierungen, Token, **HTTP 200**. Beleg: [`kleinste-kette-nachweis.md`](kleinste-kette-nachweis.md) §6 |
+| P7.8 | `bun run start` **mit Go-Diensten** | **offen** — der Host startet jetzt; der volle Lauf mit beiden Diensten ist noch nicht bis zum HTTP-Nachweis gefahren |
 | P7.9 | cmd-Nachweis | **offen** |
 | P7.10 | Ctrl+C und Waisenprozesse | **offen** |
 
@@ -608,12 +608,15 @@ nachträglich korrigiert).
 | P9.8 | **Die Laufzeitversion ist korrekt (0.2.1-alpha.2)** — die Fehlermeldung nennt eine Fassung, die es auf diesem Rechner **nicht gibt** | **belegt** — Sonde: `dsh-app-boot/package.json` → 0.2.1-alpha.2; `dsh-llm` deklariert 0.2.1-alpha.2 mit Peer **nur** `cordis`; `bun pm ls` = eine Kopie; `0.1.1-rc.2` in `bun.lock`/`apps/cli`/allen 245 `@deepseek-ai`-Paketen: **0 Treffer** |
 | P9.9 | **Die bisherige Erklärung ist widerlegt** — es ist **keine** Bun-Laufzeitgrenze | **belegt** — unter WSL2 läuft dieselbe Laufzeit (Bun) und **null** Einträge werden deaktiviert. Das Verhalten ist **plattform**abhängig |
 | P9.10 | **Herkunft der fremden Paketidentität `0.1.1-rc.2`** | **GEKLÄRT** — sie liegt in `C:\Users\Chang\.dsh\profiles\node_modules` (204 Pakete der Linie 0.1.1-rc.2). Der Auflösungsanker des Baums zeigt ins Harness-Home; Node sucht von dort aufwärts und findet den **ersten** Treffer — die alte Installation —, statt in den Projektbaum zu sehen. Messung: **120 von 120** aufgelösten Paketpfaden aus `.dsh`, **0** aus dem Projektbaum |
-| P9.11 | **Behebung** — drei Wege, keiner ausgeführt | **offen — Entscheidung des Betreibers.** (a) `C:\Users\Chang\.dsh\profiles\node_modules` entfernen/umbenennen; (b) `DSH_HOME` für den pmh-Host fest auf `C:\Users\Chang\.pmh` setzen; (c) den Auflösungsanker im Host ändern (Codeänderung, und `@deepseek-ai/cordis-plugin-include` gehört dem Core → **nicht** patchen). **Grund fürs Nichtstun:** in `~/.dsh` liegt die Installation, mit der der Betreiber arbeitet — ein Eingriff könnte sie treffen |
-| P9.12 | cmd-Nachweis, Ctrl+C, Waisenprozesse | **offen** |
+| P9.11 | **Behebung — im Repo umgesetzt** | **BEHOBEN.** Neues Flag `--home <dir>` in `apps/cli/src/main.ts` (setzt `DSH_HOME` **vor** der Auflösung von Profil und Anker); `scripts/start.mjs` gibt `.pmh-build/harness-home` als Vorgabe mit. **Gemessen (Windows nativ):** 27 → **0** deaktivierte Einträge, Token nach 1 s, `GET /` mit Cookie **200 · 35.664 B** (`--no-go`-Lauf) bzw. **200 · 3.845 B** (Einzellauf). 15 Tests für die Kommandozeile (`apps/cli/tests/flags.test.ts`), Typecheck `exit 0` |
+| P9.12 | **Die fremde Installation in `~/.dsh` wurde NICHT angetastet** | **belegt** — kein Schreibzugriff, keine Umbenennung, keine Löschung. Sie gehört einer anderen, laufenden Harness; die Korrektur liegt im Host, nicht in einem fremden Home |
+| P9.13 | cmd-Nachweis, Ctrl+C, Waisenprozesse | **offen** |
 
-**Damit ist `t40` nicht mehr ein Rätsel, sondern eine Entscheidung.** Die Ursache
-ist benannt und gemessen; was fehlt, ist die Freigabe für einen Eingriff außerhalb
-dieses Repositories.
+**Damit ist P7.7 erledigt und `t40` im Kern erreicht:** der Host kommt unter
+**Windows nativ** hoch und liefert die Oberfläche mit **HTTP 200** aus. Offen
+bleiben nur noch P9.13 (cmd, Ctrl+C, Waisen) und die Frage, ob die Kette
+(Agent-Loop, Session) im Host **verdrahtet** wird — sie ist gebaut und geprüft,
+aber noch nicht an die Oberfläche angeschlossen (P8.13).
 
 ### Die Korrektur, ausdrücklich ausgesprochen
 

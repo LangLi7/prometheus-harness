@@ -28,6 +28,23 @@ target/
 .pmh/
 *.log
 
+# --- Eigenes Harness-Home und Go-Binärdateien ---
+#
+# `.pmh-build/` ist der Bau- und Laufzeitordner dieses Projekts: die
+# Go-Binärdateien aus `scripts/start.mjs` und — seit dem Bündel-Befund vom
+# 13.10.2026 — das **eigene Harness-Home** des Hosts
+# (`.pmh-build/harness-home`, siehe `scripts/start.mjs`).
+#
+# **Warum das Home hier liegt und nicht in `~/.dsh`.** Der Profilpfad des Hosts
+# ist der **Auflösungsanker** der Profil-Bündel. Zeigt er in ein fremdes Home, in
+# dem eine andere Installation des Core liegt, gewinnt diese über die
+# Node-Auflösungskette — gemessen am 13.10.2026: **27 von 120** Profil-Einträgen
+# wurden dadurch als „version-inkompatibel" abgeschaltet (Fund 0.1.1-rc.2 gegen
+# Laufzeit 0.2.1-alpha.2), der Webserver kam nicht hoch, der Prozess endete mit
+# Exitcode 0. Im Repo ist das Home des Projekts **sein eigenes** — und ein
+# Arbeitsbaum lässt sich kopieren, ohne eine fremde Installation zu berühren.
+.pmh-build/
+
 # --- Editor- und Betriebssystem-Beiwerk ---
 .DS_Store
 Thumbs.db

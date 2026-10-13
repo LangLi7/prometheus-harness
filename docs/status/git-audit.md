@@ -335,3 +335,38 @@ benannt (P9.11). Die Entscheidung gehört dem Betreiber.
 
 **Das ist die wichtigste offene Entscheidung des Vorhabens:** sie blockiert den
 Windows-Start und damit `t40`.
+
+### 2026-10-13 · 09:35 UTC · t40 behoben: der Host wählt sein eigenes Home (elfter Push)
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Betreiber-Einwand: „`C:\Users\Chang\.dsh\profiles\node_modules` — was machst du überhaupt hier? Deine Aufgabe ist `.pmh`, das Projekt und der Referenz-Fork." **Der Einwand war berechtigt** |
+| Umfang | `apps/cli/src/main.ts` (`--home`), `scripts/start.mjs` (Vorgabe-Home), `apps/cli/tests/flags.test.ts` (neu, 15 Tests), `apps/cli/tsconfig.json`, `.gitignore` (Begründung), Register + Nachweis |
+| Art | **Codeänderung im Repo.** Kein Schreibzugriff auf `~/.dsh` — geprüft: keine Umbenennung, keine Löschung |
+| Typecheck | `apps/cli` **exit 0**; die übrigen 14 Pakete unverändert **exit 0** |
+| Tests | **15 pass · 0 fail** (`apps/cli/tests/flags.test.ts`); die Kette unverändert **262 pass · 0 fail** |
+
+**Die Korrektur, und warum sie dorthin gehört.** Nicht die fremde Installation war
+das Problem, sondern **unser Host**: er ließ seinen Auflösungsanker in ein fremdes
+Home zeigen. Behoben durch ein Flag `--home <dir>`, das `DSH_HOME` **vor** der
+Auflösung von Profil und Anker setzt — plus eine Vorgabe in `scripts/start.mjs`
+(`.pmh-build/harness-home`, im Repo, in `.gitignore` mit Begründung).
+
+**Gemessen, Windows nativ:**
+
+| Lauf | deaktivierte Einträge | Token | `GET /` mit Cookie |
+|---|---|---|---|
+| vorher (`DSH_HOME=~/.dsh`) | **27** | fehlt | nicht erreichbar |
+| `--home C:\Users\Chang\.pmh` | **0** | nach 1 s | **200 · 3.845 B** |
+| `scripts/start.mjs --no-go` (Vorgabe) | **0** | nach 1 s | **200 · 35.664 B** |
+
+**`t40` P7.7 ist damit erledigt.** Offen bleiben P7.8 (voller Lauf mit Go-Diensten),
+P7.9 (cmd), P7.10 (Ctrl+C, Waisen) — und die Verdrahtung der Kette in den Host.
+
+#### Offene Punkte, die dieses Audit stehen lässt
+
+1. **`credential-gh`** — sechster Push, sechste Warnung; unverändert offen.
+2. **Die Kette ist gebaut, aber nicht verdrahtet** (P8.13): der Host liefert die
+   **Core**-Oberfläche aus; unser `agent-loop`/`session` läuft in Tests, nicht in
+   der Anwendung. Das ist der nächste große Schritt.
+3. **`bun run typecheck`** bleibt in dieser Umgebung nur einzeln ausführbar.

@@ -332,12 +332,37 @@ Reihenfolge-Frage (die zweite alte Erklärung), kein Fehler im Projektbaum. Es i
 der **Überrest einer früheren Installation** außerhalb des Repositories, der über
 die Auflösungskette des Loaders wirkt.
 
-**Und was ich deshalb NICHT getan habe.** Die Behebung verlangt eine Änderung
-**außerhalb dieses Repositories** (`C:\Users\Chang\.dsh` entfernen, umbenennen
-oder den Anker umlenken) — und in `~/.dsh` liegt die Installation, mit der der
-Betreiber arbeitet. Eine fremde Installation zu löschen ist keine Aufräumaktion,
-sondern ein Eingriff. **Der Befund steht hier; die Entscheidung gehört dem
-Betreiber** (drei Wege in §8).
+**Und was ich deshalb NICHT getan habe.** Die Behebung verlangt **keinen** Eingriff
+außerhalb dieses Repositories — sie gehört in den Host. In `~/.dsh` liegt die
+Installation, mit der der Betreiber arbeitet (und über die diese Sitzung läuft);
+sie wurde **nicht** angetastet.
+
+### Die Behebung — im Repo, und gemessen
+
+**Der Host wählt sein eigenes Home.** Ein neues Flag `--home <dir>` setzt
+`DSH_HOME` **bevor** Profil und Anker aufgelöst werden
+(`apps/cli/src/main.ts`), und `scripts/start.mjs` gibt es standardmäßig mit:
+`.pmh-build/harness-home` — im Repo, also das eigene Home des Projekts.
+
+| Lauf | deaktivierte Einträge | Token | `GET /` mit Cookie |
+|---|---|---|---|
+| Windows nativ, vorher (`DSH_HOME=~/.dsh`) | **27** | fehlt | nicht erreichbar |
+| Windows nativ, `--home C:\Users\Chang\.pmh` | **0** | nach 1 s | **200 · 3.845 B** |
+| Windows nativ, `scripts/start.mjs --no-go` (Vorgabe-Home) | **0** | nach 1 s | **200 · 35.664 B** |
+
+**Der Blocker aus `t40` ist damit weg** — unter Windows nativ, in **acht**
+Sekunden statt in zwei Sitzungen mit drei Fehlhypothesen.
+
+**Warum das Home im Repo liegt und nicht in `~/.dsh`:** der Profilpfad ist der
+Auflösungsanker. Liegt im Home eine fremde Core-Installation, gewinnt sie über die
+Node-Auflösungskette — vor dem eigenen Projektbaum. Im Repo ist das Home des
+Projekts **sein eigenes**; ein Arbeitsbaum lässt sich kopieren, ohne eine fremde
+Installation zu berühren. `.pmh-build/` steht in `.gitignore`, mit Begründung.
+
+**15 neue Tests** sichern die Kommandozeile des Hosts
+(`apps/cli/tests/flags.test.ts`), darunter: `--home` in beiden Schreibweisen,
+`--home` ohne Wert bricht sichtbar ab, und ein **fehlendes** `--home` fällt
+**nicht** still auf einen Vorgabewert.
 
 ## 7. Was NICHT belegt ist — namentlich
 
