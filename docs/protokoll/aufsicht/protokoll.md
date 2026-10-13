@@ -1659,7 +1659,7 @@ mein Befund **B13** — ist **weg**, ersetzt durch `SammleBaum`/`BeendeBaum` (Na
 Blätter zuerst, `taskkill /F`) samt Vorspann, der B13 beim Namen nennt. **Genau die empfohlene
 Richtung.** Ich habe den Test **einmal** ausgeführt, um zu sehen, ob **B22** damit behoben ist.
 
-**Er ist es nicht — und der Grund ist ein Wort.** `function BeendeBaum([int]$pid)` (**Zeile 86**):
+**Er ist es nicht — und der Grund ist ein Wort.** `function BeendeBaum([int]$pid)` (**Zeile 100**):
 **`$pid` ist in PowerShell eine automatische, schreibgeschützte Variable.** Der Parameter lässt sich
 nicht binden, **der Funktionsrumpf wird nie erreicht**, und der Fehler ist **nicht terminierend** — das
 Skript läuft weiter, als wäre nichts gewesen. Isoliert und wiederholbar:
@@ -1673,8 +1673,8 @@ pwsh -NoProfile -Command 'function F([int]$prozessId) { "Rumpf erreicht" }; F 12
   danach
 ```
 
-**Im Lauf schlagen damit alle acht Aufrufe fehl** (Zeilen **147, 102, 211, 214, 266** — 102 fünfmal),
-und die Ausgabe zeigt die Folgen, nicht die Ursache:
+**Im Lauf schlägt damit *jede* der sechs Aufrufstellen fehl** (Zeilen **161, 190, 116, 225, 228, 280**
+— Zeile 116 einmal **je gestartetem Prozess**), und die Ausgabe zeigt die Folgen, nicht die Ursache:
 
 ```
 === FALL 1: Port 5780 frei -> er wird genommen ===
@@ -1781,7 +1781,7 @@ Defekten derselben Familie und dem Ein-Wort-Fix.
 | **B20** Zwei eigene Artefakte widersprechen sich | **offen, Design-Frage (verschärft)** | `/api/ready` mit **null Sonden** liefert **`bereit: true`** und **HTTP 200**; ihr **Test** hält das fest („nichts zu prüfen — und das ist bereit"), ihre **`.env.example`** sagt dagegen, der Endpunkt melde `ok`, „**statt ‚bereit' zu behaupten**". Die **neue README-Statuscode-Tabelle** (401/403/503) lässt genau diesen Fall aus. Drei Auswege: `bereit`/Status an `sonden.length > 0` binden (503) · drei Zustände statt Boolean (`null` = nicht geprüft) · nur den Wortlaut der Vorlage an den Code anpassen |
 | **B21** „Kette" bedeutet zweierlei | **offen, klein** | Die bindende Reihenfolge meint mit „Kleinste Kette" *Adapter → Agent-Loop → Session*; das Entscheidungsdokument nennt *Plugin → Route → Antwort* „**die ganze Kette**". Ein Leser kann den Meilenstein für erreicht halten. Empfehlung: eigenes Wort („Ladekette") · dazu: `readiness` verbindet PostgreSQL/Redis (Schritt-2-Territorium) — als **Sonde** legitim, aber die Grenze steht nirgends |
 | **B22** Port-Tests hinterlassen laufende Hosts | **beantwortet — Ursache gemessen (B23)** | **Sechs** Waisen (1.129,7 MB, Alter bis 11,4 min, je HTTP 200) um **13:41:50** gemessen; der bauende Agent hat sie um **13:42** **selbst entfernt**. Die Ursache ist **nicht** die Portwahl: die **neue** Aufräumfunktion läuft nie (**B23**), also hinterlässt **jeder** Lauf einen Satz — sein Lauf um 13:43 tat es erneut. Fix: **ein Wort** (`$prozessId` statt `$pid`) + Nachzählen am Skriptende |
-| **B23** Die Aufräumfunktion des Port-Tests läuft nie | **offen, dringlich — ein Wort** | `function BeendeBaum([int]$pid)` (Zeile 86): **`$pid` ist schreibgeschützt**, der Rumpf wird **nie erreicht**, der Fehler ist **nicht terminierend**. **Acht** Aufrufe schlagen fehl (147/102/211/214/266). Folgen: Fall 1 meldet „nicht erkannt" (die Waise hält den Port), der Halter kann nicht binden, und `Ergebnis: 1 Befund(e)` **untertreibt**, weil `$fehler++` im Funktionsrumpf lokal zählt. Zweiter Defekt derselben Familie: `BelegePort` gibt den **Fehlertext** statt `$null` zurück → der Schutz „dieser Test prueft nichts" greift nie |
+| **B23** Die Aufräumfunktion des Port-Tests läuft nie | **offen, dringlich — ein Wort** | `function BeendeBaum([int]$pid)` (**Zeile 100**): **`$pid` ist schreibgeschützt**, der Rumpf wird **nie erreicht**, der Fehler ist **nicht terminierend**. **Alle sechs** Aufrufstellen schlagen fehl (161, 190, 116, 225, 228, 280). Folgen: Fall 1 meldet „nicht erkannt" (die Waise hält den Port), der Halter kann nicht binden, und `Ergebnis: 1 Befund(e)` **untertreibt**, weil `$fehler++` im Funktionsrumpf (Zeile 166) lokal zählt. Zweiter Defekt derselben Familie: `BelegePort` gibt den **Fehlertext** statt `$null` zurück (Zeile 186) → der Schutz „dieser Test prueft nichts" (Zeile 202) greift nie |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |

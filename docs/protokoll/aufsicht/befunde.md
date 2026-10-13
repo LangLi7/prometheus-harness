@@ -1719,10 +1719,10 @@ einsammeln) und `BeendeBaum` (Blätter zuerst, dann die Wurzel, zusätzlich `tas
 nennt B13 beim Namen. **Die Absicht ist genau die richtige.** Ich habe den Test **einmal** ausgeführt,
 um zu prüfen, ob **B22** damit behoben ist — er ist es **nicht**.
 
-**Die Ursache, in einer Zeile.** `BeendeBaum([int]$pid)` — **`$pid` ist in PowerShell eine
-automatische, schreibgeschützte Variable** (die Prozess-ID der laufenden Sitzung). Der Parameter lässt
-sich nicht binden, **der Funktionsrumpf wird nie erreicht**, und der Fehler ist **nicht terminierend**:
-das Skript läuft weiter, als wäre nichts geschehen.
+**Die Ursache, in einer Zeile.** `BeendeBaum([int]$pid)` (**Zeile 100**) — **`$pid` ist in PowerShell
+eine automatische, schreibgeschützte Variable** (die Prozess-ID der laufenden Sitzung). Der Parameter
+lässt sich nicht binden, **der Funktionsrumpf wird nie erreicht**, und der Fehler ist **nicht
+terminierend**: das Skript läuft weiter, als wäre nichts geschehen.
 
 **Beweis, isoliert und wiederholbar** — derselbe Rumpf, nur der Parametername ist anders:
 
@@ -1736,14 +1736,16 @@ pwsh -NoProfile -Command 'function F([int]$prozessId) { "Rumpf erreicht: $prozes
 #   danach
 ```
 
-**Im Testlauf schlägt damit *jeder* Aufruf fehl — acht Stellen:**
+**Im Testlauf schlägt damit *jeder* Aufruf fehl — sechs Aufrufstellen** (Zeilennummern **in der Shell**
+gemessen, siehe die Korrektur in §„Eigene Korrekturen"):
 
 | Zeile | Aufruf | Folge |
 |---|---|---|
-| 147 | `BeendeBaum $proc.Id` (in `StarteHost`) | der Host **jedes** Testfalls bleibt laufen |
-| 102 | `BeendeBaum $p` (in `BeendeEigene`) | die Schlussabräumung tut nichts |
-| 211 / 214 | `BeendeBaum $h2.Id` / `BeendeBaum $h.Id` | die **Halter** bleiben laufen |
-| 266 | `BeendeBaum $p4.Id` | der Host für Fall 4 bleibt laufen |
+| **161** | `BeendeBaum $proc.Id` (in `StarteHost`) | der Host **jedes** Testfalls bleibt laufen |
+| **190** | `BeendeBaum $proc.Id` (in `BelegePort`, Zeitüberschreitung) | der Halter bleibt laufen, wenn er nicht bindet |
+| **116** | `BeendeBaum $p` (in `BeendeEigene`) | die Schlussabräumung tut nichts — **je gestartetem Prozess** einmal |
+| **225** / **228** | `BeendeBaum $h2.Id` / `BeendeBaum $h.Id` | die **Halter** bleiben laufen |
+| **280** | `BeendeBaum $p4.Id` | der Host für Fall 4 bleibt laufen |
 
 **Was der Lauf daraufhin gemeldet hat** (echte Ausgabe, gekürzt):
 
@@ -1767,16 +1769,19 @@ Drei Folgen, alle gemessen:
    die **Abräumung** ist.
 2. **Der Halter kann 5780 nicht binden** (`FEHLER: Halter beendet sich`) — dieselbe Waise. Fall 2 und 3
    prüfen damit **nichts**.
-3. **`Ergebnis: 1 Befund(e)` untertreibt.** Zwei Meldungen stammen aus `$fehler++` **innerhalb einer
-   Funktion** (`StarteHost`, Zeile 152) und zählen deshalb **nicht**: `$fehler++` im Funktionsrumpf
-   schreibt eine **lokale** Kopie. Dieselbe Familie wie `$pid` — PowerShell-Gültigkeit, nicht Logik.
+3. **`Ergebnis: 1 Befund(e)` untertreibt.** Die Meldung „Port 5780 ist nach dem Aufraeumen noch belegt"
+   kommt aus `$fehler++` **innerhalb einer Funktion** (`StarteHost`, **Zeile 166**) und zählt deshalb
+   **nicht**: `$fehler++` im Funktionsrumpf schreibt eine **lokale** Kopie. Sie erschien in meinem Lauf
+   **zweimal** (Fall 1 und Fall 2) — **keine** der beiden zählte. Gezählt hat nur die Prüfung auf
+   **Skriptebene** (Zeile 197, „Fall 1 nicht erkannt"), und das ergibt genau die gemeldete **1**.
+   Dieselbe Familie wie `$pid`: PowerShell-Gültigkeit, nicht Logik.
 
 **Zweiter Defekt derselben Familie** (unabhängig vom ersten): `BelegePort` gibt bei scheiterndem Halter
-die Ausgabe von `Get-Content "$log.err" | Select-Object -First 1` **in die Pipeline** und danach `$null`
-zurück — die Rückgabe ist damit der **Fehlertext**, nicht leer. Folge: die Prüfung `if ($h -eq $null)`
-(Zeile 188) greift **nicht**, der Zweig „UEBERSPRUNGEN: … dieser Test prueft nichts" erscheint **nie**,
-und der Test läuft mit einem Halter weiter, den es nicht gibt — sichtbar an „(Halter laeuft, PID )",
-die PID ist leer.
+die Ausgabe von `Get-Content "$log.err" | Select-Object -First 1` (**Zeile 186**) **in die Pipeline**
+und danach `$null` zurück — die Rückgabe ist damit der **Fehlertext**, nicht leer. Folge: die Prüfung
+`if ($h -eq $null)` (**Zeile 202**) greift **nicht**, der Zweig „UEBERSPRUNGEN: … dieser Test prueft
+nichts" erscheint **nie**, und der Test läuft mit einem Halter weiter, den es nicht gibt — sichtbar an
+„(Halter laeuft, PID )", die PID ist leer.
 
 **Der kleinste Fix — ein Wort:**
 
@@ -1814,7 +1819,7 @@ Gegenprobe spricht gegen meine Hypothese:
 **Gestützt wird der Abbruch-Verdacht durch meinen eigenen Lauf:** er dauerte länger als sonst, weil die
 beiden `WarteAufFreienPort`-Schleifen bei belegtem Port je **8 s** in den Fehler laufen. Fall 1 + 2 + 3
 + 4 kommen damit in die Nähe üblicher Werkzeug-Zeitlimits. **Empfehlung:** die Aufräumung **je Testfall**
-(vorhanden, Zeile 147) ist die richtige Stelle — die Schlussabräumung darf **nicht** die einzige sein.
+(vorhanden, Zeile 161) ist die richtige Stelle — die Schlussabräumung darf **nicht** die einzige sein.
 
 ### Nachtrag zu **B13** — von sechs Stellen sind **drei** übrig
 
@@ -1875,6 +1880,8 @@ Ereignis, das die eigene Sonde beenden kann.**
 
 | 13:48 | In **B22** stand der Mechanismus als **Hypothese aus dem Quelltext**: „`Stop-Process -Force` liefert kein SIGINT/SIGTERM, deshalb stirbt das Kind nicht mit." | Der Mechanismus ist jetzt **gemessen** — aber ein **anderer**: das Aufräumen der **neuen** Fassung läuft nie, weil `$pid` schreibgeschützt ist (**B23**). Für die **alte** Fassung ist er **weiterhin offen**; ihre Fenster hätten greifen müssen, und `Get-Process bun` **sieht** die Prozesse (gemessen). | Ich hatte den Quelltext **gelesen**, aber **nicht ausgeführt** — und die Hypothese dann so notiert, dass sie wie eine Erklärung aussah. Genau der Unterschied, den ich bei anderen einfordere: eine Vermutung aus dem Quelltext ist kein Beleg. |
 | 13:47 | `(Get-Content befunde.md \| Measure-Object -Line).Lines` → **1374** Zeilen, während dieselbe Datei bis Zeile **1756** reicht. | **Derselbe Fehler wie um 11:53** in dieser Tabelle, nur an einer Datei, die ich gerade selbst prüfte: `Measure-Object -Line` zählt **Leerzeilen nicht**. Nachgemessen: 5 Elemente (3 nicht leer) → **3**. Richtig: **1766** Zeilen, davon 392 leer. | Ich habe den Fehler **wiederholt, den ich selbst schon dokumentiert hatte**. Die Korrektur steht hier, weil diese Tabelle sonst den Eindruck erweckt, ich hätte daraus gelernt. |
+| 14:02 | In **B23** nannte ich „`BeendeBaum([int]$pid)` **Zeile 86**", „**acht** Aufrufe" und die Zeilen **147 / 102 / 211 / 214 / 266** — **Zeilennummern aus einem Lese-Werkzeug** und eine **geschätzte** Anzahl. | Nachgemessen **in der Shell**: Definition **Zeile 100**, Aufrufstellen **161, 190, 116, 225, 228, 280** (**sechs**), `$fehler++` im Funktionsrumpf **Zeile 166**, `if ($h -eq $null)` **Zeile 202**. Alle Stellen sind berichtigt. | Die Datei ist **285** Zeilen lang (alles LF, gemessen); dasselbe Lese-Werkzeug meldete im selben Moment **271** Zeilen und eine um **14** verschobene Nummerierung. Eine Zeilennummer ist ein **Messwert** — sie gehört in eine Shell, nicht in ein Werkzeug, dessen Zählweise ich nicht geprüft habe. Dieselbe Lehre wie 13:06, eine Ebene tiefer. |
+| 14:06 | Mein Commit-Wächter `if ($out -notmatch 'stimmig') { exit 1 }` brach **ab, obwohl die Prüfung grün war** (`ERGEBNIS: das Protokoll ist in sich stimmig.`). | **`-notmatch` auf einem Array liefert die nicht passenden Zeilen** — jede Zeile außer der letzten erfüllt das, das Ergebnis ist also **wahr**. Richtig: die Ausgabe **zuerst mit `-join` zu einer Zeichenkette** machen und dann prüfen. Der Commit lief danach durch. | **Dritte** Stelle derselben Familie (PowerShell-Semantik statt Logik) nach `$pid` (**B23**) und `$fehler++`. Kein falscher Wert ist dadurch in eine Datei gelangt — aber der Wächter hätte einen Commit **still** verhindern können, und ein Wächter, der falsch alarmiert, ist so schädlich wie einer, der nichts sieht. |
 
 ---
 

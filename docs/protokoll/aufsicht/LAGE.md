@@ -10,13 +10,13 @@
 
 ## 0. Das Dringendste — **eine Zeile Code**
 
-**`scripts/port-test.ps1` Zeile 86: `function BeendeBaum([int]$pid)` → `function BeendeBaum([int]$prozessId)`.**
+**`scripts/port-test.ps1` Zeile 100: `function BeendeBaum([int]$pid)` → `function BeendeBaum([int]$prozessId)`.**
 
 **`$pid` ist in PowerShell schreibgeschützt.** Der Parameter lässt sich nicht binden, **der
 Funktionsrumpf wird nie erreicht** — und der Fehler ist **nicht terminierend**, das Skript läuft
-weiter. Damit **räumt die neue Fassung nichts auf**: **acht** Aufrufe schlagen fehl, jeder Testfall
-lässt seinen Host stehen, und ihr eigener Fall 1 meldet deshalb `FEHLER: Fall 1 nicht erkannt` —
-obwohl nicht die Portwahl, sondern die **Abräumung** das Problem ist. Einzeln nachprüfbar in einer
+weiter. Damit **räumt die neue Fassung nichts auf**: **alle sechs** Aufrufstellen schlagen fehl, jeder
+Testfall lässt seinen Host stehen, und ihr eigener Fall 1 meldet deshalb `FEHLER: Fall 1 nicht erkannt`
+— obwohl nicht die Portwahl, sondern die **Abräumung** das Problem ist. Einzeln nachprüfbar in einer
 Zeile:
 
 ```powershell
@@ -32,7 +32,7 @@ zurück).
 
 | # | Was | Warum es zählt | Nachweis in einem Befehl |
 |---|---|---|---|
-| **B23** | **Die neue Aufräumfunktion des Port-Tests läuft nie** — `$pid` ist schreibgeschützt (siehe §0) | **Acht** fehlschlagende Aufrufe, **jeder** Testfall hinterlässt Host, Launcher und Halter. Der Test meldet die Folgen als **Logikfehler der Portwahl** und zählt sie nicht einmal (1 statt 2+). Er kann deshalb **nicht** grün werden, gleich wie gut die Portwahl ist | `pwsh -NoProfile -Command 'function F([int]$pid) { "erreicht" }; F 1'` |
+| **B23** | **Die neue Aufräumfunktion des Port-Tests läuft nie** — `$pid` ist schreibgeschützt (siehe §0) | **Alle sechs** Aufrufstellen schlagen fehl, **jeder** Testfall hinterlässt Host, Launcher und Halter. Der Test meldet die Folgen als **Logikfehler der Portwahl** und zählt sie nicht einmal (1 statt 2+). Er kann deshalb **nicht** grün werden, gleich wie gut die Portwahl ist | `pwsh -NoProfile -Command 'function F([int]$pid) { "erreicht" }; F 1'` |
 | **B22** | **beantwortet** — die Waisen sind **erklärt** (B23) und **weg**: um 13:41:50 noch **sechs** (1,13 GB, Alter bis 11,4 min), um 13:42 **null**; der bauende Agent hat sie **selbst** entfernt. **Aber:** sein Lauf um 13:43 hat **wieder** einen Satz hinterlassen, und ohne den Ein-Wort-Fix bleibt das so | Sechs Hosts = sechs Ports, sechs Harness-Homes, **1,13 GB**; dazu blockieren sie die eigenen nächsten Läufe. Bitte am Skriptende **nachzählen**, ob noch etwas läuft — die Portprüfung deckt nur **einen** Port ab | [`hilfen/waisen-aufraeumen.ps1`](hilfen/waisen-aufraeumen.ps1) (Trockenlauf; `-Anwenden` beendet) |
 | **B16** | ~~**„API ausgefallen" ist nicht belegt.**~~ **ENTSCHIEDEN — die Behauptung ist widerlegt.** Angemeldet an ihrem **laufenden** Host antwortet `POST /api/goals/create` mit **HTTP 200 und JSON-RPC-Rahmen**: der Typert-Gateway **lebt**. Die README-Zeile „API des Cores ausgefallen" ist damit **falsch**, und die Begründung der Entscheidung „eigener Endpunktweg" („die Vorlage hat keine erreichbare API") **hinfällig** — die Entscheidung selbst bleibt legitim | Die eigene Sonde konnte es nicht sehen: ohne Anmeldung ist **jeder** `/api/*`-Pfad 401, mit Anmeldung sind ihre 19 **geratenen** Pfade 404. Nur ein **registrierter** Pfad antwortet. **Offen:** der WS-Pfad `/api/remote.mux` scheitert auf **beiden** Installationen schon beim Handschlag | `bun run docs\protokoll\aufsicht\werkzeuge\api-erreichbarkeit.mjs http://127.0.0.1:<port>` (mit Token) |
 | **B13** | **von sechs Stellen sind drei übrig.** `port-test.ps1` ist **bereinigt** (die Namens-und-Alter-Zeilen sind weg — Verdienst des bauenden Agenten). **Offen:** `boot-schleife.ps1:103` (2 min), `api-test.ps1:33` (3 min), `api-flaeche.ps1:92` (3 min) | Diese drei töten weiterhin **jeden** `bun` im Fenster — auch einen fremden `bun test`/`bun install` und **den Zeugenprozess, den der bauende Agent gerade selbst benutzt**, um genau diese Frage zu prüfen | `Get-ChildItem -Recurse -Include *.ps1 \| Select-String 'Get-Process bun'` |
