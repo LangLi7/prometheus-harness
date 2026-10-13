@@ -164,7 +164,7 @@ export const MIGRATIONSTABELLE = 'schema_migrations'
  * weil ein Import am Typsystem scheitert (sechs `TS2307` — die `.sql`-Deklaration
  * von `db-schema` ist im Programm von `readiness` nicht enthalten).
  */
-export const ERWARTETE_SCHEMAFASSUNG = 5
+export const ERWARTETE_SCHEMAFASSUNG = 6
 
 /**
  * Die Tabellen, ohne die die Anwendung nicht arbeiten kann.

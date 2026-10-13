@@ -228,15 +228,20 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     await target.exec(`
       DROP TABLE IF EXISTS auth_events, user_secrets, one_time_tokens, messages,
         chats, workspaces, api_keys, auth_sessions, conversation_sessions, users, schema_migrations CASCADE;
+      -- Der Wissensspeicher haengt an users und faellt mit CASCADE mit; er steht
+      -- trotzdem ausdruecklich hier, damit die Liste vollstaendig ist und niemand
+      -- sie fuer abschliessend haelt. (Keine Backticks in diesem Kommentar: er
+      -- steht in einem Template-Literal, und ein Backtick beendet es.)
+      DROP TABLE IF EXISTS chunks, documents CASCADE;
     `)
 
     const report = await migrate(target)
-    expect(report.applied).toEqual([1, 2, 3, 4, 5])
+    expect(report.applied).toEqual([1, 2, 3, 4, 5, 6])
     expect(report.version).toBe(SCHEMA_VERSION)
     expect(report.fresh).toBe(true)
   })
 
-  test('legt alle elf Tabellen an — im Schema `pmh`, nicht in `public`', async () => {
+  test('legt alle dreizehn Tabellen an — im Schema `pmh`, nicht in `public`', async () => {
     // **Warum `pmh` und nicht `public`.** Der Stack legt ein eigenes Schema an
     // (`docker/postgres-init/02-roles.sh`) und setzt den Suchpfad der Rollen auf
     // `pmh, public`. `public` ist in PostgreSQL der Ort, an dem jedes
@@ -265,6 +270,11 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
       'workspaces',
       // **Neu mit Migration 0005.** Die Isolationsprofile je Benutzer.
       'user_profiles',
+      // **Neu mit Migration 0006.** Der Wissensspeicher (D1). Beide Tabellen
+      // tragen den Mandanten von Anfang an — siehe die Probe
+      // `tests/proben/wissensspeicher.sql`.
+      'documents',
+      'chunks',
     ]) {
       expect(tables).toContain(table)
     }

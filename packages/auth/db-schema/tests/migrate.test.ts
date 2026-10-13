@@ -108,10 +108,15 @@ describe('Migrationsliste prüfen', () => {
     expect(() => assertWellFormed([{ version: 1, name: 'x', sql: '   ' }])).toThrow('kein SQL')
   })
 
-  test('die echten Migrationen sind wohlgeformt und heißen 1 bis 5', () => {
+  test('die echten Migrationen sind wohlgeformt und heißen 1 bis 6', () => {
     expect(() => assertWellFormed(MIGRATIONS)).not.toThrow()
-    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5])
-    expect(SCHEMA_VERSION).toBe(5)
+    // **Die Liste steht hier ausgeschrieben, und das ist Absicht.** Eine Prüfung
+    // gegen `MIGRATIONS.map(m => m.version)` wäre mit sich selbst verglichen und
+    // damit leer. So fällt auf, wenn eine Migration **fehlt** (Lücke) oder
+    // **doppelt** kommt — und der Name der Prüfung muß die Zahl mitführen, sonst
+    // behauptet er etwas Falsches.
+    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6])
+    expect(SCHEMA_VERSION).toBe(6)
   })
 })
 
@@ -249,6 +254,10 @@ describe('Das echte Schema', () => {
       'conversation_sessions',
       // **Neu mit Migration 0005.** Die Isolationsprofile je Benutzer.
       'user_profiles',
+      // **Neu mit Migration 0006.** Der Wissensspeicher (D1) — beide tragen den
+      // Mandanten von Anfang an.
+      'documents',
+      'chunks',
     ]) {
       expect({ table, created: created.has(table) }).toEqual({ table, created: true })
     }
@@ -257,7 +266,9 @@ describe('Das echte Schema', () => {
       'api_keys',
       'auth_events',
       'chats',
+      'chunks',
       'conversation_sessions',
+      'documents',
       'messages',
       'one_time_tokens',
       'sessions',
