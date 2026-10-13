@@ -2738,6 +2738,16 @@ gültiges UTF-8, **kein** BOM — die Kennzeichnung kommt von einer `.gitattribu
 seines Commits nennt `docs/review/BEFUNDE-ALLE.md` (116 Zeilen) und `docs/review/rag-und-obsidian-bereitschaft.md`
 (171 Zeilen) — er sammelt seine Befunde also selbst; geprüft habe ich sie **nicht**.
 
+**Nachtrag 16:46 — der Befund ist angekommen und behoben.** Sein Commit `ecb75a2` („B-S1: eigener
+Behebungsvorschlag war nicht ausfuehrbar - korrigiert", 45 Zeilen im Sicherheitsbefund) übernimmt die
+Messung **mit Quellenangabe**: er nennt `docs/protokoll/aufsicht/hilfen/mandantentrennung-probe.sql`,
+führt eine Tabelle „Was die Aufsicht gemessen hat | Ergebnis" und setzt in den korrigierten Vorschlag
+`ON DELETE NO ACTION;   -- NICHT SET NULL: user_id ist NOT NULL`. Über seinen eigenen früheren Satz
+(*„das gehört in die Entwurfsentscheidung"*) schreibt er, das sei **„eine Verschiebung, keine Abwägung"**
+gewesen. **Damit ist B38 von der anderen Seite bestätigt und behoben, bevor eine Migration existierte** —
+genau der Fall, für den diese Rolle gedacht ist: nicht der Fund, sondern die **Messung zur rechten Zeit**.
+Ich streiche den Befund nicht; er bleibt als offen geführt, bis die Migration wirklich steht.
+
 ---
 ## Registereintrag
 
