@@ -45,6 +45,7 @@ unangetastet.
 | [decisions/core-supply.md](decisions/core-supply.md) | **Entschieden:** der Agent-Core kommt als Abhängigkeit vom Upstream (Weg B, Hybrid) — besessen werden nur Host, Units und Dienste |
 | [decisions/hybrid-then-self-build.md](decisions/hybrid-then-self-build.md) | **Entschieden:** Hybrid ist der erste Meilenstein, Eigenbau (A) das Ziel — samt NixOS-Selbständerung, Plugin-Export, Web-Attach und den verbindlichen Subagent-Regeln |
 | [decisions/open-questions.md](decisions/open-questions.md) | Der Fragenkatalog mit Abhängigkeiten: Laufzeit, Umfang des Cores, Loop, Gedächtnis, Git-Plattform, Netzwerk |
+| [decisions/first-login-container-permissions.md](decisions/first-login-container-permissions.md) | **Erster Login über den Rechner selbst** (Maschinen-Claim mit Hostname, lokalem Nutzer und Gerätekennung — keine voreingestellten Zugangsdaten), Adminkonto daraus, Benutzerverwaltung durch den Admin, **container-artiges Isolationsprofil je Benutzer** (auf `SandboxPolicy` abgebildet) und — der Kern — die **Spiegelung der Befugnisse**: der Agent handelt mit den Rechten des fragenden Benutzers und niemals mit mehr. Umgesetzt in `packages/auth/permissions` (30 Prüfungen) und `packages/auth/claim` (21 Prüfungen) |
 
 ## 4. Gestaltung — *wie es aussehen und sich anfühlen soll*
 

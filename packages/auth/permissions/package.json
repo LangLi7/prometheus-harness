@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/permissions",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Rechteprüfung für Akteur, Herkunft und Isolationsprofil: der Agent handelt mit den Rechten des fragenden Benutzers und niemals mit mehr. Reine Logik, ohne Datenbank prüfbar.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}
