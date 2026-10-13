@@ -496,7 +496,9 @@ describe('Abgleich mit .env.example und docker-compose.yml', () => {
     // ein echter Schlüssel, wäre er im Repository — und damit in jeder Kopie.
     const OHNE_PLATZHALTER = new Set(['PMH_MASTER_KEY'])
     for (const name of GEHEIMNIS_NAMEN) {
-      const treffer = new RegExp(`^${name}=(.*)$`, 'mu').exec(VORLAGE)
+      // **`[^\r\n]*` statt `(.*)`.** Dieselbe CRLF-Falle: `.` matcht kein `\r`,
+      // und auf Windows liefert die Vorlage CRLF.
+      const treffer = new RegExp(`^${name}=([^\\r\\n]*)`, 'mu').exec(VORLAGE)
       expect(treffer).not.toBeNull()
       const wert = (treffer?.[1] ?? '').trim()
       if (OHNE_PLATZHALTER.has(name)) {
@@ -516,6 +518,7 @@ describe('Abgleich mit .env.example und docker-compose.yml', () => {
     // **Der Grund steht im Klartext.** Ein Beispielwert in einer versionierten
     // Datei wird kopiert. Bei einem Hauptschlüssel wäre das ein geteilter
     // Hauptschlüssel — und niemand würde es bemerken, weil alles funktioniert.
-    expect(/^PMH_MASTER_KEY=$/mu.test(VORLAGE)).toBe(true)
+    expect(/^PMH_MASTER_KEY=[^\r\n]*$/mu.test(VORLAGE)).toBe(true)
+    expect(/^PMH_MASTER_KEY=$/mu.test(VORLAGE.replace(/\r/gu, ''))).toBe(true)
   })
 })

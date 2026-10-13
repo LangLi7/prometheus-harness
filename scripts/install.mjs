@@ -350,6 +350,27 @@ export function richteEnvEin(wurzel = ROOT, schreibe = aus, laufenderContainer =
  * wäre eine zweite Wahrheit — hier gilt: **die Datei** ist die Quelle, und die
  * Umgebung **schlägt** sie (wer etwas ausdrücklich setzt, meint es).
  *
+ * ## Der CRLF-Fehler, der auch hier steckte
+ *
+ * Die erste Fassung benutzte `=(.*)$` — genau wie `setzeWerte`, und mit
+ * **demselben** Ausgang. Gemessen am 13.10.2026 in einem sauberen Klon auf
+ * Windows:
+ *
+ * ```
+ * [diag] Anzahl Werte=51
+ * [diag] MIGRATION_DATABASE_URL=undefined
+ * FEHLER: MIGRATION_DATABASE_URL wurde in .env nicht gefunden.
+ * ```
+ *
+ * Die Zeile lautete roh
+ * `"MIGRATION_DATABASE_URL=postgres://…:5432/pmh\r"`. In JavaScript matcht `.`
+ * **kein** `\r` — also scheiterte das Muster und der Wert **fehlte**.
+ *
+ * **Die Lehre, die hier steht.** Ich hatte `setzeWerte` korrigiert und `leseEnv`
+ * **übersehen** — beide benutzten dasselbe Muster. Wer einen Fehler an einer
+ * Stelle findet, muß nach **allen** Stellen desselben Musters suchen. Deshalb
+ * steht `[^\r\n]*` jetzt an beiden.
+ *
  * @param wurzel - die Projektwurzel
  * @returns die Werte
  */
@@ -358,7 +379,9 @@ export function leseEnv(wurzel = ROOT) {
   const werte = {}
   if (existsSync(pfad)) {
     for (const zeile of readFileSync(pfad, 'utf8').split('\n')) {
-      const treffer = /^\s*([A-Z][A-Z0-9_]*)=(.*)$/u.exec(zeile)
+      // `[^\r\n]*` schließt das Zeilenende ausdrücklich aus, statt sich auf das
+      // Verhalten von `.` zu verlassen.
+      const treffer = /^\s*([A-Z][A-Z0-9_]*)=([^\r\n]*)/u.exec(zeile)
       if (treffer !== null) werte[treffer[1]] = treffer[2]
     }
   }
@@ -614,7 +637,11 @@ export async function installiere(optionen = {}) {
         '  geprüft. Die Werte stehen in .env; sie zu laden ist Sache der Shell:\n' +
         '\n' +
         '    Linux:   set -a; . ./.env; set +a; bun run start\n' +
-        '    Windows: Get-Content .env | ForEach-Object { if ($_ -match "^(\\w+)=(.*)$") { Set-Item "env:$($matches[1])" $matches[2] } }\n',
+        // **`[^\\r\\n]*` statt `(.*)`.** Dieselbe CRLF-Falle wie in `leseEnv` und
+        // `setzeWerte`: auf Windows liefert `Get-Content` Zeilen mit `\r` am
+        // Ende, und `.` matcht kein `\r`. Mit `(.*)` bekäme jede Variable ein
+        // unsichtbares `\\r` angehängt — und die Kennwörter wären falsch.
+        '    Windows: Get-Content .env | ForEach-Object { if ($_ -match "^(\\w+)=([^\\r\\n]*)") { Set-Item "env:$($matches[1])" $matches[2] } }\n',
     )
   })
 
