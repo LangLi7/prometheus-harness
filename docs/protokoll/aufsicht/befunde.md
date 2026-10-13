@@ -2550,6 +2550,65 @@ beiden **Server**-Pakete (`llm-deepseek`, `crew`) gilt „nicht in Kraft" **sich
 geladen und nicht heiß getauscht. Für die **Oberflächen**-Änderung gilt es nur, **solange kein**
 Entwicklungsserver (`pnpm run dev:web`) läuft; **ob einer läuft, habe ich nicht geprüft.**
 
+## B33 — Der neue Anhängepunkt hat **keinen Zaun und keine Anmeldung** — während der Kern daneben beides hat — **M**
+
+**Anlass.** `services/pmh-attach` ist der neueste Dienst (heute entstanden, README, `unit.json` und zwei
+Tests noch **unverfolgt**) und der letzte größere Teil, den ich nicht geprüft hatte. Ein **neuer
+HTTP-/WebSocket-Dienst** ist Angriffsfläche — also habe ich zuerst nach dem Zaun gefragt.
+
+**Was gut ist — gemessen, und es ist die halbe Antwort:**
+
+| Eigenschaft | Wert |
+|---|---|
+| Standardbindung | **`defaultHost = "127.0.0.1"`** (`main.go:62`) — nur die Schleife |
+| Wildcard | **nur** mit ausdrücklichem `--allow-wildcard` (`main.go:84`, `IstWildcard`) |
+| Läuft er? | **nein** — keine Prozesse, Ports 8090/8091 frei |
+| Abhängigkeiten | **keine** — `go.mod` ist **74 B** (Standardbibliothek), keine `go.sum` |
+| `go vet ./...` | **exit 0**, keine Befunde (V6) |
+
+**Was fehlt — ebenfalls gemessen.** Der Dienst prüft **eingehend nichts**:
+
+* **Keine Authentifizierung.** Alle `token`/`Bearer`-Stellen (`remote.go:37–177`) betreffen den
+  **Upstream** — der Dienst ist dort **Client**. Für **ankommende** Verbindungen gibt es keine Prüfung.
+* **Kein Origin-/Host-Zaun.** `conn.go:94/98` prüft `Connection: upgrade` und `Upgrade: websocket` —
+  das ist **Protokollprüfung, keine Autorisierung**. Die Suche nach `Origin` in `internal/` findet nur
+  die **Testdatei**, die einen Origin **sendet**.
+* Der **Kern daneben** hat beides: `packages/api/health/src/index.ts` ruft `requestRejection`
+  (Host/Origin-Zaun, danach Anmeldung) — genau der Weg aus **B19**.
+
+**Die gefährliche Kombination, und sie ist im Dienst selbst dokumentiert:** `--allow-wildcard` bindet an
+`0.0.0.0` — **ohne** daß irgendein Credential verlangt würde. Ein `unit.json`, das Wildcard als Schalter
+anbietet, aber keinen Zaun hat, ist eine Einladung: **ein** Aufruf genügt, und der Sitzungsstrom liegt im
+Netz. Dazu die zweite Hälfte: eine **beliebige Webseite** im Browser desselben Rechners kann
+`ws://127.0.0.1:8090/...` öffnen — ohne Origin-Prüfung liest sie mit (DNS-Rebinding/CSRF auf WebSockets).
+
+**Entlastung, ausdrücklich:** (1) die Voreinstellung ist die Schleife, also **heute nichts exponiert**;
+(2) der Dienst **läuft nicht**; (3) sein eigenes `unit.json` nennt die Lücke beim Upstream ehrlich
+(*„der Upstream-Strom (NDJSON) ist eine vereinbarte Form, kein laufender Harness"*) — es gibt also noch
+keine echten Sitzungsdaten zu holen. Der Befund ist damit **latent** — aber er wird akut, sobald der
+Dienst angeschlossen wird, und dann ist `--allow-wildcard` ein Wort auf einer Kommandozeile.
+
+**Empfehlung, zwei kleine Schritte:**
+
+1. **Den Zaun des Kerns übernehmen** — Host- und Origin-Prüfung vor dem Upgrade, dieselbe Liste, die
+   `requestRejection` benutzt. Ein Aufruf, eine Prüfung, kein neues Konzept.
+2. **`--allow-wildcard` an ein Credential binden:** entweder ohne gesetztes Token **abbrechen**
+   (`--token` fehlt → Fehler) oder den Schalter nur mit ausdrücklicher Bestätigung zulassen. Ein
+   Wildcard-Bind **ohne** Anmeldung sollte **nicht** durch einen einzelnen Schalter erreichbar sein.
+
+## V6 — `services/pmh-attach` kompiliert und vetet sauber (Verifikation, kein Befund)
+
+```
+cd services/pmh-attach
+go vet ./...                                  → exit 0, keine Befunde
+go build -o %TEMP%\pmh-attach-probe.exe ./cmd/pmh-attach → exit 0, Binary 10.086.400 B
+```
+
+**Und der Bau hat ihren Baum nicht berührt** — der Nachweis, weil es der Punkt ist, an dem ich hätte
+schaden können: `-o` schreibt nach `%TEMP%`, und die Gegenprobe zeigt **7** Einträge unter
+`services/pmh-attach` (**vorher und nachher**), `go.mod` unverändert (Datum 13.10. 00:29:50), **keine**
+`go.sum`. Das Wegwerf-Binary ist gelöscht.
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
@@ -2618,6 +2677,7 @@ Entwicklungsserver (`pnpm run dev:web`) läuft; **ob einer läuft, habe ich nich
 | 14:53 | Ich habe „`.env` enthält **2** Schlüssel mit `KEY` im Namen" gezählt und daraus beinahe „es gibt einen Anbieterschlüssel" gelesen. | Nachgesehen: es sind **`PMH_MASTER_KEY`** und **`PMH_MASTER_KEY_VERSION`** — der Hauptschlüssel der Umschlagverschlüsselung, **kein** Modellschlüssel. Und die eine DEEPSEEK-Zeile in `.env.example` ist ein **Kommentar**, keine Variable. | Mein Filter `-match 'KEY'` traf `MASTER_KEY` mit. Der Fehler wäre in die **falsche Richtung** gegangen — ich hätte eine Lücke übersehen. Aufgefallen ist es, weil zwei meiner eigenen Messungen („kein API_KEY in scripts/" gegen „1 Zeile nennt DEEPSEEK") **nicht zueinander paßten** und ich nachgesehen habe statt zu wählen. **Genau dafür sind Gegenproben da.** |
 | 14:56 | Beim Nachfahren seines Rundlaufs habe ich `--unit ../../services/pmh-nix` angegeben — von `packages/units/unit-export` aus zeigt `../..` auf `packages/`, nicht auf die Wurzel. Drei Aufrufe scheiterten. | Korrigiert auf absolute Pfade; danach lief alles. **Sein Werkzeug hat den Fehler in Sekunden geklärt**, weil es ihn **benennt**: `[manifest_missing] unit.json: Kein unit.json in diesem Ordner.` und `[registry_root_missing] … Die Registry-Wurzel existiert nicht oder ist kein Verzeichnis.` | Ein eigener Pfadfehler ist trivial — **erwähnenswert ist die Gegenprobe**: eine Fehlermeldung, die den **Pfad** und den **Grund** nennt, macht aus einer Suche eine Sekunde. Genau das, was ich an anderen Stellen eingefordert habe (B16/B20: eine Sonde, die ihre Frage nicht beantworten kann). **Hier war sein Entwurf besser als mein Aufruf.** |
 | 15:02 | Ich sah im Checkout `adapter.js` mit Datum **10-10** und schloß daraus, die heutigen Änderungen seien **nicht gebaut**. | **Falsch gezogen.** Ich hatte nur die **ersten drei** Artefaktdateien angesehen; die **neuesten** sind von **heute 10:45** (33 Dateien von heute) — es **wurde** gebaut. Der Befund steht danach auf dem, was er belegen kann: der Start der GUI um **09:39** entscheidet über die Wirkung, nicht der Build. | Ein Blick auf drei von 33 Dateien und daraus einen Schluß — dieselbe Familie wie meine früheren Zählfehler (12:28, 13:47). Aufgefallen ist es, weil ich die Artefaktzeit **gegen die Quellzeit** hielt und die Zahlen nicht zusammenpaßten. **Erst zählen, dann schließen** — zum vierten Mal in dieser Sitzung notiert, und diesmal habe ich es **innerhalb** der Runde bemerkt. |
+| 15:05 | Nach dem `go build` schrieb ich „**vorher waren es 5**" Einträge unter `services/pmh-attach` und hätte daraus geschlossen, **mein Bau** habe zwei Dateien in ihren Baum geschrieben. | **Die 5 war erfunden, nicht gemessen.** Nachgezählt: es sind **7** — **vorher und nachher** (3 geänderte Go-Dateien, 4 unverfolgte: README, zwei Tests, `unit.json`). `go.mod` unverändert, **keine** `go.sum` entstanden, das Modul ist abhängigkeitsfrei (74 B). | Ich hätte **mich selbst** eines Verstoßes gegen meine eigene Hausregel H2 beschuldigt — mit einer Zahl, die nie in einer Shell stand. Aufgefallen ist es, weil ich die 7 Einträge **aufgelistet** habe, statt der Zahl zu glauben. **Vierte Fassung derselben Ursache** (12:28, 13:47, 15:02, jetzt): erst zählen, dann schließen. |
 
 ---
 

@@ -2182,6 +2182,48 @@ danach auf dem, was er belegen kann: die **Startzeit 09:39** entscheidet über d
 Build. Aufgefallen ist es, weil ich Artefaktzeit **gegen** Quellzeit hielt und die Zahlen nicht
 zusammenpaßten — **erst zählen, dann schließen**, zum vierten Mal in dieser Sitzung notiert.
 
+## 2026-10-13 15:03–15:12 — Neununddreißigster Takt: **der neue Anhängepunkt hat keinen Zaun** (B33) — und die Lageübersicht ist jetzt eine Handlungsliste
+
+**Was ich angefaßt habe.** `services/pmh-attach` ist der **neueste** Dienst (heute entstanden; README,
+`unit.json` und zwei Tests noch **unverfolgt**) und der letzte größere Teil, den ich nicht geprüft hatte.
+Ein neuer HTTP-/WebSocket-Dienst ist **Angriffsfläche** — also zuerst die Frage nach dem Zaun.
+
+**Was gut ist, gemessen:** `defaultHost = "127.0.0.1"` (`main.go:62`), Wildcard **nur** mit
+ausdrücklichem `--allow-wildcard`, er **läuft nicht** (keine Prozesse, Ports 8090/8091 frei), **keine
+Abhängigkeiten** (`go.mod` ist **74 B**), `go vet ./...` → **exit 0**, `go build` → exit 0.
+
+**Was fehlt, ebenfalls gemessen:** der Dienst prüft **eingehend nichts**. Alle `token`/`Bearer`-Stellen
+(`remote.go:37–177`) betreffen den **Upstream** — dort ist der Dienst **Client**. Für **ankommende**
+Verbindungen gibt es keine Authentifizierung, und **keinen Host-/Origin-Zaun**: `conn.go:94/98` prüft
+`Connection: upgrade` und `Upgrade: websocket`, das ist **Protokollprüfung, keine Autorisierung**. Die
+Suche nach `Origin` in `internal/` findet nur die **Testdatei**, die einen **sendet**. Der **Kern
+daneben** hat beides (`requestRejection`, der Weg aus **B19**).
+
+**Die gefährliche Kombination, und sie steht im Dienst selbst:** `--allow-wildcard` bindet an `0.0.0.0`
+— **ohne** daß irgendein Credential verlangt würde. Ein Schalter, der Wildcard anbietet, aber keinen Zaun
+hat, ist eine Einladung. **Entlastung, ausdrücklich:** die Voreinstellung ist die Schleife (heute nichts
+exponiert), der Dienst läuft nicht, und sein eigenes `unit.json` nennt die Lücke beim Upstream ehrlich —
+es hängt also noch **kein echter Sitzungsstrom** daran. Der Befund ist **latent**; akut wird er, sobald
+angeschlossen wird. **Empfehlung:** den Zaun des Kerns übernehmen (ein Aufruf vor dem Upgrade) und
+`--allow-wildcard` an ein Token binden.
+
+**V6 — und der Nachweis, der hier zählt.** `go vet` und `go build` laufen sauber, und **ihr Baum ist
+unberührt**: ich habe mit `-o` nach `%TEMP%` gebaut, und die Gegenprobe zählt **7** Einträge unter
+`services/pmh-attach` **vorher und nachher**, `go.mod` unverändert, **keine** `go.sum`. Das Wegwerf-Binary
+ist gelöscht. Genau hier hätte ich schaden können.
+
+**Ein eigener Fehler, der mich selbst beschuldigt hätte.** Nach dem Bau schrieb ich „**vorher waren es
+5**" Einträge — und hätte daraus geschlossen, **mein** Bau habe zwei Dateien in ihren Baum geschrieben.
+**Die 5 war erfunden, nicht gemessen**: es sind **7**, vorher wie nachher. Aufgefallen ist es, weil ich
+die sieben Einträge **aufgelistet** habe, statt der Zahl zu glauben. **Vierte Fassung derselben Ursache**
+(12:28, 13:47, 15:02, jetzt).
+
+**Und eine Änderung an meiner eigenen Übersicht.** Die Lageübersicht hatte in §0 einen einzigen,
+inzwischen behobenen Fall in voller Länge — für einen Menschen, der **entscheiden** will, war das zu
+wenig. **§0 ist jetzt eine Handlungsliste**, nach **Wirkung** sortiert: neun Punkte, jeder mit **wer**,
+**warum zuerst** und dem **Befehl**, der ihn nachweist. Der alte §0 steht als „Rückblick" darunter —
+**nichts gelöscht**, nur umsortiert.
+
 ---
 
 ## Offen / nächster Takt
@@ -2221,6 +2263,8 @@ zusammenpaßten — **erst zählen, dann schließen**, zum vierten Mal in dieser
 | **B31** Sein eigenes Werkzeug warnt gegen seine eigenen Manifeste | **offen, klein — zwei Wege** | `bun run src/cli.ts list --root native --root services --root packages` meldet **sechsmal** `[unit_name_directory_mismatch]` (alle `native/*`: `"name"` ist `pmh-flock`, der Ordner heißt `flock`), `exit 0`. Die Registry begründet die Regel mit „der Ordner ist die Installation", und der **Import** leitet den Zielordner aus dem Unit-Namen ab (`…\registry\pmh-nix`) — ein Rundlauf aus `native/flock` landet also in `registry/pmh-flock`, der Pfad ändert sich. **Der Schaden ist die Gewohnheit:** sechs Warnungen je Lauf lehren überlesen. (a) Ordner umbenennen (sieben Arbeitsbereichsmitglieder mitziehen) oder (b) die Regel auf den Anwendungsbaum begrenzen |
 | **V4/V5** Nachweis von `unit-export` reproduziert | **bestätigt — und stärker als behauptet** | Rundlauf nachgefahren: Export-/Inhalts-Digest, 20 Dateien / 223'508 B und Rückexport **identisch** zum Dokument von 00:2x; mit festem `--created-at` sind die Bündel sogar **bit-gleich**, was §1 zu allgemein bestreitet und sein **eigener Test** behauptet. `bun test` → **158 pass · 0 fail · 380 Prüfaufrufe · 6 Dateien**, exit 0. Die Suite habe ich nach **seiner** §5-Regel gewählt (0 geänderte Dateien unter `packages/units/`) |
 | **B32** Anpassungen am DSH: gebaut, aber nicht in Kraft | **offen — Information an den Betreiber** | Der Checkout `deepseek-harness` trägt **10 unversionierte Änderungen** von **heute 10:19–10:45** (Modellkatalog auf `deepseek-flash`/`deepseek-v4-pro`, **Crew-Plugin** + 90 Zeilen Tests, UI-Modellauswahl; 473 Einfügungen). Die GUI läuft als `node --import tsx/esm apps/cli/src/bin.ts web`, **Start 09:39** — `tsx` liest die Quellen **beim Start**, ein `lib/`-Build wirkt für diesen Weg **nicht**. **Keine der zehn Änderungen ist in dieser Sitzung wirksam** (auch `crew_*` nicht); wirksam würden sie **nur beim nächsten Start** — den herbeizuführen ist **mir** verboten (H1). Der Zweig `dsh-custom` zeichnet nur den Stand vom **12.10.** auf; im Projekt steht davon **nichts**. Empfehlung: auf `dsh-custom` committen (Zweig existiert) + eine Zeile je Anpassung im Projekt, mit „wirkt erst nach Neustart" |
+| **B33** Der neue Anhängepunkt hat keinen Zaun | **offen, latent — zwei kleine Schritte** | `services/pmh-attach` prüft **eingehend nichts**: keine Authentifizierung (alle `Bearer`-Stellen betreffen den **Upstream**, der Dienst ist dort Client), kein Host-/Origin-Zaun (`conn.go` prüft nur das Upgrade — Protokoll, keine Autorisierung). Der **Kern daneben** hat beides. Gefährlich ist die **Kombination** `--allow-wildcard` (bindet `0.0.0.0`) **ohne** Credential. **Entlastung, gemessen:** Standardbindung `127.0.0.1`, läuft **nicht**, abhängigkeitsfrei, `go vet` exit 0. Empfehlung: Zaun des Kerns übernehmen + Wildcard an ein Token binden |
+| **V6** `pmh-attach` kompiliert sauber | **verifiziert** | `go vet ./...` → exit 0; `go build -o %TEMP%\…` → exit 0 (10.086.400 B). **Ihr Baum unberührt:** 7 Einträge unter `services/pmh-attach` vorher **und** nachher, `go.mod` unverändert, **keine** `go.sum` — das Wegwerf-Binary ist gelöscht |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |
