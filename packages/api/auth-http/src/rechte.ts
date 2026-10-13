@@ -37,23 +37,46 @@ import {
 /**
  * Baut den handelnden Akteur.
  *
- * **Warum das Harness-Home die Wurzel ist.** Ein Admin dieses Harness verwaltet
- * **das Harness** — sein Home ist der Bereich, den er schreiben darf. Die
- * Wurzeln der **Arbeitsbereiche** gehören hier bewußt nicht hinein: sie sind je
- * Arbeitsbereich verschieden und werden beim Zugriff auf einen konkreten Pfad
+ * ## Die Reihenfolge: erst das gespeicherte Profil, dann die Ableitung
+ *
+ * Bis Migration 0005 wurde die Isolation bei **jeder** Anfrage abgeleitet
+ * (`vorgabeProfil`/`adminProfil`) — es gab also gar keine Möglichkeit, einem
+ * Benutzer etwas anderes zu geben. Jetzt gilt:
+ *
+ * | Fall | Woher die Isolation kommt |
+ * |---|---|
+ * | es liegt ein Profil in `user_profiles` | **von dort**, wörtlich |
+ * | kein Profil | abgeleitet: `adminProfil([home])` bzw. `vorgabeProfil(home)` |
+ *
+ * **Warum das gespeicherte Profil gewinnt.** Ein abgeleitetes Profil ändert sich,
+ * wenn sich das Home ändert. Wer einem Benutzer ausdrücklich eine Schreibwurzel
+ * gegeben hat, soll sie nicht dadurch **verlieren**, daß jemand das Home verlegt
+ * — und erst recht nicht dadurch **gewinnen**, daß das Home größer wird.
+ *
+ * **Warum die Rolle NICHT aus dem Profil kommt.** Die Rolle steht in `users`,
+ * das Profil in `user_profiles` — zwei Tabellen, zwei Fragen. Ein Profil, das
+ * die Rolle mitbrächte, wäre eine zweite Stelle, an der „wer ist Admin" steht,
+ * und zwei Stellen laufen irgendwann auseinander. Das Recht, ein Konto
+ * anzulegen, prüft `darfAusfuehren` weiterhin über `akteur.rolle`.
+ *
+ * **Warum das Home die abgeleitete Wurzel ist.** Ein Admin dieses Harness
+ * verwaltet **das Harness** — sein Home ist der Bereich, den er schreiben darf.
+ * Die Wurzeln der **Arbeitsbereiche** gehören hier bewußt nicht hinein: sie sind
+ * je Arbeitsbereich verschieden und werden beim Zugriff auf einen konkreten Pfad
  * geprüft, nicht global erteilt. Ein Profil, das alle Arbeitsbereiche umfaßt,
  * wäre ein Freibrief — und ein Freibrief wird irgendwann an der falschen Stelle
  * benutzt.
  *
  * @param benutzer - der angemeldete Benutzer
- * @param home - das Harness-Home
+ * @param home - das Harness-Home (für die Ableitung, wenn kein Profil vorliegt)
+ * @param eigenesProfil - das gespeicherte Profil, falls vorhanden
  * @returns der Akteur mit seiner Isolation
  */
-export function akteurAus(benutzer: UserRecord, home: string): Akteur {
+export function akteurAus(benutzer: UserRecord, home: string, eigenesProfil?: Isolation): Akteur {
   return {
     userId: benutzer.id,
     rolle: benutzer.role,
-    isolation: benutzer.role === 'admin' ? adminProfil([home]) : vorgabeProfil(home),
+    isolation: eigenesProfil ?? (benutzer.role === 'admin' ? adminProfil([home]) : vorgabeProfil(home)),
   }
 }
 

@@ -335,6 +335,49 @@ describe('Der Akteur und sein Recht', () => {
     }
   })
 
+  test('ein GESPEICHERTES Profil gewinnt gegen die Ableitung', () => {
+    // **Das ist der Kern von Migration 0005.** Vorher wurde die Isolation bei
+    // jeder Anfrage abgeleitet — ein Benutzer konnte gar kein eigenes Profil
+    // haben. Jetzt gilt: liegt eines in `user_profiles`, kommt die Isolation von
+    // dort.
+    const eigenes = {
+      dateizugriff: 'read-write' as const,
+      lesewurzeln: ['/meine-lesewurzel'],
+      schreibwurzeln: ['/meine-schreibwurzel'],
+      netz: true,
+      prozesse: true,
+    }
+    const mit = akteurAus(benutzer('user'), home, eigenes)
+    const ohne = akteurAus(benutzer('user'), home)
+
+    expect(mit.isolation).toEqual(eigenes)
+    // Und ohne Profil gilt die Ableitung — die beiden unterscheiden sich also
+    // wirklich, sonst bewiese dieser Test nichts.
+    expect(ohne.isolation.schreibwurzeln).not.toEqual(eigenes.schreibwurzeln)
+    expect(ohne.isolation.netz).toBe(false)
+    expect(ohne.isolation.prozesse).toBe(false)
+  })
+
+  test('ein gespeichertes Profil kann einen Admin EINSCHRAENKEN', () => {
+    // **Die Richtung, die zählt.** Ein abgeleitetes Adminprofil umfaßt das Home.
+    // Ein gespeichertes Profil darf **weniger** erlauben — sonst wäre die Tabelle
+    // ein Weg, sich selbst mehr zu geben, als die Rolle hergibt.
+    const eng = {
+      dateizugriff: 'read-only' as const,
+      lesewurzeln: ['/nur-hier'],
+      schreibwurzeln: [],
+      netz: false,
+      prozesse: false,
+    }
+    const alsAdmin = akteurAus(benutzer('admin'), home, eng)
+    expect(alsAdmin.isolation).toEqual(eng)
+    expect(alsAdmin.isolation.schreibwurzeln).toEqual([])
+    // **Die Rolle bleibt unberührt.** Wer Admin ist, bleibt Admin — das Profil
+    // sagt nur, was er mit Dateien, Netz und Prozessen darf. Zwei Fragen, zwei
+    // Tabellen; siehe die Begründung an `akteurAus`.
+    expect(alsAdmin.rolle).toBe('admin')
+  })
+
   test('die Ansicht gibt nur die benannten Felder heraus', () => {
     // Was in einer Antwort steht, ist öffentlich. Eine benannte Auswahl ist eine
     // Stelle, an der man sieht, was hinausgeht.

@@ -46,7 +46,7 @@ import postgres from 'postgres'
 import { Argon2PasswordHasher, CSRF_COOKIE_NAME, MemoryRateLimiter } from '@prometheus-harness/auth'
 import { erzeugeClaim, erstinbetriebnahmeOffen, leseMaschinenbindung, leseOderErzeugeGeraeteId } from '@prometheus-harness/claim'
 import { migrate, type MigrationTarget } from '@prometheus-harness/db-schema'
-import { erzeugeSpeicher, type SqlZugang } from '@prometheus-harness/store-postgres'
+import { erzeugeSpeicher, speichereProfil, type SqlZugang } from '@prometheus-harness/store-postgres'
 import { wegAbmelden, wegAnmelden, wegIch, wegRegistrieren, type Weg } from '../src/http.ts'
 import { claimAblageImHome } from '../src/claim-ablage.ts'
 import {
@@ -91,6 +91,15 @@ let server: Server
 let basis: string
 let home: string
 let umg: Umgebung
+/**
+ * Derselbe Zugang, den die Umgebung benutzt — hier zusätzlich für die Prüfung.
+ *
+ * **Warum nicht `umg.speicher` dafür.** Der Speicher reicht für das Lesen, aber
+ * das **Schreiben** eines Profils ist eine eigene Funktion (`speichereProfil`),
+ * und die bekommt den Zugang, nicht den Speicher — wer ein Profil setzt, tut das
+ * ausdrücklich und nicht über die Speicher-Fassade.
+ */
+let zugang: SqlZugang
 
 /** Führt einen POST mit JSON-Körper aus und gibt Status und Körper zurück. */
 async function post(
@@ -189,11 +198,12 @@ beforeAll(async () => {
   // Spuren hängen per `ON DELETE CASCADE` bzw. `SET NULL` daran.
   await sql.unsafe('DELETE FROM users')
 
-  const zugang: SqlZugang = {
+  const zugangLokal: SqlZugang = {
     async unsafe(anweisung: string, werte: readonly unknown[] = []): Promise<unknown> {
       return await sql.unsafe(anweisung, werte as never[])
     },
   }
+  zugang = zugangLokal
 
   home = mkdtempSync(join(tmpdir(), 'pmh-tor-home-'))
   leseOderErzeugeGeraeteId(home)
@@ -503,6 +513,47 @@ run('Wer bin ich liefert die Isolation', () => {
     for (const wurzel of nutzerWurzeln) {
       expect(adminWurzeln.has(wurzel)).toBe(false)
     }
+  })
+
+  test('ein gespeichertes Profil erscheint in der Antwort von /me', async () => {
+    // **Der Beweis, daß Migration 0005 nicht nur eine Tabelle ist.** Die Kette:
+    // Profil in die Datenbank schreiben → anmelden → `GET /me` → die Isolation
+    // in der Antwort kommt **von dort** und nicht aus der Ableitung.
+    //
+    // Ohne diesen Test wäre die Tabelle ein Regal ohne Leser — genau das Muster,
+    // das wir an `claim` und `permissions` beklagt haben.
+    const sitzung = await anmelden(NUTZER_MAIL)
+    expect(sitzung.status).toBe(200)
+
+    // Vorher: die abgeleitete Isolation. Ein gewöhnlicher Benutzer darf schreiben
+    // — aber nur in SEINEM Bereich unter dem Home.
+    const vorher = await fetch(`${basis}${PFAD_ICH}`, { headers: { cookie: `pmh_session=${sitzung.token}` } })
+    const vorherWert = (await vorher.json()) as { value: { isolation: { schreibwurzeln: string[]; netz: boolean } } }
+    const abgeleitet = vorherWert.value.isolation.schreibwurzeln
+    expect(abgeleitet.length).toBeGreaterThan(0)
+    expect(vorherWert.value.isolation.netz).toBe(false)
+
+    // Jetzt ein eigenes Profil — deutlich enger als die Ableitung.
+    const userId = (await umg.speicher.benutzer.findByEmail(NUTZER_MAIL))?.id ?? ''
+    expect(userId).not.toBe('')
+    await speichereProfil(zugang, userId, {
+      dateizugriff: 'read-only',
+      lesewurzeln: ['/nur-hier'],
+      schreibwurzeln: [],
+      netz: false,
+      prozesse: false,
+    })
+
+    const nachher = await fetch(`${basis}${PFAD_ICH}`, { headers: { cookie: `pmh_session=${sitzung.token}` } })
+    expect(nachher.status).toBe(200)
+    const nachherWert = (await nachher.json()) as {
+      value: { isolation: { dateizugriff: string; lesewurzeln: string[]; schreibwurzeln: string[] } }
+    }
+    // **Die Werte kommen wörtlich aus der Zeile.** Nicht abgeleitet, nicht
+    // gemischt: `read-only`, genau eine Lesewurzel, keine Schreibwurzel.
+    expect(nachherWert.value.isolation.dateizugriff).toBe('read-only')
+    expect(nachherWert.value.isolation.lesewurzeln).toEqual(['/nur-hier'])
+    expect(nachherWert.value.isolation.schreibwurzeln).toEqual([])
   })
 
   test('die Anwendungsrolle darf Daten schreiben und KEIN Schema anlegen', async () => {

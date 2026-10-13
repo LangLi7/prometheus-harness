@@ -169,9 +169,50 @@ if (OHNE_ZUGANG !== undefined) {
 
 let sql: postgres.Sql
 
-beforeAll(() => {
+beforeAll(async () => {
   if (!adresseGesetzt(URL_FROM_ENV) || VERBINDUNG?.ok === false) return
   sql = postgres(URL_FROM_ENV, { max: 2, onnotice: () => undefined })
+
+  // ---------------------------------------------------------------------------
+  // DIE SICHERUNG: niemals gegen die Betriebsdatenbank
+  // ---------------------------------------------------------------------------
+  // **Warum sie hier stehen MUSS — und warum sie zuerst fehlte.**
+  //
+  // Dieser Test beginnt mit `DROP TABLE … CASCADE`. Er ist damit der einzige
+  // Test im Projekt, der eine Datenbank **abräumt**. Eine Sicherung gab es nur in
+  // `packages/auth/store-postgres/tests/postgres.test.ts` — dort greift sie, denn
+  // dieser Test bricht ab. **Der zerstörende Test hatte keine.**
+  //
+  // **Am 13.10.2026 ist genau das passiert.** Ein Aufruf von `bun test <datei>`
+  // aus dem Wurzelverzeichnis ohne gesetzte Umgebungsvariable: Bun lädt `.env`
+  // aus dem Arbeitsverzeichnis, darin zeigt `PMH_TEST_DATABASE_URL` auf die
+  // **Betriebsdatenbank** `pmh`. Gemessen danach:
+  //
+  //   auth_events   12  ->  0
+  //   auth_sessions  1  ->  0
+  //
+  // Verloren waren die Prüfspur und ein Prüfbenutzer — **Testdaten und eigene
+  // Nachweise, keine Betriebsdaten**. Der Schaden war klein, die Ursache nicht:
+  // derselbe Aufruf hätte alles abgeräumt, was je in dieser Datenbank steht.
+  //
+  // **Warum der Vergleich mit `DATABASE_URL` und nicht mit einem Namensmuster.**
+  // `_test` im Namen ist eine Konvention, die man bricht. `DATABASE_URL` ist
+  // **dieselbe Angabe, die die Anwendung benutzt** — zeigt sie auf dieselbe
+  // Datenbank, ist der Lauf ein Fehler und kein Testlauf.
+  const angabe = await sql.unsafe<{ db: string }[]>('SELECT current_database() AS db')
+  const hier = angabe[0]?.db ?? '?'
+  const betrieb = process.env.DATABASE_URL
+  if (adresseGesetzt(betrieb)) {
+    const nameDerAnwendung = new URL(betrieb).pathname.replace(/^\//u, '')
+    if (nameDerAnwendung !== '' && nameDerAnwendung === hier) {
+      await sql.end({ timeout: 5 })
+      throw new Error(
+        `ABBRUCH: dieser Test LÖSCHT ALLE TABELLEN und zeigt auf „${hier}" — dieselbe Datenbank wie die ` +
+          `Anwendung (DATABASE_URL). Er ist für eine Wegwerf-Datenbank gedacht: ` +
+          `setze PMH_TEST_DATABASE_URL auf eine andere Datenbank (siehe docs/status/mandantentrennung.md §10).`,
+      )
+    }
+  }
 })
 
 afterAll(async () => {
@@ -190,12 +231,12 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     `)
 
     const report = await migrate(target)
-    expect(report.applied).toEqual([1, 2, 3, 4])
+    expect(report.applied).toEqual([1, 2, 3, 4, 5])
     expect(report.version).toBe(SCHEMA_VERSION)
     expect(report.fresh).toBe(true)
   })
 
-  test('legt alle zehn Tabellen an — im Schema `pmh`, nicht in `public`', async () => {
+  test('legt alle elf Tabellen an — im Schema `pmh`, nicht in `public`', async () => {
     // **Warum `pmh` und nicht `public`.** Der Stack legt ein eigenes Schema an
     // (`docker/postgres-init/02-roles.sh`) und setzt den Suchpfad der Rollen auf
     // `pmh, public`. `public` ist in PostgreSQL der Ort, an dem jedes
@@ -222,6 +263,8 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
       'user_secrets',
       'users',
       'workspaces',
+      // **Neu mit Migration 0005.** Die Isolationsprofile je Benutzer.
+      'user_profiles',
     ]) {
       expect(tables).toContain(table)
     }

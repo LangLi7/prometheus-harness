@@ -108,10 +108,10 @@ describe('Migrationsliste prüfen', () => {
     expect(() => assertWellFormed([{ version: 1, name: 'x', sql: '   ' }])).toThrow('kein SQL')
   })
 
-  test('die echten Migrationen sind wohlgeformt und heißen 1 bis 4', () => {
+  test('die echten Migrationen sind wohlgeformt und heißen 1 bis 5', () => {
     expect(() => assertWellFormed(MIGRATIONS)).not.toThrow()
-    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4])
-    expect(SCHEMA_VERSION).toBe(4)
+    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5])
+    expect(SCHEMA_VERSION).toBe(5)
   })
 })
 
@@ -247,6 +247,8 @@ describe('Das echte Schema', () => {
       'user_secrets',
       'auth_events',
       'conversation_sessions',
+      // **Neu mit Migration 0005.** Die Isolationsprofile je Benutzer.
+      'user_profiles',
     ]) {
       expect({ table, created: created.has(table) }).toEqual({ table, created: true })
     }
@@ -259,6 +261,7 @@ describe('Das echte Schema', () => {
       'messages',
       'one_time_tokens',
       'sessions',
+      'user_profiles',
       'user_secrets',
       'users',
       'workspaces',

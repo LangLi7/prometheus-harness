@@ -151,7 +151,7 @@ export const MIGRATIONSTABELLE = 'schema_migrations'
  *
  * ```
  * $ docker exec pmh-postgres psql -U pmh_app -d pmh -t -c "select version from schema_migrations order by version desc limit 1;"
- *   4
+ *   5
  * ```
  *
  * **Was hier bewußt nicht steht: ein Import von `@prometheus-harness/db-schema`.**
@@ -164,7 +164,7 @@ export const MIGRATIONSTABELLE = 'schema_migrations'
  * weil ein Import am Typsystem scheitert (sechs `TS2307` — die `.sql`-Deklaration
  * von `db-schema` ist im Programm von `readiness` nicht enthalten).
  */
-export const ERWARTETE_SCHEMAFASSUNG = 4
+export const ERWARTETE_SCHEMAFASSUNG = 5
 
 /**
  * Die Tabellen, ohne die die Anwendung nicht arbeiten kann.
@@ -188,6 +188,12 @@ export const KERN_TABELLEN: readonly string[] = [
   'messages',
   'auth_sessions',
   'conversation_sessions',
+  // **`user_profiles` steht hier bewusst NICHT.** Diese Liste sind die Tabellen,
+  // **ohne die die Anwendung nicht arbeiten kann**. Fehlt ein Profil, gilt das
+  // Vorgabeprofil (`vorgabeProfil`) — die Anmeldung und jede Handlung
+  // funktionieren weiter. Eine Tabelle in diese Liste aufzunehmen, die fehlen
+  // darf, machte die Bereitschaftssonde **strenger als die Wirklichkeit**: sie
+  // meldete dann 503 für eine Datenbank, mit der alles läuft.
 ]
 
 /**

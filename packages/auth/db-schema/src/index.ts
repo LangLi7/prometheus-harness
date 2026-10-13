@@ -30,6 +30,7 @@ import m0001 from '../migrations/0001_identitaet.sql' with { type: 'text' }
 import m0002 from '../migrations/0002_workspaces_chats.sql' with { type: 'text' }
 import m0003 from '../migrations/0003_sitzungen_und_gespraeche.sql' with { type: 'text' }
 import m0004 from '../migrations/0004_mandantentrennung.sql' with { type: 'text' }
+import m0005 from '../migrations/0005_benutzerprofile.sql' with { type: 'text' }
 
 // ---------------------------------------------------------------------------
 // Migrationstyp
@@ -61,6 +62,10 @@ export const MIGRATIONS: readonly Migration[] = [
   // Begruendung und der Fallstrick mit `ON DELETE SET NULL` stehen im Kopf der
   // Datei; die Probe ist `tests/proben/mandantentrennung.sql`.
   { version: 4, name: 'mandantentrennung-an-fremdschluesseln', sql: m0004 },
+  // Die Isolation je Benutzer wird dauerhaft. Die Bedingungen spiegeln
+  // `SandboxPolicy::validate()` aus `services/pmh-sandbox` — ein hier
+  // gespeichertes Profil darf der Dienst nicht ablehnen.
+  { version: 5, name: 'benutzerprofile-isolation-je-benutzer', sql: m0005 },
 ]
 
 /** Die Fassung, die dieses Paket erzeugt — die höchste Migrationsnummer. */

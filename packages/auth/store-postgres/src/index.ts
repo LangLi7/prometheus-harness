@@ -45,6 +45,11 @@ import type {
   UserRecord,
   UserStore,
 } from '@prometheus-harness/auth'
+// **Die Isolation kommt aus `permissions`.** Sie ist genau die Form der Spalten
+// dieser Tabelle — und `Isolation` sagt über sich selbst, es seien „genau die
+// Felder von `SandboxPolicy`" aus `services/pmh-sandbox`. Ein eigener,
+// gleich aussehender Typ hier wäre eine zweite Wahrheit über dieselbe Sache.
+import type { Dateizugriff, Isolation } from '@prometheus-harness/permissions'
 
 // ---------------------------------------------------------------------------
 // Der Datenbankzugang
@@ -488,6 +493,94 @@ export function erzeugeSpurensenke(sql: SqlZugang): AuthEventSink {
 // Alles zusammen
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Das Isolationsprofil
+// ---------------------------------------------------------------------------
+
+/**
+ * Liest das Isolationsprofil eines Benutzers.
+ *
+ * **Warum `undefined` ein gültiges Ergebnis ist.** Ein Benutzer **ohne** Profil
+ * ist der Normalfall — die Tabelle wird nur gefüllt, wenn jemand eine andere
+ * Isolation braucht als die Vorgabe. Wer kein Profil hat, bekommt das
+ * Vorgabeprofil; das entscheidet der Aufrufer, nicht der Speicher.
+ *
+ * @param sql - der Datenbankzugang
+ * @param userId - der Benutzer
+ * @returns das Profil oder `undefined`
+ */
+export async function ladeProfil(sql: SqlZugang, userId: string): Promise<Isolation | undefined> {
+  const gefunden = await zeilen<{
+    dateizugriff: string
+    lesewurzeln: string[]
+    schreibwurzeln: string[]
+    netz: boolean
+    prozesse: boolean
+  }>(
+    sql,
+    `SELECT dateizugriff, lesewurzeln, schreibwurzeln, netz, prozesse
+       FROM user_profiles WHERE user_id = $1`,
+    [userId],
+  )
+  const zeile = gefunden[0]
+  if (zeile === undefined) return undefined
+
+  // **Die Werte kommen aus einer Spalte mit Prüfregel.** `dateizugriff` ist durch
+  // `user_profiles_dateizugriff_known` auf die drei Langformen festgelegt, die
+  // `FileAccess::parse` annimmt. Ein `as` an dieser Stelle ist deshalb keine
+  // Behauptung, sondern die Fortsetzung einer Zusicherung, die die Datenbank
+  // gibt — und die Probe `tests/proben/benutzerprofile.sql` weist nach, daß sie
+  // wirklich greift.
+  return {
+    dateizugriff: zeile.dateizugriff as Dateizugriff,
+    lesewurzeln: zeile.lesewurzeln,
+    schreibwurzeln: zeile.schreibwurzeln,
+    netz: zeile.netz,
+    prozesse: zeile.prozesse,
+  }
+}
+
+/**
+ * Schreibt das Isolationsprofil eines Benutzers — anlegend oder ersetzend.
+ *
+ * **Warum ein `UPSERT` und kein getrenntes Anlegen/Ändern.** Der Aufrufer will
+ * eine Sache: „dieser Benutzer soll **so** isoliert sein". Ob das Profil schon
+ * existierte, ist für ihn ohne Belang — und zwei Wege hieße, daß ein Aufrufer den
+ * falschen erwischt und dabei einen Fehler bekommt, der nach einem Rechteproblem
+ * aussieht.
+ *
+ * **Was der Dienst dazu sagt.** Die Prüfregeln der Tabelle spiegeln
+ * `SandboxPolicy::validate()`; ein widersprüchliches Profil wird hier
+ * **abgelehnt**, nicht gespeichert. Der Fehler kommt damit von der Stelle, die
+ * ihn verursacht hat.
+ *
+ * @param sql - der Datenbankzugang
+ * @param userId - der Benutzer
+ * @param isolation - das Profil
+ */
+export async function speichereProfil(sql: SqlZugang, userId: string, isolation: Isolation): Promise<void> {
+  await ausfuehren(
+    sql,
+    `INSERT INTO user_profiles (user_id, dateizugriff, lesewurzeln, schreibwurzeln, netz, prozesse)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (user_id) DO UPDATE
+       SET dateizugriff = EXCLUDED.dateizugriff,
+           lesewurzeln = EXCLUDED.lesewurzeln,
+           schreibwurzeln = EXCLUDED.schreibwurzeln,
+           netz = EXCLUDED.netz,
+           prozesse = EXCLUDED.prozesse,
+           updated_at = now()`,
+    [
+      userId,
+      isolation.dateizugriff,
+      [...isolation.lesewurzeln],
+      [...isolation.schreibwurzeln],
+      isolation.netz,
+      isolation.prozesse,
+    ],
+  )
+}
+
 /** Die drei Speicher, die der Regelkern braucht. */
 export interface AuthSpeicher {
   readonly benutzer: UserStore
@@ -511,6 +604,16 @@ export interface AuthSpeicher {
    * gibt es" ist eine Frage an den **Speicher**, nicht eine Regel der Anmeldung.
    */
   readonly anzahlAdmins: () => Promise<number>
+  /**
+   * Liest das Isolationsprofil eines Benutzers.
+   *
+   * **Warum `undefined` und kein Vorgabeprofil.** Der Speicher kennt kein
+   * Harness-Home und soll keines kennen — das Vorgabeprofil hängt am Home
+   * (`vorgabeProfil(home)`) und ist damit eine Entscheidung des Aufrufers.
+   * Ein Speicher, der bei fehlendem Profil selbst eines erfindet, hätte eine
+   * Meinung, die ihm nicht gehört.
+   */
+  readonly ladeProfil: (userId: string) => Promise<Isolation | undefined>
 }
 
 /**
@@ -552,5 +655,6 @@ export function erzeugeSpeicher(sql: SqlZugang): AuthSpeicher {
     sitzungen: erzeugeSessionStore(sql),
     spur: erzeugeSpurensenke(sql),
     anzahlAdmins: () => zaehleAdmins(sql),
+    ladeProfil: (userId) => ladeProfil(sql, userId),
   }
 }

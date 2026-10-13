@@ -585,11 +585,17 @@ export async function werBinIch(umg: Umgebung, eingabe: { readonly token: string
   // sind. Geraten wird falsch — und dann versucht sie etwas, das abgewiesen wird,
   // oder sie läßt etwas bleiben, das erlaubt gewesen wäre.
   //
+  // **Seit Migration 0005 kommt sie aus der Datenbank, wenn dort ein Profil
+  // liegt.** Bis dahin wurde sie bei jeder Anfrage abgeleitet; ein Benutzer
+  // konnte also gar kein eigenes Profil haben. Gibt es keines, gilt weiter die
+  // Ableitung — siehe `akteurAus`.
+  //
   // **Warum eine eigene Ansicht und nicht die Isolation selbst.** Was in einer
   // Antwort steht, ist öffentlich. Eine benannte Auswahl ist eine Stelle, an der
   // man sieht, was hinausgeht; ein durchgereichtes Objekt ist eine, an der man es
   // nicht sieht. Siehe `isolationAnsicht`.
-  const akteur = akteurAus(benutzer, umg.home)
+  const eigenesProfil = await umg.speicher.ladeProfil(benutzer.id)
+  const akteur = akteurAus(benutzer, umg.home, eigenesProfil)
   return gut({
     id: benutzer.id,
     email: benutzer.email,

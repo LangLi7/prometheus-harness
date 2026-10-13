@@ -24,6 +24,8 @@ import {
   erzeugeSpurensenke,
   erzeugeUserStore,
   istDoppelt,
+  ladeProfil,
+  speichereProfil,
   zaehleAdmins,
   type SqlZugang,
 } from '../src/index.ts'
@@ -322,6 +324,95 @@ describe('Benutzer suchen', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Das Isolationsprofil
+// ---------------------------------------------------------------------------
+
+describe('Isolationsprofil lesen und schreiben', () => {
+  test('ohne Profil kommt undefined — kein erfundenes Vorgabeprofil', async () => {
+    // **Warum das geprüft wird.** Ein Speicher, der bei fehlendem Profil selbst
+    // eines erfindet, hätte eine Meinung, die ihm nicht gehört: das
+    // Vorgabeprofil hängt am Harness-Home (`vorgabeProfil(home)`), und das kennt
+    // der Speicher nicht.
+    expect(await ladeProfil(attrappe([[]]), '11111111-1111-4111-8111-111111111111')).toBeUndefined()
+  })
+
+  test('liest die Zeile wörtlich in eine Isolation', async () => {
+    const sql = attrappe([
+      [
+        {
+          dateizugriff: 'read-write',
+          lesewurzeln: ['/lesen'],
+          schreibwurzeln: ['/schreiben'],
+          netz: true,
+          prozesse: false,
+        },
+      ],
+    ])
+    expect(await ladeProfil(sql, '11111111-1111-4111-8111-111111111111')).toEqual({
+      dateizugriff: 'read-write',
+      lesewurzeln: ['/lesen'],
+      schreibwurzeln: ['/schreiben'],
+      netz: true,
+      prozesse: false,
+    })
+    // Und die Abfrage holt genau die fünf Felder — nicht mehr.
+    expect(sql.aufrufe[0]?.anweisung).toContain('FROM user_profiles WHERE user_id = $1')
+  })
+
+  test('schreibt anlegend ODER ersetzend — in EINER Anweisung', async () => {
+    // **Warum ein UPSERT.** Der Aufrufer will „dieser Benutzer soll so isoliert
+    // sein". Ob das Profil schon existierte, ist für ihn ohne Belang — zwei Wege
+    // hießen, daß ein Aufrufer den falschen erwischt und einen Fehler bekommt,
+    // der nach einem Rechteproblem aussieht.
+    const sql = attrappe([[]])
+    await speichereProfil(sql, '11111111-1111-4111-8111-111111111111', {
+      dateizugriff: 'read-only',
+      lesewurzeln: ['/wurzel'],
+      schreibwurzeln: [],
+      netz: false,
+      prozesse: false,
+    })
+    const anweisung = sql.aufrufe[0]?.anweisung ?? ''
+    expect(anweisung).toContain('ON CONFLICT (user_id) DO UPDATE')
+    expect(anweisung).toContain('updated_at = now()')
+  })
+
+  test('übergibt die Wurzeln als Liste und nicht als Zeichenkette', async () => {
+    // Ein `text[]`-Parameter muß ein Feld sein. Wer hier eine Zeichenkette
+    // übergibt, bekommt entweder einen Fehler oder — schlimmer — einen
+    // **einzigen** Eintrag, der die ganze Liste als Text enthält.
+    const sql = attrappe([[]])
+    await speichereProfil(sql, '11111111-1111-4111-8111-111111111111', {
+      dateizugriff: 'read-write',
+      lesewurzeln: ['/a', '/b'],
+      schreibwurzeln: ['/c'],
+      netz: true,
+      prozesse: true,
+    })
+    const werte = sql.aufrufe[0]?.werte ?? []
+    expect(Array.isArray(werte[2])).toBe(true)
+    expect(werte[2]).toEqual(['/a', '/b'])
+    expect(Array.isArray(werte[3])).toBe(true)
+    expect(werte[3]).toEqual(['/c'])
+    expect(werte[1]).toBe('read-write')
+  })
+
+  test('die Umdeutung des Zugriffsgrades steht an EINER Stelle', async () => {
+    // `dateizugriff` kommt als Text aus der Datenbank und wird zur `Dateizugriff`
+    // genannten Aufzählung. Das ist keine Behauptung: die Spalte ist durch
+    // `user_profiles_dateizugriff_known` auf die drei Werte festgelegt, und die
+    // Probe `tests/proben/benutzerprofile.sql` weist nach, daß die Regel greift.
+    for (const wert of ['none', 'read-only', 'read-write'] as const) {
+      const sql = attrappe([
+        [{ dateizugriff: wert, lesewurzeln: [], schreibwurzeln: [], netz: false, prozesse: false }],
+      ])
+      const gelesen = await ladeProfil(sql, '11111111-1111-4111-8111-111111111111')
+      expect(gelesen?.dateizugriff).toBe(wert)
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Sitzungen
 // ---------------------------------------------------------------------------
 
@@ -494,5 +585,17 @@ describe('erzeugeSpeicher', () => {
     await speicher.sitzungen.findById('33333333-3333-4333-8333-333333333333')
     await speicher.spur.record({ kind: 'logout' })
     expect(sql.aufrufe).toHaveLength(3)
+  })
+
+  test('und dazu die zwei, die der Benutzer selbst braucht', async () => {
+    // `anzahlAdmins` (ist noch jemand da, der verwalten darf?) und `ladeProfil`
+    // (hat dieser Benutzer ein eigenes Isolationsprofil?) — beide hängen an
+    // derselben Verbindung.
+    const sql = attrappe([[{ n: 0 }], []])
+    const speicher = erzeugeSpeicher(sql)
+    expect(typeof speicher.anzahlAdmins).toBe('function')
+    expect(typeof speicher.ladeProfil).toBe('function')
+    expect(await speicher.anzahlAdmins()).toBe(0)
+    expect(await speicher.ladeProfil('11111111-1111-4111-8111-111111111111')).toBeUndefined()
   })
 })
