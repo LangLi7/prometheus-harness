@@ -3,10 +3,10 @@
  *
  * ## Warum es einen Sammelläufer gibt
  *
- * 9 Ordner liegen in `benchmarks/`, davon sind 8 Gates und 1 Werkzeugordner
- * (`support`). Von den 8 Gates laufen 2, die übrigen 6 brauchen den **laufenden
- * Agenten**. Ein Sammelläufer, der trotzdem alle 8 aufriefe, würde 6 Fehler
- * melden und die 2 echten Befunde darin begraben. Deshalb führt er **nur die
+ * 10 Ordner liegen in `benchmarks/`, davon sind 9 Gates und 1 Werkzeugordner
+ * (`support`). Von den 9 Gates laufen 3, die übrigen 6 brauchen den **laufenden
+ * Agenten**. Ein Sammelläufer, der trotzdem alle 9 aufriefe, würde 6 Fehler
+ * melden und die 3 echten Befunde darin begraben. Deshalb führt er **nur die
  * lauffähigen** aus und **nennt die übrigen mit ihrem Grund**.
  *
  * **Warum die leeren nicht stillschweigend fehlen.** Wer `bun run bench` aufruft
@@ -54,7 +54,12 @@ export const GATES = [
   {
     ordner: 'messtechnik',
     laeuft: true,
-    was: 'den Meßaufbau selbst: Skalierung, Auflösungsgrenze, Aufwärmphase, Statistik',
+    was: 'den Meßaufbau selbst: Skalierung, Auflösungsgrenze, Aufwärmphase, Statistik, Schreibarten',
+  },
+  {
+    ordner: 'db-last',
+    laeuft: true,
+    was: 'die Schreiblast des PostgreSQL-Schemas: Kosten des Zähler-UPDATE je Nachricht',
   },
   {
     ordner: 'conversation-fold',

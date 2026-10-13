@@ -45,7 +45,8 @@ because a measurement went wrong without it:
 | Gate | Measures | Status |
 |---|---|---|
 | `session-open` | write, read, parse, and fold a session | **runs** |
-| `messtechnik` | the measurement rig itself: separation of linear from quadratic work, resolution floor, warm-up effect, statistics on live numbers | **runs** |
+| `messtechnik` | the measurement rig itself: separation of linear from quadratic work, resolution floor, warm-up effect, statistics on live numbers, and the four ways of getting an event stream onto disk | **runs** |
+| `db-last` | the write load of the PostgreSQL schema: what the per-message counter `UPDATE` costs. Creates its own throwaway database, runs the scenarios, and drops it again | **runs** (needs the project stack) |
 | `conversation-fold` | folding a long transcript in the browser | blocked — needs the conversation UI |
 | `agent-continuation` | resuming an interrupted agent turn | blocked — needs the chain wired into an application |
 | `active-stream-reconnect` | stream recovery after a dropped connection | blocked — needs a live Remote stream |

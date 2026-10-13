@@ -16,15 +16,25 @@
 
 ## 1. Kurzfassung
 
-**Bei zehn Benutzern ist die Datenbank nicht der Engpass.** Gemessen trägt sie **~8 000
-Einfügungen je Sekunde** und **~16 000 Sitzungen je Sekunde**. Der Engpass liegt woanders:
+**Bei zehn Benutzern ist die Datenbank nicht der Engpass.** Gemessen trägt sie **~9 400
+Einfügungen je Sekunde** (nachfahrbarer Lauf; die erste Messung ergab 8 030) und **~16 000
+Sitzungen je Sekunde**. Der Engpass liegt woanders:
 
-1. **Der Schreibpfad der Sitzungsdatei** ist **64× teurer als nötig** — und er ist
+1. **Der Schreibpfad der Sitzungsdatei** ist **66× teurer als nötig** — und er ist
    synchron im Pfad jedes Agentenschritts.
 2. **Ein `UPDATE` je Nachricht auf die Chat-Zeile** kostet **88 % des Durchsatzes**
-   (8 030 → 938 tps, Faktor **8,6**). Das ist selbst zugefügt.
+   (9 357 → 1 165 tps). **Und zwar, sobald jemand ihn schreibt** — heute schreibt ihn
+   **niemand** (Befund B41): die Spalten sind da, der Code fehlt, und eine Chat-Liste darauf
+   zeigt heute **0 und NULL** statt „langsam". Siehe §4.
 3. **Die Verbindungsgrenze** ist bei **100** (97 nutzbar). Eine Verbindung je Agent ist
    damit der erste harte Deckel, lange bevor die Datenbank müde wird.
+
+**Die Zahlen sind nachfahrbar** — `bun benchmarks/db-last/lauf.mjs` legt die Wegwerf-Datenbank
+selbst an, fährt die Szenarien und räumt auf. Das war eine Auflage der Aufsicht
+(Verifikation **V13**): die erste Fassung dieses Dokuments nannte ein Verfahren, aber
+**kein Skript lag im Baum**, und die Wegwerf-Datenbank war gelöscht. Nachprüfbarkeit ist keine
+Höflichkeit — die drei Korrekturen, die der zweite Lauf an **meinen eigenen** Aussagen ergab,
+stehen in §4.
 
 **Der Unteragenten-Fall skaliert vorbildlich** — der Selbstbezug der Sitzung kostet nichts
 (gemessen **16 462 tps** bei 40 gleichzeitigen Unteragenten am selben Elternteil).
@@ -111,13 +121,50 @@ normale Sättigungskurve, kein Fehler.
 Zeile in `chats` ändern; PostgreSQL serialisiert sie. Der Einfügevorgang selbst ist mit
 8 030 tps **8,6× billiger** als der Zähler, der ihn begleitet.
 
-**Zweiter, kleinerer Effekt: `updated_at` ist indiziert.** Gemessen 13,1 % HOT-Anteil
-(`n_tup_upd` 104 582, `n_tup_hot_upd` 13 663) — jede Änderung an `updated_at` muß den Index
-`chats_user_recent_idx` mitziehen und kann deshalb **kein** HOT-Update sein. Das kostet weitere
-17 % (938 → 775 tps). Dazu kommt: `last_message_id`, `last_message_at`, `message_count` sind
-**Denormalisierungen**, die nur die Chat-Liste bedienen — und der Bestand hat dafür bereits
-einen `EXPLAIN`-Nachweis („die Chat-Liste kommt ohne die Nachrichtentabelle aus"). Sie sind
-also **beabsichtigt**, aber sie werden am falschen Ort und zu oft gepflegt.
+### Nachtrag: nachfahrbar gemacht, und dabei drei eigene Fehler gefunden
+
+**Die Aufsicht konnte diese Zahlen nicht nachprüfen** (Verifikation **V13**): die
+Wegwerf-Datenbank war gelöscht, und die `pgbench`-Skripte lagen in `/tmp` **innerhalb** des
+Containers. Das Verfahren war beschrieben, aber **kein Skript lag im Baum** — die Zahlen waren
+damit Behauptungen mit einem Verfahrensanhang. Das ist jetzt behoben:
+**`benchmarks/db-last/lauf.mjs`** legt die Wegwerf-Datenbank selbst an, fährt die Szenarien,
+meldet die Zahlen und räumt wieder auf. Wer zweifelt, ruft es auf.
+
+**Der wiederholte Lauf — und was er an meinen eigenen Aussagen widerlegt hat:**
+
+| | erste Messung | nachfahrbarer Lauf |
+|---|---|---|
+| nur Einfügen | 8 030 tps | **9 357 tps** |
+| + Zähler | 938 tps | **1 165 tps** — Verlust **88 %** ✓ |
+| + indizierter `updated_at` | 775 tps (**schlechter**) | 1 207 tps (**besser**) |
+| Zähler auf eine **nicht getroffene** Zeile | nicht gemessen | **8 462 tps** |
+
+**Drei Korrekturen, alle an mir:**
+
+1. **Der Zusatzaufwand des indizierten `updated_at` ist NICHT reproduzierbar.** Der zweite Lauf
+   ergab für `updated_at` **1 207 tps gegen 1 165 tps** — also *schneller*, nicht langsamer. Der
+   im ersten Lauf gemessene Unterschied (938 → 775) lag **im Rauschen**. Die Aussage
+   *„das kostet weitere 17 %"* ist damit **zurückgezogen**. Was bleibt, ist der HOT-Anteil als
+   **struktureller** Grund (13,06 %, nachgerechnet von der Aufsicht; `chats_user_recent_idx`
+   liegt auf `updated_at`), nicht als gemessener Aufschlag.
+
+2. **Die Gegenprobe beweist den Mechanismus.** Ein `UPDATE`, das **keine** Zeile trifft, kostet
+   fast nichts: **8 462 tps, 1,18 ms** gegen 1 165 tps, 8,58 ms. Damit ist es **die Zeilensperre**
+   und nicht das `UPDATE` selbst — sauberer belegt als durch den Vergleich zweier Szenarien.
+
+3. **„Das ist selbst zugefügt" war falsch — die Richtung ist umgekehrt** (Befund **B41** der
+   Aufsicht). Gemessen im **ganzen Baum**: `message_count`, `last_message_id` und
+   `last_message_at` kommen **sechsmal** vor — fünfmal in der Migration `0002`, einmal **lesend**
+   in einem Test. **Kein INSERT, kein UPDATE, kein Trigger** (`pg_trigger` leer). **Heute zahlt
+   also niemand diese Kosten.** Die 88 % sind nicht ein selbst zugefügter Schaden, sondern der
+   **Preis einer Absicht**, die noch nicht umgesetzt ist.
+
+**Und der reale Fehler ist der umgekehrte, kleinere und dringendere:** `message_count` ist
+`NOT NULL DEFAULT 0`, `last_message_at` ist `NULL`. Eine Chat-Liste, die darauf gebaut wird,
+zeigt **0 und NULL** — nicht „langsam". Das ist dieselbe Klasse wie Befund **B14**: das Schema
+ist da, der Code fehlt. **Die Entscheidung ist deshalb nicht „später optimieren", sondern
+jetzt:** pflegen (dann **je Turn**, siehe unten) **oder streichen** (`DROP`) — aber nicht
+stehen lassen und die Liste darauf stützen.
 
 **Die kleinste wirksame Behebung — drei Stufen, nach Wirkung:**
 
@@ -126,7 +173,8 @@ also **beabsichtigt**, aber sie werden am falschen Ort und zu oft gepflegt.
    Das allein holt den Faktor 8,6 fast vollständig zurück.
 2. **`updated_at` aus dem Index nehmen** — oder in der Liste nach `last_message_at`
    sortieren und dafür einen Index bauen, der beim Zähler-Update **nicht** berührt wird. Dann
-   sind HOT-Updates möglich.
+   sind HOT-Updates möglich. **Dieser Punkt ist nach dem zweiten Lauf schwächer begründet als
+   zuvor** — er bleibt als strukturelle Überlegung stehen, nicht als gemessener Gewinn.
 3. **Wenn beides nicht reicht:** die Zähler in eine eigene Tabelle auslagern, damit die heiße
    Zeile nicht die ist, die die Liste liest.
 

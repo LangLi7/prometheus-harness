@@ -165,28 +165,64 @@ und genau das ist die Ebenen-Unterscheidung aus diesem Abschnitt.
 
 > „All look-up secrets **SHALL** be stored in a hashed form using an approved hashing
 > function."
-> — [NIST SP 800-63B §5.1.1.2](https://pages.nist.gov/800-63-4/sp800-63b.html#lookupver)
+> — NIST SP 800-63B **§5.1.2.2 „Look-Up Secret Verifiers"**
+> ([NIST SP 800-63-4, §5.1.2.2](https://pages.nist.gov/800-63-4/sp800-63b.html))
 
-**Und ein *schneller* Hash ist hier richtig — mit einer Bedingung:**
+**Zwei Korrekturen an dieser Fundstelle, beide von der Aufsicht (Befund B39) — und beide
+waren meine Fehler.** Die erste Fassung nannte **§5.1.1.2**; das ist „**Memorized Secret
+Verifiers**", also die **Paßwort**-Regel, nicht die für Nachschlage-Geheimnisse. Die Regel
+für Look-up-Secrets steht in **§5.1.2.2**, und NISTs eigenes Konformitätsdokument zitiert sie
+als „(5.1.2.2)". Zweitens war die **Fassung gemischt**: der Wortlaut stammt aus **Revision 4**,
+die Nummer wurde wie Revision 3 gelesen. **Ein Beleg, der nicht trägt, unter einer
+Entwurfsentscheidung, ist genau die Klasse, die dieses Projekt bei anderen beanstandet.**
 
-> „A standard hash function can be used if the secret has **112 bits of entropy or more.**"
+**Und ein *schneller* Hash ist hier richtig — mit einer Bedingung, die ZWEI Sätze hat:**
+
+> „**If [a look-up secret] is hashed, it SHALL be salted and the hash SHALL be computed with
+> an approved password hashing algorithm** … A standard hash function can be used if the
+> secret has **112 bits of entropy or more.**"
 > — OWASP ASVS 6.5.2
+
+**Der erste Satz ist der bindende, und die erste Fassung zitierte nur den zweiten.**
+Das war eine Verkürzung zu meinen Gunsten: der Standard **verlangt** unterhalb von 112 Bit
+ein **Paßwort**-Hashverfahren und **erlaubt** den schnellen Hash erst **darüber**. Wer nur
+den zweiten Satz liest, hört „schneller Hash ist in Ordnung" und überhört die Bedingung —
+die dann zur bloßen Fußnote wird. Hier steht sie als das, was sie ist: **eine Voraussetzung.**
 
 > „Unlike passwords, API keys are high-entropy random strings, so you do not need a slow hash
 > like bcrypt. **There is nothing to brute-force when the input space is 2^128 or larger.**"
 > — [apikeys.guide, Validation and Lookup](https://apikeys.guide/docs/implementation/validation-and-lookup)
 
-**Der Bestand erfüllt das.** Gemessen: `api_keys` hat `key_id` (Klartext-Präfix) und
-`token_hash` (`^[0-9a-f]{64}$`, also SHA-256) — **keine** Klartextspalte. Ein
-Datenbank-Administrator liest dort nichts Verwertbares. Dasselbe gilt für Sitzungs- und
-CSRF-Token: 32 Zufallsbytes aus `crypto.getRandomValues`, als SHA-256 abgelegt.
+**Der Bestand erfüllt das — gemessen, nicht angenommen.** `api_keys` hat `key_id`
+(Klartext-Präfix) und `token_hash` (`^[0-9a-f]{64}$`, also SHA-256) — **keine**
+Klartextspalte. Ein Datenbank-Administrator liest dort nichts Verwertbares. Und die Entropie
+ist **vorhanden**: `randomToken(bytes = 32)` (`packages/auth/auth/src/index.ts:342`) zieht
+**32 Bytes aus `crypto.getRandomValues`** = **256 Bit**; `newSessionToken()` (`:385`) und
+`newCsrfPair()` (`:397`) rufen es mit 32 auf; `tokenHash()` (`:365`) ist SHA-256 hex.
 
-**Die Bedingung, die noch nicht erfüllt ist — und sie ist der ganze Unterschied.**
-Die 112 Bit sind eine **Voraussetzung**, keine Begründung. Heute gibt es **keinen**
-Schlüsselerzeuger (gemessen: 0 Treffer; nur `newSessionToken` und `newCsrfPair` existieren).
-Wer einen Schlüssel mit 40 Bit Entropie ausstellt, hat einen Hash — und einen, den ein
-Administrator in Sekunden zurückrechnet. **Die Entropie muß im Erzeuger erzwungen werden**,
-sonst ist die ganze Begründung hohl.
+**Was fehlt, ist nicht die Entropie — es ist ihre ERZWINGUNG.** Das ist die zweite Korrektur
+der Aufsicht (Befund **B40**), und sie geht gegen meine eigene Formulierung: die erste Fassung
+schrieb, die Bedingung sei „noch nicht erfüllt". **Sie ist erfüllt** — mit **256 Bit gegen
+geforderte 112**. Falsch war der Schluß, nicht der Bestand.
+
+**Der wirkliche Mangel, in einem Satz:** `randomToken` prüft nur `bytes >= 1`. **`randomToken(4)`
+wäre heute gültig** — 32 Bit, und damit ein Hash, den ein Administrator in Sekunden
+zurückrechnet. Und **kein Test hält ≥ 112 Bit fest**. Die ganze Begründung dieses Abschnitts
+hängt damit an einer Zahl, die **nirgends zugesichert** ist.
+
+**Die Behebung ist deshalb eine Zeile, kein neuer Erzeuger:**
+
+```ts
+// In randomToken: die Untergrenze ist keine Bequemlichkeit, sondern die Bedingung,
+// unter der ein schneller Hash überhaupt zulässig ist (ASVS 6.5.2: 112 Bit).
+if (bytes < 16) {
+  throw new RangeError(`Zufallsbytes müssen ≥ 16 sein (128 Bit) — ist ${String(bytes)}`)
+}
+```
+
+Dazu ein Längentest, der die Bit-Zahl **festhält** statt sie zu behaupten. Das ist derselbe
+Unterschied wie beim Befund B16: **„nicht geprüft" ist nicht „nicht vorhanden"** — und im
+Umkehrschluß: **„vorhanden" ist nicht „zugesichert".**
 
 **Der Entwurf.**
 
