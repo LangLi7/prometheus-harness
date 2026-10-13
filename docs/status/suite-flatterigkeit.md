@@ -1,7 +1,7 @@
 # Die Prüfsuite flattert — belegt, aber nicht erklärt
 
-> **Stand:** 13.10.2026 · **Status:** offener Befund. Die Zahlen sind gemessen, die
-> **Ursache ist es nicht** — sie steht als Verdacht da und ist so gekennzeichnet.
+> **Stand:** 13.10.2026, **fortgeschrieben** · **Status:** offener Befund. Ein
+> Verdacht ist inzwischen **widerlegt** (§2a), die Ursache bleibt offen.
 >
 > **Warum das hier steht.** Ein Prüflauf, der manchmal rot ist, ist schlimmer als
 > einer, der rot ist: man gewöhnt sich an ihn. Und ich habe diese Suite in vier
@@ -12,23 +12,110 @@
 ## 1. Die Messungen
 
 Derselbe Code, derselbe Befehl (`bun test`, mit `DATABASE_URL` und
-`PMH_TEST_DATABASE_URL` gesetzt), **vier** Läufe:
+`PMH_TEST_DATABASE_URL` gesetzt), **neun** Läufe:
 
 | Lauf | pass | fail | Summe | Bemerkung |
 |---|---|---|---|---|
 | 1 | 1166 | **10** | 1176 | vor dem Wissensspeicher |
-| 2 | 1174 | 2 | 1176 | dreimal in Folge so |
-| 3 | 1187 | **10** | 1197 | mit dem Wissensspeicher; **eine benannte rote: `Die Erstinbetriebnahme > der Claim ist an DIESEN Rechner gebunden`** |
-| 4 | 1195 | 2 | 1197 | derselbe Code wie Lauf 3 |
+| 2–4 | 1174 | 2 | 1176 | dreimal in Folge |
+| 5 | 1187 | **10** | 1197 | mit dem Wissensspeicher; **eine benannte rote: `Die Erstinbetriebnahme > der Claim ist an DIESEN Rechner gebunden`** |
+| 6 | 1195 | 2 | 1197 | derselbe Code wie Lauf 5 |
+| 7–10 | 1195 | 2 | 1197 | viermal in Folge, zusätzlich mit `--timeout 2000` (Lauf 10) |
 
-**Die Summe stimmt immer** (1176 bzw. 1197 — der Unterschied ist der Zuwachs durch
-neue Prüfungen). Es wechseln also **acht** Prüfungen zwischen grün und rot, und zwar
-dieselben acht: 2 rote + 8 gekippte = 10.
+**Die Summe stimmt immer.** Es wechseln **acht** Prüfungen zwischen grün und rot;
+2 rote + 8 gekippte = 10.
 
-**Der eine namentlich bekannte Ausfall** ist meine eigene Prüfung
-`packages/api/auth-http/tests/erstlogin.test.ts > der Claim ist an DIESEN Rechner
-gebunden — ein fremdes Home hilft nicht`. Sie legt Mandanten in `pmh_test` an und
-erwartet, sie danach wiederzufinden.
+**Zwei Ausreißer in zehn Läufen** — also **nicht reproduzierbar auf Zuruf**. Das
+macht die Suche schwer und ist der Grund, warum hier ein **Meßweg** steht und keine
+Vermutung.
+
+---
+
+## 2. Der Verdacht — und warum ich ihn nicht behaupte
+
+**Verdacht:** Alle Datenbank-Prüfungen teilen **eine** Datenbank
+(`PMH_TEST_DATABASE_URL` → `pmh_test`). `packages/auth/db-schema/tests/postgres.test.ts`
+**löscht alle Tabellen**. Bei nebenläufigen Testdateien träfe dieser `DROP` andere
+Prüfungen mitten im Lauf.
+
+### 2a. **Widerlegt** — die Dateien laufen nacheinander
+
+Gemessen mit `docs/status/messsonden/suite-nebenlaeufigkeit.mjs`. Die Sonde legt
+Testdateien an, die ihren Anfang und ihr Ende in **eine** Protokolldatei schreiben,
+mit 700 ms Pause dazwischen — aus der **Reihenfolge** folgt die Antwort eindeutig:
+
+```
+bun docs/status/messsonden/suite-nebenlaeufigkeit.mjs 2      # zwei Dateien
+  a-start, a-ende, b-start, b-ende            -> nacheinander
+
+bun docs/status/messsonden/suite-nebenlaeufigkeit.mjs 8      # acht Dateien
+  d0-start, d0-ende, d1-start, … d7-ende      -> nacheinander, exit 0
+```
+
+**Auch mit acht Dateien — mehr als die halbe Suite — streng nacheinander.** Damit ist
+die geteilte Datenbank als **Ursache dieser Ausreißer** erledigt: ein `DROP` in einer
+Datei kann keine andere treffen, die noch nicht läuft. **Ich werde keine Ursache
+beheben, die es nicht gibt.**
+
+**Was die Sonde nicht sagt:** ob die echte Suite aus einem **anderen** Grund flattert.
+Sie beantwortet **eine** Vorfrage — und die Antwort lautet nein.
+
+### 2b. Der Mechanismus, der übrigbleibt — und ein Versuch, der nicht trug
+
+Ein Abruch **mittendrin** reißt Folgeprüfungen mit. Das ist **selbst gemessen**: als
+meine Wissensspeicher-Prüfung in die 5-Sekunden-Vorgabe lief, brach sie mitten im
+Einfügen von 20 000 Zeilen ab, und der danach laufende `afterAll` räumte die
+Mandanten weg, während die Anweisung noch lief — Ergebnis:
+
+```
+ERROR: insert or update on table "chunks" violates foreign key constraint
+       "chunks_user_id_fkey"
+       detail: Key (user_id)=(3b1d15bb-…) is not present in table "users".
+```
+
+**Der Versuch, das zu erzwingen, trug nicht** (`bun test --timeout 2000` → weiterhin
+**1195 pass / 2 fail**): die einzige langsame Prüfung trägt ein **eigenes** Zeitlimit
+(30 s), und das schlägt die Vorgabe. Ein kontrolliertes Auslösen müßte also **dort**
+ansetzen. Damit ist der Mechanismus **plausibel und belegt**, aber **nicht als
+Ursache dieser zwei Ausreißer nachgewiesen** — der Unterschied gehört hierher.
+
+---
+
+## 3. Was **nicht** die Ursache ist — drei widerlegte Annahmen
+
+| Annahme | Warum sie falsch ist |
+|---|---|
+| **„Die Dateien laufen nebenläufig"** | **widerlegt**, §2a: zweimal gemessen, nacheinander |
+| **„`glob` ist sprunghaft, deshalb flattern die Tests"** | eine andere Baustelle (`werkzeug-nachweis.md` §7) |
+| **„Der 10er-Lauf kommt vom `atomic-write`-Test"** | der ist in **jedem** Lauf rot (2 von 2) und zählt nicht zu den acht gekippten |
+
+---
+
+## 4. Warum das **jetzt** wichtig ist
+
+1. **Jeder Bericht über die Suite ist unzuverlässig**, solange das schwankt. Ich
+   habe „1174 pass / 2 fail" mehrfach als Beleg genannt — richtig wäre gewesen:
+   *„in diesem Lauf 1195/2; die Suite schwankt zwischen 2 und 10 roten."*
+2. **Neue Prüfungen machen es wahrscheinlicher.** Der Wissensspeicher hat das
+   Fenster verbreitert.
+3. **Eine echte Fehlerquelle kann sich dahinter verstecken.** Solange die acht
+   gekippten als „flatterig" gelten, sieht niemand, wenn eine davon aus einem
+   **echten** Grund rot wird.
+
+---
+
+## 5. Der nächste Schritt — konkret
+
+| Schritt | Was | Stand |
+|---|---|---|
+| 1 | Prüfen, ob Dateien nebenläufig laufen | **erledigt**: nein (§2a) |
+| 2 | Die **Namen** aller roten in einem Ausreißer festhalten | **offen.** Es braucht einen Lauf, der die Ausgabe **speichert**, wenn `fail > 2` — viermal angesetzt, kein Ausreißer erwischt. Solange das fehlt, ist jede Ursachenangabe geraten |
+| 3 | Ein **Zeitlimit je Datei** statt je Prüfung — oder ein Nachweis, daß keine Prüfung in die Vorgabe läuft | offen; §2b zeigt, was ein Abbruch anrichtet |
+| 4 | In jedem Bericht die **Zahl des Laufs** nennen, nicht „die Suite ist grün" | **ab jetzt eingehalten** |
+
+**Bis dahin gilt:** ein Lauf mit 2 roten ist der **Normalfall** (8 von 10 Läufen), ein
+Lauf mit 10 roten ist **bekannt und ungeklärt** — und **beide Zahlen gehören in jeden
+Bericht**.
 
 ---
 
