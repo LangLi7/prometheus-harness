@@ -161,3 +161,66 @@ Get-ChildItem . -Force | ForEach-Object {
 (git ls-files | Measure-Object).Count
 git status --porcelain --ignored | Where-Object { $_ -match '^!!' }
 ```
+
+---
+
+## 7. Vollzug: 612 MB gelöscht — und der Host startet trotzdem (14.10.2026)
+
+Der Betreiber hat die Freigabe erteilt. **Gelöscht wurde nur ein Posten**, nicht
+beide: `.pmh-build/harness-home/profiles/web/node_modules` — nicht `target/debug`
+(619 MB), weil `target/` dem **anderen Agenten** gehören kann.
+
+| | vorher | nachher |
+|---|---|---|
+| Ordner `.pmh-build/harness-home/profiles/web/node_modules` | **612 MB**, 5411 Dateien | **weg** |
+| `.pmh-build` gesamt | **613 MB** | **15 MB** |
+| Projekt gesamt (gleiche Methode wie §1) | **2 491 MB** | **1 892 MB** |
+| Ersparnis | | **599 MB** |
+
+`git check-ignore -v` belegt vor dem Löschen: `.gitignore:46:.pmh-build/` — der
+Ordner war bereits ausgeschlossen, ein Klon bleibt unberührt.
+
+### Und die Prüfung, die dazugehört: startet der Host noch?
+
+**Erst messen, dann löschen — und danach noch einmal messen.** Sonst wäre „599 MB
+gespart" auch dann eine Erfolgsmeldung, wenn ich dem Host seine Laufzeit genommen
+hätte.
+
+```
+vor dem Löschen : /api/health = 200   (4 Läufe: 1107, 1110, 1129, 1232 ms)
+nach dem Löschen: /api/health = 200   nach 1107 ms
+```
+
+Der Start gelingt **unverändert schnell**, und die Pakete kamen **nicht zurück**:
+`profiles/web/node_modules` existiert danach **nicht**, `.pmh-build` bleibt bei
+**15 MB**. Diese 612 MB waren damit nicht nur unbenutzt — sie waren **unnötig**.
+Nach dem Lauf: **0** `bun`-Restprozesse, nichts lauscht auf 3099.
+
+## 8. Die letzte offene Zahl ist jetzt gemessen: der volle Host
+
+In §6 stand, der Start bis `/api/ready = 200` sei ungemessen. Gemessen ist er
+jetzt — mit einer **Korrektur an der Frage selbst**:
+
+| Was | Messung |
+|---|---|
+| `/api/health` = **200** (ohne Token) | **1107 · 1110 · 1129 · 1232 ms** (Mittel ~1157 ms) |
+| `/api/ready` **ohne Token** | **401** — kein Meßfehler, sondern Absicht |
+
+> **Die geplante Zahl „bis `/api/ready` = 200" war so nicht meßbar.** Der Pfad
+> verlangt ein Token; ohne antwortet er **401**. Die token-freie Entsprechung ist
+> `/api/health`. **Zum ersten Mal in dieser Messreihe war die Frage falsch, nicht
+> die Antwort.**
+
+**Und mein Meßfehler dabei.** Der erste Versuch fragte mit `Invoke-WebRequest` ab
+und meldete **150 s lang „keine Antwort"**, während der Host längst lief und
+lauschte. Ursache: PowerShell **wirft** bei jeder Nicht-2xx-Antwort, und mein
+`catch` verschluckte genau die 401, die die Antwort gewesen wäre. Die ~300
+`WARTEND`-Zeilen im `netstat` waren dann **meine eigene** Abfrageschleife
+(TIME_WAIT), kein Host-Fehler. Jetzt wird mit `curl.exe -w "%{http_code}"`
+gemessen: es wirft nicht, es **sagt die Zahl**.
+
+**Einordnung.** 1,1 s für den vollen Host (Typprüfung der Kette, Loader,
+Bereitschaftssonden für `postgres` und `redis`) gegen **26,8–29 ms** für den
+bloßen Import des Kerns (§6) — dazwischen liegen ~1,1 s für alles, was der Host
+beim Start **tut**. Das ist die Zahl, die vorher fehlte, und sie ist **nicht**
+durch unseren Quelltext erklärbar: unser Code ist 2,7 MB (§1).
