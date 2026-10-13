@@ -555,9 +555,23 @@ export async function installiere(optionen = {}) {
       schreibe('  übersprungen (--ohne-stapel)\n')
       return true
     }
+    const adresse = werte.MIGRATION_DATABASE_URL
+    if (adresse === undefined) {
+      // **Fail-loud mit Diagnose.** Diese Meldung stand zuerst nur als
+      // „MIGRATION_DATABASE_URL ist nicht gesetzt" — und der Wert stand
+      // nachweislich in `.env`. Eine Meldung, die den Next-Schritt nennt, aber
+      // nicht den Grund, kostet den Benutzer eine halbe Stunde.
+      schreibe(
+        '  FEHLER: MIGRATION_DATABASE_URL wurde in .env nicht gefunden.\n' +
+          `  Gelesen aus:  ${join(wurzel, '.env')}\n` +
+          `  .env vorhanden: ${String(existsSync(join(wurzel, '.env')))}\n` +
+          `  Gefundene Namen: ${Object.keys(werte).filter((n) => n.startsWith('MIGRATION') || n === 'DATABASE_URL').join(', ') || '(keine)'}\n`,
+      )
+      return false
+    }
     const { migriere } = await import('./migrate.mjs')
     const code = await migriere({
-      adresse: werte.MIGRATION_DATABASE_URL,
+      adresse,
       schreibe: (t) => schreibe(`  ${t}`),
     })
     return code === 0
