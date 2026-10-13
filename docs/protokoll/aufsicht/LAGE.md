@@ -8,32 +8,34 @@
 > **Wer das schreibt.** Die **Aufsicht** (Wächter-Rolle), nicht der bauende Agent. Jede Zahl hier ist
 > gemessen; jede nennt in `befunde.md` den Befehl.
 
-## 0. Das Dringendste — **eine Zeile Code**
+## 0. Das Dringendste — **behoben**, zwei Ein-Wort-Reste
 
-**`scripts/port-test.ps1` Zeile 100: `function BeendeBaum([int]$pid)` → `function BeendeBaum([int]$prozessId)`.**
+**Behoben um 13:53:12.** `function BeendeBaum([int]$wurzelPid)` — der Parameter ist umbenannt **und im
+Rumpf konsistent nachgezogen** (Zeilen 101/102). Das ist an der **gefährlichen** Stelle richtig: hätte
+nur der Parameter den Namen gewechselt und der Rumpf `$pid` behalten, hätte die Funktion nicht mehr
+**nichts** getan, sondern **den eigenen Prozessbaum** beendet. Dazu zwei Verbesserungen, die ich nicht
+verlangt hatte: die Portprüfung prüft jetzt den **gewählten** Port (nicht immer 5780), und **die Waisen
+werden nachgezählt** (Zeilen 189–198, mit Eltern-PID) — genau die Prüfung, die **B22 künftig sofort
+sichtbar macht**.
 
-**`$pid` ist in PowerShell schreibgeschützt.** Der Parameter lässt sich nicht binden, **der
-Funktionsrumpf wird nie erreicht** — und der Fehler ist **nicht terminierend**, das Skript läuft
-weiter. Damit **räumt die neue Fassung nichts auf**: **alle sechs** Aufrufstellen schlagen fehl, jeder
-Testfall lässt seinen Host stehen, und ihr eigener Fall 1 meldet deshalb `FEHLER: Fall 1 nicht erkannt`
-— obwohl nicht die Portwahl, sondern die **Abräumung** das Problem ist. Einzeln nachprüfbar in einer
-Zeile:
+**Zwei Reste derselben Familie — jeder ein Wort** (Quelltextbefund, Zeilen in der Shell gemessen):
 
-```powershell
-pwsh -NoProfile -Command 'function F([int]$pid) { "Rumpf erreicht" }; F 123'   # Rumpf wird NICHT erreicht
-pwsh -NoProfile -Command 'function F([int]$prozessId) { "Rumpf erreicht" }; F 123'   # Rumpf wird erreicht
-```
+| Stelle | Was | Folge |
+|---|---|---|
+| Zeilen **182, 186, 197** | `$fehler++` steht **im Funktionsrumpf** von `StarteHost`; `$script:fehler` kommt im ganzen Skript **nicht** vor | Die Zählung landet in einer **lokalen Kopie** — darunter **genau die neue Waisenprüfung**. „FEHLER: 3 Host-Prozess(e) ueberlebten das Aufraeumen" ist möglich bei einem Endstand **`0 Befund(e)`**. Fix: `$script:fehler++` |
+| Zeile **218** | `Get-Content "$log.err" \| Select-Object -First 1` gibt den **Fehlertext in die Pipeline** (`return $null` in 219 hebt das nicht auf) | `BelegePort` liefert Text statt `$null` → `if ($h -eq $null)` (236) greift nicht → der Zweig „UEBERSPRUNGEN: … dieser Test prueft nichts" erscheint **nie**. Fix: `\| Out-Null` |
 
-Vollständig: **B23** in `befunde.md` (mit Zeitachse, drei Folgen und zwei weiteren Defekten derselben
-Familie: `$fehler++` im Funktionsrumpf zählt nicht · `BelegePort` gibt den Fehlertext statt `$null`
-zurück).
+**Was ich *nicht* getan habe:** den Test **nicht noch einmal ausgeführt** — meine eine Ausführung (13:47)
+lief parallel zu seinem Zeugentest und hinterließ eigene Waisen. Der **dynamische** Beweis gehört seinem
+nächsten Lauf. **Stand 14:12 gemessen:** null Hosts, null Launcher, **0,0 MB**.
 
 ## 1. Jetzt zu entscheiden oder zu ändern
 
 | # | Was | Warum es zählt | Nachweis in einem Befehl |
 |---|---|---|---|
-| **B23** | **Die neue Aufräumfunktion des Port-Tests läuft nie** — `$pid` ist schreibgeschützt (siehe §0) | **Alle sechs** Aufrufstellen schlagen fehl, **jeder** Testfall hinterlässt Host, Launcher und Halter. Der Test meldet die Folgen als **Logikfehler der Portwahl** und zählt sie nicht einmal (1 statt 2+). Er kann deshalb **nicht** grün werden, gleich wie gut die Portwahl ist | `pwsh -NoProfile -Command 'function F([int]$pid) { "erreicht" }; F 1'` |
-| **B22** | **beantwortet** — die Waisen sind **erklärt** (B23) und **weg**: um 13:41:50 noch **sechs** (1,13 GB, Alter bis 11,4 min), um 13:42 **null**; der bauende Agent hat sie **selbst** entfernt. **Aber:** sein Lauf um 13:43 hat **wieder** einen Satz hinterlassen, und ohne den Ein-Wort-Fix bleibt das so | Sechs Hosts = sechs Ports, sechs Harness-Homes, **1,13 GB**; dazu blockieren sie die eigenen nächsten Läufe. Bitte am Skriptende **nachzählen**, ob noch etwas läuft — die Portprüfung deckt nur **einen** Port ab | [`hilfen/waisen-aufraeumen.ps1`](hilfen/waisen-aufraeumen.ps1) (Trockenlauf; `-Anwenden` beendet) |
+| **B23** | **behoben um 13:53** (`$wurzelPid`), **zwei Ein-Wort-Reste offen** (siehe §0) | Die Kernursache ist weg — und sie war gefährlicher, als sie aussah: ein halber Fix hätte das **eigene Skript** beendet. Die zwei Reste kosten die **Sichtbarkeit**: die neue Waisenprüfung zählt nicht, und der Schutz „dieser Test prueft nichts" greift nie | `Select-String -Path scripts\port-test.ps1 -Pattern '\$fehler\+\+|\$script:fehler'` |
+
+| **B22** | **erledigt** — die Waisen sind **erklärt** (B23), **aufgeräumt** und die Ursache ist **behoben**: um 13:41:50 noch **sechs** (1,13 GB, Alter bis 11,4 min), um 13:42 **null**; sein Lauf um 13:43 hinterließ **drei** weitere (591,1 MB, Ports 5780/5781/5790), auch die sind um **14:12 weg** (null Hosts, null Launcher, 0,0 MB). Der Nachzähl-Schritt, den ich empfohlen hatte, steht jetzt **im Skript** (Zeilen 189–198) | Sechs Hosts = sechs Ports, sechs Harness-Homes, **1,13 GB**; dazu blockierten sie die eigenen nächsten Läufe (Fall 1 fiel deshalb um). **Bleibt nützlich:** [`hilfen/waisen-aufraeumen.ps1`](hilfen/waisen-aufraeumen.ps1) als Netz — Herkunft entscheidet, das Alter siebt nur die Kinder eines laufenden Tests aus (Trockenlauf; `-Anwenden` beendet) |
 | **B16** | ~~**„API ausgefallen" ist nicht belegt.**~~ **ENTSCHIEDEN — die Behauptung ist widerlegt.** Angemeldet an ihrem **laufenden** Host antwortet `POST /api/goals/create` mit **HTTP 200 und JSON-RPC-Rahmen**: der Typert-Gateway **lebt**. Die README-Zeile „API des Cores ausgefallen" ist damit **falsch**, und die Begründung der Entscheidung „eigener Endpunktweg" („die Vorlage hat keine erreichbare API") **hinfällig** — die Entscheidung selbst bleibt legitim | Die eigene Sonde konnte es nicht sehen: ohne Anmeldung ist **jeder** `/api/*`-Pfad 401, mit Anmeldung sind ihre 19 **geratenen** Pfade 404. Nur ein **registrierter** Pfad antwortet. **Offen:** der WS-Pfad `/api/remote.mux` scheitert auf **beiden** Installationen schon beim Handschlag | `bun run docs\protokoll\aufsicht\werkzeuge\api-erreichbarkeit.mjs http://127.0.0.1:<port>` (mit Token) |
 | **B13** | **von sechs Stellen sind drei übrig.** `port-test.ps1` ist **bereinigt** (die Namens-und-Alter-Zeilen sind weg — Verdienst des bauenden Agenten). **Offen:** `boot-schleife.ps1:103` (2 min), `api-test.ps1:33` (3 min), `api-flaeche.ps1:92` (3 min) | Diese drei töten weiterhin **jeden** `bun` im Fenster — auch einen fremden `bun test`/`bun install` und **den Zeugenprozess, den der bauende Agent gerade selbst benutzt**, um genau diese Frage zu prüfen | `Get-ChildItem -Recurse -Include *.ps1 \| Select-String 'Get-Process bun'` |
 | **B19** | **erledigt** — der bauende Agent hat die Anmeldesperre über den **Zaun des Cores** gebaut (`requestRejection`, danach Anmeldung) und bei fehlendem Dienst **Fail-closed 503**. Die Umsetzung ist besser als die Empfehlung; ich rechne sie mir **nicht** zu (seine Sonde lief vor meinem Befund) | — | `Select-String -Path packages\api\health\src\index.ts -Pattern 'requestRejection'` |

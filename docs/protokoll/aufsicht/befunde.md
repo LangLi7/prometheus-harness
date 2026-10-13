@@ -1835,6 +1835,47 @@ Fenster, also auch einen fremden `bun test`, `bun install` oder den Zeugenprozes
 Agent gerade selbst benutzt, um genau diese Frage zu prüfen. **Der laufende Zeugentest ist damit ein
 Ereignis, das die eigene Sonde beenden kann.**
 
+### Nachtrag 13.10.2026, 14:12 — **BEHOBEN**, in derselben Stunde — und die Prüfung ist im Rumpf konsistent
+
+Dateizeit **13:53:12**, **320** statt 285 Zeilen. Der Parameter ist umbenannt **und im Rumpf
+nachgezogen**:
+
+| Zeile | vorher | jetzt |
+|---|---|---|
+| 100 | `function BeendeBaum([int]$pid)` | `function BeendeBaum([int]$wurzelPid)` |
+| 101 | `if ($pid -le 0) { return }` | `if ($wurzelPid -le 0) { return }` |
+| 102 | `$baum = @(SammleBaum $pid)` | `$baum = @(SammleBaum $wurzelPid)` |
+
+**Kein Rest von `$pid` im Rumpf** — und das ist die wichtigere Hälfte der Aussage: hätte nur der
+Parameter den Namen gewechselt und der Rumpf `$pid` behalten, hätte die Funktion nicht mehr **nichts**
+getan, sondern **den eigenen Prozessbaum** beendet (`$pid` = PID des laufenden Skripts). Der Fix ist
+also nicht nur richtig, sondern an der **gefährlichen** Stelle richtig.
+
+**Zwei Verbesserungen dazu, die ich nicht verlangt hatte:**
+
+1. **Die Portprüfung prüft jetzt den *gewählten* Port** (Zeilen 170–183: er wird aus der Ausgabe
+   gelesen, `$gewaehlt`) statt immer 5780 — genau die Folge, die ich beschrieben hatte. Dazu ein
+   zweiter Wächter: „der Launcher laeuft nach dem Aufraeumen noch".
+2. **Die Waisen werden nachgezählt** (Zeilen 189–198): nach dem Aufräumen wird geprüft, ob noch ein
+   Prozess `apps/cli/src/main.ts` läuft — **mit Eltern-PID** gemeldet. Das ist meine Empfehlung, fast
+   wörtlich übernommen, und es ist die Prüfung, die **B22 künftig sofort sichtbar macht**.
+
+**Zwei kleinere Defekte derselben Familie bleiben** (Quelltextbefund, Zeilen in der Shell gemessen):
+
+| Stelle | Was | Folge |
+|---|---|---|
+| **182, 186, 197** | `$fehler++` steht **im Funktionsrumpf** von `StarteHost`; `$script:fehler` kommt im ganzen Skript **nicht** vor | Diese drei Zählungen landen in einer **lokalen Kopie** — darunter **genau die neue Waisenprüfung** (197). Das Skript kann „FEHLER: 3 Host-Prozess(e) ueberlebten das Aufraeumen" drucken und mit **`0 Befund(e)`** enden. **Ein Wort:** `$script:fehler++` |
+| **218** | `Get-Content "$log.err" -ErrorAction SilentlyContinue \| Select-Object -First 1` gibt den **Fehlertext in die Pipeline**; `return $null` (219) hebt das nicht auf | Die Rückgabe von `BelegePort` ist der **Text**, nicht leer → `if ($h -eq $null)` (236) greift **nicht**, der Zweig „UEBERSPRUNGEN: … dieser Test prueft nichts" erscheint **nie**, und der Test läuft mit einem Halter weiter, den es nicht gibt (im Lauf sichtbar an „(Halter laeuft, PID )" — leere PID). **Ein Wort:** `\| Out-Null` |
+
+**Was ich *nicht* getan habe — und warum.** Ich habe den Test **nicht noch einmal ausgeführt.** Meine
+eine Ausführung (13:47) hat **parallel** zu seinem Zeugentest gemessen und eigene Waisen hinterlassen;
+das wiederhole ich nicht (Hausregel H5). Der **dynamische** Beweis, dass jetzt nichts mehr liegen
+bleibt, gehört damit **seinem** nächsten Lauf: die statische Prüfung ist vollständig und eindeutig, aber
+sie ist **statisch**.
+
+**Stand der Waisen um 14:12 (gemessen):** **null** Hosts, **null** Launcher, **0,0 MB** — auch die drei,
+die sein Lauf um 13:43 hinterlassen hatte (591,1 MB, Ports 5780/5781/5790), sind weg.
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
@@ -1882,6 +1923,7 @@ Ereignis, das die eigene Sonde beenden kann.**
 | 13:47 | `(Get-Content befunde.md \| Measure-Object -Line).Lines` → **1374** Zeilen, während dieselbe Datei bis Zeile **1756** reicht. | **Derselbe Fehler wie um 11:53** in dieser Tabelle, nur an einer Datei, die ich gerade selbst prüfte: `Measure-Object -Line` zählt **Leerzeilen nicht**. Nachgemessen: 5 Elemente (3 nicht leer) → **3**. Richtig: **1766** Zeilen, davon 392 leer. | Ich habe den Fehler **wiederholt, den ich selbst schon dokumentiert hatte**. Die Korrektur steht hier, weil diese Tabelle sonst den Eindruck erweckt, ich hätte daraus gelernt. |
 | 14:02 | In **B23** nannte ich „`BeendeBaum([int]$pid)` **Zeile 86**", „**acht** Aufrufe" und die Zeilen **147 / 102 / 211 / 214 / 266** — **Zeilennummern aus einem Lese-Werkzeug** und eine **geschätzte** Anzahl. | Nachgemessen **in der Shell**: Definition **Zeile 100**, Aufrufstellen **161, 190, 116, 225, 228, 280** (**sechs**), `$fehler++` im Funktionsrumpf **Zeile 166**, `if ($h -eq $null)` **Zeile 202**. Alle Stellen sind berichtigt. | Die Datei ist **285** Zeilen lang (alles LF, gemessen); dasselbe Lese-Werkzeug meldete im selben Moment **271** Zeilen und eine um **14** verschobene Nummerierung. Eine Zeilennummer ist ein **Messwert** — sie gehört in eine Shell, nicht in ein Werkzeug, dessen Zählweise ich nicht geprüft habe. Dieselbe Lehre wie 13:06, eine Ebene tiefer. |
 | 14:06 | Mein Commit-Wächter `if ($out -notmatch 'stimmig') { exit 1 }` brach **ab, obwohl die Prüfung grün war** (`ERGEBNIS: das Protokoll ist in sich stimmig.`). | **`-notmatch` auf einem Array liefert die nicht passenden Zeilen** — jede Zeile außer der letzten erfüllt das, das Ergebnis ist also **wahr**. Richtig: die Ausgabe **zuerst mit `-join` zu einer Zeichenkette** machen und dann prüfen. Der Commit lief danach durch. | **Dritte** Stelle derselben Familie (PowerShell-Semantik statt Logik) nach `$pid` (**B23**) und `$fehler++`. Kein falscher Wert ist dadurch in eine Datei gelangt — aber der Wächter hätte einen Commit **still** verhindern können, und ein Wächter, der falsch alarmiert, ist so schädlich wie einer, der nichts sieht. |
+| 14:20 | Beim Einfügen des B23-Nachtrags habe ich als Anker `---` **plus die Überschrift** des Fairness-Abschnitts benutzt und im Ersatztext die Überschrift **nicht** wiederholt. | Die Überschrift `## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)` war **weg**; die Tabelle stand ohne Abschnitt da. Sofort bemerkt und **wiederhergestellt**. | **Zweiter Fall derselben Familie wie 12:29** (ein Anker ersetzt mehr als beabsichtigt). Die Lehre von damals — „Kontrolle nach jeder Änderung: zählen, nicht annehmen" — gilt auch für **Überschriften**: nach jedem Eingriff die Abschnittsliste prüfen, nicht nur die geänderte Stelle ansehen. |
 
 ---
 
