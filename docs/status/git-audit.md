@@ -522,6 +522,98 @@ fehlender Dienst ergibt **503** statt eines stillen Verschwindens.
 | Prüfung | Ergebnis |
 |---|---|
 | Auslöser | Der eigene Beleg nannte die Lücke selbst: *„`/api/ready` sagt, daß die Anwendung antwortet; ob PostgreSQL erreichbar ist, sagt es nicht."* |
+| Umfang | `packages/api/readiness/` (neu), `packages/api/health/` (Sondenregister, `pruefe()`-Vertrag, `bereinigeGrund`, Fassung 0.3.0), `scripts/profile-patch.mjs`, `.env.example`, `README.md`, `docs/INDEX.md`, `docs/status/beleg-eigener-endpunkt.md` |
+| Art | **Codeänderung im Repo.** Kein `~/.dsh`-Zugriff |
+| Tests | `health` **72 pass** · `readiness` **40 pass** · Gesamt **762 pass · 0 fail** (26 Dateien) |
+| Typecheck | **18 grün · 0 rot** |
+| Im Host | gesund: `/api/ready` **200**, beide Sonden `ok` · Redis tot: **503** `eingeschraenkt` · `/api/health` bleibt **200** |
+
+**Der Befund.** `/api/ready` prüft jetzt PostgreSQL mit **drei** Fragen (Verbindung,
+Migrationen, Kern-Tabellen) und Redis mit `PING`/`PONG`. Die Sonden stehen in
+`packages/api/readiness`; `health` stellt nur den Vertrag
+`ctx.readyness.register(sonde)` bereit — sonst hinge der Endpunkt, dessen Aufgabe
+„Zustand melden" ist, selbst an dem Zustand, den er meldet (und Regel 2 wäre
+verletzt).
+
+**Der sechste eigene Fehler — und die Lücke, die ihn durchgelassen hat.**
+`apply` las den Dienst mit `ctx.get('readyness')` **innerhalb von `apply`**.
+`ctx.provide` macht einen Dienst aber erst **nach** dem Ende von `apply`
+auffindbar (gemessen). Im Host scheiterte das Paket vollständig:
+`pmh-readiness: Error: der Dienst "readyness" fehlt, obwohl inject ihn fordert`.
+
+Die eigentliche Lücke: alle 40 Prüfungen riefen `trageSondenEin` mit einem
+**selbstgebauten** Register auf — also an `apply` **vorbei**. Die Logik war
+geprüft, die **Einhängung** nicht. Jetzt gibt es drei Prüfungen gegen einen
+echten Cordis-Kontext.
+
+**Eine Lücke in der Startanleitung, gefunden und benannt.** Der Starter setzt
+`DATABASE_URL`/`REDIS_URL` **nicht**. Ohne sie wurde zu diesem Zeitpunkt `ok` mit
+leerer Sondenliste gemeldet — das hat der Eintrag darunter korrigiert.
+
+#### Offene Punkte (Stand dieses Eintrags)
+
+1. **`credential-gh`** — zehnter Push, zehnte Warnung.
+2. **Kein Lauf führt den Ausfall regelmäßig herbei.** Die 503-Antwort ist
+   **einmal** von Hand gemessen.
+3. **Die Wiederverwendung (5 s) ist im Host nicht gemessen** — nur im Test.
+4. **Fremde, nicht committete Arbeit im Arbeitsbaum** — unverändert.
+5. **Nur Windows gemessen.**
+
+---
+
+### 2026-10-13 · Befunde der Aufsicht B20 und B13 behoben
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Die **Aufsicht** (Wächter-Rolle) legte `docs/protokoll/aufsicht/` an — 20 Befunde. **Zwei betreffen eigenen Code direkt** |
+| Umfang | `packages/api/health/src/index.ts` (vierter Zustand `ungeprueft`), `tests/health.test.ts`, `packages/api/readiness/tests/readiness.test.ts`, `scripts/port-test.ps1` (Aufräumen nach PID), `.env.example` (Widerspruch) |
+| Art | **Codeänderung im Repo.** Kein `~/.dsh`-Zugriff |
+| Tests | **769 pass · 0 fail** (26 Dateien) |
+| Typecheck | **18 grün · 0 rot** |
+| Prozeßprüfung | Zeuge überlebt, **0 Waisen** (vorher hinterließ **jeder** Lauf ein Paar) |
+
+**B20 — ein Widerspruch zwischen zwei eigenen Artefakten.** `/api/ready`
+lieferte bei **null Sonden** `bereit: true` und **HTTP 200**, begründet mit
+„nichts zu prüfen — und das ist bereit". Gleichzeitig sagte `.env.example` über
+denselben Fall, der Endpunkt melde `ok`, „statt ‚bereit' zu behaupten".
+
+**Der Code lag falsch, nicht die Vorlage:** ein Orchestrator liest den
+Statuscode und das Feld `bereit` — beide sagten „ja", obwohl nichts geprüft
+worden war. Jetzt: vierter Zustand **`ungeprueft`**, `bereit: false`, **503**.
+Abschaltbar mit `PMH_READY_REQUIRE_PROBES=0`.
+
+**B13 — Aufräumen nach Prozessname und Alter.** `Get-Process bun | Where-Object
+{ $_.StartTime -gt (Get-Date).AddMinutes(-2) } | Stop-Process` tötet **jeden**
+jüngeren `bun`-Prozess, auch den `bun test` eines anderen. Das Muster stand an
+**sechs** Stellen. Jetzt: nur die selbst gestarteten PIDs samt Nachfahren,
+Blätter zuerst — plus drei Nachweise, die vorher fehlten.
+
+**Und der Fehler, der jedes Aufräumen wirkungslos machte.** Der Parameter hieß
+`$pid` — in PowerShell eine **schreibgeschützte automatische Variable**. Jede
+Zuweisung schlug fehl, `BeendeBaum` tat **nichts**, und der Test meldete
+trotzdem **„0 Befunde"**. Gefunden, weil **12 Waisen-Prozesse** aus meinen
+Testläufen noch liefen.
+
+**Das Muster ist dasselbe wie bei den Sonden zuvor:** eine Prüfung, die grün
+aussieht und die Sache nicht berührt. Hier hat sie sogar **Prozesse
+hinterlassen**, während sie „0 Befunde" meldete.
+
+#### Offene Punkte — ehrlich
+
+1. **`port-test.ps1` Fall 3 wird übersprungen.** Der Halter beendet sich dort
+   ohne auflösbaren Grund; der Exit-Code und **beide** Protokolle waren leer.
+   Die Ursache ist **nicht** gefunden. Fall 1, 2 und 4 laufen und prüfen — Fall 3
+   wird **nicht** als grün gezählt.
+2. **Die Befunde B16, B18, B15, B14, B1–B12 der Aufsicht sind nicht bearbeitet.**
+   Insbesondere **B16** („API ausgefallen" ist nicht belegt) widerlegt eine
+   Aussage, die in **meiner** README steht.
+3. **`credential-gh`** — elfter Push, elfte Warnung.
+4. **Fremde, nicht committete Arbeit im Arbeitsbaum** — unverändert.
+5. **Nur Windows gemessen.**
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Der eigene Beleg nannte die Lücke selbst: *„`/api/ready` sagt, daß die Anwendung antwortet; ob PostgreSQL erreichbar ist, sagt es nicht."* |
 | Umfang | `packages/api/readiness/` (neu: `package.json`, `src/index.ts`, `tsconfig.json`, `tests/readiness.test.ts`), `packages/api/health/` (Sondenregister, `pruefe()`-Vertrag, `bereinigeGrund`, Fassung 0.3.0), `scripts/profile-patch.mjs`, `.env.example`, `README.md`, `docs/INDEX.md`, `docs/status/beleg-eigener-endpunkt.md` |
 | Art | **Codeänderung im Repo.** Kein `~/.dsh`-Zugriff |
 | Tests | `health` **72 pass** · `readiness` **40 pass** · Gesamt **762 pass · 0 fail** (26 Dateien) |
