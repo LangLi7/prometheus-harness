@@ -144,6 +144,81 @@ describe('setzeWerte', () => {
     const { inhalt } = setzeWerte('X=alt', { X: lang })
     expect(inhalt).toBe(`X=${lang}`)
   })
+
+  // ---------------------------------------------------------------------------
+  // CRLF — der Fall, der die erste Fassung zerlegt hat
+  // ---------------------------------------------------------------------------
+  // **Der Befund, der diese Fälle erzwungen hat.** Gemessen am 13.10.2026 in
+  // einem **frischen Klon** auf Windows: `Ersetzt: 0`. Kein einziger Wert wurde
+  // geschrieben, obwohl die Namen alle dastanden — und die Installation lief
+  // danach in „MIGRATION_DATABASE_URL ist nicht gesetzt".
+  //
+  // **Die Ursache:** `.` matcht in JavaScript **kein** `\r`. Bei einer Zeile
+  // `"X=alt\r"` scheiterte `=(.*)$`, weil zwischen `alt` und dem Zeilenende noch
+  // ein `\r` steht.
+  //
+  // **Warum keine Prüfung das fand:** alle Eingaben waren im Speicher gebaut,
+  // mit `\n`. Die Wirklichkeit auf einem Windows-Rechner mit
+  // `core.autocrlf=true` ist `\r\n`. Die Prüfungen waren grün und die
+  // Installation kaputt.
+  describe('mit CRLF-Zeilenenden', () => {
+    const crlf = (text) => text.split('\n').join('\r\n')
+
+    test('ersetzt Werte auch in einer CRLF-Datei', () => {
+      const { inhalt, ersetzt } = setzeWerte(crlf('A=alt\nB=alt'), { A: 'neu' })
+      expect(ersetzt).toBe(1)
+      expect(inhalt).toContain('A=neu')
+      expect(inhalt).toContain('B=alt')
+    })
+
+    test('behält die CRLF-Zeilenenden bei', () => {
+      // **Kein stilles Umwandeln.** Wer eine CRLF-Datei einliest, sie ändert und
+      // zurückschreibt, erwartet dieselbe Datei — nur mit einem anderen Wert.
+      // Würde die Funktion auf LF umstellen, zeigte `git diff` jede Zeile als
+      // geändert.
+      const { inhalt } = setzeWerte(crlf('A=alt\nB=alt'), { A: 'neu' })
+      expect(inhalt).toBe('A=neu\r\nB=alt')
+    })
+
+    test('verwechselt einen CRLF-Wert nicht mit dem Zeilenende', () => {
+      // Ohne die Korrektur hätte der Wert ein `\r` am Ende bekommen — und ein
+      // Kennwort mit einem unsichtbaren Zeichen wäre bei der Anmeldung falsch.
+      const { inhalt } = setzeWerte('A=alt\r', { A: 'neu' })
+      expect(inhalt).toBe('A=neu\r')
+    })
+
+    test('eine auskommentierte CRLF-Zeile bleibt auskommentiert', () => {
+      // Das `#` ist der ganze Punkt: `# C=aus` ist ein Beispiel, kein Wert.
+      const { inhalt, ersetzt } = setzeWerte('# C=aus\r', { C: 'neu' })
+      expect(ersetzt).toBe(0)
+      expect(inhalt).toBe('# C=aus\r')
+    })
+
+    test('gesetzteNamen liest auch aus CRLF', () => {
+      expect(gesetzteNamen(crlf('A=1\n# B=2\nC=3'))).toEqual(['A', 'C'])
+    })
+
+    test('ersetzt in der ECHTEN Vorlage — in beiden Zeilenenden', () => {
+      // **Die Prüfung, die den Fehler gefunden hätte.** Sie benutzt nicht eine im
+      // Speicher gebaute Zeichenkette, sondern die Datei aus dem Repository —
+      // einmal so, wie Git sie hier ausgibt, und einmal als CRLF-Fassung.
+      const werte = { POSTGRES_SUPERUSER_PASSWORD: 'neu' }
+      expect(setzeWerte(VORLAGE, werte).ersetzt).toBe(1)
+      expect(setzeWerte(VORLAGE.split('\n').join('\r\n'), werte).ersetzt).toBe(1)
+    })
+
+    test('setzt ALLE Geheimnisse der echten Vorlage — in beiden Zeilenenden', () => {
+      // Der vollständige Fall: der Installer setzt neun Werte. Wird auch nur
+      // einer nicht gesetzt, scheitert später ein Schritt mit einer Meldung, die
+      // nicht auf die Ursache zeigt.
+      const werte = {}
+      for (const name of GEHEIMNIS_NAMEN) werte[name] = 'x'.repeat(43)
+      for (const inhalt of [VORLAGE, VORLAGE.split('\n').join('\r\n')]) {
+        const { ersetzt } = setzeWerte(inhalt, werte)
+        expect(ersetzt).toBe(GEHEIMNIS_NAMEN.length)
+      }
+    })
+  })
 })
 
 describe('gesetzteNamen', () => {

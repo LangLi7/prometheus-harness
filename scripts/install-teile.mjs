@@ -153,6 +153,30 @@ export function abgeleiteteWerte(werte) {
  * Beispiel, kein Wert. Wer sie ersetzt, macht aus einem Beispiel eine
  * Einstellung — eine stille Änderung am Verhalten.
  *
+ * ## Der Zeilenende-Fehler, der diese Fassung erzwungen hat
+ *
+ * Die erste Fassung benutzte `=(.*)$`. Gemessen am 13.10.2026 in einem **frischen
+ * Klon**: `Ersetzt: 0` — **kein einziger Wert** wurde geschrieben, obwohl die
+ * Namen alle dastanden. Die Installation lief danach in
+ * `FEHLER: MIGRATION_DATABASE_URL ist nicht gesetzt`.
+ *
+ * **Die Ursache ist eine Eigenheit von JavaScript:** `.` matcht **kein** `\r`.
+ * Die Zeile lautete roh
+ *
+ *     "POSTGRES_SUPERUSER_PASSWORD=bitte-aendern-admin\r"
+ *
+ * und `=(.*)$` scheiterte daran, weil zwischen `admin` und dem Zeilenende noch
+ * ein `\r` steht. `\r` ist **kein** Zeilenende für `.`, und `$` trifft nur am
+ * `\r` — also nie.
+ *
+ * **Warum keine Prüfung das fand.** Alle Prüfungen liefen mit Dateien, die **ich**
+ * im Speicher gebaut hatte — mit `\n`. Die Wirklichkeit auf einem Windows-Rechner
+ * mit `core.autocrlf=true` liefert `\r\n`. Die Prüfungen waren grün und die
+ * Installation kaputt. Jetzt gibt es einen Fall mit `\r\n`-Eingabe.
+ *
+ * **Die Korrektur:** `[^\r\n]*` statt `.*`. Das Zeichen ist ausdrücklich
+ * ausgeschlossen, statt sich auf das Verhalten von `.` zu verlassen.
+ *
  * @param vorher - der Inhalt der Vorlage
  * @param werte - Name → neuer Wert
  * @returns der neue Inhalt und die Zahl der ersetzten Zeilen
@@ -160,19 +184,29 @@ export function abgeleiteteWerte(werte) {
 export function setzeWerte(vorher, werte) {
   let ersetzt = 0
   const zeilen = vorher.split('\n').map((zeile) => {
+    // **Zeilenende abtrennen und später wieder anhängen.** Damit ist der
+    // Vergleich unabhängig davon, ob die Datei LF oder CRLF benutzt — die
+    // ursprüngliche Form bleibt erhalten.
+    const ende = zeile.endsWith('\r') ? '\r' : ''
+    const rumpf = ende === '' ? zeile : zeile.slice(0, -1)
     // Führender Leerraum ist erlaubt, `#` nicht.
-    const treffer = /^(\s*)([A-Z][A-Z0-9_]*)=(.*)$/u.exec(zeile)
+    const treffer = /^(\s*)([A-Z][A-Z0-9_]*)=([^\r\n]*)$/u.exec(rumpf)
     if (treffer === null) return zeile
     const name = treffer[2]
     if (!Object.hasOwn(werte, name)) return zeile
     ersetzt += 1
-    return `${treffer[1]}${name}=${werte[name]}`
+    return `${treffer[1]}${name}=${werte[name]}${ende}`
   })
   return { inhalt: zeilen.join('\n'), ersetzt }
 }
 
 /**
  * Liest die gesetzten (nicht die auskommentierten) Namen aus einem `.env`-Inhalt.
+ *
+ * **Warum auch hier `[^\r\n]*`.** Derselbe Fehler wie in {@link setzeWerte}: ein
+ * `.*` vor `$` scheitert an einem `\r`. Wer eine `.env` auf Windows schreibt —
+ * und das ist der Normalfall —, bekäme sonst **keine** Namen und damit die
+ * Meldung „keine Variable gesetzt", obwohl alle dastehen.
  *
  * @param inhalt - der Inhalt einer `.env`-Datei
  * @returns die Namen in Dateireihenfolge
