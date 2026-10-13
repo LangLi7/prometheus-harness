@@ -199,5 +199,10 @@ export function patchPfad(home, profil) {
  * **Warum als benannte Liste und nicht als verstreute Zeichenketten.** Diese
  * Liste ist die eine Wahrheit darüber, was von uns im Host läuft. Kommt ein Paket
  * dazu, steht es hier — und die Ausgabe des Starters nennt es.
+ *
+ * **Die Reihenfolge ist bindend.** `readiness` trägt seine Sonden in das Register
+ * von `health` ein und fordert es über `inject: ['readyness']`. Der Loader wartet
+ * selbst, bis der Dienst da ist — die Reihenfolge hier ist deshalb nicht
+ * kritisch, aber sie ist lesbar: erst der Endpunkt, dann was er prüft.
  */
-export const EIGENE_PAKETE = ['@prometheus-harness/health']
+export const EIGENE_PAKETE = ['@prometheus-harness/health', '@prometheus-harness/readiness']

@@ -1,9 +1,9 @@
 {
   "name": "@prometheus-harness/health",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Zustandsauskunft und Anmeldesperre für die eigene API-Fläche: GET /api/health (offen) und GET /api/ready (geschützt), als Cordis-Plugin über ctx.webServer.register. Beweist, dass unser Code im Host-Baum läuft — nicht nur in Tests.",
+  "description": "Zustandsauskunft, Anmeldesperre und das Register der Bereitschaftssonden: GET /api/health (offen) und GET /api/ready (geschützt, mit Sonden) über ctx.webServer.register. Beweist, daß unser Code im Host-Baum läuft — nicht nur in Tests.",
   "exports": {
     ".": "./src/index.ts"
   },

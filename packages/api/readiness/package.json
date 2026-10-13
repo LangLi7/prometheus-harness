@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/readiness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Bereitschaftssonden für PostgreSQL und Redis: trägt sie in das Register von @prometheus-harness/health ein, ohne daß health die Datenbanken kennt.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

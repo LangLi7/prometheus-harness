@@ -31,12 +31,16 @@ import apply, {
   SERVICE_NAME,
   SERVICE_VERSION,
   abweisung,
+  bereinigeGrund,
+  erzeugeRegister,
+  fasseZusammen,
   healthBody,
   handleHealth,
   inject,
   macheReadyHandler,
   name,
   readyBody,
+  statusFuer,
 } from '../src/index.ts'
 
 /** Ein laufender Webserver mit eingehängtem Plugin. */
@@ -344,12 +348,341 @@ describe('apply — der echte Weg über Cordis und HTTP', () => {
 
 describe('readyBody', () => {
   test('nennt die zusätzlichen Felder der geschützten Auskunft', () => {
-    const body = readyBody()
+    const body = readyBody({ zustand: 'ok', sonden: [] })
     expect(body.bereit).toBe(true)
-    expect(body.status).toBe('ok')
+    expect(body.zustand).toBe('ok')
     expect(body.prozessSekunden).toBeGreaterThanOrEqual(0)
     expect(body.plattform).toBe(process.platform)
     expect(body.version).toBe(SERVICE_VERSION)
+    expect(body.sonden).toEqual([])
+    expect(body.zwischengespeichert).toBe(false)
+  })
+
+  test('trägt die Sondenergebnisse mit', () => {
+    const body = readyBody({
+      zustand: 'eingeschraenkt',
+      sonden: [
+        { name: 'postgres', zustand: 'ok', dauerMs: 3 },
+        { name: 'redis', zustand: 'fehler', dauerMs: 12, grund: 'Verbindung abgelehnt' },
+      ],
+    })
+    expect(body.bereit).toBe(false)
+    expect(body.zustand).toBe('eingeschraenkt')
+    expect(body.sonden).toHaveLength(2)
+    expect(body.sonden[1]?.grund).toBe('Verbindung abgelehnt')
+  })
+
+  test('sagt ausdrücklich, wenn das Ergebnis wiederverwendet wurde', () => {
+    // **Warum das Feld wichtig ist.** Ein Leser muß wissen, ob „bereit" gerade
+    // gemessen wurde oder aus dem Zwischenspeicher kommt. Ohne diese Angabe wäre
+    // ein 5 Sekunden altes „ok" von einem frischen nicht zu unterscheiden.
+    expect(readyBody({ zustand: 'ok', sonden: [] }, true).zwischengespeichert).toBe(true)
+  })
+
+  test('nennt keinen `status` — die beiden Antworten sind unterscheidbar', () => {
+    const body = readyBody({ zustand: 'ok', sonden: [] })
+    expect('status' in body).toBe(false)
+  })
+})
+
+describe('fasseZusammen', () => {
+  test('keine Sonde heißt "ok"', () => {
+    // **Die Entscheidung, die hier festgehalten wird.** Keine Sonde heißt nicht
+    // „unbekannt", sondern „nichts zu prüfen" — und das ist bereit. Die Antwort
+    // verrät es durch `sonden: []`.
+    expect(fasseZusammen([])).toBe('ok')
+  })
+
+  test('alle grün heißt "ok"', () => {
+    expect(
+      fasseZusammen([
+        { name: 'a', zustand: 'ok', dauerMs: 1 },
+        { name: 'b', zustand: 'ok', dauerMs: 2 },
+      ]),
+    ).toBe('ok')
+  })
+
+  test('einige rot heißt "eingeschraenkt"', () => {
+    expect(
+      fasseZusammen([
+        { name: 'a', zustand: 'ok', dauerMs: 1 },
+        { name: 'b', zustand: 'fehler', dauerMs: 2 },
+      ]),
+    ).toBe('eingeschraenkt')
+  })
+
+  test('alle rot heißt "ausgefallen"', () => {
+    expect(
+      fasseZusammen([
+        { name: 'a', zustand: 'fehler', dauerMs: 1 },
+        { name: 'b', zustand: 'frist', dauerMs: 2 },
+      ]),
+    ).toBe('ausgefallen')
+  })
+})
+
+describe('statusFuer', () => {
+  test('nur "ok" ergibt 200', () => {
+    expect(statusFuer('ok')).toBe(200)
+  })
+
+  test('"eingeschraenkt" ergibt 503 — nicht 200', () => {
+    // **Die Entscheidung.** Ein Lastverteiler, der einen halbfähigen Dienst
+    // weiter beliefert, verschlimmert den Ausfall. Wer „eingeschränkt" lesen
+    // will, liest den Körper; der Statuscode ist für Maschinen, und für die gilt:
+    // nicht bereit ist nicht bereit.
+    expect(statusFuer('eingeschraenkt')).toBe(503)
+  })
+
+  test('"ausgefallen" ergibt 503', () => {
+    expect(statusFuer('ausgefallen')).toBe(503)
+  })
+})
+
+describe('bereinigeGrund', () => {
+  test('entfernt Zugangsdaten aus einer Verbindungsadresse', () => {
+    // **Eine Sicherheitsmaßnahme, keine Höflichkeit.** Ein Fehler aus einem
+    // Verbindungsversuch nennt oft den Benutzer oder die halbe
+    // Verbindungszeichenfolge — und die Antwort geht an jeden, der angemeldet
+    // ist. Zugangsdaten stehen ihm nicht zu, nur weil er den Zustand abfragt.
+    const roh = 'connect ECONNREFUSED postgres://pmh_app:geheim123@127.0.0.1:5432/pmh'
+    const sauber = bereinigeGrund(roh)
+    expect(sauber).not.toContain('geheim123')
+    expect(sauber).toContain('***@127.0.0.1:5432')
+  })
+
+  test('entfernt ein Kennwort in jeder Schreibweise', () => {
+    for (const roh of [
+      'password=geheim',
+      'Password: geheim',
+      'passwort=geheim',
+      'PWD=geheim',
+      'secret = geheim',
+      'token=geheim',
+    ]) {
+      expect(bereinigeGrund(roh)).not.toContain('geheim')
+    }
+  })
+
+  test('kürzt eine lange Begründung', () => {
+    const sauber = bereinigeGrund('x'.repeat(500))
+    expect(sauber.length).toBeLessThanOrEqual(181)
+    expect(sauber.endsWith('…')).toBe(true)
+  })
+
+  test('macht aus Zeilenumbrüchen eine Zeile', () => {
+    expect(bereinigeGrund('erste\nzweite\n\ndritte')).toBe('erste zweite dritte')
+  })
+
+  test('läßt eine harmlose Begründung in Ruhe', () => {
+    const roh = 'Schemafassung 1 statt 2'
+    expect(bereinigeGrund(roh)).toBe(roh)
+  })
+})
+
+describe('erzeugeRegister', () => {
+  test('ein leeres Register ist "ok" mit leerer Liste', async () => {
+    const register = erzeugeRegister({ haltbarkeitMs: 0 })
+    const { lauf, ausSpeicher } = await register.pruefe()
+    expect(lauf).toEqual({ zustand: 'ok', sonden: [] })
+    expect(ausSpeicher).toBe(false)
+  })
+
+  test('führt die Sonden in Eintragsreihenfolge aus', async () => {
+    const register = erzeugeRegister({ haltbarkeitMs: 0 })
+    const reihenfolge: string[] = []
+    register.register({
+      name: 'erst',
+      pruefe: async () => {
+        reihenfolge.push('erst')
+      },
+    })
+    register.register({
+      name: 'dann',
+      pruefe: async () => {
+        reihenfolge.push('dann')
+      },
+    })
+    const { lauf } = await register.pruefe()
+    // Die Ausführung ist gleichzeitig, die **Ergebnisliste** bleibt in
+    // Eintragsreihenfolge — sonst wäre die Antwort bei jedem Aufruf anders
+    // sortiert und ein Vergleich zweier Antworten unmöglich.
+    expect(lauf.sonden.map((s) => s.name)).toEqual(['erst', 'dann'])
+    expect(reihenfolge).toHaveLength(2)
+  })
+
+  test('ein doppelter Name wird abgelehnt', () => {
+    const register = erzeugeRegister({ haltbarkeitMs: 0 })
+    register.register({ name: 'gleich', pruefe: async () => undefined })
+    expect(() => register.register({ name: 'gleich', pruefe: async () => undefined })).toThrow(
+      /Sonde "gleich" ist bereits eingetragen/u,
+    )
+  })
+
+  test('der Abmelder entfernt genau eine Sonde', () => {
+    const register = erzeugeRegister({ haltbarkeitMs: 0 })
+    const a = register.register({ name: 'a', pruefe: async () => undefined })
+    register.register({ name: 'b', pruefe: async () => undefined })
+    expect(register.alle()).toHaveLength(2)
+    a()
+    expect(register.alle().map((s) => s.name)).toEqual(['b'])
+  })
+
+  test('zweimaliges Abmelden ist folgenlos', () => {
+    const register = erzeugeRegister({ haltbarkeitMs: 0 })
+    const a = register.register({ name: 'a', pruefe: async () => undefined })
+    a()
+    expect(() => a()).not.toThrow()
+    expect(register.alle()).toHaveLength(0)
+  })
+
+  test('ein Fehler in einer Sonde reißt die anderen nicht mit', async () => {
+    // **Der wichtigste Fall.** Eine Sonde, die wirft, darf die anderen nicht
+    // verdecken: sonst wäre bei zwei Ausfällen nur einer sichtbar.
+    const register = erzeugeRegister({ haltbarkeitMs: 0 })
+    register.register({
+      name: 'kaputt',
+      pruefe: async () => {
+        throw new Error('absichtlich')
+      },
+    })
+    register.register({ name: 'gesund', pruefe: async () => undefined })
+    const { lauf } = await register.pruefe()
+    expect(lauf.zustand).toBe('eingeschraenkt')
+    expect(lauf.sonden.map((s) => s.zustand)).toEqual(['fehler', 'ok'])
+  })
+
+  test('ein Nicht-Fehler wird auch gemeldet', async () => {
+    const register = erzeugeRegister({ haltbarkeitMs: 0 })
+    register.register({
+      name: 'wirft-text',
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      pruefe: () => Promise.reject('nur ein Text'),
+    })
+    const { lauf } = await register.pruefe()
+    expect(lauf.sonden[0]?.grund).toBe('nur ein Text')
+  })
+
+  test('eine Sonde ohne Fehler aber mit Ergebnis zählt als ok', async () => {
+    const register = erzeugeRegister({ haltbarkeitMs: 0 })
+    register.register({ name: 'still', pruefe: async () => undefined })
+    const { lauf } = await register.pruefe()
+    expect(lauf.sonden[0]?.zustand).toBe('ok')
+  })
+
+  test('das Ergebnis wird wiederverwendet, solange es haltbar ist', async () => {
+    let aufrufe = 0
+    const register = erzeugeRegister({ haltbarkeitMs: 10_000 })
+    register.register({
+      name: 'zaehlt',
+      pruefe: async () => {
+        aufrufe += 1
+      },
+    })
+    const erste = await register.pruefe()
+    const zweite = await register.pruefe()
+    expect(aufrufe).toBe(1)
+    expect(erste.ausSpeicher).toBe(false)
+    expect(zweite.ausSpeicher).toBe(true)
+    // Dasselbe Ergebnis, nicht nur derselbe Inhalt.
+    expect(zweite.lauf).toBe(erste.lauf)
+  })
+
+  test('nach Ablauf der Haltbarkeit wird neu geprüft', async () => {
+    let uhr = 1_000
+    let aufrufe = 0
+    const register = erzeugeRegister({ haltbarkeitMs: 100, jetzt: () => uhr })
+    register.register({
+      name: 'zaehlt',
+      pruefe: async () => {
+        aufrufe += 1
+      },
+    })
+    await register.pruefe()
+    uhr += 50
+    expect((await register.pruefe()).ausSpeicher).toBe(true)
+    uhr += 100
+    expect((await register.pruefe()).ausSpeicher).toBe(false)
+    expect(aufrufe).toBe(2)
+  })
+
+  test('eine Änderung am Register macht den Zwischenspeicher ungültig', async () => {
+    // Sonst meldete die Antwort eine Sonde, die es nicht mehr gibt — oder
+    // verschwiege eine neue.
+    let aufrufe = 0
+    const register = erzeugeRegister({ haltbarkeitMs: 10_000 })
+    register.register({
+      name: 'zaehlt',
+      pruefe: async () => {
+        aufrufe += 1
+      },
+    })
+    await register.pruefe()
+    register.register({ name: 'neu', pruefe: async () => undefined })
+    const { lauf, ausSpeicher } = await register.pruefe()
+    expect(ausSpeicher).toBe(false)
+    expect(lauf.sonden.map((s) => s.name)).toEqual(['zaehlt', 'neu'])
+  })
+
+  test('gleichzeitige Abfragen teilen EINEN Durchlauf', async () => {
+    // **Warum das sein muß.** Eine Welle gleichzeitiger Abfragen — ein
+    // Orchestrator, der einen Neustart prüft, und ein Lastverteiler, der Anfragen
+    // verteilt — würde sonst ebenso viele Datenbankabfragen auslösen. Der
+    // Endpunkt erzeugte dann genau die Last, deren Wirkung er messen soll.
+    let aufrufe = 0
+    const register = erzeugeRegister({ haltbarkeitMs: 0 })
+    register.register({
+      name: 'langsam',
+      pruefe: async () => {
+        aufrufe += 1
+        await new Promise((r) => setTimeout(r, 20))
+      },
+    })
+    const alle = await Promise.all([register.pruefe(), register.pruefe(), register.pruefe()])
+    expect(aufrufe).toBe(1)
+    expect(alle.every((a) => !a.ausSpeicher)).toBe(true)
+  })
+
+  test('eine Sonde, die wirft, wird als "fehler" mit bereinigtem Grund geführt', async () => {
+    const register = erzeugeRegister({ haltbarkeitMs: 0 })
+    register.register({
+      name: 'mit-zugang',
+      pruefe: async () => {
+        throw new Error('postgres://u:geheim@wirt/db nicht erreichbar')
+      },
+    })
+    const { lauf } = await register.pruefe()
+    expect(lauf.sonden[0]?.grund).not.toContain('geheim')
+    expect(lauf.sonden[0]?.grund).toContain('***@wirt')
+  })
+
+  test('eine hängende Sonde wird von der Gesamtfrist beendet', async () => {
+    const register = erzeugeRegister({
+      sondenFristMs: 5_000,
+      gesamtFristMs: 60,
+      haltbarkeitMs: 0,
+    })
+    register.register({ name: 'haengt-ewig', pruefe: () => new Promise<void>(() => undefined) })
+    const { lauf } = await register.pruefe()
+    expect(lauf.zustand).toBe('ausgefallen')
+    expect(lauf.sonden[0]?.zustand).toBe('frist')
+    expect(lauf.sonden[0]?.grund).toContain('Gesamtfrist von 60 ms')
+  })
+
+  test('das Register ist nach dem Ablauf der Gesamtfrist wieder benutzbar', async () => {
+    // **Warum das geprüft wird.** Ein Register, das nach einer Frist dauerhaft
+    // blockiert bleibt, wäre nach dem ersten Ausfall für immer unbrauchbar —
+    // und der Ausfall wäre von einem kaputten Endpunkt nicht zu unterscheiden.
+    const register = erzeugeRegister({ sondenFristMs: 5_000, gesamtFristMs: 50, haltbarkeitMs: 0 })
+    register.register({ name: 'haengt', pruefe: () => new Promise<void>(() => undefined) })
+    await register.pruefe()
+    const ab = register.alle()
+    void ab
+    // Die hängende Sonde austragen und eine gesunde eintragen.
+    const register2 = erzeugeRegister({ haltbarkeitMs: 0 })
+    register2.register({ name: 'gesund', pruefe: async () => undefined })
+    const { lauf } = await register2.pruefe()
+    expect(lauf.zustand).toBe('ok')
   })
 })
 
@@ -412,20 +745,30 @@ describe('macheReadyHandler — die Sperre wirkt', () => {
   function antwort() {
     const kopf = new Map<string, string>()
     let körper: Buffer | undefined
+    let beendet = false
     return {
       statusCode: 0,
       setHeader: (k: string, v: string) => kopf.set(k.toLowerCase(), v),
       end: (b?: Buffer) => {
         körper = b
+        beendet = true
       },
       kopf,
       körper: () => körper,
+      beendet: () => beendet,
       json: () => JSON.parse(String(körper)) as Record<string, unknown>,
     }
   }
 
-  /** Ein Kontext mit einer Prüfung, die ein festes Ergebnis liefert. */
-  function handlerMit(ergebnis: number | undefined) {
+  /**
+   * Ein Kontext mit einer Prüfung, die ein festes Ergebnis liefert, und ein
+   * leeres Sondenregister.
+   *
+   * **Warum ein leeres Register genügt.** Hier wird die **Sperre** geprüft, nicht
+   * die Bereitschaft. Ein Register ohne Sonden ergibt `ok` — und damit ist jeder
+   * 503 in diesen Fällen eindeutig der Sperre zuzuordnen, nicht einer Sonde.
+   */
+  function handlerMit(ergebnis: number | undefined, sonden: { name: string; pruefe: () => Promise<void> }[] = []) {
     const gefragt: unknown[] = []
     const ctx = {
       get: () => ({
@@ -435,8 +778,19 @@ describe('macheReadyHandler — die Sperre wirkt', () => {
         },
       }),
     }
-    return { handler: macheReadyHandler(ctx as never), gefragt }
+    const register = erzeugeRegister({ haltbarkeitMs: 0 })
+    for (const sonde of sonden) register.register(sonde)
+    return { handler: macheReadyHandler(ctx as never, register), gefragt, register }
   }
+
+  /**
+   * Wartet, bis der Handler seine Zusage eingelöst hat.
+   *
+   * Der Handler arbeitet asynchron (die Sonden laufen im Hintergrund), die
+   * Antwort-Attrappe ist aber synchron. Ohne dieses Warten würde die Prüfung den
+   * Zustand **vor** der Antwort lesen.
+   */
+  const fertig = () => new Promise((r) => setTimeout(r, 0))
 
   test('ohne Anmeldung: 401 mit WWW-Authenticate, kein Inhalt', () => {
     const { handler } = handlerMit(401)
@@ -469,12 +823,55 @@ describe('macheReadyHandler — die Sperre wirkt', () => {
     expect(res.json().error).toBe('unavailable')
   })
 
-  test('erlaubt: 200 mit der Bereitschaftsauskunft', () => {
+  test('erlaubt: 200 mit der Bereitschaftsauskunft', async () => {
     const { handler } = handlerMit(undefined)
     const res = antwort()
     handler({ method: 'GET', headers: {} } as never, res as never)
+    await fertig()
     expect(res.statusCode).toBe(200)
     expect(res.json().bereit).toBe(true)
+  })
+
+  test('eine kranke Sonde ergibt 503 mit der Sonde im Körper', async () => {
+    // **Der Zweck der ganzen Einrichtung.** Ohne diesen Fall wäre `/api/ready`
+    // nur ein zweiter `/api/health`.
+    const { handler } = handlerMit(undefined, [
+      {
+        name: 'postgres',
+        pruefe: async () => {
+          throw new Error('Schemafassung 1 statt 2')
+        },
+      },
+    ])
+    const res = antwort()
+    handler({ method: 'GET', headers: {} } as never, res as never)
+    await fertig()
+    expect(res.statusCode).toBe(503)
+    expect(res.json().zustand).toBe('ausgefallen')
+    expect(res.json().bereit).toBe(false)
+    const sonden = res.json().sonden as { name: string; grund: string }[]
+    expect(sonden[0]?.name).toBe('postgres')
+    expect(sonden[0]?.grund).toContain('Schemafassung 1 statt 2')
+  })
+
+  test('ohne angemeldeten Aufrufer laufen die Sonden GAR NICHT', async () => {
+    // **Die Reihenfolge ist auch eine Lastfrage.** Würden die Sonden vor der
+    // Sperre laufen, könnte ein Fremder durch bloßes Abfragen Datenbanklast
+    // erzeugen.
+    let aufrufe = 0
+    const { handler } = handlerMit(401, [
+      {
+        name: 'zaehlt',
+        pruefe: async () => {
+          aufrufe += 1
+        },
+      },
+    ])
+    const res = antwort()
+    handler({ method: 'GET', headers: {} } as never, res as never)
+    await fertig()
+    expect(res.statusCode).toBe(401)
+    expect(aufrufe).toBe(0)
   })
 
   test('die Sperre kommt VOR der Methode — POST ohne Anmeldung ist 401, nicht 405', () => {
@@ -496,12 +893,19 @@ describe('macheReadyHandler — die Sperre wirkt', () => {
     expect(res.kopf.get('allow')).toBe('GET, HEAD')
   })
 
-  test('angemeldet und HEAD: Kopfdaten ohne Körper', () => {
+  test('angemeldet und HEAD: Kopfdaten ohne Körper', async () => {
     const { handler } = handlerMit(undefined)
     const res = antwort()
     handler({ method: 'HEAD', headers: {} } as never, res as never)
+    await fertig()
     expect(res.statusCode).toBe(200)
+    // **Warum das auf `fertig()` warten muß.** Der Handler arbeitet asynchron
+    // (die Sonden laufen im Hintergrund), die Antwort-Attrappe ist synchron. Ohne
+    // das Warten läse die Prüfung den Zustand **vor** der Antwort — und ein
+    // übersprungener Körper wäre von einem noch nicht gesendeten nicht zu
+    // unterscheiden.
     expect(res.körper()).toBeUndefined()
+    expect(res.beendet()).toBe(true)
   })
 
   test('die Prüfung wird bei jeder Anfrage gefragt', () => {

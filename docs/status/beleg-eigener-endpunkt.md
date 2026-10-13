@@ -137,27 +137,160 @@ sein.
 
 ## Was hier **nicht** belegt ist — ehrlich
 
-1. **Keine Zustandsprüfung der Abhängigkeiten.** `/api/ready` sagt, daß die
-   Anwendung antwortet; ob PostgreSQL erreichbar ist, sagt es **nicht**. Ein
-   `/api/ready`, das „ok" sagt, obwohl die Datenbank liegt, wäre schlimmer als
-   keines.
-2. **Der `Content-Length`-Kopf ist in der HTTP-Antwort nicht nachgewiesen.** Die
-   Absicht — unverdichtet bleiben und die Länge nennen — ist im Handler
-   ausgeführt und mit einer Antwort-Attrappe geprüft, aber die tatsächlich
-   gesendeten Kopfdaten wurden nicht sauber ausgelesen (PowerShell zeigte
-   `System.String[]`). Bei `/api/ready` war die Ausgabe von `curl -D -` auf die
-   relevanten Zeilen gefiltert; `Content-Length` stand nicht darunter.
-   **Nicht belegt.**
-3. **Die Sitzung mit Cookie wurde einmal gemessen.** Der Ablauf Token → Cookie →
-   `/api/ready` **200** ist einmal durchlaufen. Ob er nach Ablauf der Sitzung
-   korrekt **401** liefert, ist nicht gemessen.
-4. **Nur Windows.** Gemessen auf Windows nativ, Bun 1.4.0. Linux ist nicht
-   gemessen.
-5. **Die Attrappe hält den Vertrag fest, nicht seine Erfüllung.** Ändert der Core
-   die Bedeutung von `requestRejection`, bleiben unsere Prüfungen grün und der
-   Endpunkt wäre falsch abgesichert. Dagegen hilft nur die Messung am laufenden
-   Host — und die ist eine Handmessung, keine Prüfung, die bei jeder Änderung
-   läuft.
+1. **Der `Content-Length`-Kopf ist in der HTTP-Antwort nicht nachgewiesen** (siehe unten, Punkt 2 der alten Fassung).
+2. **Nur Windows.** Gemessen auf Windows nativ, Bun 1.4.0. Linux ist nicht gemessen.
+3. **Die Attrappen halten Verträge fest, nicht ihre Erfüllung.** Ändert der Core die Bedeutung von `requestRejection` oder `WebServer.register`, bleiben unsere Prüfungen grün. Dagegen hilft nur die Messung am laufenden Host — und die ist eine **Handmessung**, keine Prüfung, die bei jeder Änderung läuft.
+
+---
+
+# Teil 2: `/api/ready` prüft jetzt die Abhängigkeiten
+
+**Datum:** 13.10.2026 · **Anlaß:** Teil 1 dieses Belegs nannte die Lücke selbst:
+*„`/api/ready` sagt, daß die Anwendung antwortet; ob PostgreSQL erreichbar ist,
+sagt es nicht."*
+
+## Das Ergebnis
+
+```
+GET /api/ready   (mit Sitzungscookie)  -> 200
+{"service":"@prometheus-harness/health","version":"0.3.0",…,
+ "bereit":true,"zustand":"ok",
+ "sonden":[{"name":"postgres","zustand":"ok","dauerMs":109},
+           {"name":"redis","zustand":"ok","dauerMs":4}],
+ "zwischengespeichert":false}
+```
+
+Und mit **absichtlich kaputtem** Redis (`REDIS_URL=redis://127.0.0.1:6399`):
+
+```
+GET /api/ready   -> 503
+{…,"bereit":false,"zustand":"eingeschraenkt",
+ "sonden":[{"name":"postgres","zustand":"ok","dauerMs":25},
+           {"name":"redis","zustand":"fehler","dauerMs":4,
+            "grund":"Verbindung zu 127.0.0.1:6399 fehlgeschlagen: connect ECONNREFUSED …"}]}
+
+GET /api/health  -> 200   (der Prozeß lebt)
+```
+
+**Das ist der Unterschied der beiden Endpunkte, gemessen statt behauptet:** ein
+Ausfall einer Abhängigkeit ergibt **503** auf `/api/ready` und **200** auf
+`/api/health`. Wären beide Zahlen gleich, wäre einer der beiden Endpunkte
+überflüssig.
+
+## Warum ein **Register** und keine festen Prüfungen
+
+Die naheliegende Fassung wäre: `health` verbindet sich mit PostgreSQL und Redis.
+**Das wäre falsch:**
+
+* **`health` würde von den Datenbanken abhängig.** Ein Endpunkt, dessen Aufgabe
+  „Zustand melden" ist, darf nicht selbst am Zustand hängen — ein Fehler in der
+  Datenbankverbindung risse den Endpunkt mit, der ihn melden soll.
+* **Es verletzt Regel 2 dieses Projekts** (README): keine Unit importiert Interna
+  einer anderen.
+
+Deshalb stellt `health` einen **Vertrag** bereit — `ctx.readyness.register(sonde)`
+— und `@prometheus-harness/readiness` trägt seine Sonden dort ein. `health` kennt
+PostgreSQL nicht.
+
+## Die Sonden — und warum sie nicht `select 1` und `PING` sind
+
+**PostgreSQL: drei Fragen, nicht eine.**
+
+| # | Frage | Warum |
+|---|---|---|
+| 1 | `select 1` | steht die Verbindung? |
+| 2 | Fassung aus der Migrationstabelle | sind die **Migrationen** gelaufen? |
+| 3 | Kern-Tabellen vorhanden? | ist das **Ergebnis** da? |
+
+`select 1` allein wäre eine Behauptung: fehlende Tabellen, eine nie gelaufene
+Migration, ein falscher Suchpfad — alles liefert bei `select 1` ein fröhliches
+Ergebnis. Ein Bereitschaftsendpunkt, der dann „bereit" sagt, ist schlimmer als
+keiner.
+
+**Redis: ein `PING` über einen Socket.** Gemessen am 13.10.2026, Bun 1.4.0:
+
+| Weg | Ergebnis |
+|---|---|
+| `postgres` (npm) gegen 5432 | **OK** (`select 1` → `1`, Fassung `17.11`) |
+| `Bun.SQL` gegen 5432 | **OK** |
+| `Bun.redis` | **vorhanden, aber ohne benutzbare Methoden** (`Object.keys` → leer) |
+| **rohes TCP, `PING`** gegen 6379 | **OK** (`+PONG`) |
+| `fetch('redis://…')` | **FEHLER** (`protocol must be http:, https: or s3:`) |
+
+Und eine Antwort, die nicht `PONG` ist, gilt **nicht** als bereit: „jemand
+antwortet" ist nicht dasselbe wie „Redis ist bereit".
+
+## Der sechste eigene Fehler — und die Lücke, die ihn durchgelassen hat
+
+**Der Fehler.** Im Host scheiterte das Sonden-Paket vollständig:
+
+```
+[host] pmh: warning: 2 entries did not activate
+[host] pmh-readiness (@prometheus-harness/readiness):
+       Error: readiness: der Dienst "readyness" fehlt, obwohl inject ihn fordert
+```
+
+`apply` las den Dienst mit `ctx.get('readyness')` **innerhalb von `apply`**. Aber
+`ctx.provide(name, wert)` macht einen Dienst erst **nach dem Ende von `apply`**
+auffindbar. Gemessen mit einer Sonde:
+
+```
+anbieter: after provide, ctx.get = undefined      ← der eigene Dienst ist noch unsichtbar
+Wurzel:   ctx.get(meinding)     = [object Object]  ← erst danach da
+```
+
+**Die Lücke in den Prüfungen — das eigentliche Problem.** Alle 40 Prüfungen des
+Pakets riefen `trageSondenEin` mit einem **selbstgebauten** Register auf. Sie
+prüften die Logik und gingen an `apply` **vorbei**. Genau dort steckte der Fehler.
+Es gab **keine** Prüfung, die `apply` wirklich ausführte.
+
+Jetzt gibt es drei — gegen einen **echten** Cordis-Kontext und ein **echtes**
+Register: die Sonden kommen an, ohne Adressen kommt nichts an (ohne zu scheitern),
+und das Abhängen nimmt sie wieder heraus.
+
+**Die allgemeine Lehre, die hier steht.** Eine Prüfung, die eine Funktion direkt
+aufruft, prüft **nicht** den Weg, auf dem sie im Betrieb aufgerufen wird. Beides
+braucht eine Prüfung — und die zweite war hier nicht da.
+
+## Nachweise
+
+| Nachweis | Befehl | Ergebnis |
+|---|---|---|
+| Prüfungen `health` | `bun test packages/api/health` | **72 pass · 0 fail** |
+| Prüfungen `readiness` | `bun test packages/api/readiness` | **40 pass · 0 fail** |
+| Prüfungen der Profil-Verdrahtung | `bun test scripts/tests/profile-patch.test.mjs` | **24 pass · 0 fail** |
+| Alle Skript-Prüfungen | `bun test scripts/tests/` | **58 pass · 0 fail** (3 Dateien) |
+| Gesamtlauf | `bun test packages scripts apps` | **762 pass · 0 fail** (26 Dateien, 11,2 s) |
+| Gesamtlauf ohne Testdatenbank | ebenso, ohne `PMH_TEST_DATABASE_URL` | **748 pass · 14 skip · 0 fail** — übersprungen, **nicht** bestanden |
+| Typecheck Einzelpaket | `bunx tsgo --noEmit -p packages/api/health/tsconfig.json` | **exit 0** |
+| Typecheck alle Pakete | je `tsgo --noEmit -p <paket>` | **18 grün · 0 rot** |
+| Endpunkt im Host, offen | `curl /api/health` | **200** mit unserem JSON |
+| Endpunkt im Host, geschützt | `curl /api/ready` | **401** + `WWW-Authenticate: Cookie` |
+| Mit Sitzungscookie | `curl /api/ready` mit Cookie | **200** mit `bereit: true` |
+| Pfadgenauigkeit | `?x=1` · `/api/health/mehr` · `/api/ready/mehr` | **200** · **404** · **404** |
+| Im Host, gesund | `curl /api/ready` mit Cookie | **200**, beide Sonden `ok` |
+| Im Host, Redis tot | `curl /api/ready` mit Cookie | **503** `eingeschraenkt`, Grund genannt |
+| Im Host, Redis tot | `curl /api/health` | **200** — der Unterschied ist belegt |
+| Verdopplungsschutz | zweiter Start | `Eigene Pakete schon eingetragen` |
+
+## Was in Teil 2 **nicht** belegt ist — ehrlich
+
+1. **Keine Prüfung, die den Ausfall regelmäßig herbeiführt.** Die 503-Antwort ist
+   **einmal** von Hand gemessen (Redis auf einen toten Port gezeigt). Es gibt
+   keinen Lauf, der das bei jeder Änderung wiederholt.
+2. **Die Sonden laufen gegen `DATABASE_URL`/`REDIS_URL` aus der Umgebung.** Der
+   Starter setzt sie **nicht** — ohne sie meldet `/api/ready` `ok` mit **leerer**
+   Sondenliste. Das ist gebaut und geprüft, aber es steht **nicht** in der
+   Startanleitung der README. Wer die Anleitung befolgt, bekommt keine
+   Abhängigkeitsprüfung.
+3. **Kein Zusammenhang zwischen `.env.example` und dem Start.** Der Starter liest
+   die Datei nicht; die Adressen müssen im PATH der Umgebung stehen.
+4. **Die Wiederverwendung (5 s) ist geprüft, aber nicht im Host gemessen.** Ein
+   zweiter Aufruf binnen fünf Sekunden müßte `zwischengespeichert: true` liefern —
+   das ist **nicht** von Hand nachgemessen.
+5. **`Bun.redis` könnte in einer neueren Bun-Fassung brauchbar werden.** Dann wäre
+   das eigene `PING` ersetzbar; die Messung oben gilt für **1.4.0**.
+6. **Nur Windows.**
 
 Jeder wurde von einer Messung gefunden, nicht durch Nachdenken.
 
