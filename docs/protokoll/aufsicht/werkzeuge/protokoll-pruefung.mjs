@@ -80,6 +80,7 @@ if (start === -1) {
     V10: 'Verifikation (Paarungsprüfer) — in §1 bei B15/B16 geführt',
     V11: 'Verifikation (Benchmark-Gate) — in der B35-Zeile mitgeführt',
     V12: 'Verifikation (Argon2id-Kosten nachgemessen) — in der B40-Zeile mitgeführt',
+    V13: 'Verifikation (Kapazitäts-Dokument geprüft) — in den Zeilen B35/B41 mitgeführt',
   }
   const lage = lies(join(ORDNER, 'LAGE.md'))
   const alleNummern = [...new Set([...befunde.matchAll(/^## (B\d+|V\d+)/gm)].map((t) => t[1]))]

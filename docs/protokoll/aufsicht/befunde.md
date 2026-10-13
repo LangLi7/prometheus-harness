@@ -2519,6 +2519,53 @@ Verfahren daneben.
 
 **Grenze.** Ich habe **nichts** von seinem Code gestartet: kein Benchmark, kein Dienst, kein Test. Die
 21 Hashläufe sind reine Rechenzeit (~0,5 s) und verfälschen seine Messungen nicht.
+## B41 — Die denormalisierten Chat-Spalten sind angelegt, aber **niemand pflegt sie** — **N** (latent)
+
+**Anlaß.** Sein neues `docs/review/last-und-suche.md` (384 Zeilen, `bd3cfc7`) nennt als zweitgrößten
+Kostenpunkt: *„Ein `UPDATE` je Nachricht auf die Chat-Zeile kostet **88 %** des Durchsatzes (8 030 → 938
+tps, Faktor 8,6). **Das ist selbst zugefügt.**"* — und empfiehlt, den Zähler nur je Turn zu pflegen.
+
+**Gemessen (17:16, gesamter Baum ohne `node_modules`/`target`/`.git`, `*.ts|*.tsx|*.go|*.sql|*.mjs|*.ps1`).**
+Die drei Spalten kommen **sechsmal** vor: fünfmal in der **Migration** `0002_workspaces_chats.sql`
+(Definition, `CHECK`, Kommentar) und **einmal lesend** in einem Test
+(`packages/auth/db-schema/tests/postgres.test.ts:350`: `SELECT … last_message_at FROM chats`).
+**Kein `INSERT`, kein `UPDATE`.** Und in der lebenden Datenbank existiert **kein einziger Trigger** auf
+`pmh`-Tabellen (`pg_trigger … not tgisinternal` → leer).
+
+**Was daraus folgt.** Die 88 % sind **nicht zugefügt** — sie sind der Preis einer **Absicht**. Heute zahlt
+ihn niemand, weil nichts diese Spalten schreibt. **Der reale Fehler ist an dieser Stelle der
+umgekehrte:** `message_count` ist `NOT NULL DEFAULT 0`, `last_message_at` ist `NULL` — eine Chat-Liste,
+die darauf sortiert oder zählt, zeigt **0 und NULL**, nicht „langsam". Dieselbe Klasse wie **B14**
+(Schema vorhanden, Code fehlt).
+
+**Empfehlung — eine Entscheidung, keine Messung:** die Spalten **pflegen** (dann je **Turn**, wie er
+vorschlägt, nicht je Nachricht) **oder** sie **streichen** (`DROP`), statt sie als Versprechen
+mitzunehmen. Was nicht geht: sie stehen lassen und die Liste darauf stützen.
+
+**Fairness.** Seine Messung selbst ist **richtig** — der Preis eines solchen `UPDATE` ist gemessen, und
+„je Turn statt je Nachricht" ist genau die richtige Regel für den Fall, daß gepflegt wird. Mein Beitrag
+ist die **Verortung**: das ist eine **Vorbedingung für den ersten Schreibpfad**, kein vorhandener Engpaß.
+
+## V13 — Sein Kapazitäts-Dokument: was ich bestätigen konnte — und was **nicht mehr reproduzierbar** ist (Verifikation, kein Befund)
+
+**Geprüft** (`docs/review/last-und-suche.md`, `bd3cfc7`, 384 Zeilen) — **ohne einen Lauf.** Ich habe
+**keinen** `pgbench`-Lauf gemacht: er würde seine eigenen Messungen mit Maschinenlast verfälschen
+(dieselbe Rücksicht wie bei **V11**).
+
+| Seine Aussage | Meine Messung (17:14/17:15) | Urteil |
+|---|---|---|
+| `max_connections` = **100**, `superuser_reserved_connections` = **3** → **97** nutzbar | in der **lebenden** Datenbank: `100` und `3` | **bestätigt** |
+| HOT-Anteil **13,1 %** (`n_tup_upd` 104 582, `n_tup_hot_upd` 13 663) | Rechnung: 13 663 / 104 582 = **13,06 %** | **Rechnung bestätigt**; die Rohzahlen selbst sind nicht mehr nachprüfbar (nächste Zeile) |
+| „`updated_at` ist indiziert, deshalb ist kein HOT-Update möglich" | `pg_indexes`: `chats_user_recent_idx` = `(user_id, updated_at DESC) WHERE deleted_at IS NULL` **existiert** | **strukturell bestätigt** |
+| „im ganzen Paket **kein** `sync`/`fsync`" (Abschnitt 2) | unabhängig gemessen und als **B36**-Nachtrag um 16:20 veröffentlicht | **bestätigt — zwei getrennte Wege, derselbe Befund** |
+| **8 030 / 938 / 775 tps**, 16 462 tps, 512 tps bei 40 Schreibern | **nicht nachprüfbar:** die Wegwerf-Datenbank `pmh_bench` **existiert nicht mehr** (`pg_database` → nur `pmh`, 11 MB) | **offen** — Verfahren beschrieben, Datenbank weg |
+| Ein **Vergleich gegen die Vorlage** | **0** Vergleichstreffer in seinem Dokument (nur ein Literaturhinweis auf `dsh-session-query-sqlite`) | es gibt **weiterhin keine Vergleichsmessung** → **B35** bleibt in der Laufzeitachse **offen** |
+
+**Warum das zählt.** Die Kapazitätszahlen sind als **Momentaufnahme** brauchbar und sauber hergeleitet —
+aber sie hängen an einer Datenbank, **die es nicht mehr gibt**. Für einen Beleg, auf dem eine
+Skalierungsentscheidung ruht, gehört das Verfahren **in den Baum**: ein Skript, das die Wegwerf-Datenbank
+anlegt und die Läufe wiederholt. Dieselbe Regel, die ich bei der Argon2id-Zahl angemahnt habe (**V12**).
+
 ## V3 — Die CRLF-Klasse im JavaScript ist **geschlossen** (Verifikation, kein Befund)
 
 **Anlass.** Derselbe Fehler ist bei ihm **dreimal** aufgetreten: `setzeWerte` (`e9013a5`), `leseEnv`
