@@ -2785,7 +2785,15 @@ die ich selbst einfordere. Meine Prüfung war **zu eng**: sie suchte `\| \*\*B\d
 verklebte **V**-Zeile **nie** bemerkt → **neue Regel 6** im Prüfwerkzeug. Nachgemessen ist der Bestand
 jetzt sauber: jede Nummer genau eine Tabellenzeile, `\|\|` nur in einem psql-Befehl.
 
+**Nachtrag 17:00 — sein neues `unit.json` ist gültig, B31 unverändert.** Registry-Scan (nur lesend,
+`bun run packages/units/unit-export/src/cli.ts list --root native --root services --root packages`):
+**12** Units, darunter neu **`pmh-attach 0.1.0 service/go optional`** mit **keiner** Namenswarnung — der
+Ordner heißt wie die Unit. Die Warnungslage aus **B31** ist unverändert: **6 ×**
+`[unit_name_directory_mismatch]`, alle `native/*`, exit 0. Die Datei selbst ist weiterhin **nicht
+versioniert** (7 unverfolgte Pfade).
+
 ---
+
 ## Registereintrag
 
 `docs/INDEX.md`, Abschnitt **9 — Protokoll der Aufsicht**: alle Dateien dieses Ordners sind dort mit
