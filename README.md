@@ -76,7 +76,7 @@ bun run start                   #  1,1 s bis zur Adresse
 ### Prüfen
 
 ```bash
-bun test packages scripts apps   # 669 grün, 0 rot — 25 Dateien, 5,6 s
+bun test packages scripts apps   # 690 grün, 0 rot — 25 Dateien, 6,6 s
 
 # Die 14 PostgreSQL-Prüfungen laufen nur mit einer Testdatenbank.
 # Sie brauchen die OWNER-Rolle: Migrationen sind DDL, pmh_app darf das nicht.
@@ -85,7 +85,7 @@ PMH_TEST_DATABASE_URL=postgres://pmh_owner:bitte-aendern-owner@127.0.0.1:5432/pm
 ```
 
 **Ohne** diese Variable werden jene Fälle **übersprungen** — nicht bestanden. Ein
-Lauf ohne sie meldet `655 pass · 14 skip · 0 fail` und sagt damit ehrlich, was er
+Lauf ohne sie meldet `676 pass · 14 skip · 0 fail` und sagt damit ehrlich, was er
 nicht geprüft hat.
 
 ## Stand
@@ -97,7 +97,7 @@ Nachgemessen am 13.10.2026:
 | Nachweis | Ergebnis |
 |---|---|
 | **Host startet** | `bun run start` → Adresse mit Token; Aufruf **200**, 35.664 Zeichen; ohne Token **401**, mit falschem Token **401**; Start bis zur Adresse **1,1 s** |
-| **Eigener Endpunkt** | `GET /api/health` → **200** mit unserem JSON — **im Host**, nicht nur im Test; `POST` → **405**; `?x=1` → **200**, `/api/health/mehr` → **404** — [Beleg](docs/status/beleg-eigener-endpunkt.md) |
+| **Eigener Endpunkt** | `GET /api/health` → **200** (offen) · `GET /api/ready` → **401** ohne Anmeldung, **200** mit Sitzungscookie · `POST` → **405** · genaue Pfade, kein Präfix — [Beleg](docs/status/beleg-eigener-endpunkt.md) |
 | **Anmeldung des Cores** | Token-Weiterleitung **303** + Cookie; `GET /` mit Cookie **200**, ohne Cookie **401** — greift |
 | **API des Cores** | **ausgefallen.** `/api/*` → **401/404**, WS `/api/remote.mux` → **1008 Policy Violation**. Ursache: der `typert`-Stapel registriert sich nicht, das Gateway hängt daran — [Beleg](docs/review/api-flaeche.md) |
 | **Eigener Kern** | **15 Pakete · 669 Tests grün · 0 rot** (25 Dateien, mit echter PostgreSQL) · **ein** Paket davon ist verdrahtet (`health`), die übrigen laufen noch nur in Tests |
@@ -106,27 +106,44 @@ Nachgemessen am 13.10.2026:
 | **Go-Dienste** | `pmh-nix` 60 Tests · `pmh-attach` 63 Tests · `pmh-supervisor` **2 rot** (auch auf `HEAD`) |
 | **Rust** | 6.569 Zeilen in 6 Crates — **nichts ruft sie auf**, kein Skript baut sie — [Beleg](docs/review/rust-bestand.md) |
 
-### Der erste eigene Endpunkt
+### Der eigene Endpunktweg
 
 `packages/api/health` hängt sich über den **offiziellen Dienst** `ctx.webServer`
 ein — nicht über eine eigene Serverinstanz. Eine zweite Instanz hätte nicht
 gezeigt, was hier gezeigt werden soll, und wäre eine zweite Wahrheit über Adresse
 und Anmeldung.
 
-```
+```bash
 $ curl -s http://127.0.0.1:3081/api/health
-{"status":"ok","service":"@prometheus-harness/health","version":"0.1.0",
- "uptimeMs":17862,"runtime":"bun 1.4.0"}
+{"status":"ok","service":"@prometheus-harness/health","version":"0.2.0",
+ "uptimeMs":17807,"runtime":"bun 1.4.0"}
+
+$ curl -s http://127.0.0.1:3081/api/ready
+{"status":"error","error":"unauthenticated"}          # 401 + WWW-Authenticate: Cookie
 ```
 
-**Er ist keine Zustandsprüfung.** Er prüft nicht die Datenbank, nicht Redis, nicht
-die LLM-Anbindung. Er beantwortet die eine Frage, die vor allen anderen kommt:
-*läuft unser Code im Host?* Ein `/api/health`, das „ok" sagt, obwohl die Datenbank
-liegt, wäre schlimmer als keines.
+**Zwei Endpunkte, zwei Fragen.** `/api/health` ist **offen** und sagt nur, daß der
+Prozeß Routen bedient — eine Erreichbarkeitsprüfung, die eine Anmeldung verlangt,
+könnte nicht melden, daß die **Anmeldung** kaputt ist. `/api/ready` ist
+**geschützt** und nennt mehr.
 
-**Erreichbar ohne Token** — bewußt, und nur weil er nichts preisgibt und der
-Lauscher auf `127.0.0.1` gebunden ist. Für jeden weiteren Endpunkt ist das **nicht**
-automatisch richtig.
+**Die Sperre ist die des Hosts, keine eigene.** `/api/ready` ruft
+`ctx.connection.requestRejection` auf — dieselbe Prüfung, die auch die
+Oberfläche schützt (Host-/Origin-Zaun, dann Browsersitzung). Eine zweite Meinung
+darüber, was eine gültige Anmeldung ist, ginge irgendwann auseinander; das Cookie
+ist mit einem 32-Byte-Geheimnis unterschrieben, und wer das nachbaut, baut es
+falsch nach.
+
+| Antwort | Bedeutung |
+|---|---|
+| **401** `unauthenticated` + `WWW-Authenticate: Cookie` | nicht angemeldet |
+| **403** `untrusted_origin` | nicht der Host, für den wir gebaut sind |
+| **503** `unavailable` | die Prüfung selbst ist nicht erreichbar — **verweigern statt durchlassen** |
+
+**Das ist kein Zufall, sondern die Korrektur eines Fehlers.** Der erste Entwurf
+hatte **einen** offenen Endpunkt. Weil registrierte Routen am Auffang-Platz und
+damit an der Anmeldesperre vorbeigehen, hätte **jeder** weitere Endpunkt
+stillschweigend offen gestanden.
 
 Eingetragen wird das Paket bei **jedem** Start von `scripts/start.mjs` in die
 Patch-Schicht des Profils (idempotent, eigener markierter Bereich, fremde

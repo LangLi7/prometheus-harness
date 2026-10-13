@@ -5,63 +5,159 @@
 Host lieferte die Oberfläche des Cores aus; unser Code lief nur in `bun test`.
 
 Mit diesem Schritt sind es **15 Pakete** und — gemessen mit echter Datenbank —
-**669 Tests grün, 0 rot** über 25 Dateien.
-Dieser Beleg zeigt den kleinsten Schritt, der das ändert — und die **vier
-Fehler**, die auf dem Weg dorthin in meinem Code steckten.
+**690 Tests grün, 0 rot** über 25 Dateien. Dieser Beleg zeigt den kleinsten
+Schritt, der das ändert — und die **fünf** Fehler, die auf dem Weg dorthin in
+meinem Code steckten.
 
 ## Das Ergebnis
 
-Ein gestarteter Host, ein Aufruf von außen:
+Ein gestarteter Host, drei Aufrufe von außen:
 
 ```
-GET /api/health
--> 200
-{"status":"ok","service":"@prometheus-harness/health","version":"0.1.0",
- "uptimeMs":17862,"runtime":"bun 1.4.0"}
+GET /api/health                      -> 200
+{"status":"ok","service":"@prometheus-harness/health","version":"0.2.0",
+ "uptimeMs":17807,"runtime":"bun 1.4.0"}
+
+GET /api/ready                       -> 401
+{"status":"error","error":"unauthenticated"}   + WWW-Authenticate: Cookie
+
+GET /api/ready  (mit Sitzungscookie) -> 200
+{"status":"ok",…,"bereit":true,"prozessSekunden":18,"plattform":"win32"}
 ```
 
 Gestartet mit `bun run start --no-go`, Port 3081 (3080 hält der Harness des
-Betreibers). Der Handler, der antwortet, steht in
-`packages/api/health/src/index.ts` und ist über den **offiziellen Dienst**
-`ctx.webServer.register` eingehängt — nicht über eine eigene Serverinstanz.
+Betreibers). Die Handler stehen in `packages/api/health/src/index.ts` und sind
+über den **offiziellen Dienst** `ctx.webServer.register` eingehängt — nicht über
+eine eigene Serverinstanz.
 
 ## Was damit bewiesen ist
 
 | Frage | Beweis |
 |---|---|
-| Findet der Loader des Hosts **unser** Paket? | Ja — der Host startet und der Endpunkt antwortet |
-| Ist der Dienst `webServer` für uns erreichbar? | Ja — `inject: [webServer]` in der Patch-Zeile; ohne ihn würde der Loader warten |
-| Erreicht eine Anfrage von außen unseren Code? | Ja — HTTP 200 mit unserem JSON über den Netzstapel |
-| Genau unser Pfad und kein Präfix? | `/api/health?x=1` → **200**; `/api/health/mehr` → **404** |
+| Findet der Loader des Hosts **unser** Paket? | Ja — der Host startet und die Endpunkte antworten |
+| Ist der Dienst `webServer` für uns erreichbar? | Ja — `inject: [webServer]`; ohne ihn würde der Loader warten |
+| Erreicht eine Anfrage von außen unseren Code? | Ja — HTTP-Antworten mit unserem JSON über den Netzstapel |
+| Genau unsere Pfade und kein Präfix? | `/api/health?x=1` → **200**; `/api/health/mehr` und `/api/ready/mehr` → **404** |
 | Falsche Methode wird unterschieden? | `POST /api/health` → **405**, `Allow: GET, HEAD` |
-| Läuft der Host ohne unser Paket unverändert? | Ja — vor dem Eintrag antwortete die Adresse **404** |
+| **Greift die Anmeldesperre auf unserer Fläche?** | Ja — `/api/ready` ohne Cookie **401**, mit Cookie **200** |
+| Läuft der Host ohne unser Paket unverändert? | Ja — vor dem Eintrag antworteten die Adressen **404** |
 
-## Die Anmeldesperre — genau bestimmt
+## Die Anmeldesperre — und der fünfte Fehler
 
-Der Befund war zunächst verwirrend, und er ist wichtig:
+Der erste Entwurf hatte **einen** offenen Endpunkt: `/api/health`. Er antwortete
+**ohne** Anmeldung mit 200. Das war im Beleg als Entscheidung ausgesprochen — und
+die Entscheidung war **falsch**, sobald ein zweiter Endpunkt dazukommt. Die
+Route geht am Auffang-Platz vorbei (siehe oben), also hätte **jeder** weitere
+Endpunkt stillschweigend offen gestanden.
 
-| Aufruf | **ohne** Token-Cookie | **mit** Token-Cookie |
+Deshalb gibt es jetzt **zwei** Endpunkte:
+
+| Pfad | Anmeldung | Frage |
 |---|---|---|
-| `/api/health` | **200** | **200** |
-| `/api/unbekannt` | **401** | **404** |
-| `/api/health/mehr` | **401** | **404** |
+| `GET /api/health` | **nein** | *läuft der Prozeß?* |
+| `GET /api/ready` | **ja** | *ist die Anwendung dahinter ansprechbar?* |
 
-**Ohne** Cookie antwortet die Anmeldesperre **vor** dem Auffang-Platz — deshalb
-401 statt 404. **Mit** Cookie kommt die Anfrage durch und der Auffang-Platz
-antwortet 404.
+**Warum `/api/health` offen bleibt.** Eine Erreichbarkeitsprüfung, die eine
+Anmeldung verlangt, kann nicht melden, daß die **Anmeldung kaputt** ist. Sie sagt
+deshalb auch nichts außer „dieser Handler läuft".
 
-Unser Endpunkt antwortet in **beiden** Fällen 200, weil ein **registrierter**
-Pfad vor beidem gewinnt. Das heißt aber auch, worüber hier entschieden wurde —
-ausdrücklich und nicht nebenbei:
+**Die Sperre ist die des Hosts, keine eigene.** `ctx.connection.requestRejection`
+prüft zuerst den Host/Origin-Zaun und danach die Browsersitzung:
 
-**`/api/health` ist ohne Anmeldung erreichbar.** Für eine Zustandsauskunft ist
-das vertretbar: der Lauscher ist auf `127.0.0.1` gebunden (der Webserver lehnt
-Wildcard-Bindungen ausdrücklich ab), und die Antwort nennt nur, daß dieser Code
-läuft. Es ist trotzdem eine **Entscheidung**, und sie gehört ausgesprochen, weil
-sie für jeden weiteren Endpunkt nicht automatisch richtig ist. Sobald etwas
-Sensibles dazukommt, braucht es eine Prüfung **vor** dem Handler.
+| Ergebnis | Bedeutung | unsere Antwort |
+|---|---|---|
+| `undefined` | erlaubt | der Inhalt |
+| `403` | nicht der Host, für den wir gebaut sind | **403** `untrusted_origin`, **ohne** `WWW-Authenticate` |
+| `401` | nicht angemeldet | **401** `unauthenticated`, mit `WWW-Authenticate: Cookie` |
+| Dienst fehlt | nicht prüfbar | **503** `unavailable` — **verweigern statt durchlassen** |
 
-## Die vier eigenen Fehler
+Eine zweite Meinung darüber, was eine gültige Anmeldung ist, geht irgendwann
+auseinander. Das Cookie ist mit einem 32 Byte langen Geheimnis unterschrieben;
+wer das nachbaut, baut es falsch nach — und merkt es nicht, weil beide Seiten
+„funktionieren".
+
+**Gemessen am laufenden Host (Port 3081), mit `curl`:**
+
+| Aufruf | Antwort |
+|---|---|
+| `GET /api/health` ohne alles | **200** `{"status":"ok",…,"version":"0.2.0",…}` |
+| `GET /api/ready` ohne alles | **401** `{"status":"error","error":"unauthenticated"}` + `WWW-Authenticate: Cookie` |
+| `GET /api/ready` mit **falschem** Cookie | **401** ebenso |
+| `GET /api/ready` mit Sitzungscookie aus der Token-Weiterleitung | **200** `{…,"bereit":true,"prozessSekunden":18,"plattform":"win32"}` |
+| `GET /api/ready/mehr` | **404** — genau, kein Präfix |
+| `GET /api/unbekannt` ohne Anmeldung | **401** `unauthorized` (die Sperre des Cores, vor dem Auffang-Platz) |
+
+### Der fünfte Fehler: `connection` als Einhänge-Bedingung
+
+Der erste Entwurf forderte `inject: ['webServer', 'connection']` — ohne
+Verbindungsdienst sollte der Loader uns **gar nicht** einhängen. Der Gedanke klang
+nach Sicherheit.
+
+**Er bewirkte das Gegenteil.** In einem Aufbau ohne Verbindungsdienst hing der
+Loader das Plugin **nie** ein, und beide Endpunkte antworteten **404**. Ein
+Endpunkt, der wegen einer fehlenden Prüfung verschwindet, kann nicht melden,
+**daß** die Prüfung fehlt. Er verschwindet still.
+
+Gefunden hat das die Prüfung „ohne Anmeldung antwortet sie 401": sie bekam
+**404**. Aufgefallen ist es nur, weil ein eigener Testaufbau den Dienst nicht
+mitbrachte — im vollen Host wäre der Fehler **nie** sichtbar geworden.
+
+Jetzt gilt: das Plugin hängt sich immer ein. Fehlt der Dienst zur Laufzeit,
+antwortet `/api/ready` mit **503** und nennt den Grund. Ein Ausfall, den man
+abfragen kann.
+
+## Die Prüfung der Sperre — und ihre Grenze
+
+`packages/api/health` prüft mit einer **Attrappe** des Verbindungsdienstes: sie
+hat dieselbe Signatur, dieselben möglichen Werte, und sie **zählt die Aufrufe
+mit**. Damit ist belegt, daß wir `requestRejection` mit den Kopfdaten der Anfrage
+aufrufen und auf `undefined`, `401`, `403` und einen fehlenden Dienst richtig
+antworten.
+
+**Was die Attrappe nicht kann:** zeigen, daß unser Aufruf die **echte** Prüfung
+erreicht. Das ist eine andere Frage — und sie ist am **laufenden Host** gemessen,
+in der Tabelle oben. Zwei Aufbauten, zwei Fragen; keiner behauptet, der andere zu
+sein.
+
+## Nachweise
+
+| Nachweis | Befehl | Ergebnis |
+|---|---|---|
+| Prüfungen des Pakets | `bun test packages/api/health` | **40 pass · 0 fail** |
+| Gesamtlauf | `bun test packages scripts apps` | **690 pass · 0 fail** (25 Dateien, 6,6 s) |
+| Gesamtlauf ohne Testdatenbank | ebenso, ohne `PMH_TEST_DATABASE_URL` | **676 pass · 14 skip · 0 fail** — übersprungen, **nicht** bestanden |
+| Prüfungen der Profil-Verdrahtung | `bun test scripts/tests/profile-patch.test.mjs` | **24 pass · 0 fail** |
+| Typecheck | `bunx tsgo --noEmit -p packages/api/health/tsconfig.json` | **exit 0** |
+| Typecheck alle Pakete | je `tsgo --noEmit -p <paket>` | **17 grün · 0 rot** |
+| Alle Skript-Prüfungen | `bun test scripts/tests/` | **58 pass · 0 fail** (3 Dateien) |
+| Endpunkt im Host, offen | `curl /api/health` | **200** mit unserem JSON |
+| Endpunkt im Host, geschützt | `curl /api/ready` | **401** + `WWW-Authenticate: Cookie` |
+| Mit Sitzungscookie | `curl /api/ready` mit Cookie | **200** mit `bereit: true` |
+| Pfadgenauigkeit | `?x=1` · `/api/health/mehr` · `/api/ready/mehr` | **200** · **404** · **404** |
+
+## Was hier **nicht** belegt ist — ehrlich
+
+1. **Keine Zustandsprüfung der Abhängigkeiten.** `/api/ready` sagt, daß die
+   Anwendung antwortet; ob PostgreSQL erreichbar ist, sagt es **nicht**. Ein
+   `/api/ready`, das „ok" sagt, obwohl die Datenbank liegt, wäre schlimmer als
+   keines.
+2. **Der `Content-Length`-Kopf ist in der HTTP-Antwort nicht nachgewiesen.** Die
+   Absicht — unverdichtet bleiben und die Länge nennen — ist im Handler
+   ausgeführt und mit einer Antwort-Attrappe geprüft, aber die tatsächlich
+   gesendeten Kopfdaten wurden nicht sauber ausgelesen (PowerShell zeigte
+   `System.String[]`). Bei `/api/ready` war die Ausgabe von `curl -D -` auf die
+   relevanten Zeilen gefiltert; `Content-Length` stand nicht darunter.
+   **Nicht belegt.**
+3. **Die Sitzung mit Cookie wurde einmal gemessen.** Der Ablauf Token → Cookie →
+   `/api/ready` **200** ist einmal durchlaufen. Ob er nach Ablauf der Sitzung
+   korrekt **401** liefert, ist nicht gemessen.
+4. **Nur Windows.** Gemessen auf Windows nativ, Bun 1.4.0. Linux ist nicht
+   gemessen.
+5. **Die Attrappe hält den Vertrag fest, nicht seine Erfüllung.** Ändert der Core
+   die Bedeutung von `requestRejection`, bleiben unsere Prüfungen grün und der
+   Endpunkt wäre falsch abgesichert. Dagegen hilft nur die Messung am laufenden
+   Host — und die ist eine Handmessung, keine Prüfung, die bei jeder Änderung
+   läuft.
 
 Jeder wurde von einer Messung gefunden, nicht durch Nachdenken.
 

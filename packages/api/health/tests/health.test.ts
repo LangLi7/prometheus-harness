@@ -27,22 +27,30 @@ import { join } from 'node:path'
 
 import apply, {
   HEALTH_PATH,
+  READY_PATH,
   SERVICE_NAME,
   SERVICE_VERSION,
+  abweisung,
   healthBody,
   handleHealth,
   inject,
+  macheReadyHandler,
   name,
+  readyBody,
 } from '../src/index.ts'
 
 /** Ein laufender Webserver mit eingehängtem Plugin. */
 interface Aufbau {
-  /** Adresse des Endpunkts. */
+  /** Adresse der offenen Auskunft. */
   url: string
-  /** Der Cordis-Kontext. */
+  /** Adresse der geschützten Auskunft. */
+  readyUrl: string
+  /** Der Cordis-Kontext — die Attrappe des Verbindungsdienstes hängt daran. */
   ctx: Context
   /** Der Webserver-Dienst. */
   server: WebServer
+  /** Wie die Attrappe des Verbindungsdienstes antwortet. */
+  abweisungMit: (ergebnis: number | undefined) => void
   /** Hängt das Plugin ein und gibt das Fiber zurück. */
   plugin: () => { dispose: () => Promise<void> }
 }
@@ -71,6 +79,42 @@ const wurzelFiber = (ctx: Context) =>
 
 let abräumen: (() => Promise<void>)[] = []
 
+/**
+ * Hängt eine **Attrappe** des Verbindungsdienstes an den Kontext.
+ *
+ * **Warum eine Attrappe und nicht der echte Dienst.** Der echte
+ * `HostConnectionService` verlangt das `credentials`-Plugin und ein
+ * unterschriebenes Sitzungscookie; ihn hier aufzubauen hieße, den halben Host
+ * nachzubauen — und geprüft würde dann der Host, nicht unser Paket.
+ *
+ * **Was damit geprüft wird.** Genau unser Vertrag: daß wir `requestRejection`
+ * mit den Kopfdaten der Anfrage aufrufen und daß wir auf `undefined`, `401`,
+ * `403` und einen fehlenden Dienst richtig antworten. Ob der **echte** Dienst
+ * diese Werte richtig berechnet, ist eine andere Frage — sie ist am laufenden
+ * Host gemessen (**401** ohne Cookie, **404** mit Cookie).
+ *
+ * **Was eine Attrappe nicht kann.** Sie kann nicht zeigen, daß unser Aufruf die
+ * echte Prüfung erreicht. Deshalb steht die Attrappe so nah am Vertrag wie
+ * möglich: dieselbe Signatur, dieselben möglichen Werte, und sie **zählt** die
+ * Aufrufe mit — damit eine Prüfung nachweisen kann, daß überhaupt gefragt wurde.
+ */
+function verbindungsAttrappe() {
+  const aufrufe: { headers: Record<string, unknown> }[] = []
+  let ergebnis: number | undefined
+  return {
+    aufrufe,
+    setze: (wert: number | undefined) => {
+      ergebnis = wert
+    },
+    dienst: {
+      requestRejection: (request: { headers: Record<string, unknown> }) => {
+        aufrufe.push(request)
+        return ergebnis
+      },
+    },
+  }
+}
+
 beforeEach(async () => {
   const ctx = new Context()
   const server = new WebServer(ctx, { host: '127.0.0.1', port: 0 })
@@ -78,10 +122,19 @@ beforeEach(async () => {
   abräumen.push(async () => {
     await wurzelFiber(ctx).fiber.dispose()
   })
+  const attrappe = verbindungsAttrappe()
+  // Der Cordis-Kontext bekommt die Attrappe als Dienst. `get` ist die
+  // öffentliche Abfrage, die unser Paket benutzt.
+  const mitDienst = ctx as unknown as { get: (name: string) => unknown }
+  const echtesGet = mitDienst.get.bind(mitDienst)
+  mitDienst.get = (dienstName: string) =>
+    dienstName === 'connection' ? attrappe.dienst : echtesGet(dienstName)
   aufbau = {
     url: `http://127.0.0.1:${String(server.port)}${HEALTH_PATH}`,
+    readyUrl: `http://127.0.0.1:${String(server.port)}${READY_PATH}`,
     ctx,
     server,
+    abweisungMit: attrappe.setze,
     plugin: () => ctx.plugin({ name, inject, apply }) as unknown as { dispose: () => Promise<void> },
   }
 })
@@ -280,6 +333,236 @@ describe('apply — der echte Weg über Cordis und HTTP', () => {
     // Der Name steht auch in der Patch-Zeile des Profils. Weichen beide ab,
     // sucht man einen Fehler an der falschen Stelle.
     expect(name).toBe('pmh-health')
+    // **`connection` steht hier absichtlich NICHT.** Der erste Entwurf forderte
+    // ihn; in einem Aufbau ohne Verbindungsdienst hing der Loader das Plugin
+    // dann **nie** ein, und beide Endpunkte antworteten 404 — ein stiller
+    // Ausfall. Fehlt der Dienst zur Laufzeit, antwortet `/api/ready` jetzt mit
+    // **503** und nennt den Grund. Ein Ausfall, den man abfragen kann.
     expect(inject).toEqual(['webServer'])
+  })
+})
+
+describe('readyBody', () => {
+  test('nennt die zusätzlichen Felder der geschützten Auskunft', () => {
+    const body = readyBody()
+    expect(body.bereit).toBe(true)
+    expect(body.status).toBe('ok')
+    expect(body.prozessSekunden).toBeGreaterThanOrEqual(0)
+    expect(body.plattform).toBe(process.platform)
+    expect(body.version).toBe(SERVICE_VERSION)
+  })
+})
+
+describe('abweisung — der Aufruf der Host-Prüfung', () => {
+  /** Ein Kontext, dessen `get` einen Dienst liefert oder nicht. */
+  function kontextMit(dienst: unknown) {
+    return {
+      get: (name: string) => (name === 'connection' ? dienst : undefined),
+      dienst,
+    }
+  }
+
+  test('gibt durch, was die Prüfung des Hosts sagt: undefined heißt erlaubt', () => {
+    const ctx = kontextMit({ requestRejection: () => undefined })
+    expect(abweisung(ctx as never, { host: '127.0.0.1:3080' })).toBeUndefined()
+  })
+
+  test('gibt 401 weiter — ohne eigene Deutung', () => {
+    const ctx = kontextMit({ requestRejection: () => 401 })
+    expect(abweisung(ctx as never, {})).toBe(401)
+  })
+
+  test('gibt 403 weiter', () => {
+    const ctx = kontextMit({ requestRejection: () => 403 })
+    expect(abweisung(ctx as never, {})).toBe(403)
+  })
+
+  test('reicht die Kopfdaten der Anfrage unverändert weiter', () => {
+    // **Der Kern des Vertrags.** Die Prüfung des Hosts entscheidet anhand der
+    // Kopfdaten (Cookie, Host, Origin). Würden wir sie nicht weiterreichen,
+    // antwortete sie immer gleich — und zwar falsch.
+    const gesehen: unknown[] = []
+    const ctx = kontextMit({
+      requestRejection: (r: unknown) => {
+        gesehen.push(r)
+        return undefined
+      },
+    })
+    const kopf = { host: '127.0.0.1:3080', cookie: 'dsh-auth-1=abc' }
+    abweisung(ctx as never, kopf)
+    expect(gesehen).toHaveLength(1)
+    expect((gesehen[0] as { headers: unknown }).headers).toBe(kopf)
+  })
+
+  test('fehlender Dienst verweigert mit 503 — nicht durchlassen', () => {
+    // **Verweigern statt durchlassen.** Fehlt die Prüfung, ist die sichere
+    // Annahme „nicht erlaubt": ein ungeschützter Endpunkt ist der teurere Fehler.
+    const ctx = kontextMit(undefined)
+    expect(abweisung(ctx as never, {})).toBe(503)
+  })
+
+  test('ein Dienst ohne requestRejection verweigert ebenfalls', () => {
+    const ctx = kontextMit({ etwasAnderes: true })
+    expect(abweisung(ctx as never, {})).toBe(503)
+  })
+})
+
+describe('macheReadyHandler — die Sperre wirkt', () => {
+  /** Eine minimale Antwort-Attrappe. */
+  function antwort() {
+    const kopf = new Map<string, string>()
+    let körper: Buffer | undefined
+    return {
+      statusCode: 0,
+      setHeader: (k: string, v: string) => kopf.set(k.toLowerCase(), v),
+      end: (b?: Buffer) => {
+        körper = b
+      },
+      kopf,
+      körper: () => körper,
+      json: () => JSON.parse(String(körper)) as Record<string, unknown>,
+    }
+  }
+
+  /** Ein Kontext mit einer Prüfung, die ein festes Ergebnis liefert. */
+  function handlerMit(ergebnis: number | undefined) {
+    const gefragt: unknown[] = []
+    const ctx = {
+      get: () => ({
+        requestRejection: (r: unknown) => {
+          gefragt.push(r)
+          return ergebnis
+        },
+      }),
+    }
+    return { handler: macheReadyHandler(ctx as never), gefragt }
+  }
+
+  test('ohne Anmeldung: 401 mit WWW-Authenticate, kein Inhalt', () => {
+    const { handler } = handlerMit(401)
+    const res = antwort()
+    handler({ method: 'GET', headers: {} } as never, res as never)
+    expect(res.statusCode).toBe(401)
+    expect(res.json().error).toBe('unauthenticated')
+    expect(res.kopf.get('www-authenticate')).toBe('Cookie')
+    // Der Körper enthält **keine** Auskunft — eine Verweigerung, die verrät,
+    // was dahinter liegt, ist keine Verweigerung.
+    expect(res.json().bereit).toBeUndefined()
+  })
+
+  test('fremder Zaun: 403 ohne WWW-Authenticate', () => {
+    // Ein 403 heißt „du bist nicht der richtige Aufrufer" — eine Anmeldung
+    // würde nicht helfen. Deshalb **kein** `WWW-Authenticate`.
+    const { handler } = handlerMit(403)
+    const res = antwort()
+    handler({ method: 'GET', headers: {} } as never, res as never)
+    expect(res.statusCode).toBe(403)
+    expect(res.json().error).toBe('untrusted_origin')
+    expect(res.kopf.get('www-authenticate')).toBeUndefined()
+  })
+
+  test('fehlende Prüfung: 503, nicht 200', () => {
+    const { handler } = handlerMit(503)
+    const res = antwort()
+    handler({ method: 'GET', headers: {} } as never, res as never)
+    expect(res.statusCode).toBe(503)
+    expect(res.json().error).toBe('unavailable')
+  })
+
+  test('erlaubt: 200 mit der Bereitschaftsauskunft', () => {
+    const { handler } = handlerMit(undefined)
+    const res = antwort()
+    handler({ method: 'GET', headers: {} } as never, res as never)
+    expect(res.statusCode).toBe(200)
+    expect(res.json().bereit).toBe(true)
+  })
+
+  test('die Sperre kommt VOR der Methode — POST ohne Anmeldung ist 401, nicht 405', () => {
+    // **Die Reihenfolge ist eine Entscheidung.** Wer nicht angemeldet ist,
+    // erfährt nicht, welche Methoden die Adresse kennt. Sonst wäre jede
+    // 405-Antwort eine Auskunft an einen Fremden.
+    const { handler } = handlerMit(401)
+    const res = antwort()
+    handler({ method: 'POST', headers: {} } as never, res as never)
+    expect(res.statusCode).toBe(401)
+    expect(res.kopf.get('allow')).toBeUndefined()
+  })
+
+  test('angemeldet, aber falsche Methode: 405 mit Allow', () => {
+    const { handler } = handlerMit(undefined)
+    const res = antwort()
+    handler({ method: 'POST', headers: {} } as never, res as never)
+    expect(res.statusCode).toBe(405)
+    expect(res.kopf.get('allow')).toBe('GET, HEAD')
+  })
+
+  test('angemeldet und HEAD: Kopfdaten ohne Körper', () => {
+    const { handler } = handlerMit(undefined)
+    const res = antwort()
+    handler({ method: 'HEAD', headers: {} } as never, res as never)
+    expect(res.statusCode).toBe(200)
+    expect(res.körper()).toBeUndefined()
+  })
+
+  test('die Prüfung wird bei jeder Anfrage gefragt', () => {
+    const { handler, gefragt } = handlerMit(undefined)
+    handler({ method: 'GET', headers: {} } as never, antwort() as never)
+    handler({ method: 'GET', headers: {} } as never, antwort() as never)
+    expect(gefragt).toHaveLength(2)
+  })
+})
+
+describe('apply — /api/ready über HTTP', () => {
+  test('vor dem Einhängen antwortet die Adresse 404', async () => {
+    expect((await fetch(aufbau.readyUrl)).status).toBe(404)
+  })
+
+  test('ohne Anmeldung antwortet sie 401', async () => {
+    aufbau.abweisungMit(401)
+    aufbau.plugin()
+    await ruhe()
+    const res = await fetch(aufbau.readyUrl)
+    expect(res.status).toBe(401)
+    expect(res.headers.get('www-authenticate')).toBe('Cookie')
+  })
+
+  test('mit Anmeldung antwortet sie 200 mit der Bereitschaftsauskunft', async () => {
+    aufbau.abweisungMit(undefined)
+    aufbau.plugin()
+    await ruhe()
+    const res = await fetch(aufbau.readyUrl)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { bereit: boolean; prozessSekunden: number }
+    expect(body.bereit).toBe(true)
+    expect(body.prozessSekunden).toBeGreaterThanOrEqual(0)
+  })
+
+  test('mit Anmeldung und falscher Methode: 405', async () => {
+    aufbau.abweisungMit(undefined)
+    aufbau.plugin()
+    await ruhe()
+    const res = await fetch(aufbau.readyUrl, { method: 'POST' })
+    expect(res.status).toBe(405)
+    expect(res.headers.get('allow')).toBe('GET, HEAD')
+  })
+
+  test('die offene Auskunft bleibt offen — sie fragt die Sperre gar nicht', async () => {
+    // **Das ist der Unterschied der beiden Endpunkte.** `/api/health` muß auch
+    // dann antworten, wenn die Anmeldung kaputt ist — sonst könnte keine
+    // Erreichbarkeitsprüfung melden, daß die Anmeldung kaputt ist.
+    aufbau.abweisungMit(401)
+    aufbau.plugin()
+    await ruhe()
+    expect((await fetch(aufbau.url)).status).toBe(200)
+  })
+
+  test('nach dem Abhängen antwortet auch /api/ready wieder 404', async () => {
+    aufbau.abweisungMit(undefined)
+    const fiber = aufbau.plugin()
+    await ruhe()
+    expect((await fetch(aufbau.readyUrl)).status).toBe(200)
+    await fiber.dispose()
+    await ruhe()
+    expect((await fetch(aufbau.readyUrl)).status).toBe(404)
   })
 })

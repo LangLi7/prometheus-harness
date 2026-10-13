@@ -122,7 +122,7 @@ Der frühere Auftrag „je 18–46 Dateien an einen Arbeiter" ist damit ersetzt.
 | [status/plugin-export-nachweis.md](status/plugin-export-nachweis.md) | Der Rundlauf des Unit-Exports: Export → Import → Rückexport mit **identischem** Digest (`sha256:ac37e0ec…`) |
 | [status/messsonden/README.md](status/messsonden/README.md) | Vier kleine Sonden, mit denen die Messungen aus `kleinste-kette-nachweis.md` §6 nachvollziehbar sind — Laufzeitversion, Paketauflösung, Host-Start unter Windows und WSL2 |
 | [status/beleg-startadresse.md](status/beleg-startadresse.md) | **Die Startadresse war unbenutzbar**: die README nannte eine Adresse, die mit **401** antwortet. Der Starter gibt jetzt die Adresse **mit** Token aus — samt der drei Fehler im eigenen Code, die erst eine Prüfung fand |
-| [status/beleg-eigener-endpunkt.md](status/beleg-eigener-endpunkt.md) | **Der erste eigene Endpunkt läuft im Host**: `GET /api/health` → **200** über `ctx.webServer.register`, eingetragen über die Patch-Schicht des Profils. Mit den **vier** Fehlern auf dem Weg (erfundener Lebenszyklus-Haken, falsche Patch-Form in drei Stufen) und der genauen Bestimmung der Anmeldegrenze |
+| [status/beleg-eigener-endpunkt.md](status/beleg-eigener-endpunkt.md) | **Der eigene Endpunktweg läuft im Host**: `GET /api/health` → **200** (offen), `GET /api/ready` → **401** ohne Anmeldung und **200** mit Sitzungscookie — über `ctx.webServer.register` und die **Sperre des Cores**. Mit den **fünf** Fehlern auf dem Weg (erfundener Lebenszyklus-Haken, falsche Patch-Form in drei Stufen, `inject` als Einhänge-Bedingung) |
 
 ## 8. Weitere Ablage
 
