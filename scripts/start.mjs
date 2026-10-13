@@ -406,28 +406,28 @@ async function main() {
       // Die fremde Installation wird dabei **nicht** angetastet: sie gehört einer
       // anderen, laufenden Harness. Der Host bekommt sein eigenes Home — die
       // Korrektur liegt dort, wo sie hingehört.
-      // **Warum `--preload` davorsteht — und warum nur manchmal.**
+      // **Warum `--preload` davorsteht.**
       //
-      // `@deepseek-ai/dsh-ptc-runtime-node` importiert `stripTypeScriptTypes` aus
-      // `node:module`. **Node hat die Funktion, Bun nicht** (gemessen: Node
-      // v24.19.0 `function`, Bun 1.4.0 `undefined`). Unter Bun scheitert damit
-      // schon der Import, `ptcRuntime` registriert sich nie, `workflow-ptc` wartet
-      // — und die Voreinstellung `standard` gilt als ungültig, also **läßt sich
-      // keine Sitzung anlegen**. Der Host bediente trotzdem HTTP 200; der Fehler
-      // war nur in einer Warnzeile zu sehen.
+      // Der Core hat Teilsysteme, die **Node voraussetzen**. Unter Bun brechen sie
+      // **stumm**: der Host startet, liefert HTTP 200, und erst bei der Benutzung
+      // fällt es auf. Zwei Lücken sind gemessen:
       //
-      // Das Vorladen ersetzt **eine Zeile** in **einer** fremden Datei — und nur
-      // dann, wenn die Laufzeit die Funktion nicht selbst mitbringt. Auf Node
-      // bleibt die Datei unberührt. Siehe `scripts/ptc-typentfernung.mjs`.
-      const vorladen = ergaenzungNoetig()
-        ? ['--preload', join(ROOT, 'scripts', 'ptc-vorladen.mjs')]
-        : []
-      if (vorladen.length > 0) {
-        process.stdout.write(
-          '[pmh] Diese Laufzeit hat kein module.stripTypeScriptTypes — ' +
-            'die PTC-Typentfernung wird ergänzt (scripts/ptc-typentfernung.mjs)\n',
-        )
-      }
+      //   1. `module.stripTypeScriptTypes` fehlt unter Bun (Node hat es). Das
+      //      PTC-Zwischenstück lädt nicht, `ptcRuntime` fehlt, die Voreinstellung
+      //      `standard` gilt als ungültig — **es läßt sich keine Sitzung anlegen**.
+      //   2. **Bun verschluckt den `--`-Trenner**, Node reicht ihn durch. Der
+      //      Subprozess-Runner verlangt ihn wörtlich — also scheitert er immer,
+      //      und mit ihm **Shell und Suche zugleich**.
+      //
+      // Beide werden durch **eine** Vorladung geschlossen: je **eine Zeile** in
+      // **einer** fremden Datei, ersetzt über ein Bun-Plugin auf den Dateipfad.
+      // **Kein** Eintrag in `patches/`, **kein** `patchedDependencies` — der
+      // Abhängigkeitsbaum bleibt unberührt. Siehe `scripts/bun-luecken-vorladen.mjs`.
+      //
+      // Findet eine Ergänzung ihren Anker nicht, **wirft sie** und der Host startet
+      // nicht. Lieber laut scheitern als eine Ergänzung, die ins Leere greift und
+      // den Fehler bestehen läßt.
+      const vorladen = ['--preload', join(ROOT, 'scripts', 'bun-luecken-vorladen.mjs')]
       launch('host', BUN, [...vorladen, hostEntry, options.profile, '--port', String(port), '--home', options.home, '--no-open'], {
         cwd: ROOT,
         kind: 'host',

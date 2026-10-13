@@ -4,8 +4,53 @@
 #   1. bun führt TypeScript direkt aus — es gibt keinen Transpile-Schritt.
 #   2. Typprüfung bleibt TypeScript 7 (`tsgo --noEmit`), niemals `tsc`.
 #
-# Deshalb steht hier bewusst KEIN Bundler-Abschnitt und keine `preload`-Datei:
-# der Kern wird nicht gebaut, er wird ausgeführt.
+# Deshalb steht hier bewusst KEIN Bundler-Abschnitt: der Kern wird nicht gebaut,
+# er wird ausgeführt.
+#
+# ===========================================================================
+# NACHTRAG 13.10.2026 — die Zeile „und keine `preload`-Datei" ist ÜBERHOLT.
+# ===========================================================================
+#
+# Hier stand: *„Deshalb steht hier bewusst KEIN Bundler-Abschnitt und keine
+# `preload`-Datei: der Kern wird nicht gebaut, er wird ausgeführt."*
+#
+# **Der erste Teil gilt weiter** (kein Bundler). **Der zweite ist widerlegt**, und
+# zwar durch Messung — die Begründung von damals war richtig, nur nicht
+# vollständig: es ging um **Bauen**, nicht um **Laufzeitlücken**.
+#
+# ## Zwei gemessene Lücken des Cores unter Bun
+#
+# Der Core hat Teilsysteme, die **Node voraussetzen**. Unter Bun brechen sie
+# **stumm**: der Host startet, liefert HTTP 200, und erst bei der **Benutzung**
+# fällt es auf.
+#
+# | Lücke | Wirkung | Gemessen |
+# |---|---|---|
+# | `module.stripTypeScriptTypes` fehlt | PTC lädt nicht -> `ptcRuntime` fehlt -> Voreinstellung `standard` ungültig -> **es läßt sich keine Sitzung anlegen** | Bun `undefined`, Node `function` |
+# | Bun verschluckt den `--`-Trenner | Subprozess-Runner scheitert -> **Shell und Suche zugleich tot** | Bun `[…,"script","cmd"]`, Node `[…,"script","--","cmd"]` |
+#
+# ## Warum die Vorladung HIER stehen muß und nicht als `--preload` beim Host
+#
+# **Der eigene Fehler, der diese Datei erzwungen hat.** Die Ergänzung hing zuerst
+# nur als `--preload` am Host-Start. Der Host meldete daraufhin brav
+# „Bun-Lücke ergänzt: Subprozess-argv" — und die Werkzeuge blieben **rot**:
+#
+#     Shell: FEHLER subprocess runner requires target argv after a private -- delimiter
+#
+# **Grund:** der Subprozess-Runner ist ein **eigener `bun`-Prozess**
+# (`spawnRunnerInvocation()` gibt `[process.execPath, <runner.js>]` zurück). Ein
+# `--preload` beim **Elternprozeß** erreicht das **Kind** nicht. Die Ergänzung muß
+# dort stehen, wo **jeder** Bun-Prozeß des Projekts sie von selbst findet.
+#
+# ## Was das kostet — ehrlich benannt
+#
+# Die Vorladung läuft jetzt bei **jedem** `bun`-Aufruf in diesem Projekt, auch bei
+# `bun test`, und gibt zwei Zeilen aus. Das ist der Preis dafür, daß die Ergänzung
+# auch im Kindprozeß greift — und billiger als ein Patch im Abhängigkeitsbaum
+# (`patches/` bleibt leer, `patchedDependencies` gibt es nicht).
+#
+# **Kein Bundler, kein Build-Schritt** — die Regel von oben bleibt unangetastet.
+preload = ["./scripts/bun-luecken-vorladen.mjs"]
 
 [install]
 # `apps/web` bringt eine eigene bun.lock und ein eigenes node_modules mit. Ein
