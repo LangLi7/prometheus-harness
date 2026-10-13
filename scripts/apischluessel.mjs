@@ -29,7 +29,7 @@
 
 import { join } from 'node:path'
 import { resolveEigenesHome } from '../packages/util/home-paths/src/index.ts'
-import { HAUPTSSCHLUESSELDATEI, dateiQuelle, holeHauptschluessel, umgebungsQuelle } from '../packages/auth/secrets/src/index.ts'
+import { holeHauptschluessel, standardQuellen } from '../packages/auth/secrets/src/index.ts'
 import {
   erzeugeApiKeyAblage,
   listeApiSchluessel,
@@ -69,8 +69,12 @@ async function aufbau(umgebung) {
   }
   const home = resolveEigenesHome(undefined, umgebung)
   const version = Number(umgebung.PMH_MASTER_KEY_VERSION?.trim() ?? '1')
+  // **Die Leiter steht an einer Stelle** (`standardQuellen`): Datei im Home →
+  // Docker-Secret → Umgebungsvariable. Vorher stand die Reihenfolge hier **und**
+  // in `scripts/geheimnis.mjs`; mit der Docker-Stufe wären es drei Kopien einer
+  // Sicherheitsaussage geworden.
   const haupt = holeHauptschluessel(
-    [dateiQuelle(join(home, HAUPTSSCHLUESSELDATEI)), umgebungsQuelle(umgebung)],
+    standardQuellen(umgebung, home),
     Number.isInteger(version) && version > 0 ? version : 1,
   )
   // **Der Pfeffer ist nicht der Hauptschlüssel** — er wird daraus abgeleitet

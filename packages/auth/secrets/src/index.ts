@@ -46,8 +46,20 @@
  */
 
 import { createHash } from 'node:crypto'
+import { join } from 'node:path'
 import { KryptoFehler, entschluessele, erzeugeSchluessel, verschluessele } from './krypto.ts'
 import type { Hauptschluessel } from './schluesselgeber.ts'
+// **Werte-Import zusätzlich zur Weitergabe unten.** `export … from` führt die
+// Namen **nicht** in den Gültigkeitsbereich dieses Moduls ein — `standardQuellen`
+// braucht sie aber als Werte. Beides ist nötig: die Weitergabe für den Aufrufer,
+// der Import für den eigenen Gebrauch.
+import {
+  DOCKER_SECRET_PFAD,
+  dateiQuelle,
+  dockerSecretQuelle,
+  umgebungsQuelle,
+  type Schluesselquelle,
+} from './schluesselgeber.ts'
 
 // **Der Fehler wird importiert UND ausgeführt.** Beides ist nötig: dieses Modul
 // wirft ihn selbst (`verpacke`, `rotiere`), und der Aufrufer muß ihn fangen
@@ -68,7 +80,9 @@ export {
 } from './krypto.ts'
 
 export {
+  DOCKER_SECRET_PFAD,
   dateiQuelle,
+  dockerSecretQuelle,
   erzeugeHauptschluesselText,
   holeHauptschluessel,
   pruefeDateirechte,
@@ -81,6 +95,60 @@ export {
 
 /** Der Name der Datei, in der der Hauptschlüssel liegen darf. */
 export const HAUPTSSCHLUESSELDATEI = 'master.key'
+
+/**
+ * Die **Leiter** der Hauptschlüssel-Quellen — an genau einer Stelle.
+ *
+ * ## Warum das hier steht und nicht in jedem Skript
+ *
+ * Die Kette
+ *
+ * ```ts
+ * [dateiQuelle(join(home, HAUPTSSCHLUESSELDATEI)), umgebungsQuelle(umgebung)]
+ * ```
+ *
+ * stand **zweimal** im Baum (`scripts/geheimnis.mjs`, `scripts/apischluessel.mjs`) —
+ * und mit der Docker-Stufe wäre sie **dreimal** dagestanden. Drei Kopien einer
+ * Reihenfolge sind drei Gelegenheiten, sie verschieden zu ändern: dann liest ein
+ * Skript den Schlüssel aus der Datei und das andere aus der Umgebung, und **beide
+ * sehen richtig aus**.
+ *
+ * ## Die Reihenfolge ist eine Sicherheitsaussage, keine Bequemlichkeit
+ *
+ * | Stufe | Wo | Wie gut |
+ * |---|---|---|
+ * | 1 | `master.key` im Home (0600) | die beste verfügbare: außerhalb der Datenbank, aus dem Baum heraus |
+ * | 2 | Docker-Secret `/run/secrets/…` | gleichwertig, anderer Ort — für den Containerbetrieb |
+ * | 3 | `PMH_MASTER_KEY` in der Umgebung | die **schwächste**: Umgebungen landen in `docker inspect`, in Protokollen, in Fehlerberichten. Sie bleibt **zuletzt** |
+ *
+ * **Die Reihenfolge ist die Botschaft:** wer die bequeme Stufe nimmt, obwohl eine
+ * bessere da ist, soll das **merken** — die Herkunft steht in jeder Ausgabe
+ * (`haupt.herkunft`).
+ *
+ * **Ein unbrauchbarer Wert bricht ab, er fällt nicht durch.** Steht in der Datei
+ * etwas, das kein Schlüssel ist, wird **nicht** zur Umgebungsvariablen
+ * durchgefallen — sonst verdeckte eine kaputte Datei still (siehe
+ * {@link holeHauptschluessel}).
+ *
+ * @param umgebung - die Umgebungsvariablen
+ * @param home - das Harness-Home
+ * @param dockerPfad - wo das Docker-Secret liegt; Vorgabe {@link DOCKER_SECRET_PFAD}
+ * @param warnung - wohin Hinweise gehen
+ * @returns die Quellen **in der Reihenfolge, in der sie versucht werden**
+ */
+export function standardQuellen(
+  umgebung: Readonly<Record<string, string | undefined>>,
+  home: string,
+  dockerPfad: string = DOCKER_SECRET_PFAD,
+  warnung?: (text: string) => void,
+): readonly Schluesselquelle[] {
+  return [
+    // `join` kommt aus `node:path`; dieses Modul soll keine Plattform annehmen.
+    dateiQuelle(join(home, HAUPTSSCHLUESSELDATEI), warnung),
+    dockerSecretQuelle(dockerPfad, warnung),
+    umgebungsQuelle(umgebung),
+  ]
+}
 
 /** Die Umgebungsvariable der Hauptschlüssel-Fassung. */
 export const VERSION_VARIABLE = 'PMH_MASTER_KEY_VERSION'

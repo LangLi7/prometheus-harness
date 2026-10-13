@@ -32,7 +32,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { resolveEigenesHome } from '../packages/util/home-paths/src/index.ts'
-import { HAUPTSSCHLUESSELDATEI, dateiQuelle, holeHauptschluessel, umgebungsQuelle } from '../packages/auth/secrets/src/index.ts'
+import { HAUPTSSCHLUESSELDATEI, holeHauptschluessel, standardQuellen } from '../packages/auth/secrets/src/index.ts'
 import { ladeGeheimnis, listeGeheimnisse, speichereGeheimnis } from '../packages/auth/store-postgres/src/index.ts'
 
 /** Liest die gesamte Standardeingabe. */
@@ -75,8 +75,11 @@ async function aufbau(umgebung) {
   // `(configured?, env?)`.
   const home = resolveEigenesHome(undefined, umgebung)
   const version = Number(umgebung.PMH_MASTER_KEY_VERSION?.trim() ?? '1')
+  // **Die Leiter steht an einer Stelle** (`standardQuellen`): Datei im Home →
+  // Docker-Secret → Umgebungsvariable. Vorher stand die Reihenfolge hier und in
+  // `scripts/apischluessel.mjs` — zwei Kopien einer Sicherheitsaussage.
   const haupt = holeHauptschluessel(
-    [dateiQuelle(join(home, HAUPTSSCHLUESSELDATEI)), umgebungsQuelle(umgebung)],
+    standardQuellen(umgebung, home),
     Number.isInteger(version) && version > 0 ? version : 1,
   )
   return { sql, zugang, haupt, home }

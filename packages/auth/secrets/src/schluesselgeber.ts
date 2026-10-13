@@ -197,6 +197,67 @@ export function umgebungsQuelle(
   }
 }
 
+/** Wo ein Docker-Secret liegt, wenn es als `pmh_master_key` eingehängt wird. */
+export const DOCKER_SECRET_PFAD = '/run/secrets/pmh_master_key'
+
+/**
+ * Ein **Docker-Secret** als Quelle — Stufe 2 der Leiter.
+ *
+ * ## Warum das nicht einfach `dateiQuelle` ist
+ *
+ * In der Leiter (`src/index.ts`) steht zu dieser Stufe: *„ist eine Datei an einem
+ * anderen Ort, die Stufe 1 mit anderem Pfad"*. Das ist **fast** richtig, und der
+ * Unterschied ist der Grund für diese eigene Funktion:
+ *
+ * **Docker hängt Secrets mit Modus `0444` ein** — für Gruppe und Andere lesbar.
+ * Die Rechteprüfung aus {@link dateiQuelle} würde auf POSIX also **werfen**, und
+ * die ganze Stufe wäre **unbenutzbar**: sie stünde in der Leiter und könnte nie
+ * greifen. Eine Stufe, die immer scheitert, ist schlimmer als keine — sie sieht
+ * aus wie eine Möglichkeit und ist keine.
+ *
+ * **Warum das Weglassen der Prüfung hier richtig ist.** Der Schutz eines
+ * Docker-Secrets ist **nicht** der Dateimodus, sondern die **Grenze des
+ * Containers**: `/run/secrets` ist ein `tmpfs`, das nur innerhalb des Containers
+ * sichtbar ist. Wer darin lesen kann, ist bereits im Container — und dort nützt
+ * ihm der Modus nichts.
+ *
+ * **Und es wird gesagt, nicht verschwiegen.** Genau wie auf NTFS: die Quelle
+ * **meldet**, daß sie den Modus nicht prüft und warum. Ein stilles Überspringen
+ * wäre ein Schutz, der nur so aussieht.
+ *
+ * @param pfad - der Pfad des Secrets; Vorgabe {@link DOCKER_SECRET_PFAD}
+ * @param warnung - wohin der Hinweis geht; Vorgabe: nach stderr
+ * @returns die Quelle
+ */
+export function dockerSecretQuelle(
+  pfad: string = DOCKER_SECRET_PFAD,
+  warnung: (text: string) => void = (t) => process.stderr.write(t),
+): Schluesselquelle {
+  return {
+    name: `Docker-Secret ${pfad}`,
+    art: 'docker-secret',
+    versuche(): Uint8Array | undefined {
+      // **`undefined` heißt hier „es gibt keines".** Auf einem Rechner ohne
+      // Docker ist das der Normalfall und **kein** Fehler — die Leiter geht
+      // weiter zur nächsten Stufe.
+      if (!existsSync(pfad)) return undefined
+      // Der Modus wird **nicht** geprüft — siehe oben. Der Hinweis steht nur
+      // einmal, damit er bei jedem Start nicht zur Flut wird.
+      if (!schonGemeldet.has(pfad)) {
+        schonGemeldet.add(pfad)
+        warnung(
+          `[pmh] Hauptschlüssel aus Docker-Secret ${pfad}: der Dateimodus wird hier NICHT geprüft ` +
+            '(Docker hängt Secrets mit 0444 ein). Der Schutz ist die Grenze des Containers, nicht der Modus.\n',
+        )
+      }
+      return textZuSchluessel(readFileSync(pfad, 'utf8'), `Docker-Secret ${pfad}`)
+    },
+  }
+}
+
+/** Damit der Hinweis des Docker-Secrets nicht bei jedem Zugriff wiederholt wird. */
+const schonGemeldet = new Set<string>()
+
 /**
  * Holt den Hauptschlüssel aus der **ersten** Quelle, die einen hat.
  *
