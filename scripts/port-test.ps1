@@ -250,6 +250,21 @@ if ($h -eq $null) {
   if ($joined -match "Port $TESTPORT ist belegt") { Write-Host "  OK: Ausweichen genannt" } else { Write-Host "  FEHLER: kein Ausweichen genannt"; $fehler++ }
   if ($joined -match "gewaehlt: $($TESTPORT + 1)|gewählt: $($TESTPORT + 1)") { Write-Host "  OK: naechster Port gewaehlt" } else { Write-Host "  HINWEIS: naechster Port nicht erkannt" }
   if ($joined -match "Oberfläche: http://127\.0\.0\.1:$($TESTPORT + 1)/") { Write-Host "  OK: Oberflaechen-Adresse zeigt auf den gewaehlten Port" } else { Write-Host "  HINWEIS: Adresse pruefen" }
+
+  # ---------------------------------------------------------------------------
+  # Den Halter SOFORT beenden — nicht erst nach Fall 3.
+  # ---------------------------------------------------------------------------
+  # **Der Fehler, der hier stand.** Das Aufraeumen von `$h` geschah erst NACH
+  # Fall 3. Port 5780 war also noch belegt, als Fall 3 seinen EIGENEN Halter
+  # darauf binden wollte — der scheiterte mit `EADDRINUSE` und beendete sich.
+  # Fall 3 meldete dann „UEBERSPRUNGEN", und die Ursache sah nach einem Fehler
+  # des Halters aus statt nach einem Reihenfolgefehler im Test.
+  BeendeBaum $h.Id
+  if (-not (WarteAufFreienPort $TESTPORT 5)) {
+    Write-Host "  FEHLER: Port $TESTPORT wurde nach dem Halter nicht frei"
+    $fehler++
+  }
+  $h = $null
 }
 
 Write-Host ""
