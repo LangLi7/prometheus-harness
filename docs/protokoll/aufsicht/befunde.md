@@ -2903,6 +2903,49 @@ der Form. Alle drei sind berechtigt; ich schreibe auf, was sie an meinen Zahlen 
 nicht dasselbe. Meine Reihenfolge war die richtige; mein **Ton** hat sie zugedeckt. Das ist genau das,
 was dieses Protokoll von anderen Nachweisen verlangt — und ich habe es selbst nicht eingehalten.
 
+## V10 — Sein README-Paarungsprüfer **kann scheitern** — falsifiziert mit vier Brüchen (Verifikation, kein Befund)
+
+**Die Frage, die eine Prüfung erst zu einer Prüfung macht.** Ein Prüfer, der nicht scheitern kann, nimmt
+den Platz der echten Prüfung ein (so steht es in seinem eigenen Benchmark-Gerüst). Sein
+`scripts/readme-paarung.mjs` (245 Zeilen, verdrahtet als `bun run check:readme`, `package.json:15`) hält
+`README.md` und `README.de.md` zusammen. **Also habe ich ihn absichtlich scheitern lassen.**
+
+**Verfahren — außerhalb des Baums**, damit nichts am Baubereich geschrieben wird (H2/H3): der Prüfer
+leitet seine Wurzel aus seinem **eigenen Modulpfad** ab (`ROOT = …/scripts/..`), deshalb habe ich ihn mit
+den beiden README-Fassungen in eine Kopie unter `%TEMP%\paar-probe` gelegt und dort vier Brüche gesetzt.
+
+| Bruch | exit | Was er gemeldet hat |
+|---|---|---|
+| **Basis** (unveränderte Paarung) | **0** | *„Alle Paare gekoppelt."* — die Kopie ist in Ordnung, es gibt etwas zu prüfen |
+| Abschnitt in einer Fassung entfernt | **1** | *„Anzahl der Überschriften verschieden: 24 gegen 23"*, dazu *„Überschrift 4: Ebene 2 gegen 3 — ‚Use this project' gegen ‚Installieren'"* |
+| Verweis auf ein Ziel verbogen | **1** | *„…\paar-probe\README.md: **Sprungmarke ohne Ziel: gibt-es-nicht**"* — **mit Pfad** |
+| Linkziel nur in **einer** Fassung | **1** | *„Linkziel nur in der ersten Fassung: docs/gibt-es-nicht.md"* |
+| Überschrift-Ebene verschoben (`##` → `###`) | **1** | *„Überschrift 2: Ebene 2 gegen 3 — ‚Summary' gegen ‚Zusammenfassung'"* |
+
+**Alle vier Fehlerklassen werden erkannt, mit exit 1 — und die Diagnose nennt die Stelle**: Zählung,
+Position, **beide** Überschriftentexte, den Dateipfad und die tote Sprungmarke. Das ist mehr, als ein
+„BEFUND" ohne Ort leistet.
+
+**Zwei Eigenschaften, die gemessen und nicht bloß gelesen sind:**
+
+1. **Der Vergleich ist *positionell*.** Ein einzelner fehlender Abschnitt erzeugt **mehrere** Zeilen (die
+   Zählung und danach jede verschobene Position — im Test Überschrift 4 und 11). Die **erste** Zeile
+   („Anzahl der Überschriften verschieden") ist der eigentliche Befund, die folgenden sind die Folge.
+   Wer das weiß, liest die Ausgabe richtig; wer es nicht weiß, hält eine Zeile für einen zweiten Fehler.
+2. **Die Wurzel ist aus dem Modulpfad abgeleitet**, nicht aus dem Arbeitsverzeichnis — der Prüfer läuft
+   also **von überall** und prüft trotzdem die richtige Datei. (Genau das hat meine Kopie erst möglich
+   gemacht.)
+
+**Was der Prüfer über sich selbst sagt** (gelesen, nicht gemessen): er vergleicht **Struktur**
+(Überschriften, Ebenen, Code-Blöcke, Linkziele, Anker) statt Hashes wie die Vorlage in ihrer
+`README.i18n.yaml`, und begründet das: *ein Hash sagt nur „hat sich geändert" und verlangt eine
+Nebendatei, die man nachführen muß — die Struktur findet den Fehler, der wirklich passiert.* Er sagt
+außerdem, was er **nicht** kann: *„ob die deutsche Fassung dasselbe sagt. Das kann keine Maschine."*
+Und er nennt den Fehler, der eine **zweite** Prüfung erzwungen hat: die Paarungsprüfung meldete „ok",
+während in der deutschen Fassung `#bekannte-grenzen-und-offene-arbeit` auf ein längst umbenanntes Ziel
+zeigte — deshalb gibt es `pruefeSprungmarken`. **Ein Prüfer, der seine eigene Blindheit dokumentiert und
+behebt, ist die richtige Antwort auf genau die Fehlerklasse, die dieses Protokoll bei anderen sucht.**
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)

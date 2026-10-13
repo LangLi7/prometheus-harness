@@ -2525,6 +2525,51 @@ die erzeugten Geheimnisse (**14 Werte, 0 Treffer** in 53 Commits).
 Anerkennung bleibt in der Fairness-Tabelle, wo sie keine Entscheidung trägt. **Sechste eigene Korrektur
 dieser Sitzung, und die erste, die nicht aus einer Messung kommt, sondern aus einer Rückmeldung.**
 
+## 2026-10-13 16:04–16:12 — Sechsundvierzigster Takt: seinen **Paarungsprüfer falsifiziert** (V10) — vier Brüche, vier Mal erkannt, mit Ortsangabe
+
+**Die Frage, die eine Prüfung erst zu einer Prüfung macht.** Ein Prüfer, der **nicht scheitern kann**,
+nimmt den Platz der echten Prüfung ein — so steht es in seinem eigenen Benchmark-Gerüst. Er hat mit
+`36d6ae1` einen **README-Paarungsprüfer** gebaut (`scripts/readme-paarung.mjs`, 245 Zeilen, verdrahtet als
+`bun run check:readme`) und `README.de.md` daneben gelegt. **Also habe ich ihn absichtlich scheitern
+lassen.**
+
+**Verfahren — außerhalb des Baums.** Sein Prüfer leitet seine Wurzel aus seinem **eigenen Modulpfad** ab
+(`ROOT = …/scripts/..`); deshalb habe ich ihn mit beiden README-Fassungen in eine Kopie unter
+`%TEMP%\paar-probe` gelegt. Nichts wurde am Baubereich geschrieben (H2/H3).
+
+| Bruch | exit | Meldung |
+|---|---|---|
+| **Basis** (unveränderte Paarung) | **0** | *„Alle Paare gekoppelt."* — die Kopie ist in Ordnung |
+| Abschnitt in einer Fassung entfernt | **1** | *„Anzahl der Überschriften verschieden: 24 gegen 23"*, dazu *„Überschrift 4: Ebene 2 gegen 3 — ‚Use this project' gegen ‚Installieren'"* |
+| Verweis auf ein Ziel verbogen | **1** | *„…\paar-probe\README.md: **Sprungmarke ohne Ziel: gibt-es-nicht**"* — **mit Pfad** |
+| Linkziel nur in **einer** Fassung | **1** | *„Linkziel nur in der ersten Fassung: docs/gibt-es-nicht.md"* |
+| Überschrift-Ebene verschoben (`##` → `###`) | **1** | *„Überschrift 2: Ebene 2 gegen 3 — ‚Summary' gegen ‚Zusammenfassung'"* |
+
+**Alle vier Klassen erkannt, mit exit 1 und mit Ortsangabe** (Zählung, Position, **beide** Texte, Pfad,
+tote Sprungmarke).
+
+**Zwei Eigenschaften, die ich dabei gemessen habe und die man wissen muß:**
+
+1. **Der Vergleich ist *positionell*.** Ein einzelner fehlender Abschnitt erzeugt **mehrere** Zeilen — die
+   Zählung und danach jede verschobene Position (im Test 4 und 11). Die **erste** Zeile ist der Befund,
+   die folgenden sind die Folge.
+2. **Die Wurzel kommt aus dem Modulpfad**, nicht aus dem Arbeitsverzeichnis — der Prüfer läuft von
+   überall und prüft trotzdem die richtige Datei. Ohne das wäre meine Kopie nicht möglich gewesen.
+
+**Was der Prüfer über sich selbst sagt:** er vergleicht **Struktur** (Überschriften, Ebenen, Code-Blöcke,
+Linkziele, Anker) statt Hashes wie die Vorlage in ihrer `README.i18n.yaml` — mit Begründung (*ein Hash
+sagt nur „hat sich geändert" und verlangt eine Nebendatei, die man nachführen muß*). Er sagt, was er
+**nicht** kann (*„ob die deutsche Fassung dasselbe sagt. Das kann keine Maschine."*). Und er nennt den
+Fehler, der eine **zweite** Prüfung erzwungen hat: die Paarungsprüfung meldete **„ok"**, während eine
+deutsche Sprungmarke auf ein längst umbenanntes Ziel zeigte — daraus entstand `pruefeSprungmarken`.
+**Ein Prüfer, der seine eigene Blindheit dokumentiert und behebt.**
+
+**Ein eigener Fehler, vor dem Schreiben bemerkt:** mein Prüfskript wertete zunächst nur die **Kopfzeile**
+aus (`BEFUND README.md ↔ README.de.md`) — die Spalte „nennt die Stelle: ja" beruhte damit auf der
+Kopfzeile, nicht auf der Detailzeile. Korrigiert; der zweite Lauf zeigt die präzisen Meldungen. **Ein
+Prüfergebnis ist nur so gut wie sein Auswertungsmuster: „exit 1" allein belegt nicht, daß die Meldung
+brauchbar ist.**
+
 ---
 
 ## Offen / nächster Takt
@@ -2571,6 +2616,7 @@ dieser Sitzung, und die erste, die nicht aus einer Messung kommt, sondern aus ei
 | **B35** Ist die neue Harness ressourceneffizienter? | **Auskunft — gemessen** | Drei Bäume: gegen die **Quelle** (9.029 MB, davon **8.642 MB** `node_modules` von pnpm) sieht das Ziel winzig aus — eine Illusion des **Paketmanagers**. Gegen den **laufenden DSH-Arbeitsbaum** (1.553 MB) ist das Ziel **1.870 MB, also +317 MB**, davon **697,6 MB Rust-`target/`**. Ohne dieses nicht ausgelieferte Bauverzeichnis: **1.172,8 MB → ~24 % kleiner** als DSH, bei **achtmal weniger eigenem Code** (60 `.ts`/23.374 Zeilen gegen 2.542/562.378). **Laufzeit: nichts belegt** — die GUI belegt 2.407,9 MB **mit dieser Sitzung**, ein frischer PMH-Host lag bei 184–198 MB. Eigentlicher Befund: **gebaut wird viel, verdrahtet ist wenig** |
 | **V8** Sein Datenbank-Abgleich | **verifiziert** | `e64f17d` behauptet: der Kern hält in SQL nur einen **wegwerfbaren Suchindex** (SQLite), **keine** Migrationen, und *ihre* `sessions`-Tabelle hält **Anmeldungen** — Namenskonflikt. Nachgemessen: `session-query-sqlite/src/schema.ts:1/7` wörtlich bestätigt, drei Tabellen (`search_state`, `persisted_sessions`, `persisted_docs` als fts5); `information_schema.columns` von `pmh.sessions` zeigt `token_hash`, `csrf_hash`, `idle_expires_at`, `revoked_at` (Gespräche liegen in `chats`/`messages`); `SessionHeader` (`core/session/src/types.ts:61`) hat `cwd`/`parentSession`/`delegationDepth` und **kein** `userId`/`workspaceId`/`chatId`. **Zwei Ergänzungen:** eine **vierte** Tabelle `temp.live_docs`, und der Rücksetzer ist **bewacht** (README:23) — beides fehlt in seiner Zusammenfassung |
 | **B36** Teure Vorgabe des Sitzungsschreibers ohne Begründung | **offen, latent — ein Satz bis ein Wort** | `options.flushEvery ?? 1` an zwei Stellen (`index.ts:368`, `:518`) = ein Schreibvorgang **je Ereignis**. Sein Benchmark: 600–632 ms je 2000 Ereignisse gegen 9,4–12,0 ms gebündelt; **meine** Nachmessung: Faktor **184×** (Bun) / 206× (Node), Kette hilft nicht (1,03× / 0,99×). **Der Kern hat gar kein `flushEvery`** — er arbeitet mit `appendBatch(meta, events, …)`, also stapelweise per Vertrag. **Latent:** das Paket ist nicht verdrahtet (kein Profil-Eintrag, keine Referenz in `apps/cli`, keine Abhängigkeit) |
+| **V10** Sein README-Paarungsprüfer | **falsifiziert — er kann scheitern** | Mit vier absichtlichen Brüchen in einer Kopie außerhalb des Baums (`%TEMP%\paar-probe`, der Prüfer leitet seine Wurzel aus dem Modulpfad ab): Basis **exit 0**, dann **je exit 1** für fehlenden Abschnitt, tote Sprungmarke, Linkziel nur in einer Fassung und verschobene Überschrift-Ebene — **mit Ortsangabe** („Anzahl der Überschriften verschieden: 24 gegen 23", „Sprungmarke ohne Ziel: gibt-es-nicht", beide Überschriftentexte). **Zwei gemessene Eigenschaften:** der Vergleich ist **positionell** (ein fehlender Abschnitt erzeugt mehrere Zeilen — die erste ist der Befund), und die Wurzel kommt aus dem **Modulpfad**, nicht aus dem Arbeitsverzeichnis |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |

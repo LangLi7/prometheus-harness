@@ -2,7 +2,7 @@
 
 > **Was das ist.** Die Kurzfassung von [`befunde.md`](befunde.md) und [`protokoll.md`](protokoll.md):
 > was **jetzt** zu tun ist, was erledigt ist, was **nicht** geprüft werden konnte. Stand:
-> **2026-10-13, 16:08**. Die Einzelbelege stehen in `befunde.md` — hier steht nur, was eine
+> **2026-10-13, 16:14**. Die Einzelbelege stehen in `befunde.md` — hier steht nur, was eine
 > Entscheidung braucht.
 >
 > **Wer das schreibt.** Die **Aufsicht** (Wächter-Rolle), nicht der bauende Agent. Jede Zahl hier ist
