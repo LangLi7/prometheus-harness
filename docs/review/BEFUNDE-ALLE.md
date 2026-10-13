@@ -38,6 +38,12 @@
 Anforderung wörtlich: *„Datenbank vor allem API keys sollten nicht von admin gelesen werden
 können egal wie … inkl passwort aber passwort sollte resettet werden können"*.
 
+**Der Beleg und der Entwurf stehen in [`geheimnisse-entwurf.md`](geheimnisse-entwurf.md)** —
+Stand der Technik mit wörtlichen Zitaten, die Ebenen-Unterscheidung (Datenbank-Administrator /
+Host-Administrator / KMS-Administrator), der Entwurf für dieses Schema und die ehrliche Grenze.
+Kurzfassung der Antwort: **die Frage zerfällt in drei**, und für zwei davon ist der Bestand
+schon richtig (Hash) — für die dritte fehlt der Schlüsselgeber.
+
 **Was der Bestand schon richtig macht** (gemessen):
 
 | Was | Stand | Beleg |

@@ -116,7 +116,15 @@ Einschränkung, die man umgehen kann, ohne die Verschlüsselung aufzugeben.
   die Sitzungskennung verbunden. Das ist die Aufteilung, die der Kern schon vorsieht.
 * Oder man indiziert verschlüsselt (Suchindex über verschlüsselte Wörter, „searchable
   encryption"). Das ist ein eigener Forschungsbereich mit eigenen Leaks und **sicher nicht**
-  die erste Ausbaustufe.
+  die erste Ausbaustufe. **Belegt, nicht behauptet:** suchbare Verschlüsselung ist in **keinem**
+  der geprüften Standards geregelt, und ihre Leckage ist Konstruktionsmerkmal, nicht
+  Implementierungsfehler — *„Searchable encryption schemes typically reveal some
+  formally-defined information, known as leakage"* (NIST CSRC, „Revisiting Leakage in
+  Searchable Encryption"), und HashiCorp schreibt über die eigene Transit-Version 2: *„the
+  algorithm used was susceptible to offline plaintext-confirmation attacks, which could allow
+  attackers to brute force decryption if the plaintext size was small."* Wer verschlüsselte
+  Daten durchsuchen will, **tauscht Vertraulichkeit gegen Suchbarkeit** — das ist der Handel,
+  nicht ein Vorbehalt.
 
 **Wichtig für RAG:** RAG über **Nachrichten** hieße, den Klartext zum Einbetten zu haben.
 Zum Einbetten **muß** entschlüsselt werden. Damit hat der Einbettungsdienst den Klartext —
