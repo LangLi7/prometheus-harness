@@ -2327,6 +2327,31 @@ git ls-files --eol | Select-String 'w/crlf\s+attr/text eol=lf'   # muss leer sei
 Zeilenenden hält, bekommt Abweichungen von **einem Byte je Zeile**. Ob das dort geschieht, habe ich
 **nicht** untersucht — die Gefahr gehört aber benannt.
 
+### Nachtrag 13.10.2026, 14:52 — **`*.jsonl` fehlt in seiner Regel** — und mein Protokoll ist selbst betroffen
+
+**Der Hinweis kam von Git selbst**, beim `git add` meiner Protokolldatei:
+
+```
+warning: in the working copy of '…/protokoll.jsonl', LF will be replaced by CRLF the next time Git touches it
+```
+
+**Ursache:** die Wurzel-`.gitattributes` regelt `.ts`, `.md`, `.sh`, `.ps1` … — für `.jsonl` steht dort
+nur `*.jsonl -diff` (**nicht in Diffs zeigen**), **kein `eol=lf`**. Damit fällt das Protokoll unter die
+Grundregel `* text=auto`, und auf diesem Rechner (`core.autocrlf=true`) schreibt Git beim Auschecken
+**CRLF** hinein. **Genau daher war meine Datei gemischt** — nicht nur wegen `Add-Content`.
+
+**Was ich getan habe** (in meinem Schreibbereich, Hausregel H3):
+[`docs/protokoll/aufsicht/.gitattributes`](.gitattributes) mit `*.jsonl text eol=lf` (dazu `.md`, `.sql`,
+`.mjs` auf LF und `.ps1` auf CRLF, damit die Unterordner-Regel die Wurzel nicht überstimmt). Eine
+`.gitattributes` in einem Unterordner gilt **nur** für diesen — die Wirkung ist so groß wie nötig.
+Gemessen mit `git check-attr`: `eol: lf` ✓; in meinem Bereich **0** Widersprüche; nach
+`git add --renormalize` und `git checkout --` sind es **178** gültige JSON-Zeilen mit **0** CRLF.
+
+**Die Empfehlung für die Wurzel bleibt eine Zeile:** `*.jsonl text eol=lf`. Sie ist **nicht**
+protokollspezifisch: **jede** `.jsonl` im Projekt ist eine Zeile-ein-Datensatz-Datei (die
+Sitzungsprotokolle des Harness sind genau das), und ein `\r` am Zeilenende ist dort dasselbe Problem wie
+in einer `.env`.
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)

@@ -1,0 +1,27 @@
+# Zeilenenden im Protokoll der Aufsicht — LF, ausdrücklich
+#
+# **Warum diese Datei hier liegt.** Die Wurzel-`.gitattributes` regelt die Zeilenenden für `.ts`, `.md`,
+# `.sh`, `.ps1` … — aber **nicht** für `.jsonl`: dort steht nur `*.jsonl -diff` (nicht in Diffs zeigen).
+# Damit fällt das Protokoll unter die Grundregel `* text=auto`, und auf einem Rechner mit
+# `core.autocrlf=true` schreibt Git beim Auschecken **CRLF** in die Arbeitskopie. Genau das ist
+# passiert — und Git sagt es selbst:
+#
+#     warning: in the working copy of '…/protokoll.jsonl', LF will be replaced by CRLF the next time
+#     Git touches it
+#
+# **Warum das hier zählt.** Das Protokoll ist eine **JSONL**-Datei: eine Zeile, ein Datensatz. Gemischte
+# Zeilenenden sind kein Schönheitsfehler, sondern ein Werkzeugproblem — jeder Leser, der auf `\n` teilt,
+# bekommt bei CRLF ein `\r` an jedem Wert hängen (genau die Fehlerklasse, die den Installer des Projekts
+# dreimal lahmgelegt hat). Der eigene Bestand hatte deshalb **28 von 175 Zeilen mit CRLF**.
+#
+# **Warum eine eigene Datei und keine Änderung an der Wurzel.** Schreibbereich der Aufsicht ist
+# `docs/protokoll/` (Hausregel H3). Eine `.gitattributes` in einem Unterordner gilt **nur** für diesen
+# Unterordner — die Wirkung ist damit genau so groß wie nötig. Der Vorschlag für die Wurzel
+# (`*.jsonl text eol=lf`) steht als Empfehlung im Befund **B29**; vollziehen kann ihn nur der bauende
+# Agent.
+
+*.jsonl text eol=lf
+*.md    text eol=lf
+*.sql   text eol=lf
+*.mjs   text eol=lf
+*.ps1   text eol=crlf
