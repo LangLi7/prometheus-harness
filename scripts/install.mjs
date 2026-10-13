@@ -572,31 +572,56 @@ export async function installiere(optionen = {}) {
   }
 
   // ── 5 ────────────────────────────────────────────────────────────────────
-  const werte = leseEnv(wurzel)
   const migriert = await schritt(5, 'Datenbankschema anlegen (Migrationen)', async () => {
     if (ueberspringeStapel) {
       schreibe('  übersprungen (--ohne-stapel)\n')
       return true
     }
-    const adresse = werte.MIGRATION_DATABASE_URL
-    if (adresse === undefined) {
-      // **Fail-loud mit Diagnose.** Diese Meldung stand zuerst nur als
-      // „MIGRATION_DATABASE_URL ist nicht gesetzt" — und der Wert stand
-      // nachweislich in `.env`. Eine Meldung, die den Next-Schritt nennt, aber
-      // nicht den Grund, kostet den Benutzer eine halbe Stunde.
-      schreibe(
-        '  FEHLER: MIGRATION_DATABASE_URL wurde in .env nicht gefunden.\n' +
-          `  Gelesen aus:  ${join(wurzel, '.env')}\n` +
-          `  .env vorhanden: ${String(existsSync(join(wurzel, '.env')))}\n` +
-          `  Gefundene Namen: ${Object.keys(werte).filter((n) => n.startsWith('MIGRATION') || n === 'DATABASE_URL').join(', ') || '(keine)'}\n`,
-      )
-      return false
+    // ---------------------------------------------------------------------
+    // Die Migration als EIGENER PROZESS — nicht als Import.
+    // ---------------------------------------------------------------------
+    // **Der Befund, der das erzwungen hat.** Als Import im Installer-Prozeß
+    // scheiterte der Treiber im sauberen Klon **reproduzierbar**:
+    //
+    //     FEHLER: der Datenbanktreiber `postgres` ist nicht ladbar.
+    //       Arbeitsverzeichnis: C:\Users\Chang\pmh-ende
+    //       node_modules da:    true
+    //       postgres da:        true
+    //       Grund:  Cannot find package 'postgres' imported from …migrate.mjs
+    //
+    // **Und dieselbe Datei lief im selben Verzeichnis direkt durch:**
+    //
+    //     $ bun scripts/migrate.mjs
+    //     Schema ist aktuell (Fassung 2). Nichts zu tun.
+    //
+    // **Was gemessen und damit ausgeschlossen wurde:**
+    //
+    // | Messung | Ergebnis |
+    // |---|---|
+    // | direkt, über `cmd /c`, über cmd → PowerShell → bun | funktioniert |
+    // | statisch / dynamisch / in einer Funktion | alle drei funktionieren |
+    // | `import.meta.resolve('postgres')` | löst korrekt auf |
+    // | `bun install`, dann sofort importieren (Wettlauf) | funktioniert — **widerlegt** |
+    // | `node_modules` über dem Projektverzeichnis | keines |
+    // | mehrere `migrate.mjs` | nur eine |
+    //
+    // **Die Ursache ist nicht gefunden.** Statt sie zu vermuten, wird der Weg
+    // gewechselt: die Migration läuft als **eigener Prozeß** — genau der
+    // Aufruf, der in **jedem** gemessenen Fall funktioniert hat.
+    //
+    // **Was das außerdem besser macht.** Ein eigener Prozeß kann den Installer
+    // nicht mit einem offenen Datenbankzeiger zurücklassen, und ein Absturz der
+    // Migration reißt die Installation nicht mit. Die Regel dieses Projekts —
+    // „Sprachgrenzen sind Dienstgrenzen" — gilt sinngemäß: was eigenen Zustand
+    // hat, bekommt einen eigenen Prozeß.
+    //
+    // **Und die Diagnose bleibt.** `migrate.mjs` nennt im Fehlerfall
+    // Arbeitsverzeichnis, Modulherkunft, Zustand von `node_modules` und Grund.
+    // Kommt der Fehler wieder, führt die Meldung zur Ursache.
+    const { code, text } = await laufe(BUN, [join(wurzel, 'scripts', 'migrate.mjs')], { cwd: wurzel })
+    for (const zeile of text.trimEnd().split('\n')) {
+      if (zeile.trim() !== '') schreibe(`  ${zeile}\n`)
     }
-    const { migriere } = await import('./migrate.mjs')
-    const code = await migriere({
-      adresse,
-      schreibe: (t) => schreibe(`  ${t}`),
-    })
     return code === 0
   })
   if (!migriert) {
