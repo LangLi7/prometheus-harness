@@ -100,12 +100,16 @@ describe('pruefePostgres', () => {
 
   test('eine leere Migrationstabelle gilt als Fassung 0', async () => {
     const a = sqlAttrappe({ fassung: [] })
-    await expect(pruefePostgres(a.zugang)).rejects.toThrow(/Schemafassung 0 statt 2/u)
+    await expect(pruefePostgres(a.zugang)).rejects.toThrow(
+      new RegExp(`Schemafassung 0 statt ${ERWARTETE_SCHEMAFASSUNG}`, 'u'),
+    )
   })
 
   test('eine veraltete Fassung wird gemeldet', async () => {
     const a = sqlAttrappe({ fassung: [{ version: 1 }] })
-    await expect(pruefePostgres(a.zugang)).rejects.toThrow(/Schemafassung 1 statt 2/u)
+    await expect(pruefePostgres(a.zugang)).rejects.toThrow(
+      new RegExp(`Schemafassung 1 statt ${ERWARTETE_SCHEMAFASSUNG}`, 'u'),
+    )
   })
 
   test('eine ZU NEUE Fassung wird ebenfalls gemeldet', async () => {
@@ -113,13 +117,16 @@ describe('pruefePostgres', () => {
     // bedeutet: hier lief eine neuere Anwendung. Die alte Anwendung kennt die
     // Änderungen nicht — sie ist nicht bereit, und zwar unabhängig davon, daß
     // „mehr Schema" harmlos aussieht.
-    const a = sqlAttrappe({ fassung: [{ version: 3 }] })
-    await expect(pruefePostgres(a.zugang)).rejects.toThrow(/Schemafassung 3 statt 2/u)
+    const zuNeu = ERWARTETE_SCHEMAFASSUNG + 1
+    const a = sqlAttrappe({ fassung: [{ version: zuNeu }] })
+    await expect(pruefePostgres(a.zugang)).rejects.toThrow(
+      new RegExp(`Schemafassung ${zuNeu} statt ${ERWARTETE_SCHEMAFASSUNG}`, 'u'),
+    )
   })
 
   test('fehlende Kern-Tabellen werden namentlich gemeldet', async () => {
     const a = sqlAttrappe({ tabellen: [{ tablename: 'users' }, { tablename: 'chats' }] })
-    await expect(pruefePostgres(a.zugang)).rejects.toThrow(/Kern-Tabellen fehlen: workspaces, messages, sessions/u)
+    await expect(pruefePostgres(a.zugang)).rejects.toThrow(/Kern-Tabellen fehlen: workspaces, messages, auth_sessions, conversation_sessions/u)
   })
 
   test('die Tabellenabfrage fragt das aktuelle Schema, nicht "public"', async () => {
@@ -141,8 +148,12 @@ describe('pruefePostgres', () => {
   })
 
   test('eine eigene Kern-Tabellenliste wird benutzt', async () => {
+    // Der zweite Wert ist die erwartete Fassung. Er stand hier einmal fest als `2`
+    // — und wurde bei Migration 0003 stillschweigend falsch: die Attrappe
+    // antwortete mit `ERWARTETE_SCHEMAFASSUNG`, die Sonde verglich mit der
+    // übergebenen `2`. Seither wird der Wert aus der Konstanten gebildet.
     const a = sqlAttrappe({ tabellen: [{ tablename: 'nur_diese' }] })
-    await expect(pruefePostgres(a.zugang, 2, ['nur_diese'])).resolves.toBeUndefined()
+    await expect(pruefePostgres(a.zugang, ERWARTETE_SCHEMAFASSUNG, ['nur_diese'])).resolves.toBeUndefined()
   })
 })
 

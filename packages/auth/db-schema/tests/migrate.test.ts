@@ -108,10 +108,10 @@ describe('Migrationsliste prüfen', () => {
     expect(() => assertWellFormed([{ version: 1, name: 'x', sql: '   ' }])).toThrow('kein SQL')
   })
 
-  test('die echten Migrationen sind wohlgeformt und heißen 1 und 2', () => {
+  test('die echten Migrationen sind wohlgeformt und heißen 1 bis 3', () => {
     expect(() => assertWellFormed(MIGRATIONS)).not.toThrow()
-    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2])
-    expect(SCHEMA_VERSION).toBe(2)
+    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3])
+    expect(SCHEMA_VERSION).toBe(3)
   })
 })
 
@@ -220,7 +220,18 @@ describe('Migrationen anwenden', () => {
 // ---------------------------------------------------------------------------
 
 describe('Das echte Schema', () => {
-  test('legt genau die erwarteten neun Tabellen an', () => {
+  test('legt genau die erwarteten Tabellen an — und benennt eine davon um', () => {
+    // **Was diese Prüfung zählt.** Sie liest den **Quelltext** aller Migrationen,
+    // nicht das Ergebnis in der Datenbank. Migration 0001 legt die Anmeldesitzungen
+    // unter dem alten Namen `sessions` an; Migration 0003 benennt sie in
+    // `auth_sessions` um. Im Quelltext steht `sessions` deshalb genau einmal, und
+    // `auth_sessions` entsteht durch **kein** `CREATE`.
+    //
+    // **Warum das eine eigene Zeile wert ist.** Genau diese Unterscheidung war die
+    // Fehlerquelle beim ersten Versuch: die Prüfung suchte `auth_sessions` unter den
+    // angelegten Tabellen und wurde rot, obwohl die Migrationen richtig arbeiteten.
+    // Der Kommentar hält fest, was die Zählung meint, damit der nächste Leser nicht
+    // denselben Irrtum wiederholt.
     const all = MIGRATIONS.map((migration) => migration.sql).join('\n')
     const created = new Set(
       [...all.matchAll(/CREATE TABLE IF NOT EXISTS ([a-z_]+) \(/g)].map((match) => match[1] as string),
@@ -235,6 +246,7 @@ describe('Das echte Schema', () => {
       'one_time_tokens',
       'user_secrets',
       'auth_events',
+      'conversation_sessions',
     ]) {
       expect({ table, created: created.has(table) }).toEqual({ table, created: true })
     }
@@ -243,6 +255,7 @@ describe('Das echte Schema', () => {
       'api_keys',
       'auth_events',
       'chats',
+      'conversation_sessions',
       'messages',
       'one_time_tokens',
       'sessions',
@@ -250,6 +263,9 @@ describe('Das echte Schema', () => {
       'users',
       'workspaces',
     ])
+    // Die Umbenennung ist der Grund, warum `auth_sessions` oben nicht steht.
+    expect(all).toContain('ALTER TABLE IF EXISTS sessions RENAME TO auth_sessions')
+    expect(created.has('auth_sessions')).toBe(false)
   })
 
   test('legt den Schlüssel an, der das Blättern im Chat trägt', () => {
@@ -294,5 +310,37 @@ describe('Das echte Schema', () => {
     // Es gibt keine Spalte für den Schlüssel selbst — nur Hash und Kennung.
     expect(apiKeys).not.toMatch(/^\s*(secret|token|key)\s+text/m)
     expect(all).toContain('display_prefix')
+  })
+
+  /**
+   * **Warum diese Prüfung eine Datei liest und kein Paket importiert.**
+   *
+   * `packages/api/readiness/src/index.ts` trägt die erreichte Schemafassung als
+   * **abgeschriebene Zahl** (`ERWARTETE_SCHEMAFASSUNG`) — mit gutem Grund: eine
+   * Zustandsauskunft soll nicht an dem Paket hängen, dessen Zustand sie meldet.
+   * Eine Abschrift veraltet aber **still**: sie bleibt grün und meldet trotzdem
+   * Unsinn.
+   *
+   * **Der Fall, der das belegt.** Mit Migration 0003 stieg `SCHEMA_VERSION` von 2
+   * auf 3. Bis die Zahl nachgezogen wurde, hätte die Sonde an einer **gesunden**
+   * Datenbank „Schemafassung 3 statt 2" gemeldet und sie für nicht bereit erklärt.
+   *
+   * **Warum der Text und nicht der Import.** Ein Import wurde versucht und ist am
+   * Typsystem gescheitert: `readiness` kann `db-schema` nicht auflösen, weil die
+   * `.sql`-Deklaration (`src/sql.d.ts`) dann nicht im Programm ist — sechs
+   * `TS2307` in `bun run typecheck`. Der Textvergleich hat keine Abhängigkeit,
+   * keine Laufzeitkopplung und fällt genauso laut um.
+   */
+  test('die abgeschriebene Fassung in der Bereitschaftssonde ist nicht veraltet', async () => {
+    const { readFile } = await import('node:fs/promises')
+    const quelle = await readFile(
+      new URL('../../../api/readiness/src/index.ts', import.meta.url),
+      'utf8',
+    )
+    const treffer = /export const ERWARTETE_SCHEMAFASSUNG = (\d+)/u.exec(quelle)
+    // Findet der Ausdruck nichts, ist die Zeile umbenannt oder umgebaut worden —
+    // dann muß diese Prüfung angepaßt werden und nicht stillschweigend durchgehen.
+    expect(treffer).not.toBeNull()
+    expect(Number(treffer?.[1])).toBe(SCHEMA_VERSION)
   })
 })

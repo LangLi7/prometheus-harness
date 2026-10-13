@@ -140,16 +140,16 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     // Test wiederholbar ist. `CASCADE` nimmt die Fremdschlüssel mit.
     await target.exec(`
       DROP TABLE IF EXISTS auth_events, user_secrets, one_time_tokens, messages,
-        chats, workspaces, api_keys, sessions, users, schema_migrations CASCADE;
+        chats, workspaces, api_keys, auth_sessions, conversation_sessions, users, schema_migrations CASCADE;
     `)
 
     const report = await migrate(target)
-    expect(report.applied).toEqual([1, 2])
+      expect(report.applied).toEqual([1, 2, 3])
     expect(report.version).toBe(SCHEMA_VERSION)
     expect(report.fresh).toBe(true)
   })
 
-  test('legt alle neun Tabellen an — im Schema `pmh`, nicht in `public`', async () => {
+  test('legt alle zehn Tabellen an — im Schema `pmh`, nicht in `public`', async () => {
     // **Warum `pmh` und nicht `public`.** Der Stack legt ein eigenes Schema an
     // (`docker/postgres-init/02-roles.sh`) und setzt den Suchpfad der Rollen auf
     // `pmh, public`. `public` ist in PostgreSQL der Ort, an dem jedes
@@ -168,10 +168,11 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     for (const table of [
       'api_keys',
       'auth_events',
+      'auth_sessions',
       'chats',
+      'conversation_sessions',
       'messages',
       'one_time_tokens',
-      'sessions',
       'user_secrets',
       'users',
       'workspaces',
@@ -224,7 +225,7 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     let message = ''
     try {
       await targetOf(sql).exec(`
-        INSERT INTO sessions (id, user_id, token_hash, csrf_hash, idle_expires_at, absolute_expires_at)
+        INSERT INTO auth_sessions (id, user_id, token_hash, csrf_hash, idle_expires_at, absolute_expires_at)
         VALUES ('33333333-3333-4333-8333-333333333333',
                 '11111111-1111-4111-8111-111111111111',
                 'kein-hash', repeat('a', 64), now() + interval '1 hour', now() + interval '1 day');
@@ -232,7 +233,7 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     } catch (cause) {
       message = cause instanceof Error ? cause.message : String(cause)
     }
-    expect(message).toContain('sessions_token_hash_hex')
+    expect(message).toContain('auth_sessions_token_hash_hex')
   })
 
   test('weist eine Rolle zurück, die es nicht gibt', async () => {
@@ -268,7 +269,8 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
       SELECT 'workspaces' AS table_name, count(*)::text AS n FROM workspaces
       UNION ALL SELECT 'chats', count(*)::text FROM chats
       UNION ALL SELECT 'messages', count(*)::text FROM messages
-      UNION ALL SELECT 'sessions', count(*)::text FROM sessions;
+      UNION ALL SELECT 'auth_sessions', count(*)::text FROM auth_sessions
+        UNION ALL SELECT 'conversation_sessions', count(*)::text FROM conversation_sessions;
     `)
     for (const row of counts) expect({ table: row.table_name, count: row.n }).toEqual({ table: row.table_name, count: '0' })
   })

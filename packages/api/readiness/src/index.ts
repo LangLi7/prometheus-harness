@@ -151,17 +151,20 @@ export const MIGRATIONSTABELLE = 'schema_migrations'
  *
  * ```
  * $ docker exec pmh-postgres psql -U pmh_app -d pmh -t -c "select version from schema_migrations order by version desc limit 1;"
- *   2
+ *   3
  * ```
  *
  * **Was hier bewußt nicht steht: ein Import von `@prometheus-harness/db-schema`.**
  * Das wäre die automatisch richtige Zahl — und würde dieses Paket an das
  * Schema-Paket binden. Dann hinge eine Zustandsauskunft an dem, dessen Zustand
  * sie meldet. Stattdessen vergleicht eine **Prüfung** diese Zahl mit
- * `SCHEMA_VERSION` aus `db-schema`: läuft eine Migration ein und die Zahl bleibt
- * stehen, wird die Prüfung rot — und das ist der richtige Ort dafür.
+ * `SCHEMA_VERSION` aus `db-schema`:
+ * `packages/auth/db-schema/tests/migrate.test.ts` liest die Zeile unten als Text
+ * und wird rot, wenn beide auseinanderlaufen. Der Textvergleich und kein Import,
+ * weil ein Import am Typsystem scheitert (sechs `TS2307` — die `.sql`-Deklaration
+ * von `db-schema` ist im Programm von `readiness` nicht enthalten).
  */
-export const ERWARTETE_SCHEMAFASSUNG = 2
+export const ERWARTETE_SCHEMAFASSUNG = 3
 
 /**
  * Die Tabellen, ohne die die Anwendung nicht arbeiten kann.
@@ -178,7 +181,14 @@ export const ERWARTETE_SCHEMAFASSUNG = 2
  * alles da ist. `current_schema()` liefert `pmh` und damit das Richtige —
  * unabhängig davon, ob die Rollen ihren Suchpfad behalten.
  */
-export const KERN_TABELLEN: readonly string[] = ['users', 'workspaces', 'chats', 'messages', 'sessions']
+export const KERN_TABELLEN: readonly string[] = [
+  'users',
+  'workspaces',
+  'chats',
+  'messages',
+  'auth_sessions',
+  'conversation_sessions',
+]
 
 /**
  * Prüft PostgreSQL.

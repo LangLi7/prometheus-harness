@@ -28,6 +28,7 @@
 
 import m0001 from '../migrations/0001_identitaet.sql' with { type: 'text' }
 import m0002 from '../migrations/0002_workspaces_chats.sql' with { type: 'text' }
+import m0003 from '../migrations/0003_sitzungen_und_gespraeche.sql' with { type: 'text' }
 
 // ---------------------------------------------------------------------------
 // Migrationstyp
@@ -53,6 +54,7 @@ export interface Migration {
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'identitaet-benutzer-sitzungen-api-schluessel', sql: m0001 },
   { version: 2, name: 'workspaces-chats-nachrichten', sql: m0002 },
+  { version: 3, name: 'anmeldesitzungen-umbenannt-gespraechssitzungen', sql: m0003 },
 ]
 
 /** Die Fassung, die dieses Paket erzeugt — die höchste Migrationsnummer. */
