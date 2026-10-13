@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/reset",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Passwort zurücksetzen, ohne daß die Datenbank das Geheimnis kennt: in one_time_tokens liegt nur der SHA-256-Hash des Einmal-Tokens. Ein Token gilt genau einmal, läuft ab — und nach dem Zurücksetzen sind ALLE Sitzungen widerrufen.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

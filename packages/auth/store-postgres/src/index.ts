@@ -55,6 +55,7 @@ import type { Dateizugriff, Isolation } from '@prometheus-harness/permissions'
 // damit ein Aufrufer das Verschlüsseln nicht vergessen kann. Die Byte-Ebene
 // (`speichereUmschlag`) tut es ausdrücklich nicht; siehe deren Begründung.
 import { entpacke, verpacke, type Hauptschluessel } from '@prometheus-harness/secrets'
+import type { TokenAblage, TokenEintrag } from '@prometheus-harness/reset'
 
 // ---------------------------------------------------------------------------
 // Der Datenbankzugang
@@ -765,6 +766,93 @@ export async function ladeGeheimnis(
   const umschlag = await ladeUmschlag(sql, eingabe.userId, eingabe.ref)
   if (umschlag === undefined) return undefined
   return entpacke(umschlag, haupt)
+}
+
+// ---------------------------------------------------------------------------
+// Einmal-Token (Passwort-Reset)
+// ---------------------------------------------------------------------------
+
+/**
+ * Die Ablage für `one_time_tokens`.
+ *
+ * ## Warum `verbrauche` ein einziges UPDATE mit Bedingung ist
+ *
+ * Die Marke „verbraucht" entscheidet, ob ein Token ein zweites Mal wirkt. Wäre
+ * sie ein Lesen und danach ein Schreiben, könnten zwei gleichzeitige Anfragen
+ * **beide** „noch offen" lesen und **beide** ein Passwort setzen. Die Bedingung
+ * gehört deshalb in die Anweisung selbst:
+ *
+ * ```sql
+ * UPDATE … SET consumed_at = $2 WHERE id = $1 AND consumed_at IS NULL RETURNING id
+ * ```
+ *
+ * Der erste Aufruf bekommt eine Zeile zurück, der zweite keine. Das ist dieselbe
+ * Bauform wie beim `revoke` der Sitzungen — und aus demselben Grund.
+ *
+ * @param sql - der Datenbankzugang
+ * @returns die Ablage
+ */
+export function erzeugeTokenAblage(sql: SqlZugang): TokenAblage {
+  return {
+    async legeAb(eintrag: TokenEintrag): Promise<void> {
+      await ausfuehren(
+        sql,
+        `INSERT INTO one_time_tokens (id, user_id, purpose, token_hash, expires_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [eintrag.id, eintrag.userId, eintrag.zweck, eintrag.tokenHash, eintrag.laeuftAb],
+      )
+    },
+
+    async finde(
+      tokenHash: string,
+      zweck: string,
+    ): Promise<{ readonly id: string; readonly userId: string; readonly laeuftAb: Date; readonly verbraucht: boolean } | undefined> {
+      const gefunden = await zeilen<{
+        id: string
+        user_id: string
+        expires_at: unknown
+        consumed_at: unknown
+      }>(
+        sql,
+        `SELECT id, user_id, expires_at, consumed_at
+           FROM one_time_tokens WHERE token_hash = $1 AND purpose = $2`,
+        [tokenHash, zweck],
+      )
+      const zeile = gefunden[0]
+      if (zeile === undefined) return undefined
+      return {
+        id: zeile.id,
+        userId: zeile.user_id,
+        laeuftAb: new Date(alsIso(zeile.expires_at)),
+        // `consumed_at IS NOT NULL` — die Spalte ist ein Zeitpunkt, kein Schalter.
+        // **Wann** verbraucht wurde, ist die nützlichere Angabe.
+        verbraucht: zeile.consumed_at !== null && zeile.consumed_at !== undefined,
+      }
+    },
+
+    async verbrauche(id: string, at: Date): Promise<boolean> {
+      const getroffen = await zeilen<{ id: string }>(
+        sql,
+        `UPDATE one_time_tokens SET consumed_at = $2
+          WHERE id = $1 AND consumed_at IS NULL
+          RETURNING id`,
+        [id, at.toISOString()],
+      )
+      // **Genau eine Zeile heißt: DIESER Aufruf war der erste.** Keine Zeile
+      // heißt: ein anderer war schneller. Siehe die Begründung oben.
+      return getroffen.length === 1
+    },
+
+    async zaehleSeit(userId: string, zweck: string, seit: Date): Promise<number> {
+      const gefunden = await zeilen<{ n: number }>(
+        sql,
+        `SELECT count(*)::int AS n FROM one_time_tokens
+          WHERE user_id = $1 AND purpose = $2 AND created_at >= $3`,
+        [userId, zweck, seit.toISOString()],
+      )
+      return gefunden[0]?.n ?? 0
+    },
+  }
 }
 
 /** Die drei Speicher, die der Regelkern braucht. */
