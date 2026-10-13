@@ -470,3 +470,47 @@ erzeugten Zeilen deshalb jetzt und weist die Form `insert:` nach.
    (PowerShell zeigte `System.String[]`). Die Absicht ist im Handler ausgeführt,
    die gesendeten Kopfdaten sind **nicht belegt**.
 6. **Nur Windows gemessen.** Bun 1.4.0, Windows nativ; Linux ungemessen.
+
+---
+
+### 2026-10-13 · Anmeldesperre für die eigene API-Fläche (`/api/ready`)
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Der eigene Beleg sprach eine Schwäche aus: **„Erreichbar ohne Token — für jeden weiteren Endpunkt ist das nicht automatisch richtig"** |
+| Umfang | `packages/api/health/src/index.ts` (Sperre + zweiter Endpunkt), `tests/health.test.ts`, `package.json` (0.2.0), `README.md`, `docs/INDEX.md`, `docs/status/beleg-eigener-endpunkt.md` |
+| Art | **Codeänderung im Repo.** Kein `~/.dsh`-Zugriff |
+| Tests | `bun test packages/api/health` → **40 pass · 0 fail** (vorher 19) · Gesamt **690 pass · 0 fail** |
+| Typecheck | **17 grün · 0 rot** |
+| Im Host | `/api/health` **200** offen · `/api/ready` **401** ohne Cookie, **200** mit Cookie |
+
+**Der Befund.** Ein offener Endpunkt war vertretbar. Zwei wären es nicht gewesen:
+registrierte Routen gehen am Auffang-Platz und damit an der **vorhandenen**
+Anmeldesperre des Cores vorbei. Jeder weitere Endpunkt hätte stillschweigend
+offen gestanden.
+
+`/api/ready` ruft deshalb `ctx.connection.requestRejection` auf — **dieselbe**
+Prüfung, die die Oberfläche schützt, statt einer zweiten Meinung darüber, was
+eine gültige Anmeldung ist. Das Cookie ist mit einem 32-Byte-Geheimnis
+unterschrieben; ein Nachbau wäre falsch und würde es nicht merken.
+
+**Der fünfte eigene Fehler, gefunden von einer Prüfung.** `inject: ['webServer',
+'connection']` sollte verhindern, daß wir uns ohne Verbindungsdienst einhängen. Es
+bewirkte das Gegenteil: der Loader hing das Plugin **nie** ein, beide Endpunkte
+antworteten **404**. Ein Endpunkt, der wegen einer fehlenden Prüfung
+verschwindet, kann nicht melden, **daß** die Prüfung fehlt. Aufgefallen nur, weil
+ein eigener Testaufbau den Dienst nicht mitbrachte — im vollen Host wäre der
+Fehler **nie** sichtbar geworden. Jetzt hängt sich das Plugin immer ein, und ein
+fehlender Dienst ergibt **503** statt eines stillen Verschwindens.
+
+#### Offene Punkte
+
+1. **`credential-gh`** — neunter Push, neunte Warnung.
+2. **`/api/ready` prüft die Abhängigkeiten nicht.** Es sagt, daß die Anwendung
+   antwortet — **nicht**, ob PostgreSQL oder Redis erreichbar sind. Das ist die
+   nächste Lücke, und sie ist im Beleg benannt.
+3. **Fremde, nicht committete Arbeit im Arbeitsbaum** — unverändert 27 + 8
+   Dateien.
+4. **Die Attrappe hält den Vertrag fest, nicht seine Erfüllung.** Ändert der Core
+   die Bedeutung von `requestRejection`, bleiben unsere Prüfungen grün.
+5. **Nur Windows gemessen.**
