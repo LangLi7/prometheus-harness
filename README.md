@@ -1,26 +1,52 @@
+---
+description: "Prometheus Harness — an agent harness on Bun with Cordis units, a pluggable LLM seam, and own HTTP endpoints, built on the DeepSeek Harness core."
+kind: "project"
+---
+
 # Prometheus Harness
 
-Eine eigene Agent-Harness auf Basis des **DeepSeek Harness**. Der Core wird **benutzt
-und angepasst** — er ist die Codebasis, nicht nur eine Vorlage. Alles, was wir darüber
-bauen, sind **Units** (Plugins und Skills), die sich an- und abstecken lassen.
+English | [Deutsch](README.de.md)
 
-**Sprachen:** TypeScript auf **Bun** (Kern und Host) · **Go** (Dienste) · **Rust**
-(systemnahe Kleinprogramme) · **kein Python**.
+A self-hosted agent harness being built on top of the DeepSeek Harness core. The
+core is **used and adapted** — it is the codebase, not just a reference. What we
+add lives in `packages/`, `services/`, and `native/`; what the core supplies is
+never rewritten, only composed.
 
-> **Dieses Verzeichnis ist die Harness selbst** — Code, Schema, Stack und Nachweise.
-> Der unveränderte Upstream liegt unter `C:\Users\Chang\deepseek-harness` (Werkzeug und
-> Core-Referenz), der Referenz-Fork unter `C:\Users\Chang\harness\prometheus-harness`
-> (Core `d743267388` = DeepSeek Harness `0.2.1-alpha.2`, Branch `pmh`).
+## Summary
 
-## In einem Satz
+Clone the repository and run one command — `scripts\install.cmd` on Windows,
+`./scripts/install.sh` on Linux and macOS. It installs Bun and the base packages
+it needs, generates `.env` with fresh secrets (adopting the running container's
+passwords when a stack already exists), starts PostgreSQL 17 and Redis 7, waits
+for their health checks, runs the database migrations, and type-checks every
+package. `bun run start` then serves the Web GUI and prints an authenticated URL;
+that URL carries a launch token and the interface answers **401** without it.
+Sixteen packages make up our own code — a provider-agnostic LLM seam with a
+DeepSeek adapter, retry and token accounting, an agent loop with a tool registry,
+a session format with JSONL persistence, authentication primitives, and the first
+own HTTP endpoints. **826 tests pass and 18 packages type-check clean.** The
+smallest chain — adapter → agent loop → session — is built and measured, but not
+yet reachable through any interface; that is the next step, and the sections
+below state exactly where that boundary sits.
 
-Ein Agent-Kern in TypeScript auf Bun, dessen Fähigkeiten als **Units** steckbar sind —
-alles andere (Sandbox, Werkzeuge, Dienste, Datenbanken) liegt als **eigener Prozess**
-dahinter, nicht im Core.
+## Table of Contents
 
-## Installieren
+- [Use this project](#use-this-project)
+- [Architecture](#architecture)
+- [Endpoints](#endpoints)
+- [Further Exploration](#further-exploration)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
 
-**Windows** (Eingabeaufforderung, PowerShell oder Doppelklick):
+-----
+
+<a id="use-this-project"></a>
+## Use this project
+
+### Installing
+
+**Windows** — from Command Prompt, PowerShell, or by double-clicking the file:
 
 ```bat
 git clone https://github.com/LangLi7/prometheus-harness.git
@@ -28,348 +54,352 @@ cd prometheus-harness
 scripts\install.cmd
 ```
 
-**Linux / macOS:**
+**Linux and macOS:**
 
-```bash
+```sh
 git clone https://github.com/LangLi7/prometheus-harness.git
 cd prometheus-harness
 ./scripts/install.sh
 ```
 
-Der Installer prüft und **installiert**, was fehlt (Bun, und auf Linux die
-Basispakete `curl`/`git`), legt `.env` mit erzeugten Geheimnissen an, startet
-PostgreSQL und Redis, wartet auf deren Gesundheit, führt die Migrationen aus und
-prüft den Typecheck. Danach:
+The installer reports seven steps and ends with the command to start. Run it
+without a database by adding `--ohne-stapel`; the fourteen PostgreSQL checks are
+then **skipped and say so**, rather than passing without a database to check
+against.
 
-```bash
-bun run start
-```
+You know it worked when `bun run start` prints an address with a token and that
+address loads the interface in a browser. Two failures are worth recognising: a
+password mismatch between `.env` and a **running** PostgreSQL container, which the
+installer names together with both ways out; and a missing or unreachable Docker
+daemon, which the installer reports with the platform-specific command that fixes
+it.
 
-**Kein pnpm, kein Build-Schritt.** Bun führt TypeScript direkt aus; „bauen" heißt
-hier `bun run typecheck` (gemessen: **18 Pakete, 1,8 s**).
+### Why there are three entry scripts
 
-### Warum es drei Einstiege gibt
-
-| Datei | Wofür | Vorbedingung |
+| File | For | Requires |
 |---|---|---|
-| `scripts/install.cmd` | **Windows, immer** | keine |
-| `scripts/install.ps1` | Windows, aus PowerShell | Ausführungsrichtlinie erlaubt Skripte |
-| `scripts/install.sh` | Linux, macOS | `sh` (überall vorhanden) |
+| `scripts/install.cmd` | Windows, always | nothing |
+| `scripts/install.ps1` | Windows, from PowerShell | execution policy allows scripts |
+| `scripts/install.sh` | Linux, macOS | `sh` |
 
-Auf einem Windows-Rechner mit `CurrentUser = Restricted` **lädt** eine `.ps1`
-nicht:
+The execution policy on a default Windows machine is `Restricted`, so a `.ps1`
+**does not load**:
 
 ```
 & : Die Datei …\install.ps1 kann nicht geladen werden, weil das Ausführen
     von Skripten auf diesem System deaktiviert ist.
 ```
 
-Deshalb ist `.cmd` der Einstieg, den die Anleitung nennt: **es ist von der
-Richtlinie nicht betroffen**. Es ruft `install.ps1` mit
-`-ExecutionPolicy Bypass` — nur für diesen Aufruf, ohne die Einstellung des
-Rechners zu ändern.
+A `.cmd` file is not affected by that policy, so it is the entry the instructions
+name. It calls `install.ps1` with `-ExecutionPolicy Bypass` for that one
+invocation and changes nothing about the machine.
 
-**Die Logik steht in `scripts/install.mjs` — einmal.** Die drei Dateien sind
-dünne Hüllen. Eine zweite Fassung in `sh` wäre eine zweite Wahrheit, die
-auseinandergeht.
+The logic itself is **one** file, `scripts/install.mjs`, written for Bun. A shell
+implementation would have no interpreter on the target machines: `sh` is absent
+on Windows, `bash` arrives only through WSL and cannot read `C:\` paths, and
+`unzip` is missing. On a fresh Alpine container even `bash` is absent.
 
-### Was der Installer **nicht** automatisch installiert
+### What the installer does not install
 
-**Docker** auf Windows: der offizielle Weg ist Docker Desktop — ein Programm mit
-Oberfläche und eigener Lizenz. Es still zu installieren wäre eine Entscheidung
-über die Lizenz des Benutzers. Der Installer nennt den Befehl und bricht sichtbar
-ab. Auf Linux nennt er `curl -fsSL https://get.docker.com | sudo sh`, führt es
-aber nicht aus: das braucht root.
+Docker. On Windows the supported path is Docker Desktop — a program with its own
+licence — and on Linux the official script needs root. The installer prints the
+command for the platform and stops visibly instead of deciding on your behalf.
 
-### Unter WSL2
+### Starting
 
-`docker` ist dort **im PATH** und der Dienst trotzdem **nicht erreichbar**
-(gemessen am 13.10.2026). Der Installer erkennt das und sagt, was zu tun ist:
-Docker Desktop starten, dann *Settings → Resources → WSL Integration* für diese
-Distribution einschalten — oder den Windows-Einstieg `scripts\install.cmd`
-benutzen.
-
-### Wenn der Stapel schon läuft
-
-PostgreSQL legt Rollen und Kennwörter beim **ersten** Start des
-Datenverzeichnisses an. Ein späterer Start mit anderen Werten ändert sie **nicht**.
-Der Installer liest deshalb die Kennwörter des **laufenden** Containers und
-übernimmt sie in `.env` — neue würden den Zugang zur bestehenden Datenbank
-zerstören. Passt eine vorhandene `.env` nicht zum Container, bricht er mit beiden
-Auswegen ab (übernehmen oder `docker compose down -v`) statt zu raten.
-
-### Ohne Datenbank aufsetzen
-
-```bash
-scripts\install.cmd --ohne-stapel      # Windows
-./scripts/install.sh --ohne-stapel     # Linux
+```sh
+bun run start
 ```
 
-Für den Typecheck und die Tests ohne Datenbank. Die 14 PostgreSQL-Prüfungen
-werden dann **übersprungen** und melden das — nicht bestanden.
+The port defaults to **3080**, the same port the reference harness uses. When it
+is taken, the launcher binds the next free port and says which one; `--strict-port`
+makes it stop instead, `--port <n>` moves the starting point, and `PMH_PORT` sets
+it from the environment.
 
-### Von Hand, wenn der Installer nicht paßt
+### The address carries a token
 
-```bash
-bun install                     # Abhängigkeiten (Bun, nicht pnpm)
-docker compose up -d            # PostgreSQL 17 + pgvector, Redis 7
-bun scripts/migrate.mjs         # Schema anlegen (Rolle pmh_owner)
-bun run start                   # Host starten, Adresse steht am Ende der Ausgabe
-```
-
-**Ist `3080` belegt, weicht der Start auf den nächsten freien Port aus und nennt ihn.**
-`--strict-port` bricht stattdessen ab, `--port <n>` wählt einen anderen Startpunkt,
-`PMH_PORT` setzt ihn über die Umgebung. Methodik:
-[startup-port-methodik.md](docs/design/startup-port-methodik.md).
-
-### Die Adresse braucht ein Token
-
-Die Oberfläche antwortet **ohne Token mit 401**. Der Start gibt deshalb die
-**benutzbare** Adresse aus — Zeile für Zeile so, wie sie erscheint:
+The interface answers **401** without a token, so the startup prints the usable
+address, token included:
 
 ```
-[pmh] Oberfläche: http://127.0.0.1:3081/  — ohne Token antwortet sie 401,
-[pmh] die benutzbare Adresse folgt unten, sobald der Host sie meldet.
-[host] dsh web: http://127.0.0.1:3081/?token=TWyrTSWfD3BBmIGzLgc5Hjm2klR5eSFqaw1D0wzdhz8
-
 [pmh] Anmeldung nötig — diese Adresse öffnen (enthält den Token):
 [pmh]   http://127.0.0.1:3081/?token=TWyrTSWfD3BBmIGzLgc5Hjm2klR5eSFqaw1D0wzdhz8
 ```
 
-Die letzte Zeile ist die, die in den Browser gehört. Nachgemessen am 13.10.2026:
-
-| Aufruf | Antwort |
+| Request | Response |
 |---|---|
-| **mit** dem Token aus der Ausgabe | **200**, 35.664 Zeichen |
-| **ohne** Token | **401** |
-| mit **falschem** Token (43 Zeichen) | **401** |
+| with the token from the output | **200**, 35,664 bytes |
+| without a token | **401** |
+| with a wrong 43-character token | **401** |
 
-Der Host versucht **nicht**, selbst einen Browser zu öffnen — auf diesem Rechner
-scheitert er dabei sichtbar (`could not open the default browser because browser
-launcher exited with code null`). Ein Start, der einen Fehler meldet, obwohl alles
-läuft, wäre verwirrend; in einem Container gäbe es ohnehin keinen Browser.
+The address **is** the credential. Treat a copied URL the way you would treat a
+password; the launcher writes it to the console only — never to a file,
+never into the environment.
 
-**Warum das nicht nur eine Zeile Kopieren ist.** Die Adresse ist ein Geheimnis: sie
-gewährt Zugang ohne weitere Anmeldung. Wer sie in ein Protokoll, ein Ticket oder
-einen Chat kopiert, gibt den Zugang mit. Der Start schreibt sie deshalb nur auf die
-Konsole — nicht in eine Datei, nicht in die Umgebung. Wer sie braucht, holt sie aus
-der laufenden Ausgabe.
+### Database addresses
 
-**Es gibt keinen Build-Schritt.** Bun führt TypeScript direkt aus; `tsgo --noEmit`
-prüft und schreibt nichts:
+The application reads `DATABASE_URL` and `REDIS_URL` from the environment, and
+the migration runner reads `MIGRATION_DATABASE_URL`. All three are written to
+`.env` by the installer; loading them is the shell's job:
 
-```bash
-bun install                     #  0,1 s
-bun x tsgo --noEmit -p <paket>  #  2,1 s über 18 Pakete, 0 Fehler
-bun run start                   #  1,1 s bis zur Adresse
+```sh
+# Linux
+set -a; . ./.env; set +a; bun run start
 ```
 
-### Prüfen
-
-```bash
-bun test packages scripts apps   # 762 grün, 0 rot — 26 Dateien, 11,2 s
-
-# Die 14 PostgreSQL-Prüfungen laufen nur mit einer Testdatenbank.
-# Sie brauchen die OWNER-Rolle: Migrationen sind DDL, pmh_app darf das nicht.
-PMH_TEST_DATABASE_URL=postgres://pmh_owner:bitte-aendern-owner@127.0.0.1:5432/pmh \
-  bun test packages scripts apps
-```
-
-**Ohne** diese Variable werden jene Fälle **übersprungen** — nicht bestanden. Ein
-Lauf ohne sie meldet `748 pass · 14 skip · 0 fail` und sagt damit ehrlich, was er
-nicht geprüft hat.
-
-## Stand
-
-**Phase: der Core läuft — und der erste eigene Endpunkt antwortet.**
-
-Nachgemessen am 13.10.2026:
-
-| Nachweis | Ergebnis |
-|---|---|
-| **Host startet** | `bun run start` → Adresse mit Token; Aufruf **200**, 35.664 Zeichen; ohne Token **401**, mit falschem Token **401**; Start bis zur Adresse **1,1 s** |
-| **Eigener Endpunkt** | `GET /api/health` → **200** (offen) · `GET /api/ready` → **401** ohne Anmeldung, **200** mit Sitzungscookie · `POST` → **405** · genaue Pfade, kein Präfix — [Beleg](docs/status/beleg-eigener-endpunkt.md) |
-| **Anmeldung des Cores** | Token-Weiterleitung **303** + Cookie; `GET /` mit Cookie **200**, ohne Cookie **401** — greift |
-| **API des Cores** | **lebt — die frühere Zeile hier war falsch.** `POST /api/goals/create` **mit** Anmeldung → **`{"type":"server-response","rpcId":"invalid-request","result":{"ok":false,"error":{"code":"gateway/bad-request"…`** — der JSON-RPC-Rahmen. `WS /api/remote.mux` **mit** Cookie → **`101 Switching Protocols`** |
-| **Unser eigener Beitrag** | **zwei lesende Endpunkte** (`/api/health`, `/api/ready`). Die Kette — Adapter, Agent-Loop, Session — ist gebaut und in Tests belegt, aber über **keine** Schnittstelle erreichbar. Was der Core sonst hat und was fehlt: [schnittstellen-bestand.md](docs/review/schnittstellen-bestand.md) |
-| **Eigener Kern** | **16 Pakete · 762 Tests grün · 0 rot** (26 Dateien, mit echter PostgreSQL) · **zwei** Pakete davon sind verdrahtet (`health`, `readiness`), die übrigen laufen noch nur in Tests |
-| **Datenbank** | PostgreSQL **17.11** + pgvector **0.8.7**, Redis **7.4.9** — als Stack in **einer** Datei; Rechtemodell mit vier Rollen belegt wirksam |
-| **Stack** | `bun install` **0,1 s** · `tsgo --noEmit` **18 Pakete / 0 rot** · Start **1,1 s** — kein Build-Schritt |
-| **Go-Dienste** | `pmh-nix` 60 Tests · `pmh-attach` 63 Tests · `pmh-supervisor` **2 rot** (auch auf `HEAD`) |
-| **Rust** | 6.569 Zeilen in 6 Crates — **nichts ruft sie auf**, kein Skript baut sie — [Beleg](docs/review/rust-bestand.md) |
-
-### Der eigene Endpunktweg
-
-**Was hier steht, ist bewußt klein.** Zwei **lesende** Endpunkte, mehr nicht — und
-die Kette (Adapter, Agent-Loop, Session) ist über **keine** Schnittstelle
-erreichbar. Der Umfang dieser Lücke und was der Core sonst anbietet, steht in
-[schnittstellen-bestand.md](docs/review/schnittstellen-bestand.md).
-
-`packages/api/health` hängt sich über den **offiziellen Dienst** `ctx.webServer`
-ein — nicht über eine eigene Serverinstanz. Eine zweite Instanz hätte nicht
-gezeigt, was hier gezeigt werden soll, und wäre eine zweite Wahrheit über Adresse
-und Anmeldung.
-
-```bash
-$ curl -s http://127.0.0.1:3081/api/health
-{"status":"ok","service":"@prometheus-harness/health","version":"0.2.0",
- "uptimeMs":17807,"runtime":"bun 1.4.0"}
-
-$ curl -s http://127.0.0.1:3081/api/ready
-{"status":"error","error":"unauthenticated"}          # 401 + WWW-Authenticate: Cookie
-```
-
-**Zwei Endpunkte, zwei Fragen.** `/api/health` ist **offen** und sagt nur, daß der
-Prozeß Routen bedient — eine Erreichbarkeitsprüfung, die eine Anmeldung verlangt,
-könnte nicht melden, daß die **Anmeldung** kaputt ist. `/api/ready` ist
-**geschützt** und prüft die Abhängigkeiten:
-
-```bash
-$ curl -s -b cookies.txt http://127.0.0.1:3081/api/ready
-{"bereit":true,"zustand":"ok",
- "sonden":[{"name":"postgres","zustand":"ok","dauerMs":109},
-           {"name":"redis","zustand":"ok","dauerMs":4}]}
-
-# Mit absichtlich kaputtem Redis (REDIS_URL=redis://127.0.0.1:6399):
-#   /api/ready  -> 503  eingeschraenkt, Grund genannt
-#   /api/health -> 200  der Prozeß lebt weiter
-```
-
-**Was geprüft wird — und warum nicht nur die Verbindung.** Die PostgreSQL-Sonde
-stellt **drei** Fragen: steht die Verbindung, sind die **Migrationen** gelaufen
-(Fassung aus `schema_migrations`), sind die Kern-Tabellen da. `select 1` allein
-würde auch bei fehlenden Tabellen „bereit" sagen. Die Redis-Sonde schickt ein
-`PING` und verlangt `PONG` — „jemand antwortet" ist nicht dasselbe wie „Redis ist
-bereit".
-
-**Die Sonden stehen in `packages/api/readiness`, nicht in `health`.** `health`
-stellt nur den Vertrag `ctx.readyness.register(sonde)` bereit. Sonst hinge der
-Endpunkt, dessen Aufgabe „Zustand melden" ist, selbst an dem Zustand, den er
-meldet — und Regel 2 wäre verletzt.
-
-**Damit die Sonden laufen, müssen die Adressen in der Umgebung stehen** — der
-Starter setzt sie nicht:
-
-```bash
-DATABASE_URL=postgres://pmh_app:…@127.0.0.1:5432/pmh \
-REDIS_URL=redis://127.0.0.1:6379 \
+```powershell
+# Windows
+Get-Content .env | ForEach-Object { if ($_ -match "^(\w+)=([^\r\n]*)") { Set-Item "env:$($matches[1])" $matches[2] } }
 bun run start
 ```
 
-**Ohne diese beiden meldet `/api/ready` `ok` mit leerer Sondenliste** — ehrlich,
-aber ohne Abhängigkeitsprüfung. Wer die Antwort liest, sieht es an `sonden: []`.
-Alle Werte stehen in [.env.example](.env.example) (siehe `.env.example`).
+The three addresses are deliberately different roles: `pmh_app` reads and writes
+data, `pmh_owner` may alter structure and is used only by migrations, and neither
+is the superuser.
 
-**Die Sperre ist die des Hosts, keine eigene.** `/api/ready` ruft
-`ctx.connection.requestRejection` auf — dieselbe Prüfung, die auch die
-Oberfläche schützt (Host-/Origin-Zaun, dann Browsersitzung). Eine zweite Meinung
-darüber, was eine gültige Anmeldung ist, ginge irgendwann auseinander; das Cookie
-ist mit einem 32-Byte-Geheimnis unterschrieben, und wer das nachbaut, baut es
-falsch nach.
+### Checking
 
-| Antwort | Bedeutung |
-|---|---|
-| **401** `unauthenticated` + `WWW-Authenticate: Cookie` | nicht angemeldet |
-| **403** `untrusted_origin` | nicht der Host, für den wir gebaut sind |
-| **503** `unavailable` | die Prüfung selbst ist nicht erreichbar — **verweigern statt durchlassen** |
-| **503** `eingeschraenkt` / `ausgefallen` | eine bzw. alle Sonden rot |
+```sh
+bun run typecheck                 # 18 packages, ~2 s, nothing is written
+bun test packages scripts apps    # 826 tests, 27 files
+```
 
-**Das ist kein Zufall, sondern die Korrektur eines Fehlers.** Der erste Entwurf
-hatte **einen** offenen Endpunkt. Weil registrierte Routen am Auffang-Platz und
-damit an der Anmeldesperre vorbeigehen, hätte **jeder** weitere Endpunkt
-stillschweigend offen gestanden.
+Bun runs TypeScript directly, so there is no build step. `bun run build` is an
+alias for the type check, matching the step a familiar workflow expects at that
+point.
 
-Eingetragen wird das Paket bei **jedem** Start von `scripts/start.mjs` in die
-Patch-Schicht des Profils (idempotent, eigener markierter Bereich, fremde
-Einträge bleiben stehen) — die Profildatei selbst liegt in `.pmh-build/` und ist
-nicht versioniert.
+Fourteen of those tests exercise migrations and schema properties against a **real**
+PostgreSQL. They are skipped when `PMH_TEST_DATABASE_URL` is absent or
+unreachable, and the run reports the skip with its reason instead of showing a
+green pass that checked nothing.
 
-### Was noch nicht gebaut ist — mit Zahlen
+-----
 
-| | dieses Projekt | Referenz (Upstream-Fork) |
+<a id="architecture"></a>
+## Architecture
+
+Five rules shape every decision here. They are stated first because the rest of
+the repository is a consequence of them.
+
+1. **The core is untouched.** A change we need becomes a unit, never an edit in a
+   foreign file.
+2. **No unit imports core internals** — only public slots such as `ctx.*` and
+   service interfaces, so a core upgrade costs no unit work.
+3. **Services start with the harness, and a failed start is a visible error.**
+4. **Language boundaries are process boundaries.** Every other language runs as a
+   process behind a defined interface.
+5. **Nothing is ticked off without evidence.** Every number in this repository
+   names the command that measured it; anything unverified appears as a stated
+   gap.
+
+### Layout
+
+```
+apps/cli            the host: loads the profile, composes the Cordis tree, serves the interface
+apps/web            the interface (from the template) — the basis for our own
+packages/api        health (endpoints + probe registry) · readiness (PostgreSQL, Redis probes)
+packages/llm        the LLM seam · llm-deepseek · llm-retry · token-meter
+packages/core       agent-tools · agent-loop · scope
+packages/agent      session-format · session-persistence-jsonl
+packages/auth       auth (Argon2id, sessions, CSRF) · db-schema (SQL migrations)
+packages/units      unit-export (plugin export with a proven round trip)
+packages/util       atomic-write · home-paths
+services/           pmh-attach · pmh-nix · pmh-supervisor (Go) · pmh-sandbox (Rust)
+native/             6 Rust crates (locks, PTY, atomic writes, Landlock) — currently unused
+docker/             stack setup: extensions, roles, privileges
+scripts/            start · port choice · auth address · profile wiring · installer · checks
+docs/               concept, decisions, evidence, research
+```
+
+### The chain
+
+The smallest complete path runs from a request to a stored session:
+
+```
+LLM seam → DeepSeek adapter → retry → token meter
+    ↓
+agent loop → tool registry → session format → JSONL persistence → resume
+```
+
+Each link is a package with its own tests, and the whole chain has a single
+end-to-end test. What it does **not** have yet is a call site in a running
+application — see [Known Limitations](#known-limitations-and-deferred-work).
+
+### Repository size
+
+| | This project | Reference (upstream fork) |
 |---|---:|---:|
-| Quellcode (`packages/`, `services/`, `native/`, `apps/cli/src`; `.ts`, `.go`, `.rs`, `.mjs`, `.sql`, `.ps1`) | **120 Dateien · 1,5 MB** | 5.205 Dateien · 49 MB |
-| Applikationspakete | **16** | 245 |
+| Source (`packages/`, `services/`, `native/`, `apps/cli/src`) | **120 files · 1.5 MB** | 5,205 files · 49 MB |
+| Application packages | **16** | 245 |
 
-**Unser Quellcode ist rund 43-mal kleiner als der Anwendungscode der Referenz.** Das
-ist kein Größen-, sondern ein Fortschrittsmaß — die Zerlegung steht in
+Our source is roughly **43 times smaller** than the reference application code.
+That is a measure of progress, not of size; the decomposition is recorded in
 [groessenvergleich-zur-referenz.md](docs/review/groessenvergleich-zur-referenz.md).
 
-## Aufbau
+-----
 
+<a id="endpoints"></a>
+## Endpoints
+
+Our own HTTP surface is deliberately small: two **reading** endpoints. The core
+supplies a much larger one, and it is not REST.
+
+| Endpoint | Method | Auth | Purpose |
+|---|---|---|---|
+| `/api/health` | GET, HEAD | none | reports that the process serves routes |
+| `/api/ready` | GET, HEAD | session cookie | queries the registered probes |
+
+```sh
+curl -s http://127.0.0.1:3081/api/health
+# {"status":"ok","service":"@prometheus-harness/health","version":"0.3.0",…}
+
+curl -s -b cookies.txt http://127.0.0.1:3081/api/ready
+# {"bereit":true,"zustand":"ok",
+#  "sonden":[{"name":"postgres","zustand":"ok","dauerMs":35},
+#            {"name":"redis","zustand":"ok","dauerMs":6}]}
 ```
-apps/cli            der Host: lädt das Profil, komponiert den Cordis-Baum, reicht die Oberfläche aus
-apps/web            die Oberfläche (unverändert aus der Vorlage) — Vorlage für unsere eigene
-packages/api        health (Endpunkte + Sondenregister) · readiness (Sonden für PostgreSQL, Redis)
-                     — beide über ctx.webServer im Host eingehängt
-packages/llm        LLM-Seam · llm-deepseek · llm-retry · token-meter
-packages/core       agent-tools · agent-loop
-packages/agent      session-format · session-persistence-jsonl
-packages/auth       auth (Argon2id, Sitzungen, CSRF) · db-schema (SQL-Migrationen)
-packages/units      unit-export (Plugin-Export mit belegtem Rundlauf)
-packages/util       atomic-write · home-paths · scope
-services/           pmh-attach · pmh-nix · pmh-supervisor (Go) · pmh-sandbox (Rust)
-native/             6 Rust-Crates (Sperren, PTY, atomares Schreiben, Landlock) — derzeit ungenutzt
-docker/             Stack-Einrichtung: Erweiterungen, Rollen, Rechte
-scripts/            Start · Portwahl · Anmeldeadresse · Profil-Verdrahtung · Prüfungen
-docs/               Konzept, Entscheidungen, Nachweise, Recherche
-```
 
-## Die Reihenfolge (bindend)
+The response field names are German — `bereit` (ready), `zustand` (state),
+`sonden` (probes), `dauerMs` (duration in ms) — because the service is built that
+way. They are shown as returned rather than translated, so the example can be
+compared against a live response unchanged.
 
-Weisung des Betreibers, 13.10.2026 —
-[betreiber-weisung-2026-10-13.md](docs/decisions/betreiber-weisung-2026-10-13.md):
+`/api/health` stays open on purpose: a liveness check that requires a login
+cannot report that the login is broken. `/api/ready` is protected and answers
+more. The two differ in exactly one situation, and it is measurable:
 
-1. **Kleinste Kette verdrahten** — Adapter → Agent-Loop → Session. *„Ohne laufenden
-   Kern gibt es nichts, was man absichern oder skalieren könnte."*
-2. **Danach** Login, PostgreSQL und Redis ins Spiel bringen — gebaut und getestet ist
-   beides, es hängt nur nichts daran.
-3. **Mandantentrennung** als eigene Entscheidung davor: Row-Level Security,
-   `workspace_members`, Redis-Namensräume, **pro Benutzer eine eigene Sandbox**.
-   **Nicht Ende-zu-Ende** — der Agent braucht den Klartext, sonst fallen Werkzeuge,
-   Subagenten und Verdichtung weg.
-4. **Offen:** Formatversion 4 der Sitzung, Compaction, Aufruf gegen den echten Anbieter,
-   `pmh-supervisor` starten.
-
-**Wie es weitergeht** — der eigene Endpunktweg als erste eigene Schnittstelle, weil die
-Vorlage keine erreichbare API hat: [eigener-endpunktweg.md](docs/decisions/eigener-endpunktweg.md).
-
-## Zielbild
-
-Assistent-Agent-Harness: Chat und Workspaces, Obsidian als Gedächtnis mit Graph-View,
-Werkzeug- und Modellverwaltung, Researcher- und Fine-Tune-Skills, Git-Anbindung,
-Vektor-Suche über PostgreSQL/pgvector, Netzwerkzugriff über einen Tunnel, und der
-Harness richtet seine Umgebung (WSL2, Docker/Podman) selbst ein. Die vollständige Liste
-mit Status je Punkt steht in
-[arbeitspakete.md](docs/status/arbeitspakete.md) (Abschnitt R).
-
-## Dokumente
-
-| Datei | Inhalt | Art |
+| | `/api/ready` | `/api/health` |
 |---|---|---|
-| [docs/concept.md](docs/concept.md) | Das Unit-Modell und die vier Regeln | Konzept |
-| [docs/stack.md](docs/stack.md) | Sprachaufteilung und Sprachgrenzen | Vorschlag |
-| [docs/decisions/](docs/decisions/) | Getroffene und offene Entscheidungen | Entscheidungen |
-| [docs/review/](docs/review/) | Befunde: Rust-Bestand, API-Fläche, Stack, Größenvergleich | Belege |
-| [docs/status/](docs/status/) | Nachweise mit Befehl und Ergebnis, Register, Git-Audit | Belege |
-| [docs/research/](docs/research/) | Recherche: Auth-Standards, Sprachwahl | Vorlagen |
-| [docs/INDEX.md](docs/INDEX.md) | Verzeichnis aller Dokumente | Übersicht |
+| everything healthy | 200 `ok` | 200 `ok` |
+| no probe registered | **503** `ungeprueft` | 200 |
+| Redis unreachable | **503** `eingeschraenkt` | 200 |
 
-## Regeln für die Arbeit hier
+The probes live in `packages/api/readiness`, not in `health`. `health` offers the
+contract `ctx.readyness.register(probe)`; PostgreSQL and Redis are registered
+through it, and `health` never learns what it is checking. A readiness endpoint
+that itself depends on the things it reports on would fail with them.
 
-1. **Der Core ist unantastbar.** Keine Änderung in fremden Dateien — wer eine Änderung
-   braucht, baut sie als Unit.
-2. **Kein Unit importiert Interna des Cores** — nur öffentliche Steckplätze (`ctx.*`,
-   Service-Interfaces). Nur so kostet ein Core-Sprung keine Unit-Arbeit.
-3. **Dienste starten mit der Harness**, und ein fehlgeschlagener Start ist ein
-   **sichtbarer** Fehler, kein stiller Ausfall.
-4. **Sprachgrenzen sind Dienstgrenzen** — jede andere Sprache ist ein Prozess.
+`/api/ready` calls the core's own `ctx.connection.requestRejection` rather than
+implementing a second opinion of what a valid session is. A registered route
+bypasses the fallback handler and therefore the authentication gate, so every
+further endpoint needs this guard explicitly.
 
-**Und die Regel, die hier am strengsten gilt:** abgehakt wird nur Belegtes. Jede Zahl in
-diesem Repository nennt den Befehl, mit dem sie gemessen wurde. Was nicht geprüft werden
-konnte, steht als Lücke da — nicht als erledigt.
+### The core's interface, for contrast
 
-## Lizenz
+The core talks **Typert Remote**, over two carriers. A `client-request` envelope
+goes to `POST /api/<namespace>/<method>`; logical streams go over the WebSocket
+at `/api/remote.mux`. Both were measured on a running host:
 
-Der DeepSeek Harness dient als **Codebasis**; damit greift seine **MIT-Lizenz**. Der
-Copyright-Vermerk liegt in [LICENSE](LICENSE) — die Bedingung der Lizenz verlangt ihn.
+```jsonc
+// POST /api/goals/create, authenticated
+{type:'client-request', rpcId, method, payload}
+  → {"type":"server-response","rpcId":"invalid-request",
+     "result":{"ok":false,"error":{"code":"gateway/bad-request",…}}}
+
+// WS /api/remote.mux
+{type:'open', streamId, endpoint:'session/getState', payload:{args:{}}}
+  → {"type":"error","error":{"code":"gateway/invocation-unavailable",
+     "message":"typert gateway: session/getState: no active Remote method exports this endpoint"}}
+```
+
+Eight controllers are loaded by the core — session, job, terminal, workspace
+files, account, settings, workspace, and remotes. Tools such as file access,
+shell, jobs, and web search are a third mechanism: LLM function calls the model
+makes, not an HTTP surface at all. The full inventory, including what is absent
+from this composition, is in
+[schnittstellen-bestand.md](docs/review/schnittstellen-bestand.md).
+
+-----
+
+<a id="further-exploration"></a>
+## Further Exploration
+
+- [docs/INDEX.md](docs/INDEX.md) — the catalogue: every document with one line.
+- [docs/concept.md](docs/concept.md) — the unit model and the four rules.
+- [docs/decisions/](docs/decisions/) — decisions taken and decisions open.
+- [docs/review/](docs/review/) — findings: interface inventory, Rust inventory, size comparison.
+- [docs/status/](docs/status/) — evidence with command and result, the work register, the push audit.
+- [docs/research/](docs/research/) — research: authentication standards, language choice.
+- [docs/status/beleg-installation.md](docs/status/beleg-installation.md) — the installation evidence, with its own gaps named.
+- [docs/status/beleg-eigener-endpunkt.md](docs/status/beleg-eigener-endpunkt.md) — how the own endpoint path was built, and the six errors on the way.
+
+-----
+
+<a id="model-experience"></a>
+## Model Experience
+
+### Web-surface context
+
+The core registers a `app:web-surface` prompt section that orients the model to
+the interface: the advertised URL, what "this page" refers to, and the rule that
+a replacement server does not update the running GUI. `DSH_WEB_URL` is exposed to
+shell commands for the same purpose.
+
+### Readiness
+
+`GET /api/ready` is the machine-readable signal. A supervisor reads the status
+code — **503** means not ready, and the body says which probe failed and why.
+Probe results are reused for five seconds, and concurrent callers share one run,
+so a supervisor polling frequently does not multiply database load.
+
+-----
+
+<a id="known-limitations-and-deferred-work"></a>
+## Known Limitations and Deferred Work
+
+These are current constraints, measured and named rather than estimated.
+
+- **The chain is not reachable.** The adapter, agent loop, and session are built
+  and covered by 300+ tests; no interface exposes them yet. A session belongs on
+  the core's RPC channel, where streams, cancellation, and deadlines already
+  exist — not on a hand-rolled HTTP endpoint.
+- **Our own endpoint surface is two reading endpoints.** Nothing accepts input,
+  starts work, or talks to a model.
+- **The persistence layer has no production package.** `db-schema` defines the
+  migration target interface, and the driver is attached by callers. A
+  `session-persistence-postgres` package does not exist; sessions persist to JSONL
+  files today.
+- **Session format is v1.** The template's format v4 and its four migrations are
+  not implemented.
+- **Compaction is absent.** `token-meter` counts tokens; it does not shorten.
+- **No call against a real provider is recorded.** The DeepSeek adapter is
+  exercised against a mock; no key was used in this environment.
+- **Envelope encryption exists as a schema, not as code.** The
+  `value_cipher`/`wrapped_key` columns and `PMH_MASTER_KEY` exist; no code reads
+  the key.
+- **The Rust inventory is unused.** 6,569 lines across six crates, and nothing
+  invokes them; no script builds them.
+- **Two long-standing service gaps.** `pmh-supervisor` has two failing tests, also
+  at `HEAD`, and `pmh-nix`/`pmh-attach` carry uncommitted work from another
+  session that this line of work does not push.
+- **The Linux installation path is partially measured.** `install.sh` is syntax-
+  checked in `sh`, `dash`, and `bash`, and its WSL2 environment detection was
+  verified; the full seven steps have not run on a Linux filesystem, because
+  Docker is unreachable in WSL and a private-repository clone there lacks
+  credentials.
+- **One defect is unresolved, not fixed.** The database driver import by the
+  installer failed reproducibly in a clean clone while the same file ran correctly
+  from the same directory; the migration now runs as its own process, which works
+  in every measured case. The diagnosis stays in the code. Recorded in
+  [beleg-installation.md](docs/status/beleg-installation.md).
+
+<a id="dev-note"></a>
+### Dev Note
+
+<details>
+<summary>Working context for maintainers — click to expand</summary>
+
+The reference harness is checked out at `C:\Users\Chang\deepseek-harness` and is
+**not** to be modified; findings there are reported, not acted on. Its installed
+packages are read for their interfaces through `node_modules/@deepseek-ai/`.
+
+Pushes follow a four-hour cadence and each one is recorded in
+[docs/status/git-audit.md](docs/status/git-audit.md) with the agreement between
+local `HEAD` and `origin/main`.
+
+</details>
+
+## Licence
+
+The DeepSeek Harness serves as the **codebase**, so its **MIT licence** applies.
+The copyright notice is in [LICENSE](LICENSE) — the licence requires it.

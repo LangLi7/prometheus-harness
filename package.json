@@ -12,6 +12,7 @@
   "scripts": {
     "typecheck": "bun run scripts/typecheck.mjs",
     "build": "bun run scripts/typecheck.mjs",
+    "check:readme": "bun run scripts/readme-paarung.mjs",
     "test": "bun test",
     "install:alles": "bun run scripts/install.mjs",
     "start": "bun run scripts/start.mjs",
