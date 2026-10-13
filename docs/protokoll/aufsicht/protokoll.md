@@ -2133,6 +2133,55 @@ scheiterten — und **sein Werkzeug klärte es in Sekunden**, weil es **Pfad und
 eingefordert habe (B16/B20: eine Sonde, deren Methode die Frage nicht beantworten kann). **Hier war sein
 Entwurf besser als mein Aufruf.**
 
+## 2026-10-13 14:59–15:06 — Achtunddreißigster Takt: **die Anpassungen am DSH sind gebaut, aber nicht in Kraft** (B32)
+
+**Was ich angefaßt habe, und warum es überfällig war.** Mein Auftrag nennt es wörtlich: *„wenn ein
+bestimmte anpassung existiert also am dsh (diese harness anwendung) checkst du ob es nötig ist"*. Der
+Checkout `C:\Users\Chang\deepseek-harness` ist der **dritte Baum** dieses Vorhabens — und ich hatte ihn
+in 34 Takten **nie** geprüft. Heute nachgeholt, und es hat sich gelohnt.
+
+**Der Ist-Zustand.** Zweig `master`, HEAD `c7edfcbc41` („dsh-custom: alles Nicht-Upstream als eigener
+Stand", 12.10. 14:21). Daneben ein Zweig **`dsh-custom`** — der Aufzeichnungsmechanismus **existiert
+also**. Auf dem Arbeitsbaum liegen **10 unversionierte Änderungen** (473 Einfügungen / 100 Löschungen,
+dazu eine neue Datei) von **heute 10:19–10:45**:
+
+* **Modellkatalog** (`llm-deepseek/src/index.ts`): `deepseek-flash` („Vision · text and images") und
+  `deepseek-v4-pro` („Text only") ersetzen die zurückgezogenen ids. **Sachlich richtig und im Code
+  begründet.**
+* **Crew-Plugin** (`crew/src/{adapter,reasoning,tool,turn}.ts`, +90 Zeilen Tests) — genau das Werkzeug,
+  das **meine** `crew_*`-Aufrufe in dieser Sitzung benutzen.
+* **UI-Modellauswahl** (`ui-model-selection`, neue Datei `directory-order.ts`).
+
+**Und dann der Fund, der die Frage „ist es nötig?" beantwortet — und zwar anders als erwartet.** Die
+laufende Harness startet als:
+
+```
+PID 22260   node --import tsx/esm apps/cli/src/bin.ts "web"   Start: 2026-10-13 09:39:00
+```
+
+**Sie liest die Quellen über `tsx` direkt** — ein `lib/`-Build ist für diesen Startweg **ohne Wirkung**.
+Und sie läuft seit **09:39**, während die Änderungen um **10:19–10:45** entstanden: ein laufender Prozess
+behält den beim Start geladenen Code. **Keine der zehn Änderungen ist in dieser Sitzung wirksam** — weder
+der Modellkatalog, noch das Crew-Plugin (meine `crew_*`-Werkzeuge laufen mit dem **alten** Adapter), noch
+die UI.
+
+**Drei Folgerungen.** (1) Der **Build um 10:45 war für diesen Startweg unnötig** — kein Schaden, aber er
+erzeugt die Annahme, „gebaut" heiße „wirkt". (2) Wirksam werden die Änderungen **nur beim nächsten
+Start** — und den herbeizuführen ist **mir** durch **H1** und durch zwei ausdrückliche Betreiberweisungen
+verboten. Der Befund ist eine **Information an den Betreiber**, keine Aufforderung an mich. (3) **Der
+dritte Baum ist nirgends festgehalten:** der Zweig `dsh-custom` zeichnet den Stand vom **12.10.** auf, die
+heutigen Änderungen liegen **unversioniert** daneben, und im **Projekt** steht davon **nichts** (Suche
+nach `dsh-custom` und „lokale Anpassung" in README, MAPPING und allen `docs/`-Unterordnern → **null
+Treffer**). Ein Update oder ein frisches Auschecken verlöre sie **still** — und das Projekt hängt
+mindestens am **Modellkatalog**.
+
+**Ein eigener Fehler, innerhalb der Runde bemerkt.** Ich sah `adapter.js` mit Datum **10-10** und schloß
+daraus, die Änderungen seien **nicht gebaut**. Falsch: ich hatte nur die **ersten drei** von **33**
+Artefaktdateien angesehen — die neuesten sind von **heute 10:45**, es **wurde** gebaut. Der Befund steht
+danach auf dem, was er belegen kann: die **Startzeit 09:39** entscheidet über die Wirkung, nicht der
+Build. Aufgefallen ist es, weil ich Artefaktzeit **gegen** Quellzeit hielt und die Zahlen nicht
+zusammenpaßten — **erst zählen, dann schließen**, zum vierten Mal in dieser Sitzung notiert.
+
 ---
 
 ## Offen / nächster Takt
@@ -2171,6 +2220,7 @@ Entwurf besser als mein Aufruf.**
 | **B30** Eine frische Installation hat keinen Modellzugang | **offen — drei kleine Schritte** | `.env`/`.env.example` haben **22** Schlüssel, **keinen** für einen Anbieter (die zwei „KEY"-Treffer sind `PMH_MASTER_KEY`/`_VERSION`). Der `.env.example`-Kommentar verspricht Anbieter-Schlüssel **verschlüsselt in `user_secrets`** — nach **B14** liest aber **kein** Code `PMH_MASTER_KEY`. Der eigene Code liest den Schlüssel an **genau einer** Stelle (`providerFromEnv` → `env.DEEPSEEK_API_KEY`) und **wirft** ohne ihn. Der Installer erklärt `DATABASE_URL`/`REDIS_URL` samt 503, sagt zum Modell **nichts**. Empfehlung: leere dokumentierte Zeile in `.env.example`, zwei Zeilen in Schritt 7, und der belegte Speicher-Weg über `hilfen/zugang-bereitstellen.mjs` |
 | **B31** Sein eigenes Werkzeug warnt gegen seine eigenen Manifeste | **offen, klein — zwei Wege** | `bun run src/cli.ts list --root native --root services --root packages` meldet **sechsmal** `[unit_name_directory_mismatch]` (alle `native/*`: `"name"` ist `pmh-flock`, der Ordner heißt `flock`), `exit 0`. Die Registry begründet die Regel mit „der Ordner ist die Installation", und der **Import** leitet den Zielordner aus dem Unit-Namen ab (`…\registry\pmh-nix`) — ein Rundlauf aus `native/flock` landet also in `registry/pmh-flock`, der Pfad ändert sich. **Der Schaden ist die Gewohnheit:** sechs Warnungen je Lauf lehren überlesen. (a) Ordner umbenennen (sieben Arbeitsbereichsmitglieder mitziehen) oder (b) die Regel auf den Anwendungsbaum begrenzen |
 | **V4/V5** Nachweis von `unit-export` reproduziert | **bestätigt — und stärker als behauptet** | Rundlauf nachgefahren: Export-/Inhalts-Digest, 20 Dateien / 223'508 B und Rückexport **identisch** zum Dokument von 00:2x; mit festem `--created-at` sind die Bündel sogar **bit-gleich**, was §1 zu allgemein bestreitet und sein **eigener Test** behauptet. `bun test` → **158 pass · 0 fail · 380 Prüfaufrufe · 6 Dateien**, exit 0. Die Suite habe ich nach **seiner** §5-Regel gewählt (0 geänderte Dateien unter `packages/units/`) |
+| **B32** Anpassungen am DSH: gebaut, aber nicht in Kraft | **offen — Information an den Betreiber** | Der Checkout `deepseek-harness` trägt **10 unversionierte Änderungen** von **heute 10:19–10:45** (Modellkatalog auf `deepseek-flash`/`deepseek-v4-pro`, **Crew-Plugin** + 90 Zeilen Tests, UI-Modellauswahl; 473 Einfügungen). Die GUI läuft als `node --import tsx/esm apps/cli/src/bin.ts web`, **Start 09:39** — `tsx` liest die Quellen **beim Start**, ein `lib/`-Build wirkt für diesen Weg **nicht**. **Keine der zehn Änderungen ist in dieser Sitzung wirksam** (auch `crew_*` nicht); wirksam würden sie **nur beim nächsten Start** — den herbeizuführen ist **mir** verboten (H1). Der Zweig `dsh-custom` zeichnet nur den Stand vom **12.10.** auf; im Projekt steht davon **nichts**. Empfehlung: auf `dsh-custom` committen (Zweig existiert) + eine Zeile je Anpassung im Projekt, mit „wirkt erst nach Neustart" |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |

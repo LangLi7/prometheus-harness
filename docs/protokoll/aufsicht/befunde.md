@@ -2477,6 +2477,79 @@ sieben Arbeitsbereichsmitglieder mitziehen — mechanisch, aber es berührt sieb
 Dokumente; oder (b) die Regel auf den **Anwendungsbaum** begrenzen und für `native/` ausdrücklich
 abschalten, mit einer Zeile Begründung. **Beides ist besser als der heutige Zustand.**
 
+## B32 — Die Anpassungen **am DSH** sind gebaut, aber **nicht in Kraft** — und niemand sagt es — **M**
+
+**Warum das hierher gehört.** Mein Auftrag nennt es wörtlich: *„wenn ein bestimmte anpassung existiert
+also am dsh (diese harness anwendung) checkst du ob es nötig ist"*. Der Checkout
+`C:\Users\Chang\deepseek-harness` ist der **dritte Baum** dieses Vorhabens — und ich hatte ihn bis heute
+**nie** geprüft.
+
+**Der Ist-Zustand, gemessen:**
+
+| Größe | Wert |
+|---|---|
+| Zweig / Stand | `master`, HEAD `c7edfcbc41` („dsh-custom: alles Nicht-Upstream als eigener Stand", **12.10. 14:21**) |
+| zusätzlicher Zweig | **`dsh-custom`** — der **Aufzeichnungsmechanismus existiert** ✓ |
+| unversionierte Änderungen | **10 Dateien**, 473 Einfügungen / 100 Löschungen, dazu **1 neue** (`directory-order.ts`) |
+| Alter der Änderungen | **13.10. 10:19–10:45** (nur `pnpm-lock.yaml` von 12.10.) — frische Arbeit, kein Altlast |
+| Artefakte | **13.10. 10:45** gebaut (33 Dateien von heute) — die Änderung **ist gebaut** |
+
+**Was geändert wurde** (inhaltlich, nicht nur der Umfang):
+
+* `packages/llm/llm-deepseek/src/index.ts` — **Modellkatalog**: die neuen Namen `deepseek-flash`
+  („Vision · text and images") und `deepseek-v4-pro` („Text only") ersetzen die zurückgezogenen
+  `deepseek-v4-flash`, `deepseek-v4-pro`-Altform und `deepseek-v4-flash-vision-exp`. **Sachlich richtig
+  und begründet** — der Kommentar im Code nennt den Grund selbst („the retired ids … only fill a selector
+  with names that no longer identify a distinct model").
+* `packages/llm/crew/src/{adapter,reasoning,tool,turn}.ts` + `tests/crew.spec.ts` (**+90 Zeilen Tests**) —
+  das **Crew-Plugin**, also genau das Werkzeug, das die Rolle „Crew" dieser Sitzung benutzt.
+* `packages/client/ui-model-selection/src/client/locales.ts` + **neu** `directory-order.ts` — die
+  Modellauswahl in der Oberfläche.
+
+**Und jetzt der Befund.** Die laufende Harness startet als:
+
+```
+PID 22260   node --import tsx/esm apps/cli/src/bin.ts "web"   Start: 2026-10-13 09:39:00
+```
+
+**Sie liest die Quellen über `tsx` direkt** — ein `lib/`-Build ist für diesen Start **ohne Wirkung**.
+Und sie läuft seit **09:39**, die Änderungen entstanden **10:19–10:45**: ein laufender Prozess behält den
+beim Start geladenen Code. **Damit ist keine der zehn Änderungen in dieser Sitzung wirksam** — weder der
+Modellkatalog, noch das Crew-Plugin (meine eigenen `crew_*`-Werkzeuge laufen also mit dem **alten**
+Adapter), noch die UI.
+
+**Drei Folgerungen, jede mit Beleg:**
+
+1. **Der Build um 10:45 war für diesen Startweg unnötig.** `tsx` liest `src/`; die 33 Artefakte von heute
+   ändern an dieser GUI **nichts**. (Für den **Web**-Anteil ist ein Vite-Bündel ein eigener Vorgang — das
+   ist etwas anderes und hier nicht gemeint.) **Kein Schaden**, aber es kostet Zeit und erzeugt die
+   Annahme, „gebaut" heiße „wirkt".
+2. **Die Änderungen werden erst beim nächsten Start wirksam** — und genau das darf **ich** nicht
+   herbeiführen (Hausregel **H1**: kein Neustart, solange der andere Agent arbeitet; und der Betreiber hat
+   es zweimal ausdrücklich verlangt). **Der Befund ist also eine Information an den Betreiber, keine
+   Aufforderung an mich.**
+3. **Der dritte Baum ist nirgends festgehalten.** Der Zweig `dsh-custom` zeichnet den Stand vom **12.10.**
+   auf; die **heutigen** Änderungen liegen **unversioniert** daneben, und im **Projekt** steht davon
+   **nichts** (Suche nach `dsh-custom` / „lokale Anpassung" in `README.md`, `MAPPING.md`,
+   `docs/*.md`, `docs/status/*`, `docs/decisions/*` → **null Treffer**). Wer die Vorlage aktualisiert
+   oder den Checkout neu auscheckt, verliert sie **still** — und das Projekt hängt mindestens am
+   **Modellkatalog**.
+
+**Empfehlung:**
+
+```powershell
+# 1. Die heutige Arbeit auf den vorhandenen Zweig zeichnen (er existiert bereits).
+git -C C:\Users\Chang\deepseek-harness switch dsh-custom
+git -C C:\Users\Chang\deepseek-harness add -A
+git -C C:\Users\Chang\deepseek-harness commit -m "Modellkatalog V4.1, Crew-Adapter, Modellauswahl"
+# 2. Im Projekt EINE Zeile je Anpassung, mit Grund und Wirkung („wirkt erst nach Neustart der GUI").
+```
+
+**Ein Hinweis zur Client-Änderung, und ich sage ausdrücklich, was ich nicht geprüft habe:** für die
+beiden **Server**-Pakete (`llm-deepseek`, `crew`) gilt „nicht in Kraft" **sicher** — sie werden beim Start
+geladen und nicht heiß getauscht. Für die **Oberflächen**-Änderung gilt es nur, **solange kein**
+Entwicklungsserver (`pnpm run dev:web`) läuft; **ob einer läuft, habe ich nicht geprüft.**
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
@@ -2544,6 +2617,7 @@ abschalten, mit einer Zeile Begründung. **Beides ist besser als der heutige Zus
 | 14:58 | Beim Ergänzen der Regel `/.gitattributes text eol=lf` habe ich `Set-Content` mit einem **`.Replace('*.jsonl text eol=lf', …)`** benutzt. Das ersetzte **alle** Vorkommen — auch das in meinem **eigenen Kommentar** — und riss ihn in zwei Zeilen. | Git meldete es sofort: **`**B29**; is not a valid attribute name: …/.gitattributes:21`**. Kommentar wiederhergestellt; `git check-attr` läuft danach **ohne** Warnung, die sechs Regeln stehen unverändert. | **Vierte Fassung derselben Ursache** (12:29, 13:56, 14:32, jetzt): ein Ersatz, der **breiter** greift als beabsichtigt. Neu ist der zweite Teil: ich habe nach der Änderung nicht den Zustand geprüft, sondern nur die eigene Erfolgsmeldung („Zeile ergaenzt") gelesen. Gefunden hat es ein **fremdes** Werkzeug — Git. Was hilft, ist nicht die Lehre, sondern die Kontrolle: nach jeder Änderung den Zustand ausgeben **und auf Werkzeugmeldungen hören**. |
 | 14:53 | Ich habe „`.env` enthält **2** Schlüssel mit `KEY` im Namen" gezählt und daraus beinahe „es gibt einen Anbieterschlüssel" gelesen. | Nachgesehen: es sind **`PMH_MASTER_KEY`** und **`PMH_MASTER_KEY_VERSION`** — der Hauptschlüssel der Umschlagverschlüsselung, **kein** Modellschlüssel. Und die eine DEEPSEEK-Zeile in `.env.example` ist ein **Kommentar**, keine Variable. | Mein Filter `-match 'KEY'` traf `MASTER_KEY` mit. Der Fehler wäre in die **falsche Richtung** gegangen — ich hätte eine Lücke übersehen. Aufgefallen ist es, weil zwei meiner eigenen Messungen („kein API_KEY in scripts/" gegen „1 Zeile nennt DEEPSEEK") **nicht zueinander paßten** und ich nachgesehen habe statt zu wählen. **Genau dafür sind Gegenproben da.** |
 | 14:56 | Beim Nachfahren seines Rundlaufs habe ich `--unit ../../services/pmh-nix` angegeben — von `packages/units/unit-export` aus zeigt `../..` auf `packages/`, nicht auf die Wurzel. Drei Aufrufe scheiterten. | Korrigiert auf absolute Pfade; danach lief alles. **Sein Werkzeug hat den Fehler in Sekunden geklärt**, weil es ihn **benennt**: `[manifest_missing] unit.json: Kein unit.json in diesem Ordner.` und `[registry_root_missing] … Die Registry-Wurzel existiert nicht oder ist kein Verzeichnis.` | Ein eigener Pfadfehler ist trivial — **erwähnenswert ist die Gegenprobe**: eine Fehlermeldung, die den **Pfad** und den **Grund** nennt, macht aus einer Suche eine Sekunde. Genau das, was ich an anderen Stellen eingefordert habe (B16/B20: eine Sonde, die ihre Frage nicht beantworten kann). **Hier war sein Entwurf besser als mein Aufruf.** |
+| 15:02 | Ich sah im Checkout `adapter.js` mit Datum **10-10** und schloß daraus, die heutigen Änderungen seien **nicht gebaut**. | **Falsch gezogen.** Ich hatte nur die **ersten drei** Artefaktdateien angesehen; die **neuesten** sind von **heute 10:45** (33 Dateien von heute) — es **wurde** gebaut. Der Befund steht danach auf dem, was er belegen kann: der Start der GUI um **09:39** entscheidet über die Wirkung, nicht der Build. | Ein Blick auf drei von 33 Dateien und daraus einen Schluß — dieselbe Familie wie meine früheren Zählfehler (12:28, 13:47). Aufgefallen ist es, weil ich die Artefaktzeit **gegen die Quellzeit** hielt und die Zahlen nicht zusammenpaßten. **Erst zählen, dann schließen** — zum vierten Mal in dieser Sitzung notiert, und diesmal habe ich es **innerhalb** der Runde bemerkt. |
 
 ---
 
