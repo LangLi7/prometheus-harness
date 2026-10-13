@@ -268,15 +268,37 @@ export const MINDESTDAUER_FUER_VERHAELTNIS_MS = 1
  * feste Kosten, und das Ergebnis ist Rauschen. Ist die kleine Messung zu kurz,
  * meldet die Prüfung **rot mit Grund** — sie behauptet kein Verhältnis.
  *
- * @param {{von: number, bis: number, koerper: (n: number) => () => unknown, aufwaermen?: number, laeufe?: number}} optionen
- *        - die beiden Eingabegrößen und die Arbeit
+ * ## Warum `messen` ersetzbar ist — und warum das kein Hintertürchen ist
+ *
+ * Diese Funktion hat **zwei** Bestandteile: das **Urteil** („ist ×12,5
+ * überschritten?") und die **Messung**. Das Urteil ist Logik; die Messung hängt
+ * von der Last des Rechners ab.
+ *
+ * **Der Fehler, der diese Trennung erzwungen hat.** Die Prüfung „lineare Arbeit
+ * skaliert grün" stand in `bun test` und maß **echt**, mit 2.000.000 gegen
+ * 20.000.000 Einträgen. Gemessen am 13.10.2026 lief `bun test` über 30 Dateien
+ * **gleichzeitig**; der Speicherdruck verschob den Median der großen Messung um
+ * ein Mehrfaches, und dieselbe unveränderte Datei war einmal grün und einmal rot
+ * (Lauf 1: `0 fail`; Lauf 2: `pruefeSkalierung > lineare Arbeit skaliert grün`
+ * rot, 828 ms). **Ein Test, dessen Ergebnis von der Auslastung abhängt, prüft
+ * nicht den Code.**
+ *
+ * Mit `messen` kann eine Prüfung **vorgegebene Dauern** einspeisen und damit das
+ * Urteil deterministisch prüfen — bei linearer Kennlinie grün, bei quadratischer
+ * rot, unter der Mindestdauer „nicht beurteilbar". Die **echte** Messung ist
+ * damit nicht verschwunden: sie steht als Gate `benchmarks/messtechnik/lauf.mjs`,
+ * wo ein rotes Ergebnis ein **Befund** ist und nicht ein kaputter Testlauf.
+ *
+ * @param {{von: number, bis: number, koerper: (n: number) => () => unknown, aufwaermen?: number, laeufe?: number, messen?: (koerper: () => unknown, optionen?: object) => Promise<Messung>}} optionen
+ *        - die beiden Eingabegrößen, die Arbeit und optional ein Ersatz für die Messung
  * @param {number} [toleranz] - wieviel überlinear erlaubt ist; Vorgabe 1,25
  * @returns {Promise<{ok: boolean, text: string, klein: Messung, gross: Messung, verhaeltnis: number}>}
  */
 export async function pruefeSkalierung(optionen, toleranz = 1.25) {
   const { von, bis, koerper } = optionen
-  const klein = await messe(koerper(von), { aufwaermen: optionen.aufwaermen ?? 5, laeufe: optionen.laeufe ?? 15 })
-  const gross = await messe(koerper(bis), { aufwaermen: optionen.aufwaermen ?? 5, laeufe: optionen.laeufe ?? 15 })
+  const messen = optionen.messen ?? messe
+  const klein = await messen(koerper(von), { aufwaermen: optionen.aufwaermen ?? 5, laeufe: optionen.laeufe ?? 15 })
+  const gross = await messen(koerper(bis), { aufwaermen: optionen.aufwaermen ?? 5, laeufe: optionen.laeufe ?? 15 })
   const eingabeVerhaeltnis = bis / von
   if (klein.median < MINDESTDAUER_FUER_VERHAELTNIS_MS) {
     return {

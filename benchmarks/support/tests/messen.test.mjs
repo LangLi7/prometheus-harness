@@ -221,35 +221,61 @@ describe('pruefeBudget', () => {
 
 describe('pruefeSkalierung', () => {
   /**
-   * Arbeit, die **nicht** wegoptimierbar ist und deren Dauer mit `n` wächst.
+   * Eine Messung, die **vorgegebene** Dauern liefert.
    *
-   * **Warum nicht eine leere Zählschleife.** Der erste Versuch benutzte
-   * `for (let i = 0; i < n; i++) s += i`. Gemessen: bei 2.000.000 Durchläufen
-   * dauerte das **0,789 ms** — der Übersetzer erkennt die geschlossene Form und
-   * rechnet sie in einem Schritt. Die kleine Messung fiel damit unter die
-   * Beurteilungsgrenze, und die Prüfung meldete zu Recht „nicht beurteilbar".
+   * **Warum hier nicht echt gemessen wird.** Diese Prüfungen standen in `bun test`
+   * und maßen 2.000.000 gegen 20.000.000 Einträge — **echt**. Gemessen am
+   * 13.10.2026: `bun test` läuft über 30 Dateien **gleichzeitig**, der
+   * Speicherdruck verschob den Median der großen Messung, und dieselbe
+   * unveränderte Datei war einmal grün und einmal rot (`0 fail` im ersten Lauf,
+   * `pruefeSkalierung > lineare Arbeit skaliert grün` rot im zweiten, 828 ms).
    *
-   * Diese Arbeit schreibt in ein Feld und liest daraus: sie läßt sich nicht
-   * zusammenfassen.
+   * Ein Test, dessen Ergebnis von der Auslastung des Rechners abhängt, prüft den
+   * Rechner und nicht den Code. Geprüft wird hier deshalb das **Urteil** gegen
+   * bekannte Zahlen; die **echte** Messung steht als Gate
+   * `benchmarks/messtechnik/lauf.mjs`, wo rot ein Befund ist statt ein Fehler im
+   * Testlauf.
+   *
+   * **Was hier bewußt NICHT passiert: das Urteil wird nicht abgeschwächt.** Die
+   * Grenzen sind dieselben (Vorgabetoleranz 1,25, Mindestdauer 1 ms); nur die
+   * Zahlen, gegen die sie greifen, sind vorgegeben statt gemessen.
    */
-  const feldArbeit = (n) => () => {
-    const a = new Array(n)
-    for (let i = 0; i < n; i += 1) a[i] = i % 251
-    let s = 0
-    for (let i = 0; i < n; i += 1) s += a[i]
-    return s
+  const vorgegeben = (kleinMs, grossMs) => {
+    // **Nach Aufrufreihenfolge, nicht nach Werten geraten.** `pruefeSkalierung`
+    // mißt erst die kleine, dann die große Eingabe. Eine Attrappe, die den
+    // Körper ansieht, würde raten; eine, die mitzählt, weiß es. Sie zählt auch
+    // mit, **wie oft** sie gerufen wurde — sonst wäre nicht zu sehen, ob der
+    // Einspeisepunkt überhaupt zweimal benutzt wird.
+    let aufrufe = 0
+    const attrappe = async () => {
+      aufrufe += 1
+      if (aufrufe > 2) throw new Error(`messen wurde ${String(aufrufe)}-mal gerufen — erwartet sind zwei`)
+      return statistik([aufrufe === 1 ? kleinMs : grossMs])
+    }
+    attrappe.aufrufe = () => aufrufe
+    return attrappe
+  }
+
+  /** Der Körper wird bei eingeschalteter Messung nie gerufen — das ist Absicht. */
+  const nieGerufen = () => () => {
+    throw new Error('der Körper darf bei vorgegebener Messung nicht laufen')
   }
 
   test('lineare Arbeit skaliert grün', async () => {
+    // Eingabe ×10, Zeit ×10 — genau linear, also unter der Grenze ×12,5.
+    const messen = vorgegeben(4, 40)
     const r = await pruefeSkalierung({
       von: 2_000_000,
       bis: 20_000_000,
-      koerper: feldArbeit,
-      laeufe: 5,
+      koerper: nieGerufen,
+      messen,
     })
     expect(r.text).not.toContain('nicht beurteilbar')
     expect(r.ok).toBe(true)
     expect(r.text).toMatch(/^ok/u)
+    expect(r.klein.median).toBe(4)
+    expect(r.gross.median).toBe(40)
+    expect(messen.aufrufe()).toBe(2)
   })
 
   test('eine zu kurze kleine Messung wird als nicht beurteilbar gemeldet', async () => {
@@ -260,11 +286,8 @@ describe('pruefeSkalierung', () => {
     const r = await pruefeSkalierung({
       von: 100,
       bis: 1_000,
-      koerper: (n) => () => {
-        let s = 0
-        for (let i = 0; i < n; i += 1) s += i
-      },
-      laeufe: 3,
+      koerper: nieGerufen,
+      messen: vorgegeben(0.15, 1.5),
     })
     expect(r.ok).toBe(false)
     expect(r.text).toContain('nicht beurteilbar')
@@ -274,24 +297,94 @@ describe('pruefeSkalierung', () => {
   test('quadratische Arbeit wird rot — der Fehler, den das fangen soll', async () => {
     // **Warum diese Prüfung der Kern der Sache ist.** Eine quadratische Umsetzung
     // ist bei zwanzig Einträgen schnell und bei zwanzigtausend unbrauchbar. Ein
-    // Zeitbudget für eine feste Eingabegröße fängt das nie.
+    // Zeitbudget für eine feste Eingabegröße fängt das nie. Eingabe ×10, Zeit
+    // ×100 — weit über der Grenze ×12,5.
     const r = await pruefeSkalierung({
       von: 300,
       bis: 3_000,
-      koerper: (n) => () => {
-        let s = 0
-        for (let i = 0; i < n; i += 1) {
-          for (let j = 0; j < n; j += 1) s += j
-        }
-      },
-      laeufe: 5,
+      koerper: nieGerufen,
+      messen: vorgegeben(2, 200),
     })
     expect(r.ok).toBe(false)
     expect(r.text).toMatch(/^ROT/u)
   })
 
+  test('genau auf der Grenze ist noch grün, ein Deut darüber nicht', async () => {
+    // **Beide Seiten der Grenze, sonst prüft die Prüfung nur eine.** Grenze ist
+    // ×10 × 1,25 = ×12,5. Die Zahlen sind so gewählt, daß die Grenze exakt
+    // getroffen bzw. überschritten wird — kein Rauschen, keine Ausrede.
+    const knapp = await pruefeSkalierung({
+      von: 1,
+      bis: 10,
+      koerper: nieGerufen,
+      messen: vorgegeben(1, 12.5),
+    })
+    expect(knapp.verhaeltnis).toBe(12.5)
+    expect(knapp.ok).toBe(true)
+
+    const drueber = await pruefeSkalierung({
+      von: 1,
+      bis: 10,
+      koerper: nieGerufen,
+      messen: vorgegeben(1, 12.6),
+    })
+    expect(drueber.verhaeltnis).toBeCloseTo(12.6, 5)
+    expect(drueber.ok).toBe(false)
+  })
+
+  test('die Toleranz ist einstellbar und wirkt', async () => {
+    // Ohne diese Prüfung wäre nicht zu sehen, ob der zweite Parameter überhaupt
+    // ankommt. ×12,6 ist gegen die Vorgabe rot und gegen Toleranz 1,3 grün.
+    const streng = await pruefeSkalierung(
+      { von: 1, bis: 10, koerper: nieGerufen, messen: vorgegeben(1, 12.6) },
+      1.3,
+    )
+    expect(streng.ok).toBe(true)
+    expect(streng.text).toContain('erlaubt ×13.00')
+  })
+
+  test('ohne `messen` wird wirklich gemessen — die Vorgabe ist die echte Messung', async () => {
+    // **Die Gegenprobe zum Einspeisen.** Wenn `messen` versehentlich immer
+    // gesetzt wäre, wären alle Prüfungen darüber grün und der Benchmark maß
+    // nichts. Hier läuft der Körper wirklich, und die Zahl kommt von der Uhr.
+    //
+    // **Warum hier kein Urteil geprüft wird.** Diese Prüfung fragt nicht, ob die
+    // Arbeit schnell genug ist — das hinge wieder an der Auslastung. Sie fragt,
+    // ob der **echte** Weg überhaupt genommen wurde: der Körper lief, und die
+    // Zahl hat mehr als einen Lauf gesehen.
+    let gerufen = 0
+    const r = await pruefeSkalierung({
+      von: 1_000_000,
+      bis: 10_000_000,
+      koerper: (n) => () => {
+        gerufen += 1
+        const a = new Array(n)
+        for (let i = 0; i < n; i += 1) a[i] = i % 251
+        let s = 0
+        for (let i = 0; i < n; i += 1) s += a[i]
+        return s
+      },
+      aufwaermen: 2,
+      laeufe: 3,
+    })
+    // 2 Aufwärmläufe + 3 Messungen, zweimal (klein und groß).
+    expect(gerufen).toBe(10)
+    expect(r.klein.laeufe).toBe(3)
+    expect(r.gross.laeufe).toBe(3)
+    expect(r.klein.median).toBeGreaterThan(0)
+    expect(r.gross.median).toBeGreaterThan(0)
+    // Beide Zweige des Urteils tragen das Wort — geprüft wird, daß ein Urteil
+    // gefällt wurde, nicht welches.
+    expect(r.text).toContain('Skalierung')
+  })
+
   test('der Text nennt beide Verhältnisse', async () => {
-    const r = await pruefeSkalierung({ von: 2_000_000, bis: 20_000_000, koerper: feldArbeit, laeufe: 5 })
+    const r = await pruefeSkalierung({
+      von: 2_000_000,
+      bis: 20_000_000,
+      koerper: nieGerufen,
+      messen: vorgegeben(4, 40),
+    })
     expect(r.text).toContain('Eingabe ×10.0')
     expect(r.text).toContain('erlaubt ×')
     // Die beiden gemessenen Werte stehen im Text — sonst ist das Verhältnis

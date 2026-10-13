@@ -44,6 +44,11 @@ export const HIER = dirname(fileURLToPath(import.meta.url))
 export const GATES = [
   { ordner: 'session-open', laeuft: true, was: 'Sitzung schreiben, lesen, falten' },
   {
+    ordner: 'messtechnik',
+    laeuft: true,
+    was: 'den Meßaufbau selbst: Skalierung, Auflösungsgrenze, Aufwärmphase, Statistik',
+  },
+  {
     ordner: 'conversation-fold',
     laeuft: false,
     was: 'langen Verlauf in der Oberfläche falten',
