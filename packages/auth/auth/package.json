@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Auth-Kern: Passwort-Hashing (Argon2id, OWASP-Parameter), Sitzungstoken, CSRF-Paar, E-Mail-Normalisierung, Seitenkanal-Vermeidung bei der Anmeldung und eine Speicher-Schnittstelle, die die Datenbank nicht kennt.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}
