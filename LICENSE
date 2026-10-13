@@ -1,0 +1,51 @@
+MIT License
+
+Copyright (c) 2026 DeepSeek
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Warum diese Datei hier liegt
+
+Prometheus Harness nutzt den **DeepSeek Harness** als **Codebasis** — nicht nur als
+Vorlage. Der Ausgangsstand liegt unter
+`C:\Users\Chang\harness\prometheus-harness` (Core `d743267388` = DeepSeek Harness
+`0.2.1-alpha.2`) und trägt die obige **MIT-Lizenz** mit dem Copyright-Vermerk
+*Copyright (c) 2026 DeepSeek*.
+
+Die MIT-Lizenz erlaubt Nutzung, Veränderung und Weitergabe ausdrücklich — **unter einer
+Bedingung**: *„The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software."* Genau das erfüllt diese Datei. Sie
+ist **wörtlich** übernommen und nicht verändert; die Ergänzung unter dem Strich ist eine
+Erläuterung dieses Projekts, keine Änderung der Lizenz.
+
+**Was das praktisch bedeutet:**
+
+| Frage | Antwort |
+|---|---|
+| Dürfen wir den Upstream-Code verändern? | **Ja.** Die Lizenz erlaubt es, und dieses Projekt tut es bewusst — in **Go, Bun/TS 7 und Rust**. |
+| Müssen wir den Copyright-Hinweis behalten? | **Ja**, in allen Kopien und wesentlichen Teilen. Deshalb steht er in dieser Datei. |
+| Müssen wir unsere Änderungen offenlegen? | **Nein.** MIT verlangt keine Weitergabe von Änderungen (anders als die GPL). |
+| Gilt die Lizenz auch für unseren eigenen Code? | Das ist eine **offene Entscheidung** des Betreibers. Solange sie nicht getroffen ist, trägt dieses Repository die Upstream-Lizenz und **keine** eigene. |
+
+**Hinweis zur früheren Projektregel.** In `MAPPING.md` und `docs/concept.md` stand
+zeitweise *„Kopieren von Vorlagencode ist verboten"*. Der Betreiber hat das am 13.10.2026
+klargestellt: Die Vorlage **ist** die Codebasis, und die Anpassung erfolgt in Go, Bun/TS 7
+und Rust. Die Lizenzlage war dafür nie ein Hindernis — sie ist MIT.
