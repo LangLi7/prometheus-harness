@@ -32,6 +32,7 @@ import m0003 from '../migrations/0003_sitzungen_und_gespraeche.sql' with { type:
 import m0004 from '../migrations/0004_mandantentrennung.sql' with { type: 'text' }
 import m0005 from '../migrations/0005_benutzerprofile.sql' with { type: 'text' }
 import m0006 from '../migrations/0006_wissensspeicher.sql' with { type: 'text' }
+import m0007 from '../migrations/0007_obsidian.sql' with { type: 'text' }
 
 // ---------------------------------------------------------------------------
 // Migrationstyp
@@ -72,6 +73,11 @@ export const MIGRATIONS: readonly Migration[] = [
   // strukturell nicht an einem Dokument von A haengen. Was das NICHT leistet
   // (Leseabfragen ohne Filter), steht im Kopf der Datei.
   { version: 6, name: 'wissensspeicher-dokumente-und-textstuecke', sql: m0006 },
+  // D2: Obsidian. **Entscheidet NICHT, wer gewinnt** — die Tabellen tragen, was
+  // ein Abgleich in BEIDE Richtungen braucht. Die Regel, welcher Benutzer welchen
+  // Vault-Pfad bekommt, ist offen und steht in
+  // `docs/decisions/obsidian-gedaechtnis-oder-ansicht.md`.
+  { version: 7, name: 'obsidian-vaults-notizen-etiketten-verweise', sql: m0007 },
 ]
 
 /** Die Fassung, die dieses Paket erzeugt — die höchste Migrationsnummer. */

@@ -232,16 +232,16 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
       -- trotzdem ausdruecklich hier, damit die Liste vollstaendig ist und niemand
       -- sie fuer abschliessend haelt. (Keine Backticks in diesem Kommentar: er
       -- steht in einem Template-Literal, und ein Backtick beendet es.)
-      DROP TABLE IF EXISTS chunks, documents CASCADE;
+      DROP TABLE IF EXISTS chunks, documents, note_tags, links, tags, notes, vaults CASCADE;
     `)
 
     const report = await migrate(target)
-    expect(report.applied).toEqual([1, 2, 3, 4, 5, 6])
+    expect(report.applied).toEqual([1, 2, 3, 4, 5, 6, 7])
     expect(report.version).toBe(SCHEMA_VERSION)
     expect(report.fresh).toBe(true)
   })
 
-  test('legt alle dreizehn Tabellen an — im Schema `pmh`, nicht in `public`', async () => {
+  test('legt alle achtzehn Tabellen an — im Schema `pmh`, nicht in `public`', async () => {
     // **Warum `pmh` und nicht `public`.** Der Stack legt ein eigenes Schema an
     // (`docker/postgres-init/02-roles.sh`) und setzt den Suchpfad der Rollen auf
     // `pmh, public`. `public` ist in PostgreSQL der Ort, an dem jedes
@@ -275,6 +275,11 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
       // `tests/proben/wissensspeicher.sql`.
       'documents',
       'chunks',
+      'vaults',
+      'notes',
+      'tags',
+      'note_tags',
+      'links',
     ]) {
       expect(tables).toContain(table)
     }

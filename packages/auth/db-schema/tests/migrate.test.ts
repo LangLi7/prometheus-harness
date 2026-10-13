@@ -108,15 +108,15 @@ describe('Migrationsliste prüfen', () => {
     expect(() => assertWellFormed([{ version: 1, name: 'x', sql: '   ' }])).toThrow('kein SQL')
   })
 
-  test('die echten Migrationen sind wohlgeformt und heißen 1 bis 6', () => {
+  test('die echten Migrationen sind wohlgeformt und heißen 1 bis 7', () => {
     expect(() => assertWellFormed(MIGRATIONS)).not.toThrow()
     // **Die Liste steht hier ausgeschrieben, und das ist Absicht.** Eine Prüfung
     // gegen `MIGRATIONS.map(m => m.version)` wäre mit sich selbst verglichen und
     // damit leer. So fällt auf, wenn eine Migration **fehlt** (Lücke) oder
     // **doppelt** kommt — und der Name der Prüfung muß die Zahl mitführen, sonst
     // behauptet er etwas Falsches.
-    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6])
-    expect(SCHEMA_VERSION).toBe(6)
+    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7])
+    expect(SCHEMA_VERSION).toBe(7)
   })
 })
 
@@ -258,6 +258,12 @@ describe('Das echte Schema', () => {
       // Mandanten von Anfang an.
       'documents',
       'chunks',
+      // **Neu mit Migration 0007.** Obsidian (D2).
+      'vaults',
+      'notes',
+      'tags',
+      'note_tags',
+      'links',
     ]) {
       expect({ table, created: created.has(table) }).toEqual({ table, created: true })
     }
@@ -269,12 +275,17 @@ describe('Das echte Schema', () => {
       'chunks',
       'conversation_sessions',
       'documents',
+      'links',
       'messages',
+      'note_tags',
+      'notes',
       'one_time_tokens',
       'sessions',
+      'tags',
       'user_profiles',
       'user_secrets',
       'users',
+      'vaults',
       'workspaces',
     ])
     // Die Umbenennung ist der Grund, warum `auth_sessions` oben nicht steht.
