@@ -108,10 +108,10 @@ describe('Migrationsliste prüfen', () => {
     expect(() => assertWellFormed([{ version: 1, name: 'x', sql: '   ' }])).toThrow('kein SQL')
   })
 
-  test('die echten Migrationen sind wohlgeformt und heißen 1 bis 3', () => {
+  test('die echten Migrationen sind wohlgeformt und heißen 1 bis 4', () => {
     expect(() => assertWellFormed(MIGRATIONS)).not.toThrow()
-    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3])
-    expect(SCHEMA_VERSION).toBe(3)
+    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4])
+    expect(SCHEMA_VERSION).toBe(4)
   })
 })
 

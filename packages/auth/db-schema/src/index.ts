@@ -29,6 +29,7 @@
 import m0001 from '../migrations/0001_identitaet.sql' with { type: 'text' }
 import m0002 from '../migrations/0002_workspaces_chats.sql' with { type: 'text' }
 import m0003 from '../migrations/0003_sitzungen_und_gespraeche.sql' with { type: 'text' }
+import m0004 from '../migrations/0004_mandantentrennung.sql' with { type: 'text' }
 
 // ---------------------------------------------------------------------------
 // Migrationstyp
@@ -55,6 +56,11 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'identitaet-benutzer-sitzungen-api-schluessel', sql: m0001 },
   { version: 2, name: 'workspaces-chats-nachrichten', sql: m0002 },
   { version: 3, name: 'anmeldesitzungen-umbenannt-gespraechssitzungen', sql: m0003 },
+  // Die Mandantentrennung sitzt in der STRUKTUR, nicht in einer Abfrage: jede
+  // Zeile traegt einen Mandanten, und die Datenbank lehnt einen Widerspruch ab.
+  // Begruendung und der Fallstrick mit `ON DELETE SET NULL` stehen im Kopf der
+  // Datei; die Probe ist `tests/proben/mandantentrennung.sql`.
+  { version: 4, name: 'mandantentrennung-an-fremdschluesseln', sql: m0004 },
 ]
 
 /** Die Fassung, die dieses Paket erzeugt — die höchste Migrationsnummer. */

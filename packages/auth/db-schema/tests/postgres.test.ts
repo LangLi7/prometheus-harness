@@ -32,6 +32,44 @@ import {
 
 const URL_FROM_ENV = process.env.PMH_TEST_DATABASE_URL
 
+/**
+ * Ist eine Testadresse **brauchbar** — nicht nur „vorhanden"?
+ *
+ * **Warum nicht `=== undefined`.** Der erste Entwurf prüfte genau das, an **vier**
+ * Stellen (Zeilen 101, 115, 127, 132 der alten Fassung). Ein **leerer** Wert
+ * (`PMH_TEST_DATABASE_URL=''`) ist aber nicht `undefined`. Die Absicht der Zeile
+ * („nur mit einer brauchbaren Adresse verbinden") stand damit nirgends — und vier
+ * Abschriften derselben Regel sind vier Gelegenheiten, sie verschieden zu ändern.
+ *
+ * **Was gemessen ist — und was ich zuerst FALSCH behauptet habe.** Ich schrieb, der
+ * zerstörende Test „liefe" mit leerem Wert weiter. Das ist **widerlegt**: mit
+ * `PMH_TEST_DATABASE_URL=''` überspringt die Datei alle 15 Prüfungen (0 pass,
+ * 15 skip, Exit 0), weil die Verbindung scheitert und `VERBINDUNG?.ok === false`
+ * greift.
+ *
+ * **Was trotzdem stimmt und der Grund für diese Funktion ist.** Ein leerer Wert ist
+ * **nicht wirkungslos**: `postgres('')` fällt auf die Umgebungsvorgaben zurück und
+ * baut einen **echten** Verbindungsversuch. Gemessen auf diesem Rechner:
+ *
+ * ```
+ * postgres("") → VERBINDUNG SCHEITERT: password authentication failed for user "Chang"
+ * ```
+ *
+ * Der Treiber nahm also den **Windows-Benutzer** als Datenbankbenutzer und die
+ * Vorgaben für Wirt und Datenbank. Daß nichts geschah, lag allein daran, daß es
+ * keine Rolle `Chang` gibt — **nicht** daran, daß der Schutz gegriffen hätte. Gäbe
+ * es sie, liefe der zerstörende Test gegen die Datenbank, die die Vorgaben nennen.
+ *
+ * Das ist ein **latenter** Fehler, kein wirkender: er hängt an der Umgebung. Genau
+ * deshalb steht die Entscheidung jetzt an einer Stelle und prüft die Absicht.
+ *
+ * @param adresse - der Wert aus der Umgebung
+ * @returns ob eine Verbindung überhaupt versucht werden darf
+ */
+function adresseGesetzt(adresse: string | undefined): adresse is string {
+  return adresse !== undefined && adresse.trim() !== ''
+}
+
 /** Ein Ziel über den echten Treiber; jede Migration in eigener Transaktion. */
 function targetOf(sql: postgres.Sql): MigrationTarget {
   return {
@@ -98,7 +136,15 @@ async function pruefeZugang(adresse: string): Promise<{ ok: true } | { ok: false
   }
 }
 
-const OHNE_ZUGANG = URL_FROM_ENV === undefined ? 'PMH_TEST_DATABASE_URL ist nicht gesetzt' : undefined
+// Die Meldung unterscheidet „nicht gesetzt" von „leer gesetzt": beides führt zum
+// selben Überspringen, aber nur der zweite Fall ist ein Fehler des Aufrufers, und
+// wer die Meldung liest, soll das sehen.
+const OHNE_ZUGANG =
+  URL_FROM_ENV === undefined
+    ? 'PMH_TEST_DATABASE_URL ist nicht gesetzt'
+    : URL_FROM_ENV.trim() === ''
+      ? 'PMH_TEST_DATABASE_URL ist gesetzt, aber LEER'
+      : undefined
 
 if (VERBINDUNG !== undefined && !VERBINDUNG.ok) {
   // **Deutlich melden statt still überspringen.** Ein übersprungener Test ist
@@ -112,7 +158,7 @@ if (VERBINDUNG !== undefined && !VERBINDUNG.ok) {
   )
 }
 
-const run = URL_FROM_ENV === undefined || VERBINDUNG?.ok === false ? describe.skip : describe
+const run = adresseGesetzt(URL_FROM_ENV) && VERBINDUNG?.ok !== false ? describe : describe.skip
 
 if (OHNE_ZUGANG !== undefined) {
   process.stderr.write(
@@ -124,12 +170,12 @@ if (OHNE_ZUGANG !== undefined) {
 let sql: postgres.Sql
 
 beforeAll(() => {
-  if (URL_FROM_ENV === undefined || VERBINDUNG?.ok === false) return
+  if (!adresseGesetzt(URL_FROM_ENV) || VERBINDUNG?.ok === false) return
   sql = postgres(URL_FROM_ENV, { max: 2, onnotice: () => undefined })
 })
 
 afterAll(async () => {
-  if (URL_FROM_ENV === undefined || VERBINDUNG?.ok === false) return
+  if (!adresseGesetzt(URL_FROM_ENV) || VERBINDUNG?.ok === false) return
   await sql.end({ timeout: 5 })
 })
 
@@ -144,7 +190,7 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     `)
 
     const report = await migrate(target)
-      expect(report.applied).toEqual([1, 2, 3])
+    expect(report.applied).toEqual([1, 2, 3, 4])
     expect(report.version).toBe(SCHEMA_VERSION)
     expect(report.fresh).toBe(true)
   })
@@ -258,9 +304,11 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
         ('66666666-6666-4666-8666-666666666666',
          '55555555-5555-4555-8555-555555555555',
          '11111111-1111-4111-8111-111111111111', 'Chat');
-      INSERT INTO messages (id, chat_id, role, content_cipher) VALUES
-        ('01JC0000000000000000000001', '66666666-6666-4666-8666-666666666666', 'user', '\\x01'::bytea),
-        ('01JC0000000000000000000002', '66666666-6666-4666-8666-666666666666', 'assistant', '\\x02'::bytea);
+      INSERT INTO messages (id, chat_id, role, content_cipher, user_id) VALUES
+        ('01JC0000000000000000000001', '66666666-6666-4666-8666-666666666666', 'user', '\\x01'::bytea,
+         '11111111-1111-4111-8111-111111111111'),
+        ('01JC0000000000000000000002', '66666666-6666-4666-8666-666666666666', 'assistant', '\\x02'::bytea,
+         '11111111-1111-4111-8111-111111111111');
     `)
     // Der Benutzer verschwindet — und mit ihm Workspace, Chat und Nachrichten.
     await target.exec(`DELETE FROM users WHERE id = '11111111-1111-4111-8111-111111111111';`)
@@ -306,6 +354,74 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     expect(rows).toHaveLength(MIGRATIONS.length)
   })
 
+  test('weist einen fremden Mandanten an der echten Datenbank ab (Migration 0004)', async () => {
+    // **Warum das hier steht und nicht nur in der SQL-Probe.** Die Probe unter
+    // `tests/proben/mandantentrennung.sql` ist Handarbeit: sie muss jemand
+    // aufrufen, und sie laeuft nicht mit der Suite. Eine Trennung, die niemand
+    // nachprueft, ist eine Absicht — dieser Test macht aus der Absicht eine
+    // Bedingung, die bei jeder Aenderung mitgeprueft wird.
+    //
+    // **Warum vier Faelle und nicht einer.** Die Mandantentrennung haengt an
+    // vier zusammengesetzten Fremdschluesseln. Einer allein beweist nichts ueber
+    // die anderen drei — und ein spaeterer Umbau koennte genau einen entfernen.
+    const target = targetOf(sql)
+    await target.exec(`
+      INSERT INTO users (id, email) VALUES
+        ('aaaaaaaa-0000-4000-8000-000000000001', 'trennung-a@example.org'),
+        ('bbbbbbbb-0000-4000-8000-000000000002', 'trennung-b@example.org');
+      INSERT INTO workspaces (id, user_id, name) VALUES
+        ('aaaaaaaa-0000-4000-8000-000000000003', 'aaaaaaaa-0000-4000-8000-000000000001', 'Werkstatt A'),
+        ('bbbbbbbb-0000-4000-8000-000000000004', 'bbbbbbbb-0000-4000-8000-000000000002', 'Werkstatt B');
+      INSERT INTO chats (id, workspace_id, user_id, title) VALUES
+        ('bbbbbbbb-0000-4000-8000-000000000005', 'bbbbbbbb-0000-4000-8000-000000000004',
+         'bbbbbbbb-0000-4000-8000-000000000002', 'Chat von B');
+      INSERT INTO conversation_sessions (id, version, created_at, revision, user_id) VALUES
+        ('trennung-sitzung-b', 1, now(), 'r1', 'bbbbbbbb-0000-4000-8000-000000000002');
+    `)
+
+    /** Ein Uebergriff, der abgelehnt werden MUSS — mit `23503`, nicht irgendwie. */
+    const uebergriffe: readonly { readonly was: string; readonly sql: string }[] = [
+      {
+        was: 'Chat von A in der Werkstatt von B',
+        sql: `INSERT INTO chats (id, workspace_id, user_id, title) VALUES
+                ('aaaaaaaa-0000-4000-8000-000000000006', 'bbbbbbbb-0000-4000-8000-000000000004',
+                 'aaaaaaaa-0000-4000-8000-000000000001', 'A in B')`,
+      },
+      {
+        was: 'Sitzung von A im Arbeitsbereich von B',
+        sql: `INSERT INTO conversation_sessions (id, version, created_at, revision, user_id, workspace_id) VALUES
+                ('trennung-a-in-b', 1, now(), 'r1', 'aaaaaaaa-0000-4000-8000-000000000001',
+                 'bbbbbbbb-0000-4000-8000-000000000004')`,
+      },
+      {
+        was: 'Unteragent von A unter dem Elternteil von B',
+        sql: `INSERT INTO conversation_sessions (id, version, created_at, revision, user_id, parent_session) VALUES
+                ('trennung-a-kind', 1, now(), 'r1', 'aaaaaaaa-0000-4000-8000-000000000001',
+                 'trennung-sitzung-b')`,
+      },
+      {
+        was: 'Nachricht von A im Chat von B',
+        sql: `INSERT INTO messages (chat_id, id, role, user_id) VALUES
+                ('bbbbbbbb-0000-4000-8000-000000000005', 'trennung-n1', 'user',
+                 'aaaaaaaa-0000-4000-8000-000000000001')`,
+      },
+    ]
+
+    for (const uebergriff of uebergriffe) {
+      let code = ''
+      try {
+        await target.exec(uebergriff.sql)
+      } catch (cause) {
+        // **Nur `23503` zaehlt.** Der erste Entwurf der SQL-Probe haette jeden
+        // Fehler als Ablehnung gewertet und waere damit gruen geworden, weil die
+        // Spalte `user_id` vor der Migration gar nicht existierte (`42703`). Ein
+        // Fehler ist kein Beweis fuer eine Regel, die es nicht gibt.
+        code = (cause as { code?: string }).code ?? ''
+      }
+      expect({ was: uebergriff.was, code }).toEqual({ was: uebergriff.was, code: '23503' })
+    }
+  })
+
   test('das Blättern über den Zeiger benutzt den Schluessel (EXPLAIN, 20 Chats × 500 Nachrichten)', async () => {
     const target = targetOf(sql)
     // Ein realistischer Bestand: ein Benutzer, ein Workspace, zwanzig Chats mit
@@ -321,10 +437,15 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
              '77777777-7777-4777-8777-777777777777',
              'Chat ' || c::text
         FROM generate_series(1, 20) AS c;
-      INSERT INTO messages (chat_id, id, role, content_cipher)
+      INSERT INTO messages (chat_id, id, role, content_cipher, user_id)
       SELECT ('99999999-9999-4999-8999-' || lpad(c::text, 12, '0'))::uuid,
              '01JC' || lpad(c::text, 4, '0') || lpad(g::text, 18, '0'),
-             'user', '\\x01'::bytea
+             'user', '\\x01'::bytea,
+             -- **Der Mandant ist seit Migration 0004 Pflicht.** Vorher kam er nur
+             -- ueber chat_id herein. Ohne diese Spalte scheitert das Saen mit
+             -- 23502 — genau das ist beim ersten Lauf nach der Migration
+             -- passiert, und der Integrationstest hat es gefunden.
+             '77777777-7777-4777-8777-777777777777'
         FROM generate_series(1, 20) AS c, generate_series(1, 500) AS g;
       ANALYZE messages;
     `)

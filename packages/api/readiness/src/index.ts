@@ -151,7 +151,7 @@ export const MIGRATIONSTABELLE = 'schema_migrations'
  *
  * ```
  * $ docker exec pmh-postgres psql -U pmh_app -d pmh -t -c "select version from schema_migrations order by version desc limit 1;"
- *   3
+ *   4
  * ```
  *
  * **Was hier bewußt nicht steht: ein Import von `@prometheus-harness/db-schema`.**
@@ -164,7 +164,7 @@ export const MIGRATIONSTABELLE = 'schema_migrations'
  * weil ein Import am Typsystem scheitert (sechs `TS2307` — die `.sql`-Deklaration
  * von `db-schema` ist im Programm von `readiness` nicht enthalten).
  */
-export const ERWARTETE_SCHEMAFASSUNG = 3
+export const ERWARTETE_SCHEMAFASSUNG = 4
 
 /**
  * Die Tabellen, ohne die die Anwendung nicht arbeiten kann.
