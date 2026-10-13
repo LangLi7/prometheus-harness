@@ -1567,6 +1567,39 @@ eine Zeile in der Reihenfolge-Sektion („Bereitschaftssonden melden nur, sie ba
 würde die Grenze ziehen. **Einschätzung:** kein Verstoß gegen die Reihenfolge, aber ein Fall, in dem
 ein Leser sie für verletzt halten könnte.
 
+## V2 — Der Weg der Bereitschafts-Sonde ist gegen den **laufenden** Stapel beantwortbar (Verifikation, kein Befund)
+
+**Anlass.** `packages/api/readiness` stellt `/api/ready` drei Fragen an PostgreSQL
+(`src/index.ts` Zeile 45–47): die **Verbindung** (`select 1`), die **Migrationstabelle mit Fassung**
+(erwartet `2`), die **Kerntabellen** (`users`, `workspaces`, `chats`, `messages`, `sessions`). Ob diese
+Fragen **beantwortbar** sind, hängt nicht am Code, sondern an **Rechten, Suchpfad und Schema** — also
+an der Einrichtung. Genau das habe ich nachgefahren, **nur lesend**, mit der **dokumentierten Rolle**
+und dem **echten Treiber** des Repos (`werkzeuge/bereitschafts-probe.mjs`):
+
+```
+Adresse : postgres://***@127.0.0.1:5432/pmh        (DATABASE_URL aus .env.example)
+  ok      Frage 1: Verbindung (select 1)              → 1
+  ok      Frage 2: Fassung aus schema_migrations      → 2
+  ok      Frage 3: Kerntabellen im aktuellen Schema   → ["chats","messages","sessions","users","workspaces"]
+
+  Kontext : Benutzer pmh_app · Schema pmh · Suchpfad pmh, public
+ERGEBNIS: der Weg der Sonde ist beantwortbar — Rechte, Suchpfad und Schema stimmen.
+```
+
+**Was damit bewiesen ist — und warum es mehr ist als „läuft".**
+
+| Punkt | Bedeutung |
+|---|---|
+| Rolle `pmh_app` darf `schema_migrations` **lesen** | Diese Tabelle hat der **Eigentümer** angelegt — **nach** der Einrichtung. Dass die Anwendungsrolle sie lesen darf, beweist, dass `ALTER DEFAULT PRIVILEGES` aus `03`/`04` **wirkt** (genau der Fall, für den die eigenen Tests geschrieben wurden) |
+| Fassung **2** | stimmt mit `ERWARTETE_SCHEMAFASSUNG = 2` überein |
+| Alle **fünf** Kerntabellen im **aktuellen** Schema | der Suchpfad `pmh, public` greift, und die Sonde fragt `current_schema()` statt `public` — der Fehler, den **mein eigenes** Takt-Werkzeug am 13.10. hatte |
+| Die Fragen sind **besser als `select 1`** | die Begründung steht im Quelltext (Zeile 35–39): `select 1` sagt nichts darüber, ob die Anwendung arbeiten kann |
+
+**Eigener Werkzeugfehler (H6, Nr. 22).** Der erste Lauf brach ab: `TypeError: postgres is not a
+function` — unter Bun liefert `require('postgres')` eine **Modulhülle**, nicht die Funktion. Gefunden,
+weil das Werkzeug **vor** der Auslieferung ausgeführt wurde; behoben (`.default` wird geprüft) und im
+Dateikopf dokumentiert.
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)

@@ -36,6 +36,7 @@
 | **B12** | Sprachwahl-Recherche | PTY-Messung **vollständig reproduziert**; offene Zeilendifferenz **aufgeklärt** (555 Leerzeilen) |
 | **B15** | README-Zahlen | Versionen **exakt** (17.11 / pgvector 0.8.7 / Redis 7.4.9), 14 Pakete bestätigt |
 | **V1** | Der **erste eigene Endpunkt** (`packages/api/health`, `GET /api/health`) | **korrekt gebaut und verdrahtet** — drei Prüfungen bestanden: Core-Vertrag (`kind: 'exact'`), Profil-Eintrag deckungsgleich, aus dem Profilordner auflösbar (Nodes eigener Resolver → `packages/api/health/src/index.ts`). **Offen bleibt nur der Start:** lädt der Host das Plugin und antwortet der Pfad? |
+| **V2** | Der **Weg der Bereitschafts-Sonde** (`/api/ready` → PostgreSQL) | **beantwortbar gegen den laufenden Stapel** (nur lesend nachgefahren): `select 1` → 1 · Fassung **2** (erwartet 2) · **fünf von fünf** Kerntabellen im aktuellen Schema · Rolle `pmh_app` darf die vom Eigentümer **nach** der Einrichtung angelegte `schema_migrations` lesen → die Vorgaben aus `03`/`04` **wirken** |
 
 ## 3. Offen, weil **nicht prüfbar** — ausdrücklich als Lücke geführt
 

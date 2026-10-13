@@ -1562,6 +1562,43 @@ Schritt nicht, sie beobachtet ihn. Kein Verstoß, aber die Grenze steht nirgends
 
 ---
 
+## 2026-10-13 13:34–13:42 — Achtundzwanzigster Takt: den Bereitschafts-Weg nachgefahren (Verifikation V2)
+
+**Anlass.** `packages/api/readiness` stellt dem Endpunkt drei Fragen an PostgreSQL. Ob sie
+**beantwortbar** sind, hängt nicht am Code, sondern an **Rechten, Suchpfad und Schema**. Also habe ich
+sie mit der **dokumentierten Rolle** und dem **echten Treiber** nachgefahren — nur lesend.
+
+**Befehl.**
+
+```powershell
+bun run docs\protokoll\aufsicht\werkzeuge\bereitschafts-probe.mjs
+# Adresse = DATABASE_URL aus .env.example: postgres://pmh_app:…@127.0.0.1:5432/pmh
+```
+
+**Ergebnis — alle drei Fragen beantwortbar:**
+
+```
+  ok      Frage 1: Verbindung (select 1)              → 1
+  ok      Frage 2: Fassung aus schema_migrations      → 2        (erwartet: 2)
+  ok      Frage 3: Kerntabellen im aktuellen Schema   → chats, messages, sessions, users, workspaces
+  Kontext : Benutzer pmh_app · Schema pmh · Suchpfad pmh, public
+ERGEBNIS: Rechte, Suchpfad und Schema stimmen.
+```
+
+**Warum das mehr ist als „läuft":**
+
+| Punkt | Bedeutung |
+|---|---|
+| `pmh_app` darf **`schema_migrations`** lesen | Diese Tabelle hat der **Eigentümer nach** der Einrichtung angelegt — dass die Anwendungsrolle sie lesen darf, beweist, dass `ALTER DEFAULT PRIVILEGES` aus `03`/`04` **wirkt** (genau der Fall, für den sie Tests geschrieben haben) |
+| Fassung **2** | stimmt mit `ERWARTETE_SCHEMAFASSUNG = 2` überein |
+| **Fünf von fünf** Kerntabellen im **aktuellen** Schema | die Sonde fragt `current_schema()` statt `public` — **derselbe** Fehler, den mein eigenes Takt-Werkzeug am 13.10. hatte (Fehler Nr. 9) |
+
+**Eigener Fehler (H6, Nr. 22).** Der erste Lauf brach ab: `TypeError: postgres is not a function` —
+unter Bun liefert `require('postgres')` eine **Modulhülle**. Gefunden, **weil das Werkzeug vor der
+Auslieferung ausgeführt wurde**; behoben und im Dateikopf dokumentiert.
+
+---
+
 ## Offen / nächster Takt
 
 | Punkt | Stand |
