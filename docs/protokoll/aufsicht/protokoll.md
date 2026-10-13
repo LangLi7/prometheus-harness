@@ -1599,6 +1599,60 @@ Auslieferung ausgeführt wurde**; behoben und im Dateikopf dokumentiert.
 
 ---
 
+## 2026-10-13 13:30–13:38 — Neunundzwanzigster Takt: **B16 entschieden — der Gateway lebt** (und B22 gefunden)
+
+**Der Zufall, der half.** Beim Takt um 13:30 **lief der PMH-Host** (sechs Instanzen — siehe B22). Damit
+war der Test möglich, den ich seit dem zwölften Takt empfohlen hatte.
+
+**Befehl.**
+
+```powershell
+# 1. Ohne Anmeldung (mein erster Versuch um 13:31)
+bun run werkzeuge\api-erreichbarkeit.mjs http://127.0.0.1:5780
+# 2. Mit Anmeldung: Token aus IHREM Startprotokoll (wie scripts/token-adresse.mjs), Wert nie gedruckt
+```
+
+**Ergebnis 1 — ohne Anmeldung:** `/api/goals/create` → **401 `unauthorized`** (nicht 404!). Die Sperre
+antwortet **vor** der Wegwahl. `POST /api/health` → **405** mit strukturiertem JSON (ihr registrierter
+Pfad lebt). **Eine 401 sagt also nichts über den Gateway.**
+
+**Ergebnis 2 — mit Anmeldung (13:33, Host auf 5783):**
+
+```
+Anmeldung: HTTP 303, Cookie erhalten
+  /api/goals/create      POST 200  JSON-RPC-Rahmen: JA  {"type":"server-response","rpcId":"invalid-request",…}
+  /api/aufsicht/probe    POST 404  "not found"
+  /api/sessions          POST 404  "not found"
+  /api/health            GET  200  {"status":"ok","service":"@prometheus-harness/health","version":"0.3.0",…}
+```
+
+**Der Typert-Gateway ist auf ihrem Host registriert und antwortet.** Damit ist die README-Zeile
+„**API des Cores | ausgefallen** … Ursache: der `typert`-Stapel registriert sich nicht" **widerlegt —
+durch Messung an ihrem eigenen, laufenden Host** — und ebenso die Begründung der Entscheidung
+`eigener-endpunktweg.md` („weil die Vorlage **keine erreichbare API** hat").
+
+**Warum ihre Sonde es nicht sehen konnte:** ohne Anmeldung ist **jeder** `/api/*`-Pfad 401; mit
+Anmeldung sind ihre **19 geratenen** Pfade 404, weil **keiner registriert ist**. Nur ein
+**registrierter** Pfad beantwortet die Frage — `goals/create` (von `dsh-goal`, in 0.2.1-alpha.2
+vorhanden).
+
+**Was ausdrücklich offen bleibt:** der **WebSocket**-Pfad `/api/remote.mux` scheitert auf **beiden**
+Installationen schon beim Handschlag. Dieser Teil ihrer Beobachtung ist mit meiner Messung **nicht**
+widerlegt. Und ein registrierter Endpunkt beweist, dass der Gateway **lebt** — nicht, dass jede
+Kern-API nutzbar ist.
+
+**Befund B22 (neu, H): die Port-Tests hinterlassen laufende Hosts.** Sechs Instanzen antworten auf
+`/api/health` mit **HTTP 200**, Alter **1,4 bis 6,9 Minuten** — beide eigenen Aufräum-Fenster (1 und
+5 Minuten) überschritten. Ihr eigener Fall 3 meldet deshalb `FEHLER: Kein freier Port im Bereich
+5780–5780: belegt sind 5780`: **eine Waise aus dem vorigen Lauf erfüllt die Voraussetzung**, nicht der
+dafür gestartete Halter. Ihr Schutz dafür („ÜBERSPRUNGEN: Halter konnte den Port nicht belegen")
+existiert und greift — der Testfall **prüft dann aber nichts**. Mechanismus (Hypothese): `StarteHost`
+beendet den **Launcher**, nicht dessen Kind-Host; `start.mjs` würde `taskkill /T` selbst ausführen,
+bekommt aber kein SIGINT/SIGTERM. Kleinster Fix: `taskkill /pid <pid> /T /F` — genau der Aufruf, den
+`start.mjs` intern schon benutzt.
+
+---
+
 ## Offen / nächster Takt
 
 | Punkt | Stand |
@@ -1617,12 +1671,13 @@ Auslieferung ausgeführt wurde**; behoben und im Dateikopf dokumentiert.
 | **B13** Töten nach Prozessname und Alter | **offen, wächst** | inzwischen **sechs** Stellen (Fenster 1/2/2/3/3/**5** Minuten) — die sechste entstand beim **vierten Testfall** durch Mitkopieren. Entlastet: die DSH-GUI läuft auf `node` und ist **nicht** betroffen; kein Skript tötet einen Portbesitzer |
 | **B14** Umschlagverschlüsselung = Schema, nicht Code | **offen, Hinweis liegt vor** | `value_cipher`/`wrapped_key` nur in der Migration; `user_secrets`/`api_keys` nur in Testdateien; `PMH_MASTER_KEY` und `MIGRATION_DATABASE_URL` werden von **nichts** gelesen. Die Weisung §3 ist für das Schema wahr, für den Code nicht |
 | **B15** Startseite + Baum-Beschriftung | **teilweise erledigt** | **Erledigt:** die Zahlen nennen jetzt ihre **Definition**, und mit ihr **reproduzieren sie exakt** (120 Dateien / 1,53 MB · 16 Pakete). **Offen:** der in B6 widerlegte Satz „nichts ruft sie auf" steht weiter auf der Startseite, und die drei Bäume bleiben falsch beschriftet („unveränderter Upstream" = gepatchter Arbeitsbaum) — die Ursache von B10 |
-| **B16** „API ausgefallen" nicht belegt | **offen, dringlich** | Die Sonde prüft **19 geratene Pfade per GET**; der Kern ruft `POST /api/<namespace>/<methode>`. An einer **gesunden** Installation liefern genau diese Pfade ebenfalls 404 — sie kann „lebt" von „tot" nicht unterscheiden. Darauf steht die Entscheidung „eigener Endpunktweg" |
+| **B16** „API ausgefallen" **widerlegt** | **entschieden — gemessen am laufenden Host** | Angemeldet (Token aus ihrem eigenen Protokoll) antwortet **`POST /api/goals/create`** auf **ihrem** Host mit **HTTP 200 und JSON-RPC-Rahmen** — der Gateway **lebt**. Damit ist die README-Zeile „API des Cores ausgefallen" falsch und die Begründung „die Vorlage hat keine erreichbare API" hinfällig. **Offen bleibt:** der WS-Pfad `/api/remote.mux` scheitert auf **beiden** Installationen schon beim Handschlag |
 | **B17** `P8.12` entblockt | **teilweise, Unterstützung liegt bereit** | Ursache war **nicht** der Schlüssel, sondern der Weg: der eigene Adapter liest nur `env.DEEPSEEK_API_KEY`, nichts liest den Speicher. **Echter Aufruf über den Adapter gelungen** („Empfang", 41/117 Token, 1,20 s). Den Nachweis in der Kette führt der bauende Agent |
 | **B18** Launcher meldet Beendetes als laufend | **offen, klein** | `pmh-nix detect --json` ist ein Einmalaufruf, wird aber wie ein Dienst geführt: die Statuszeile sagt „**2 Prozesse laufen**", während einer läuft (Quelltextbefund, **kein** Lauf — H5) |
 | **B19** Registrierter Pfad umgeht auch den Zaun | **erledigt** | Commit `38aa3ff`: `verbindung.requestRejection({ headers })` — Zaun **und** Anmeldung; bei fehlendem Dienst **Fail-closed 503**. Die Umsetzung ist besser als die Empfehlung, und ich rechne sie mir **nicht** zu (seine Sonde lief 12:59, mein Befund kam 13:08) |
 | **B20** Zwei eigene Artefakte widersprechen sich | **offen, Design-Frage (verschärft)** | `/api/ready` mit **null Sonden** liefert **`bereit: true`** und **HTTP 200**; ihr **Test** hält das fest („nichts zu prüfen — und das ist bereit"), ihre **`.env.example`** sagt dagegen, der Endpunkt melde `ok`, „**statt ‚bereit' zu behaupten**". Die **neue README-Statuscode-Tabelle** (401/403/503) lässt genau diesen Fall aus. Drei Auswege: `bereit`/Status an `sonden.length > 0` binden (503) · drei Zustände statt Boolean (`null` = nicht geprüft) · nur den Wortlaut der Vorlage an den Code anpassen |
 | **B21** „Kette" bedeutet zweierlei | **offen, klein** | Die bindende Reihenfolge meint mit „Kleinste Kette" *Adapter → Agent-Loop → Session*; das Entscheidungsdokument nennt *Plugin → Route → Antwort* „**die ganze Kette**". Ein Leser kann den Meilenstein für erreicht halten. Empfehlung: eigenes Wort („Ladekette") · dazu: `readiness` verbindet PostgreSQL/Redis (Schritt-2-Territorium) — als **Sonde** legitim, aber die Grenze steht nirgends |
+| **B22** Port-Tests hinterlassen laufende Hosts | **offen, dringlich** | **Sechs** Host-Instanzen antworten auf `/api/health` (HTTP 200), Alter **1,4–6,9 min** — beide Aufräum-Fenster (1 und 5 min) überschritten. Ihr Fall 3 meldet deshalb „Kein freier Port … belegt sind 5780": eine **Waise** erfüllt die Voraussetzung, nicht der Halter. Fix: `taskkill /pid <pid> /T /F` (wie `start.mjs` Zeile 163) statt Launcher-PID + Namensfilter |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |

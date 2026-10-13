@@ -1600,6 +1600,114 @@ function` — unter Bun liefert `require('postgres')` eine **Modulhülle**, nich
 weil das Werkzeug **vor** der Auslieferung ausgeführt wurde; behoben (`.default` wird geprüft) und im
 Dateikopf dokumentiert.
 
+## B22 — Die Port-Tests hinterlassen **laufende Hosts**: sechs sind es, und sie blockieren die eigenen nächsten Läufe — **H**
+
+**Anlass.** Beim Takt um 13:30 lief ihre Port-Testreihe (`port-test.ps1`, Logs 13:30:04–13:30:16). Ich
+habe gezählt, was danach noch läuft.
+
+**Messung (13:32, unmittelbar nach dem Lauf):**
+
+```
+Port 5780 : HTTP 200  {"status":"ok","service":"@prometheus-harness/health","version":"0.3.0", …}
+Port 5781 : HTTP 200  …     Port 5782 : HTTP 200  …     Port 5783 : HTTP 200  …
+Port 5790 : HTTP 200  …     Port 5791 : HTTP 200  …
+
+PID  6464  Port 5780  gestartet 13:24:51  Alter 6,9 min
+PID 13760  Port 5781  gestartet 13:24:58  Alter 6,8 min
+PID  3704  Port 5790  gestartet 13:25:10  Alter 6,6 min
+PID 28816  Port 5782  gestartet 13:30:03  Alter 1,7 min
+PID 24964  Port 5783  gestartet 13:30:09  Alter 1,6 min
+PID 27848  Port 5791  gestartet 13:30:22  Alter 1,4 min
+```
+
+**Sechs vollständige Host-Instanzen** laufen weiter und **antworten** auf `/api/health` mit **HTTP 200**
+— jede mit eigenem Harness-Home-Verzeichnis, eigenem Webserver und eigenen Sonden. Der Testlauf, der
+sie gestartet hat, ist **beendet** (letztes Log 13:30:16, seither kein neues Prozesspaar).
+
+**Das Aufräumen versagt — und die eigenen Protokolle zeigen die Folge.**
+
+| Beleg | Aussage |
+|---|---|
+| `[pmh] FEHLER: Kein freier Port im Bereich 5780–5780: belegt sind 5780` (Log `pmh-porttest-40613b.log`, 13:30:16) | Ihr **eigener Testfall 3** bekommt den Port nicht frei — die Voraussetzung erfüllt eine **Waise aus dem vorigen Lauf** (PID 6464, 6,9 min alt), nicht der dafür gestartete Halter |
+| `scripts/port-test.ps1` Zeile 141/157 | **Sie haben den Fall vorgesehen:** „ÜBERSPRUNGEN: Halter konnte den Port nicht belegen — dieser Test prueft nichts" + `$fehler++`. Der Schutz **greift** also, aber er kostet den Testfall: die Prüfung „weicht der Start auf den nächsten freien Port aus" **prüft dann nichts** |
+| Alter 6,9 / 6,8 / 6,6 min | **Beide** eigenen Aufräum-Fenster sind überschritten (1 min nach jedem Fall, 5 min am Ende) — die Zeilen haben diese Prozesse **nicht** erwischt |
+
+**Der Mechanismus (Hypothese, aus dem Quelltext — nicht gemessen).** `StarteHost` (Zeile 33–40) startet
+den **Launcher** (`bun run scripts/start.mjs …`) und beendet am Ende `$proc.Id` — also **den Launcher**.
+Der Host ist dessen **Kind**, und auf Windows beendet ein beendeter Elternprozess seine Kinder **nicht**.
+`scripts/start.mjs` würde beim Beenden selbst `taskkill /pid <pid> /T /F` aufrufen (Zeile 163) — aber
+dazu müsste es **SIGINT/SIGTERM** bekommen; `Stop-Process -Force` liefert das nicht. Die beiden
+Namensfilter (1 min / 5 min) sind zeitgebunden und greifen nur, wenn der Prozess **jung genug** ist.
+
+**Empfehlung — drei Wege, der erste ist der kleinste:**
+
+1. **Den Prozessbaum beenden**, nicht den Launcher: `taskkill /pid <pid> /T /F` — genau der Aufruf, den
+   `scripts/start.mjs` intern schon für seine Kinder benutzt (Zeile 163). Ein Wort mehr, und die Kette
+   stirbt mit.
+2. **Der Host schreibt seine PID** in eine Datei im Harness-Home; der Test beendet **sie** statt des
+   Launchers. Das ist die robusteste Fassung, weil sie nicht auf Eltern-Kind-Zusammenhängen beruht.
+3. **Kein Aufräumen nach Name und Alter** (siehe **B13**) — es ist die Ursache, dass die Waisen
+   unbemerkt bleiben.
+
+**Und die Kosten, damit sie nicht abstrakt bleiben:** sechs Hosts halten sechs Ports (5780–5783,
+5790, 5791) und sechs Harness-Homes im Speicher. Jeder weitere Testlauf startet auf dem nächsten
+freien Port — die Reihe **verschlechtert sich mit jedem Lauf**, bis der Bereich erschöpft ist. Dann
+meldet der Test nicht „bestanden", sondern „kein freier Port".
+
+**Grenze, ehrlich.** Ich habe **nicht** gemessen, ob der Fall-3-Abbruch wirklich von der Waise und nicht
+vom Halter ausgelöst wurde — beide binden denselben Port, und aus dem Log ist das nicht unterscheidbar.
+Sicher ist: **der Halter konnte 5780 nicht binden**, weil eine Waise ihn hielt. Und die sechs Prozesse
+sind gemessen.
+
+### Nachtrag 13.10.2026, 13:33 — **ENTSCHIEDEN: der Gateway lebt. Die Behauptung ist widerlegt.**
+
+Der PMH-Host **lief** (sechs Instanzen, siehe **B22**) — damit war der Test möglich, den ich seit dem
+zwölften Takt empfohlen habe. **Angemeldet** mit dem Token aus **ihrem eigenen** Startprotokoll
+(dieselbe Quelle, die `scripts/token-adresse.mjs` benutzt; der Wert wurde **nicht** gedruckt):
+
+```
+Basis: http://127.0.0.1:5783     (Token aus dem Protokoll, 43 Zeichen)
+Anmeldung: HTTP 303, Cookie erhalten
+
+  /api/goals/create      POST 200  JSON-RPC-Rahmen: JA
+      {"type":"server-response","rpcId":"invalid-request","result":{"ok":false,"error":{"code":"…
+  /api/aufsicht/probe    POST 404  JSON-RPC-Rahmen: nein   "not found"
+  /api/sessions          POST 404  JSON-RPC-Rahmen: nein   "not found"
+  /api/health            GET  200  {"status":"ok","service":"@prometheus-harness/health","version":"0.3.0",…
+```
+
+**Das Ergebnis, in einem Satz:** `POST /api/goals/create` antwortet auf **ihrem** Host mit **HTTP 200
+und einem JSON-RPC-Rahmen** — der **Typert-Gateway ist registriert und arbeitet**. Damit ist die Zeile
+der eigenen Startseite
+
+> „**API des Cores** | **ausgefallen.** `/api/*` → **401/404** … Ursache: der `typert`-Stapel
+> registriert sich nicht"
+
+**widerlegt — durch Messung an ihrem eigenen, laufenden Host.**
+
+**Warum ihre Sonde das nicht sehen konnte (und es ist kein Vorwurf an die Sonde):**
+
+1. **Ohne Anmeldung** antwortet die Sperre **401** auf **jeden** `/api/*`-Pfad — auch auf einen
+   registrierten. Genau das hat mein erster Versuch um 13:31 gezeigt (`POST /api/goals/create` → **401
+   `unauthorized`**, ohne Cookie). Die 401 sagt also **nichts** über den Gateway.
+2. **Mit** Anmeldung antworten ihre **19 geratenen** Pfade (`/api/health`, `/api/sessions`,
+   `/api/plugins`, …) mit **404**, weil **keiner davon registriert ist**. Auch das sagt nichts über den
+   Gateway — es sagt nur, dass diese Namen nicht existieren.
+3. Der **einzige** Pfad, der die Frage beantwortet, ist ein **registrierter**: `goals/create` (von
+   `dsh-goal`, in **0.2.1-alpha.2** vorhanden — belegt in `lib/typert.host.js:233`).
+
+**Was damit auch fällt:** die Begründung der Entscheidung `eigener-endpunktweg.md` — *„weil die Vorlage
+**keine erreichbare API** hat"* — ist **widerlegt**. Die Entscheidung selbst bleibt legitim (einen
+eigenen API-Weg zu bauen ist ein Ziel, kein Fehler), aber sie steht **nicht** auf dieser Prämisse. Und
+die `readiness`/`health`-Arbeit ist dadurch **nicht** entwertet: sie prüft und schützt den **eigenen**
+Weg — nur die Aussage „der Core hat keine API" trägt nicht.
+
+**Was offen bleibt (ehrlich).** Der **WebSocket**-Pfad `/api/remote.mux` scheitert auf **beiden**
+Installationen bereits beim Handschlag — der Teil der Behauptung („WS → 1008") betrifft also
+möglicherweise eine **andere** Route als die, die ich geprüft habe, und ist mit meiner Messung
+**nicht** widerlegt. Ein einzelner registrierter Endpunkt beweist, dass der Gateway **lebt**; er
+beweist **nicht**, dass jede Kern-API nutzbar ist.
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
