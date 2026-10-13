@@ -25,10 +25,25 @@ SOFTWARE.
 ## Warum diese Datei hier liegt
 
 Prometheus Harness nutzt den **DeepSeek Harness** als **Codebasis** — nicht nur als
-Vorlage. Der Ausgangsstand liegt unter
-`C:\Users\Chang\harness\prometheus-harness` (Core `d743267388` = DeepSeek Harness
-`0.2.1-alpha.2`) und trägt die obige **MIT-Lizenz** mit dem Copyright-Vermerk
-*Copyright (c) 2026 DeepSeek*.
+Vorlage. Der Ausgangsstand ist ein Klon des Forks
+`github.com/LangLi7/prometheus-harness` zum Stand des Commits `4f686a63` (Core
+`d743267388` = DeepSeek Harness `0.2.1-alpha.2`) und trägt die obige **MIT-Lizenz**
+mit dem Copyright-Vermerk *Copyright (c) 2026 DeepSeek*.
+
+**Warum hier kein Dateipfad mehr steht (Nachtrag 14.10.2026).** Bis heute nannte
+diese Zeile einen **Pfad auf dem Rechner des Betreibers** (`C:\…\harness\…`, mit
+Benutzernamen). Für ein privates Repository ist das brauchbar; vor einer
+**Veröffentlichung** ist es ein Befund — dieselbe Klasse wie die 13
+maschinengebundenen Pfade in den Werkzeugen der Aufsicht
+(`docs/status/e4-maschinenpfade.md`, geprüft mit `bun scripts/maschinenpfade.mjs
+pruefen`). Ein Pfad, der nur auf **einem** Rechner gilt, gehört nicht in eine Lizenz:
+er sagt über die Herkunft **nichts**, was die Angabe des **Commits** nicht genauer
+sagte.
+
+**Und der Pfad steht hier absichtlich verkürzt** (`C:\…`). Der erste Entwurf dieses
+Nachtrags schrieb ihn aus — und `bun scripts/maschinenpfade.mjs pruefen LICENSE`
+fand danach **wieder einen** maschinengebundenen Pfad: in der **Erklärung** darüber,
+daß es keinen mehr geben soll. *Eine Prüfung findet ihren eigenen Bericht.*
 
 Die MIT-Lizenz erlaubt Nutzung, Veränderung und Weitergabe ausdrücklich — **unter einer
 Bedingung**: *„The above copyright notice and this permission notice shall be included in
