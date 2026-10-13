@@ -85,10 +85,20 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     expect(report.fresh).toBe(true)
   })
 
-  test('legt alle neun Tabellen an', async () => {
+  test('legt alle neun Tabellen an — im Schema `pmh`, nicht in `public`', async () => {
+    // **Warum `pmh` und nicht `public`.** Der Stack legt ein eigenes Schema an
+    // (`docker/postgres-init/02-roles.sh`) und setzt den Suchpfad der Rollen auf
+    // `pmh, public`. `public` ist in PostgreSQL der Ort, an dem jedes
+    // Fremdwerkzeug ohne Schema-Angabe sucht — die eigenen Objekte gehören dort
+    // nicht hin. Die Migration legt ihre Tabellen deshalb ohne Präfix an, und
+    // der Suchpfad entscheidet, wo sie landen.
+    //
+    // **Der Test hat das gefunden, nicht die Doku:** er suchte zuerst in
+    // `public` und schlug fehl. Genau so soll es sein — eine Annahme, die im
+    // Test steht und nicht in der Wirklichkeit, ist ein Befund.
     const rows = await targetOf(sql).query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables
-        WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`,
+        WHERE table_schema = 'pmh' AND table_type = 'BASE TABLE' ORDER BY table_name`,
     )
     const tables = rows.map((row) => row.table_name)
     for (const table of [
@@ -104,6 +114,15 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     ]) {
       expect(tables).toContain(table)
     }
+  })
+
+  test('das Schema `pmh` ist der Suchpfad der Rollen, `public` bleibt leer', async () => {
+    const rows = await targetOf(sql).query<{ n: string }>(
+      `SELECT count(*)::text AS n FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`,
+    )
+    // Nichts in `public`. Ohne diese Prüfung könnte eine spätere Migration
+    // versehentlich dorthin schreiben, und niemand würde es bemerken.
+    expect(rows[0]?.n).toBe('0')
   })
 
   test('legt den zusammengesetzten Schlüssel an, der das Blättern trägt', async () => {

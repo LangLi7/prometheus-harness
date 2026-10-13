@@ -1,0 +1,178 @@
+# =============================================================================
+# Prometheus Harness — der Stack in EINER Datei
+# =============================================================================
+#
+# **Warum diese Datei existiert.** Postgres und Redis liefen vorher als einzeln
+# gestartete Container ohne Datei: nicht reproduzierbar, nicht übersichtlich, und
+# für einen Fremden, der das Projekt ausprobiert, nicht startbar. Genau das
+# Gegenteil von „plug and play". Hier steht der Stack als **Text** — wer das
+# Repository klont, liest diese Datei und weiß, was läuft.
+#
+# **Das Vorbild ist `go-database` desselben Betreibers** (docker-compose.yml +
+# `.env.example` + `init.sql` + Profile). Übernommen wurden die vier Muster, die
+# dort tragen:
+#   1. **Profile** — optionale Teile starten nur, wenn man sie nennt
+#      (`--profile search`), statt immer alles hochzufahren.
+#   2. **`${VAR:-default}`** — jeder Wert ist über `.env` überschreibbar, hat
+#      aber einen Vorgabewert. Ohne das ist ein Stack entweder unkonfigurierbar
+#      oder ohne `.env` nicht startbar.
+#   3. **`healthcheck` + `depends_on: condition: service_healthy`** — der Start
+#      wartet auf Bereitschaft, nicht auf „Container ist da". Ein Kontaktierversuch
+#      gegen einen noch initialisierenden Postgres ist der klassische Startfehler.
+#   4. **`init.sql` als Einhängepunkt** — Schema und **Rechte** entstehen beim
+#      ersten Start des Volumes, nicht durch einen manuellen Schritt.
+#
+# **Ein eigenes Netz.** `pmh-net` ist nur für diesen Stack. Der firecrawl-Stack
+# hat sein eigenes (`firecrawl_backend`); die beiden können sich damit nicht
+# versehentlich erreichen.
+#
+# **Kurzstart:**
+#   docker compose up -d                 # Datenbanken
+#   docker compose --profile tools up -d # zusätzlich pgAdmin und der Nur-Lese-Zugang
+#   docker compose logs -f postgres      # beim ersten Start ansehen
+#
+# =============================================================================
+
+name: pmh
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — der dauerhafte Speicher
+  # ---------------------------------------------------------------------------
+  # **Warum `pgvector/pgvector:pg17` und nicht `postgres:17-alpine`.** Deine
+  # Zielliste verlangt PostgreSQL **wegen der Vektoren** (RAG, Memory, Suche). Das
+  # Basis-Image kann das nicht; man müsste die Erweiterung nachinstallieren, und
+  # das überlebt kein Image-Update. `pgvector/pgvector` bringt sie mit, in
+  # derselben Version wie das Schema, das auf ihr aufbaut.
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: pmh-postgres
+    restart: unless-stopped
+    environment:
+      # Der Superuser des Clusters. **Nur für die Einrichtung** — die Anwendung
+      # benutzt ihn nie (siehe `docker/postgres-init/02-roles.sql`).
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-pmh_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-bitte-aendern-admin}
+      POSTGRES_DB: ${POSTGRES_DB:-pmh}
+      # Die drei Rollen des Rechtemodells. Jede bekommt beim ersten Start ihr
+      # Passwort; die Rechte stehen in `docker/postgres-init/02-roles.sql`.
+      PMH_OWNER_USER: ${PMH_OWNER_USER:-pmh_owner}
+      PMH_OWNER_PASSWORD: ${PMH_OWNER_PASSWORD:-bitte-aendern-owner}
+      PMH_APP_USER: ${PMH_APP_USER:-pmh_app}
+      PMH_APP_PASSWORD: ${PMH_APP_PASSWORD:-bitte-aendern-app}
+      PMH_READONLY_USER: ${PMH_READONLY_USER:-pmh_readonly}
+      PMH_READONLY_PASSWORD: ${PMH_READONLY_PASSWORD:-bitte-aendern-lesen}
+      # Zeitzone und Kodierung festlegen: eine Datenbank mit falscher Kodierung
+      # lässt sich später nicht umstellen, ohne sie neu zu erzeugen.
+      TZ: ${TZ:-Europe/Zurich}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # **Reihenfolge ist Teil der Sache:** Postgres führt `/docker-entrypoint-initdb.d/*`
+      # alphabetisch aus, und zwar **nur beim ersten Start eines leeren Volumes**.
+      # Deshalb die Nummern: erst den Vektor-Typ, dann die Rollen und Rechte,
+      # dann die Datenbank-Einstellungen.
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    ports:
+      # Nur an die lokale Schnittstelle binden. Ein weiter offener Postgres im
+      # Netz ist der klassische Fehler — und `5432:5432` würde ihn öffnen.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      # `pg_isready` fragt den Server, ob er **Verbindungen annimmt** — nicht, ob
+      # der Port offen ist. Das ist der Unterschied zwischen „Container läuft" und
+      # „Datenbank ist bereit".
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_SUPERUSER:-pmh_admin} -d ${POSTGRES_DB:-pmh}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks: [pmh-net]
+
+  # ---------------------------------------------------------------------------
+  # Redis — Zähler und kurzfristiger Zwischenspeicher
+  # ---------------------------------------------------------------------------
+  # **Was Redis hier NICHT ist: die Wahrheit über Sitzungen.** Ein Redis-Failover
+  # verliert bestätigte Schreibvorgänge (die Redis-Dokumentation sagt das selbst),
+  # und wenn Sitzungen nur dort liegen, ist jeder Ausfall ein Sicherheitsereignis
+  # statt eines Verfügbarkeitsereignisses. **PostgreSQL ist der dauerhafte
+  # Sitzungsspeicher; Redis beschleunigt nur** — Drosselungszähler, Warmhalten
+  # häufiger Abfragen.
+  #
+  # Deshalb ist die Persistenz hier bewusst *eingeschaltet*, aber **nicht** als
+  # Ersatz für die Datenbank gedacht: `appendonly` schützt die Zähler über einen
+  # Neustart, mehr soll es nicht.
+  redis:
+    image: redis:7-alpine
+    container_name: pmh-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-256mb}
+      - --maxmemory-policy
+      - noeviction
+    volumes:
+      - redis-data:/data
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [pmh-net]
+
+  # ---------------------------------------------------------------------------
+  # pgAdmin — die Datenbank ansehen, ohne SQL zu tippen
+  # ---------------------------------------------------------------------------
+  # **Der Nur-Lese-Zugang ist KEIN eigener Dienst, sondern eine Rolle.** Ein
+  # zweiter PostgreSQL-Prozess auf demselben Datenverzeichnis wäre falsch (zwei
+  # Schreiber auf denselben Dateien). Richtig ist eine Rolle, die nur `SELECT`
+  # darf — und die beim ersten Start angelegt wird
+  # (`docker/postgres-init/02-roles.sql`).
+  #
+  # **Was das praktisch heißt:** wer pgAdmin oder ein Fremdwerkzeug anbindet, gibt
+  # ihm `${PMH_READONLY_USER}` statt der Anwendungsrolle. Damit **kann** er nichts
+  # schreiben, auch nicht versehentlich — und muss es nicht versprechen.
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pmh-pgadmin
+    restart: unless-stopped
+    profiles: [tools]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@localhost}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-bitte-aendern-pgadmin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    ports:
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [pmh-net]
+
+# -----------------------------------------------------------------------------
+# Volumes — benannt, damit `docker compose down` die Daten NICHT löscht
+# -----------------------------------------------------------------------------
+# `down` entfernt Container und Netz, aber **keine benannten Volumes**. Wer die
+# Daten wirklich wegwerfen will, sagt das ausdrücklich: `down -v`.
+volumes:
+  postgres-data:
+    name: pmh-postgres-data
+  redis-data:
+    name: pmh-redis-data
+  pgadmin-data:
+    name: pmh-pgadmin-data
+
+# -----------------------------------------------------------------------------
+# Netz
+# -----------------------------------------------------------------------------
+networks:
+  pmh-net:
+    name: pmh-net
+    driver: bridge
