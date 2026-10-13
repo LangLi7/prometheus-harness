@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/apikey",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "API-Schlüssel nach dem Format des Schemas (pmh_<key_id>_<secret>): 256 Bit Zufall, ein abgeleiteter Pfeffer, und in api_keys liegt nur der HMAC. Der Pfeffer kommt aus dem Hauptschlüssel — wer nur die Datenbank hat, kann einen Schlüssel nicht einmal prüfen.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

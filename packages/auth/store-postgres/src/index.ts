@@ -56,6 +56,7 @@ import type { Dateizugriff, Isolation } from '@prometheus-harness/permissions'
 // (`speichereUmschlag`) tut es ausdrücklich nicht; siehe deren Begründung.
 import { entpacke, verpacke, type Hauptschluessel } from '@prometheus-harness/secrets'
 import type { TokenAblage, TokenEintrag } from '@prometheus-harness/reset'
+import type { NeuerEintrag, SchluesselAblage, SchluesselEintrag } from '@prometheus-harness/apikey'
 
 // ---------------------------------------------------------------------------
 // Der Datenbankzugang
@@ -853,6 +854,204 @@ export function erzeugeTokenAblage(sql: SqlZugang): TokenAblage {
       return gefunden[0]?.n ?? 0
     },
   }
+}
+
+// ---------------------------------------------------------------------------
+// API-Schlüssel
+// ---------------------------------------------------------------------------
+
+/**
+ * Die Ablage für `api_keys`.
+ *
+ * ## Warum der Suchweg über `key_id` geht und nicht über den Hash
+ *
+ * Ein HMAC läßt sich nicht indizieren, ohne ihn zu berechnen. Der Schlüssel
+ * **nennt** seine Kennung selbst (`pmh_<key_id>_<secret>`), und das Schema hat
+ * dafür einen eigenen Index: `api_keys_live_idx ON api_keys (key_id) WHERE
+ * revoked_at IS NULL`. Die Prüfung ist damit **ein** Zugriff über einen Index und
+ * nicht ein Durchlauf über alle Schlüssel.
+ *
+ * **Was die Kennung nicht ist: ein Geheimnis.** Sie steht im Klartext in der
+ * Tabelle und im Anzeigepräfix — sie dient dem Finden und dem Unterschieden, nicht
+ * dem Beweisen. Das beweist das Geheimnis, und das steht nirgends.
+ *
+ * ## Warum `id` hier vergeben wird
+ *
+ * `gen_random_uuid()` und nicht vom Aufrufer: der Primärschlüssel ist die Sache
+ * der Tabelle. Bei den Einmal-Token ist es umgekehrt, und das hat einen Grund —
+ * `verbrauche` führt die Kennung als Bedingung.
+ *
+ * @param sql - der Datenbankzugang
+ * @returns die Ablage
+ */
+export function erzeugeApiKeyAblage(sql: SqlZugang): SchluesselAblage {
+  return {
+    async legeAb(eintrag: NeuerEintrag): Promise<void> {
+      await ausfuehren(
+        sql,
+        `INSERT INTO api_keys (id, user_id, key_id, token_hash, display_prefix, name, scopes, expires_at)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7)`,
+        [
+          eintrag.userId,
+          eintrag.keyId,
+          eintrag.tokenHash,
+          eintrag.displayPrefix,
+          eintrag.name,
+          eintrag.scopes,
+          eintrag.laeuftAb,
+        ],
+      )
+    },
+
+    async finde(keyId: string): Promise<SchluesselEintrag | undefined> {
+      const gefunden = await zeilen<{
+        id: string
+        user_id: string
+        key_id: string
+        token_hash: string
+        display_prefix: string
+        name: string
+        scopes: string[]
+        expires_at: unknown
+        revoked_at: unknown
+      }>(
+        sql,
+        `SELECT id, user_id, key_id, token_hash, display_prefix, name, scopes, expires_at, revoked_at
+           FROM api_keys WHERE key_id = $1`,
+        [keyId],
+      )
+      const zeile = gefunden[0]
+      if (zeile === undefined) return undefined
+      // **`undefined` und nicht `null`, und das Feld wird nur gesetzt, wenn es
+      // etwas zu setzen gibt.** Die Schnittstelle fragt `widerrufenAm !==
+      // undefined`; ein `null` wäre ein zweiter Zustand für dieselbe Sache. Und
+      // `exactOptionalPropertyTypes` läßt `widerrufenAm: undefined` nicht zu —
+      // das ist gut so: „das Feld fehlt" und „das Feld ist leer" sind zwei
+      // Aussagen, und der Typprüfer zwingt zur Entscheidung.
+      const widerrufenAm =
+        zeile.revoked_at === null || zeile.revoked_at === undefined ? undefined : new Date(alsIso(zeile.revoked_at))
+      return {
+        id: zeile.id,
+        userId: zeile.user_id,
+        keyId: zeile.key_id,
+        tokenHash: zeile.token_hash,
+        displayPrefix: zeile.display_prefix,
+        name: zeile.name,
+        scopes: zeile.scopes,
+        laeuftAb: new Date(alsIso(zeile.expires_at)),
+        ...(widerrufenAm === undefined ? {} : { widerrufenAm }),
+      }
+    },
+
+    async merkeBenutzt(keyId: string, at: Date): Promise<void> {
+      await ausfuehren(sql, `UPDATE api_keys SET last_used_at = $2 WHERE key_id = $1`, [keyId, at.toISOString()])
+    },
+  }
+}
+
+/**
+ * Widerruft einen Schlüssel.
+ *
+ * **Wiederholbar und ohne Wirkung auf einen bereits widerrufenen:** die Bedingung
+ * `revoked_at IS NULL` sorgt dafür, daß der **erste** Widerruf gewinnt und der
+ * Grund nicht später überschrieben wird. Sonst könnte ein zweiter Aufruf die
+ * Begründung des ersten verwischen — und die Begründung ist das, was nach einem
+ * Vorfall zählt.
+ *
+ * @param sql - der Datenbankzugang
+ * @param keyId - die Kennung des Schlüssels
+ * @param grund - warum; landet in `revoked_reason`
+ * @param at - der Zeitpunkt
+ * @returns ob **dieser** Aufruf widerrufen hat
+ */
+export async function widerrufeApiSchluessel(
+  sql: SqlZugang,
+  keyId: string,
+  grund: string,
+  at: Date,
+): Promise<boolean> {
+  const getroffen = await zeilen<{ id: string }>(
+    sql,
+    `UPDATE api_keys SET revoked_at = $2, revoked_reason = $3
+      WHERE key_id = $1 AND revoked_at IS NULL
+      RETURNING id`,
+    [keyId, at.toISOString(), grund],
+  )
+  return getroffen.length === 1
+}
+
+/** Eine Zeile für die Anzeige — **ohne** Hash und ohne Geheimnis. */
+export interface SchluesselAnzeige {
+  readonly keyId: string
+  readonly displayPrefix: string
+  readonly name: string
+  readonly scopes: readonly string[]
+  readonly erstelltAm: string
+  readonly laeuftAb: string
+  readonly benutztAm?: string
+  readonly widerrufenAm?: string
+  readonly widerrufenGrund?: string
+}
+
+/**
+ * Listet die Schlüssel eines Benutzers auf.
+ *
+ * **Ohne `token_hash`.** Diese Auskunft soll man zeigen können; ein Hash in einer
+ * Bildschirmausgabe ist ein Geheimnis an einer Stelle, an der es nichts zu suchen
+ * hat. Wer den Hash braucht, holt ihn über {@link erzeugeApiKeyAblage}.
+ *
+ * @param sql - der Datenbankzugang
+ * @param userId - wessen Schlüssel
+ * @returns die Zeilen, neueste zuerst
+ */
+export async function listeApiSchluessel(sql: SqlZugang, userId: string): Promise<readonly SchluesselAnzeige[]> {
+  const gefunden = await zeilen<{
+    key_id: string
+    display_prefix: string
+    name: string
+    scopes: string[]
+    created_at: unknown
+    expires_at: unknown
+    last_used_at: unknown
+    revoked_at: unknown
+    revoked_reason: string | null
+  }>(
+    sql,
+    `SELECT key_id, display_prefix, name, scopes, created_at, expires_at, last_used_at, revoked_at, revoked_reason
+       FROM api_keys WHERE user_id = $1 ORDER BY created_at DESC`,
+    [userId],
+  )
+  const zeit = (w: unknown): string | undefined => (w === null || w === undefined ? undefined : alsIso(w))
+  // **Die Felder werden nur gesetzt, wenn es sie gibt.** `exactOptionalPropertyTypes`
+  // verbietet `benutztAm: undefined` — und das ist kein Formalismus: „nie benutzt"
+  // und „Feld nicht mitgeschickt" sind zwei Aussagen, und der Typprüfer zwingt
+  // hier zur Entscheidung, statt beide zu vermischen.
+  return gefunden.map((z) => {
+    const zeile: {
+      keyId: string
+      displayPrefix: string
+      name: string
+      scopes: readonly string[]
+      erstelltAm: string
+      laeuftAb: string
+      benutztAm?: string
+      widerrufenAm?: string
+      widerrufenGrund?: string
+    } = {
+      keyId: z.key_id,
+      displayPrefix: z.display_prefix,
+      name: z.name,
+      scopes: z.scopes,
+      erstelltAm: alsIso(z.created_at),
+      laeuftAb: alsIso(z.expires_at),
+    }
+    const benutzt = zeit(z.last_used_at)
+    if (benutzt !== undefined) zeile.benutztAm = benutzt
+    const widerrufen = zeit(z.revoked_at)
+    if (widerrufen !== undefined) zeile.widerrufenAm = widerrufen
+    if (z.revoked_reason !== null) zeile.widerrufenGrund = z.revoked_reason
+    return zeile
+  })
 }
 
 /** Die drei Speicher, die der Regelkern braucht. */
