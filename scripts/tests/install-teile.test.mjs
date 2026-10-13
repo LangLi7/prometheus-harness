@@ -200,23 +200,60 @@ describe('setzeWerte', () => {
 
     test('ersetzt in der ECHTEN Vorlage — in beiden Zeilenenden', () => {
       // **Die Prüfung, die den Fehler gefunden hätte.** Sie benutzt nicht eine im
-      // Speicher gebaute Zeichenkette, sondern die Datei aus dem Repository —
-      // einmal so, wie Git sie hier ausgibt, und einmal als CRLF-Fassung.
+      // Speicher gebaute Zeichenkette, sondern die Datei aus dem Repository.
+      //
+      // **Und der Fehler, den SIE zuerst hatte.** Die Umformung lautete
+      // `VORLAGE.split('\n').join('\r\n')`. Auf diesem Rechner hat die
+      // ausgecheckte `.env.example` **schon** CRLF (`core.autocrlf=true`) —
+      // daraus wurde `\r\r\n`, und die Prüfung war rot, obwohl die Funktion
+      // richtig arbeitete. Gemessen im sauberen Klon am 13.10.2026:
+      //
+      //     CRLF doppelt: true
+      //     --- Original ---       ersetzt: 1
+      //     --- CRLF-Fassung ---   ersetzt: 0
+      //
+      // Die Umformung normalisiert jetzt **erst** auf LF. Eine Prüfung, die die
+      // Wirklichkeit verdoppelt, prüft nicht die Wirklichkeit.
+      const aufLf = (text) => text.split('\r\n').join('\n')
+      const aufCrlf = (text) => aufLf(text).split('\n').join('\r\n')
+
       const werte = { POSTGRES_SUPERUSER_PASSWORD: 'neu' }
+      // Die Datei so, wie Git sie hier ausgibt — auf Windows CRLF, auf Linux LF.
       expect(setzeWerte(VORLAGE, werte).ersetzt).toBe(1)
-      expect(setzeWerte(VORLAGE.split('\n').join('\r\n'), werte).ersetzt).toBe(1)
+      // Und ausdrücklich als CRLF-Fassung.
+      expect(setzeWerte(aufCrlf(VORLAGE), werte).ersetzt).toBe(1)
+      // Und ausdrücklich als LF-Fassung — damit beide Enden geprüft sind,
+      // unabhängig davon, wie Git hier einstellt.
+      expect(setzeWerte(aufLf(VORLAGE), werte).ersetzt).toBe(1)
     })
 
     test('setzt ALLE Geheimnisse der echten Vorlage — in beiden Zeilenenden', () => {
       // Der vollständige Fall: der Installer setzt neun Werte. Wird auch nur
       // einer nicht gesetzt, scheitert später ein Schritt mit einer Meldung, die
       // nicht auf die Ursache zeigt.
+      const aufLf = (text) => text.split('\r\n').join('\n')
+      const aufCrlf = (text) => aufLf(text).split('\n').join('\r\n')
+
       const werte = {}
       for (const name of GEHEIMNIS_NAMEN) werte[name] = 'x'.repeat(43)
-      for (const inhalt of [VORLAGE, VORLAGE.split('\n').join('\r\n')]) {
+      for (const inhalt of [VORLAGE, aufLf(VORLAGE), aufCrlf(VORLAGE)]) {
         const { ersetzt } = setzeWerte(inhalt, werte)
         expect(ersetzt).toBe(GEHEIMNIS_NAMEN.length)
       }
+    })
+
+    test('eine verdoppelte CRLF-Fassung ist kein gueltiger Eingang', () => {
+      // **Die Sicherung gegen den Prüfungsfehler.** Wird die Wirklichkeit
+      // verdoppelt (`\r\r\n`), ist das Ergebnis kein `.env` mehr — und die
+      // Funktion darf es nicht stillschweigend als eines behandeln.
+      const verdoppelt = VORLAGE.split('\n').join('\r\n')
+      if (!verdoppelt.includes('\r\r\n')) {
+        // Auf einem LF-Checkout entsteht keine Verdopplung — dann ist dieser Fall
+        // nicht anwendbar und wird übersprungen statt falsch geprüft.
+        return
+      }
+      const { ersetzt } = setzeWerte(verdoppelt, { POSTGRES_SUPERUSER_PASSWORD: 'neu' })
+      expect(ersetzt).toBe(0)
     })
   })
 })
