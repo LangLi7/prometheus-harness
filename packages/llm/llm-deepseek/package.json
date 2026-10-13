@@ -1,0 +1,16 @@
+{
+  "name": "@prometheus-harness/llm-deepseek",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DeepSeek-Anbieter hinter dem LLM-Seam. Setzt Chat-Anfragen über die OpenAI-kompatible /chat/completions-Schnittstelle ab und übersetzt Antwort und Fehler in die Seam-Typen.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/llm": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}
