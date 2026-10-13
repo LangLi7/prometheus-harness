@@ -2413,6 +2413,61 @@ Befunde mußte ich **zurückziehen** (die B22-Hypothese und die B26-Anmeldebehau
 kein Kennwort), **fünf** Ankerfehler stehen in der Korrekturtabelle, und **drei** eigene Werkzeugfehler
 wurden von Gegenproben gefunden. Jeder davon steht mit Zeit, Anlaß und Behebung in `befunde.md`.
 
+## 2026-10-13 15:22–15:35 — Vierundvierzigster Takt: **Ressourceneffizienz nachgemessen** (B35) — und zwei eigene Messungen, die nichts wert sind
+
+**Die Frage des Betreibers.** *„Es könnte auch sein, daß diese neue Harness Ressourcen effizienter ist
+ect. Oder auch nicht. Bleibe skeptisch und pessimistisch, genauso logisch."* — Genau so behandelt.
+
+**Vorher festgelegt, was gemessen wird** (sonst mißt man Beliebiges): **(a)** Installations-Fußabdruck,
+**(b)** Laufzeit-Fußabdruck, **(c)** Abhängigkeitsfläche. Und **drei** Bäume, nicht zwei — denn „das
+Original" ist zweideutig: die **Quelle** ist die Vorlage, der **DSH-Arbeitsbaum** ist das, was läuft.
+
+| | Ziel | Quelle | **DSH (läuft)** |
+|---|---|---|---|
+| **Gesamt** | **1.870,4 MB** · 52.545 Dateien | 9.029,2 MB · 110.468 | **1.553,3 MB** · 72.783 |
+| `node_modules` | 792,0 MB | **8.642,1 MB** | 1.316,9 MB |
+| `target/` (Rust-Bau) | **697,6 MB** | — | — |
+| `packages` | **0,9 MB** | 205,5 MB | 76,2 MB |
+| eigener Quelltext `.ts` | **60 Dateien · 23.374 Zeilen** | 4.876 · 1.026.282 | 2.542 · 562.378 |
+
+**Vier Ergebnisse.**
+
+1. **Gegen die Quelle sieht es gut aus — und das ist eine Illusion.** 8.642 der 9.029 MB sind
+   `node_modules` (pnpm). Wer so vergleicht, vergleicht **Installationen**, nicht Programme (B27).
+2. **Gegen den laufenden DSH-Arbeitsbaum ist das Ziel GRÖSSER: +317 MB.** Ursache zerlegbar: **697,6 MB**
+   Rust-`target/`, 57,4 MB `docs` (die Upstream-Dokumentation als Kopie unter `docs/dsh/`), 110,3 MB
+   `apps`. Der eigene Quelltext ist dagegen **winzig**. **Wenig Code, großer Fußabdruck.**
+3. **Und die Zahl, die zählt:** `target/` ist über `.gitignore` abgedeckt, wird also **nicht
+   ausgeliefert**. Ohne es: **1.870,4 − 697,6 = 1.172,8 MB gegen 1.553,3 MB** — das Ziel ist **~24 %
+   kleiner** als der DSH-Arbeitsbaum, bei **achtmal weniger eigenem Code**.
+4. **Laufzeit: ein Datenpunkt, und er ist nicht vergleichbar.** Die laufende DSH-GUI belegt
+   **2.407,9 MB** (alle neun `node`-Prozesse: 2.803,9 MB); ein **frischer** PMH-Host lag bei **184–198 MB**
+   (13:41 gemessen, sechs Waisen). Das sieht nach Faktor 12 aus — **ist es nicht**: die DSH-GUI trägt
+   **diese Sitzung** mit allem Zustand, der PMH-Host war frisch. Ein zulässiger Vergleich bräuchte zwei
+   *frisch gestartete* Hosts, und einen DSH-Host zu starten ist mir verwehrt (**H1**).
+   **Also: im Betrieb ist nichts belegt — in keine Richtung.**
+
+**Mein Urteil.** Die Hypothese ist **so nicht belegt**: auf der Platte ist die neue Harness gegen den
+laufenden Arbeitsbaum größer, und für den Betrieb fehlt der vergleichbare Datenpunkt. **Aber** der
+Überschuß ist zu 698 MB ein Bauverzeichnis, das nicht ausgeliefert wird — **ohne** Bauartefakte ist sie
+**kleiner** und trägt **achtmal weniger Code**. Und die eigentliche Effizienzfrage sitzt woanders:
+**49 Go- und 16 Rust-Dateien mit 20.379 Zeilen** gegen ein `packages`-Verzeichnis mit **0,9 MB** —
+**gebaut wird viel, verdrahtet ist wenig** (B25, B31, die Rust-Crates ohne Aufrufer).
+
+**Zwei eigene Messungen dieses Takts sind unbrauchbar, und sie stehen so im Protokoll:**
+
+1. **Abhängigkeitsfläche (c):** mein Muster auf `bun.lock`/`pnpm-lock.yaml` traf das Format nicht und
+   meldete je **1** Paketzeile — offensichtlich falsch. **Kein Ergebnis.**
+2. **Installierte Pakete:** `node_modules` des Ziels meldete **192** Verzeichnisse, der Unterordner
+   `@deepseek-ai` darin **257** — **widersprüchlich**, also wertlos (vermutlich zählt
+   `Get-ChildItem -Directory` Verweise anders als echte Ordner). **Kein Ergebnis.**
+
+**Und ein Nebenbefund, der einen eigenen Vorbehalt erledigt:** in **B32** stand, ich hätte **nicht**
+geprüft, ob ein Entwicklungsserver läuft. Nachgeholt: **es läuft einer** —
+`node node_modules/vite/bin/vite.js --port 5174 --strictPort` (PID 6032). Damit bleibt es für die beiden
+**Server**-Pakete sicher bei „nicht in Kraft" (beim Start um 09:39 geladen), aber der **Client**-Anteil
+**kann** über HMR live sein. Die Bedingung meines Vorbehalts ist **erfüllt** — das gehört zur Aussage.
+
 ---
 
 ## Offen / nächster Takt

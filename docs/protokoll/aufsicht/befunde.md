@@ -2703,6 +2703,97 @@ den Stapel und fährt Migrationen — gegen den **laufenden** Stapel des Bauende
 (Hausregel H5). Geprüft ist damit alles **gelesen und gemessen**, was ohne Zustandsänderung prüfbar ist:
 Dateilisten, Versionierung, Quelltext der Einstiege, die Abhängigkeitsaussagen — **nicht** sein exit 0.
 
+## B35 — Ist die neue Harness **ressourceneffizienter** als das Original? Gemessen: **auf der Platte nein, im Betrieb unbelegt** — **Auskunft**
+
+**Die Frage des Betreibers.** *„Zumindest ist es nah an 2 GB zur Original, es könnte auch sein, daß diese
+neue Harness Ressourcen effizienter ist ect. Oder auch nicht. Bleibe skeptisch und pessimistisch,
+genauso logisch."*
+
+**Was „effizient" hier heißen soll — vorher festgelegt**, sonst mißt man Beliebiges: **(a)** Installations-
+Fußabdruck, **(b)** Laufzeit-Fußabdruck, **(c)** Abhängigkeitsfläche. Und die **Vergleichsgröße** muß
+benannt werden — es gibt **drei** Bäume, nicht zwei:
+
+| | Ziel `prometheus-harness` | Quelle `harness/prometheus-harness` | **DSH `deepseek-harness`** (das, was läuft) |
+|---|---|---|---|
+| **Gesamt** | **1.870,4 MB** · 52.545 Dateien | 9.029,2 MB · 110.468 | **1.553,3 MB** · 72.783 |
+| `node_modules` | 792,0 MB | **8.642,1 MB** | 1.316,9 MB |
+| `target/` (Rust-Bau) | **697,6 MB** | — | — |
+| `docs` | 57,4 MB | 22,3 MB | 3,4 MB |
+| `packages` | **0,9 MB** | 205,5 MB | 76,2 MB |
+| `apps` | 110,3 MB | 31,3 MB | 12,8 MB |
+| `.git` | 19,5 MB | 89,8 MB | 124,7 MB |
+
+**Ergebnis 1 — gegen die *Quelle* sieht es gut aus, und das ist eine Illusion.** 8.642 der 9.029 MB der
+Quelle sind **`node_modules`** — eine Eigenschaft des **Paketmanagers** (pnpm), nicht der Harness. Wer
+diesen Vergleich zieht, vergleicht Installationen, nicht Programme (so schon **B27**).
+
+**Ergebnis 2 — gegen den *laufenden* DSH-Arbeitsbaum ist das Ziel GRÖSSER: 1.870 gegen 1.553 MB, also
++317 MB.** Die Ursache ist zerlegbar: **697,6 MB** sind Rust-`target/`, dazu **57,4 MB** `docs` (die
+Upstream-Dokumentation liegt als Kopie unter `docs/dsh/`) und 110,3 MB `apps`. Der eigene Quelltext ist
+dagegen **winzig**:
+
+| eigener Quelltext | Ziel | Quelle | DSH |
+|---|---|---|---|
+| `.ts` | **60 Dateien · 23.374 Zeilen · 0,9 MB** | 4.876 · 1.026.282 · 44,5 MB | 2.542 · 562.378 · 23,0 MB |
+| `.tsx` | 5 · 344 | 631 · 155.673 | 273 · 72.568 |
+| `.go` | 49 · 13.810 | — | — |
+| `.rs` | 16 · 6.569 | — | — |
+
+**Wenig Code, großer Fußabdruck** — und der Überschuß ist **kein Betriebs-, sondern ein Bau- und
+Dokumentationsgewicht.**
+
+**Ergebnis 3 — und jetzt die Zahl, die zählt.** `target/` ist über `.gitignore` abgedeckt (geprüft in
+**B6**-Umfeld), wird also **nicht ausgeliefert**. Zieht man es ab, bleibt für das **Ausgelieferte**:
+
+```
+Ziel, ohne Bauartefakte : 1.870,4 − 697,6 = 1.172,8 MB
+DSH-Arbeitsbaum         :                  1.553,3 MB
+                          → das Ziel ist ~24 % KLEINER
+```
+
+**Ergebnis 4 — Laufzeit: ein Datenpunkt, und er ist nicht vergleichbar.** Die laufende DSH-GUI
+(PID 22260, `node --import tsx/esm … web`) belegt **2.407,9 MB** Arbeitsspeicher; alle neun
+`node`-Prozesse zusammen **2.803,9 MB**. Ein **PMH-Host** lag bei meiner Messung um **13:41** bei
+**184–198 MB** je Instanz (sechs Waisen, gemessen). Das sieht nach Faktor 12 aus — **ist es aber nicht**:
+die DSH-GUI trägt **diese Sitzung** mit allem Zustand, ein PMH-Host war **frisch und ohne Sitzung**. Ein
+Vergleich wäre erst mit zwei *frisch gestarteten* Hosts zulässig, und einen DSH-Host zu starten ist mir
+verwehrt (**H1**). **Also: im Betrieb ist nichts belegt — in keine Richtung.**
+
+**Zwei eigene Messungen dieses Takts sind unbrauchbar, und sie stehen hier statt zu verschwinden:**
+
+1. **Abhängigkeitsfläche (c):** mein Muster auf `bun.lock`/`pnpm-lock.yaml` traf das Format nicht und
+   meldete je **1** Paketzeile — offensichtlich falsch. **Kein Ergebnis.**
+2. **Installierte Pakete:** `node_modules` des Ziels meldete **192** Verzeichnisse, der Unterordner
+   `@deepseek-ai` darin aber **257** — das kann nicht sein. Die Zählung ist **widersprüchlich** und
+   damit wertlos; vermutlich zählt `Get-ChildItem -Directory` Verweise (junctions) anders als echte
+   Ordner. **Kein Ergebnis** — wer die Abhängigkeitsfläche braucht, zählt die Sperrdatei mit einem
+   passenden Parser.
+
+**Mein Urteil, in drei Sätzen.** Die Hypothese „die neue Harness ist ressourceneffizienter" ist **so
+nicht belegt**: gegen den laufenden Arbeitsbaum ist sie auf der Platte **größer**, und für den Betrieb
+fehlt der vergleichbare Datenpunkt. **Aber** der Platten-Überschuß ist zu **698 MB** ein
+Rust-Bauverzeichnis, das nicht ausgeliefert wird — **ohne** Bauartefakte ist das Ziel **~24 % kleiner**
+als der DSH-Arbeitsbaum und hat **achtmal weniger eigenen Code**. Und die eigentliche Effizienzfrage
+stellt sich an einer anderen Stelle: **49 Go- und 16 Rust-Dateien mit 20.379 Zeilen** stehen einem
+`packages`-Verzeichnis mit **0,9 MB** gegenüber — gebaut wird viel, verdrahtet ist wenig (siehe **B25**,
+**B31**, und die Rust-Crates ohne Aufrufer).
+
+## B32-Nachtrag — ein **Entwicklungsserver läuft**, also ist mein „nicht geprüft" jetzt geprüft
+
+In **B32** steht: *„für die Oberflächen-Änderung gilt es nur, solange kein Entwicklungsserver
+(`pnpm run dev:web`) läuft; **ob einer läuft, habe ich nicht geprüft**."* Nachgeholt:
+
+```
+PID 6032  node node_modules/vite/bin/vite.js --port 5174 --strictPort   (Elternprozess 22236)
+```
+
+**Es läuft einer.** Damit präzisiert sich B32: die beiden **Server**-Pakete (`llm-deepseek`, `crew`)
+sind **sicher** nicht in Kraft — sie wurden beim Start um 09:39 geladen und werden nicht heiß getauscht.
+Der **Client**-Anteil (`ui-model-selection`, neue Datei `directory-order.ts`) **kann** dagegen sehr wohl
+live sein, weil Vite ihn über HMR ausliefert. **Ich habe das nicht bis zum Ende geprüft** (dafür müßte
+ich im Browser der GUI nachsehen) — aber die Bedingung, unter der mein Vorbehalt stand, ist **erfüllt**,
+und das gehört zur Aussage dazu.
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
