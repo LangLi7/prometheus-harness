@@ -127,6 +127,15 @@ export function bereichsZeilen(packages) {
   for (const zeile of BLEIBENDE_EINTRAEGE) {
     zeilen.push(zeile)
   }
+  // **Die Subagenten-Abschaltung steht hier und nicht in `BLEIBENDE_EINTRAEGE`.**
+  // Der erste Versuch spreadete sie dort hinein — und `BLEIBENDE_EINTRAEGE` wird
+  // beim Laden des Moduls ausgewertet, die Konstante aber **später** deklariert.
+  // In ESM ist das ein `ReferenceError` (temporal dead zone), und zwar beim
+  // **Import**: die ganze Datei wäre unbenutzbar geworden. Hier wird sie zur
+  // **Laufzeit** von `bereichsZeilen` gelesen — dann ist sie initialisiert.
+  for (const zeile of SUBIAGENTEN_ABSCHALTUNG) {
+    zeilen.push(zeile)
+  }
   zeilen.push(MARKE_ENDE)
   return zeilen
 }
@@ -166,6 +175,60 @@ export const BLEIBENDE_EINTRAEGE = [
   '  name: "@deepseek-ai/dsh-client-ui-settings-general"',
   '  config:',
   '    welcomeNoticeVersion: 2026-09-28.1',
+]
+
+/**
+ * Die zwei Subagenten-Adapter, die **bewußt abgeschaltet** werden.
+ *
+ * ## Der Befund
+ *
+ * Der Host meldet bei jedem Start:
+ *
+ * ```
+ * [host] pmh: warning: 2 entries did not activate
+ * [host] subagent-claude-code (@deepseek-ai/dsh-subagent-claude-code): failed to import
+ * [host] subagent-codex        (@deepseek-ai/dsh-subagent-codex): failed to import
+ * ```
+ *
+ * **Gemessen:** beide Pakete liegen in **keinem** Baum (weder im Ziel noch in
+ * `harness\prometheus-harness` noch in `harness\deepseek-harness`) und stehen
+ * **nicht** in unserem `package.json`. Deklariert sind sie in
+ * `@deepseek-ai/dsh-app-boot` als
+ *
+ * ```js
+ * const ON_DEMAND_BUNDLES = ["@deepseek-ai/dsh-subagent-claude-code",
+ *                            "@deepseek-ai/dsh-subagent-codex"];
+ * ```
+ *
+ * ## Warum abschalten und nicht nachinstallieren
+ *
+ * **Beide gibt es im Register** — aber in der Fassung **`0.0.1-rc.1`**, während der
+ * Kern auf **`0.2.1-alpha.2`** läuft. Ein **älterer** Adapter gegen einen
+ * **neueren** Kern ist ein Vertragsrisiko, das niemand geprüft hat — und der
+ * Betreiber nutzt weder die Claude-Code- noch die Codex-CLI.
+ *
+ * **Sie blockieren nichts.** Belegt: mit genau diesen zwei Fehlschlägen liefen
+ * `session/create`, `session/prompt` und ein vollständiger Turn bis
+ * `turn/end {"kind":"completed"}` durch, und **alle fünf Werkzeuge** waren grün
+ * (`docs/status/werkzeug-nachweis.md`). Es sind **`ON_DEMAND_BUNDLES`** — der Kern
+ * sieht sie ausdrücklich als **auf Anfrage**, nicht als Grundausstattung.
+ *
+ * ## Was das kostet, ehrlich benannt
+ *
+ * **Zwei Subagenten-Arten stehen nicht zur Verfügung:** der Claude-Code- und der
+ * Codex-Adapter. Wer sie braucht, muß sie **ausdrücklich** installieren und diese
+ * Abschaltung zurücknehmen — dann aber gegen die **Fassungsfrage** prüfen, nicht
+ * gegen die Annahme „wird schon passen".
+ *
+ * **Warum die Abschaltung im Erzeuger steht und nicht von Hand in der Profildatei.**
+ * Der Bereich gehört dem Erzeuger; eine Handänderung darin verschwindet beim
+ * nächsten Start. Genau das ist schon einmal passiert (`ui-settings-general`).
+ */
+export const SUBIAGENTEN_ABSCHALTUNG = [
+  '- id: subagent-claude-code',
+  '  disabled: true',
+  '- id: subagent-codex',
+  '  disabled: true',
 ]
 
 /**

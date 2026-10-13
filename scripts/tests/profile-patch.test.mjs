@@ -26,6 +26,7 @@ import { join } from 'node:path'
 import {
   EIGENE_PAKETE,
   PTC_EINTRAEGE,
+  SUBIAGENTEN_ABSCHALTUNG,
   MARKE_ANFANG,
   MARKE_ENDE,
   bereichsZeilen,
@@ -112,8 +113,15 @@ describe('bereichsZeilen', () => {
     // beim ersten Überschreiben des Bereichs passiert ist.
     const oben = zeilen.filter((z) => z.startsWith('- '))
     expect(oben[0]).toBe('- insert:')
-    expect(oben).toHaveLength(2)
+    // **Vier oberste Einträge:** der `insert`-Block, der bleibende Eintrag der
+    // Oberfläche und die zwei Subagenten-Abschaltungen. Die Zahl wird aus den
+    // Konstanten gebildet und nicht hingeschrieben — sonst müßte sie bei jeder
+    // Ergänzung nachgezogen werden, und eine Prüfung, die man bei jeder Änderung
+    // anpasst, prüft nichts.
+    expect(oben).toHaveLength(1 + 1 + SUBIAGENTEN_ABSCHALTUNG.length / 2)
     expect(oben).toContain('- id: ui-settings-general')
+    expect(oben).toContain('- id: subagent-claude-code')
+    expect(oben).toContain('- id: subagent-codex')
   })
 
   test('das PTC-Zwischenstück wird NICHT abgeschaltet — es wurde ladbar gemacht', () => {
@@ -124,11 +132,25 @@ describe('bereichsZeilen', () => {
     // (`scripts/ptc-typentfernung.mjs`), deshalb darf hier **keine** Abschaltung
     // mehr stehen. Wer sie wieder einbaut, bekommt eine rote Prüfung und muß sich
     // entscheiden.
+    //
+    // **Und die Gegenprobe, damit die Prüfung nicht zu breit wird.** Seit die zwei
+    // Subagenten-Adapter abgeschaltet werden, gibt es `disabled:`-Zeilen im
+    // Bereich — eine Prüfung auf „gar keine Abschaltung" wäre damit rot, obwohl
+    // das PTC-Teil richtig dasteht. Geprüft wird deshalb **genau das PTC-Teil**
+    // und **genau die zwei Adapter**.
     const zeilen = bereichsZeilen(['@a/erst'])
     for (const id of PTC_EINTRAEGE) {
       expect(zeilen).not.toContain(`- id: ${id}`)
     }
-    expect(zeilen.filter((z) => z.includes('disabled:'))).toHaveLength(0)
+    // **Die Nachbarzeile wird im ORIGINAL gesucht, nicht im gefilterten Feld.**
+    // Der erste Versuch filterte erst auf `- id: ` und prüfte dann `alle[i + 1]` —
+    // in einem Feld, das nur noch `- id:`-Zeilen enthält, ist die nächste Zeile
+    // eine **andere id**, nie `disabled:`. Die Prüfung war damit immer leer und
+    // meldete einen Unterschied, den es nicht gab.
+    const abgeschaltet = zeilen.filter(
+      (z, i) => z.startsWith('- id: ') && zeilen[i + 1] === '  disabled: true',
+    )
+    expect(abgeschaltet).toEqual(['- id: subagent-claude-code', '- id: subagent-codex'])
   })
 })
 
@@ -225,7 +247,7 @@ describe('mitBereich', () => {
     // `insert`-Block trug. Jetzt trägt er zusätzlich die Abschaltungen des
     // PTC-Zwischenschritts und einen bleibenden Eintrag der Oberfläche. Geprüft
     // wird deshalb der **erste** Eintrag genau und die Anzahl insgesamt.
-    expect(eintraege).toHaveLength(2)
+    expect(eintraege).toHaveLength(1 + 1 + SUBIAGENTEN_ABSCHALTUNG.length / 2)
     expect(Object.keys(eintraege[0])).toEqual(['insert'])
     const eingefuegt = eintraege[0].insert
     expect(eingefuegt).toHaveLength(1)
