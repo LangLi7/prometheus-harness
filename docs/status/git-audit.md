@@ -265,7 +265,7 @@ schwach, ist **nicht geklärt** und gehört in ein eigenes Paket.
 |---|---|
 | Auslöser | Der Windows-Start ließ sich nicht erklären; die bisherige Erklärung (`windows-start-nachweis.md` §5: „Laufzeit-Grenze von Bun") war eine **Hypothese**, keine Messung |
 | `HEAD` / `origin/main` | nach dem Push dieses Commits erneut über die API zu prüfen |
-| Umfang | **Dokumentation + zwei Messsonden** (`docs/status/kleinste-kette-nachweis.md` §6, `docs/status/arbeitspakete.md` P9, `.pmh-build/*`) |
+| Umfang | **Dokumentation + vier Messsonden** (`docs/status/kleinste-kette-nachweis.md` §6, `docs/status/arbeitspakete.md` P9, `docs/status/messsonden/*`) |
 | Art | **keine Codeänderung** am Produkt. Kein pnpm, kein npx, kein Docker, kein Nix. Ein Go-Dienst wurde **getestet**, nicht gestartet |
 
 **Was gemessen wurde — Windows nativ gegen WSL2, gleicher Baum, gleiche Quelldatei:**

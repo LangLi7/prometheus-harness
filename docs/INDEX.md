@@ -120,6 +120,7 @@ Der frühere Auftrag „je 18–46 Dateien an einen Arbeiter" ist damit ersetzt.
 | [status/kleinste-kette-nachweis.md](status/kleinste-kette-nachweis.md) | **Der Nachweis der ersten vollständigen Kette**: Seam → Anbieter → Wiederholung → Loop → Werkzeuge → Sitzung → Persistenz → Wiederaufnahme. Acht Pakete, 262 Tests grün, je Testdatei gemessen — samt der zwei Fehler, die erst der durchgehende Test fand, und der namentlichen Liste dessen, was **nicht** belegt ist |
 | [status/windows-start-nachweis.md](status/windows-start-nachweis.md) | Der Windows-Start (`t40`): drei `bun`-Einträge, zwei defekt; der Launcher funktioniert, der Host kommt unter Windows nativ **nicht** hoch (HTTP 200 nur unter WSL2) |
 | [status/plugin-export-nachweis.md](status/plugin-export-nachweis.md) | Der Rundlauf des Unit-Exports: Export → Import → Rückexport mit **identischem** Digest (`sha256:ac37e0ec…`) |
+| [status/messsonden/README.md](status/messsonden/README.md) | Vier kleine Sonden, mit denen die Messungen aus `kleinste-kette-nachweis.md` §6 nachvollziehbar sind — Laufzeitversion, Paketauflösung, Host-Start unter Windows und WSL2 |
 
 ## 8. Weitere Ablage
 

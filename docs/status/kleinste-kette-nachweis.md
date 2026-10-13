@@ -230,7 +230,7 @@ peerDependencies {"@deepseek-ai/dsh-brand":"^0.1.1-rc.2", …}
    wenig. Das Ergebnis ist **plattform**abhängig, nicht laufzeitabhängig.
 2. **Die Laufzeitversion stimmt.** `getDshRuntimeVersion()` liest
    `@deepseek-ai/dsh-app-boot/package.json`. Nachgemessen mit einer Sonde
-   (`.pmh-build/runtime-version-probe.ts`), die dieselbe Spezifikation aus
+   ([`runtime-version-probe.ts`](messsonden/runtime-version-probe.ts)), die dieselbe Spezifikation aus
    demselben Einstieg auflöst wie der Host:
 
    ```
