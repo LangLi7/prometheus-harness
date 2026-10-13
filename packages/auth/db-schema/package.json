@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/db-schema",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "PostgreSQL-Schema des Prometheus Harness: versionierte Migrationen für Benutzer, Sitzungen, API-Schlüssel, Workspaces, Chats und Nachrichten. Enthält eine Läufer-Funktion, die Migrationen genau einmal und in Reihenfolge anwendet — mit Prüfsumme je Migration.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}
