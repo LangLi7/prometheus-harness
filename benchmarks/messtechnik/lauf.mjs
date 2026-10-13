@@ -300,7 +300,12 @@ export function teile() {
       })
       return r.ok
         ? { ok: false, text: `ROT  Auflösungsgrenze greift nicht: 100 Einträge ergaben ein Urteil (${r.text})` }
-        : { ok: true, text: `ok   Auflösungsgrenze: ${r.text}` }
+        : {
+            ok: true,
+            // Das innere `ROT` ist hier **erwartet** — es ist die geprüfte Sache.
+            // Deshalb davor ein eigener Satz statt eines zweiten Statuszeichens.
+            text: `ok   Auflösungsgrenze greift: 100 Einträge ergeben kein Urteil, sondern „nicht beurteilbar"`,
+          }
     },
 
     // **Die Aufwärmphase, echt gemessen.** Der Dateikopf von `messen.mjs` nennt
@@ -318,11 +323,19 @@ export function teile() {
       // **Kein Urteil über den Faktor, nur über die Größenordnung.** Wäre die
       // Aufwärmphase wirkungslos, wäre der Faktor 1 — dann könnte sie weg. Daß
       // er auf dieser Maschine schwankt, ist erwartet und kein Befund.
+      //
+      // **Der Fehler, der hier stand.** `ok` wurde berechnet, der Text aber
+      // begann **fest** mit `ok  `. Ein Befund hätte also `ok   Aufwärmphase: …`
+      // gemeldet, während der Exit-Code 1 war — dieselbe Sorte falscher Treffer
+      // wie in der quadratischen Gegenprobe, nur andersherum. Der Text wird
+      // jetzt aus **derselben** Bedingung gebildet wie `ok`.
+      const inOrdnung = Number.isFinite(faktor) && faktor > 1
       return {
-        ok: Number.isFinite(faktor) && faktor > 1,
+        ok: inOrdnung,
         text:
-          `ok   Aufwärmphase: erster Lauf ${ohne.median.toFixed(2)} ms gegen Median ` +
-          `${mit.median.toFixed(2)} ms über 20 Läufe — Faktor ${faktor.toFixed(2)}×`,
+          `${inOrdnung ? 'ok  ' : 'ROT '} Aufwärmphase: erster Lauf ${ohne.median.toFixed(2)} ms gegen Median ` +
+          `${mit.median.toFixed(2)} ms über 20 Läufe — Faktor ${faktor.toFixed(2)}×` +
+          (inOrdnung ? '' : ' (erwartet: > 1 — sonst wirkt die Aufwärmphase nicht)'),
       }
     },
 
