@@ -2,7 +2,7 @@
 
 > **Was das ist.** Die Kurzfassung von [`befunde.md`](befunde.md) und [`protokoll.md`](protokoll.md):
 > was **jetzt** zu tun ist, was erledigt ist, was **nicht** geprüft werden konnte. Stand:
-> **2026-10-13, 13:55**. Die Einzelbelege stehen in `befunde.md` — hier steht nur, was eine
+> **2026-10-13, 14:45**. Die Einzelbelege stehen in `befunde.md` — hier steht nur, was eine
 > Entscheidung braucht.
 >
 > **Wer das schreibt.** Die **Aufsicht** (Wächter-Rolle), nicht der bauende Agent. Jede Zahl hier ist
@@ -34,6 +34,8 @@ nächsten Lauf. **Stand 14:12 gemessen:** null Hosts, null Launcher, **0,0 MB**.
 | # | Was | Warum es zählt | Nachweis in einem Befehl |
 |---|---|---|---|
 | **B23** | **behoben um 13:53** (`$wurzelPid`), **zwei Ein-Wort-Reste offen** (siehe §0) | Die Kernursache ist weg — und sie war gefährlicher, als sie aussah: ein halber Fix hätte das **eigene Skript** beendet. Die zwei Reste kosten die **Sichtbarkeit**: die neue Waisenprüfung zählt nicht, und der Schutz „dieser Test prueft nichts" greift nie | `Select-String -Path scripts\port-test.ps1 -Pattern '\$fehler\+\+|\$script:fehler'` |
+| **B24** | **Die 15 Vertragstests von `native/flock` sind auf dieser Maschine nirgends ausführbar** — Windows: `running 0 tests` (grün, weil `#![cfg(unix)]`); WSL Ubuntu: **kein `cargo`/`rustc`**. Ein grüner `cargo test` beweist hier **nichts** über den Vertrag | Ohne diesen Nachweis trägt „der Vertrag ist umgesetzt" nur als **Behauptung**. **Ein Befehl schließt die Lücke** (rustup in WSL) — danach laufen 15 Tests statt 0. **Dazu:** `target/debug/pmh-flock.exe` **existiert**, der Satz „unter Windows wird es nicht gebaut" ist damit falsch (gemessen, das Verhalten selbst ist vorbildlich) | `wsl -d Ubuntu -- sh -c 'command -v cargo \|\| echo FEHLT'` |
+| **B25** | **Das deklarierte Startkommando der Unit `pmh-flock` tut nichts:** `--hold-ms 0` schläft 0 ms → Sperre sofort frei, Prozess endet. `units/README.md` Zeile 63 definiert `entry` als „**wie der Dienst gestartet wird**" | **Latent, nicht akut** — niemand führt die Kommandos aus, solange `pmh-supervisor` fehlt. **Systemisch:** **10** von 10 Dienst-Einträgen nennen einen **nackten Binärnamen**, **0** davon sind im `PATH`; mehrere sind **Einmalaufrufe** als `service` deklariert — **dieselbe Lücke wie B18** im Launcher. Fix: `--daemon` und die Unterscheidung Einmalaufruf/Dienst im Format | `Get-Command pmh-flock` → nicht gefunden |
 
 | **B22** | **erledigt** — die Waisen sind **erklärt** (B23), **aufgeräumt** und die Ursache ist **behoben**: um 13:41:50 noch **sechs** (1,13 GB, Alter bis 11,4 min), um 13:42 **null**; sein Lauf um 13:43 hinterließ **drei** weitere (591,1 MB, Ports 5780/5781/5790), auch die sind um **14:12 weg** (null Hosts, null Launcher, 0,0 MB). Der Nachzähl-Schritt, den ich empfohlen hatte, steht jetzt **im Skript** (Zeilen 189–198) | Sechs Hosts = sechs Ports, sechs Harness-Homes, **1,13 GB**; dazu blockierten sie die eigenen nächsten Läufe (Fall 1 fiel deshalb um). **Bleibt nützlich:** [`hilfen/waisen-aufraeumen.ps1`](hilfen/waisen-aufraeumen.ps1) als Netz — Herkunft entscheidet, das Alter siebt nur die Kinder eines laufenden Tests aus (Trockenlauf; `-Anwenden` beendet) |
 | **B16** | ~~**„API ausgefallen" ist nicht belegt.**~~ **ENTSCHIEDEN — die Behauptung ist widerlegt.** Angemeldet an ihrem **laufenden** Host antwortet `POST /api/goals/create` mit **HTTP 200 und JSON-RPC-Rahmen**: der Typert-Gateway **lebt**. Die README-Zeile „API des Cores ausgefallen" ist damit **falsch**, und die Begründung der Entscheidung „eigener Endpunktweg" („die Vorlage hat keine erreichbare API") **hinfällig** — die Entscheidung selbst bleibt legitim | Die eigene Sonde konnte es nicht sehen: ohne Anmeldung ist **jeder** `/api/*`-Pfad 401, mit Anmeldung sind ihre 19 **geratenen** Pfade 404. Nur ein **registrierter** Pfad antwortet. **Offen:** der WS-Pfad `/api/remote.mux` scheitert auf **beiden** Installationen schon beim Handschlag | `bun run docs\protokoll\aufsicht\werkzeuge\api-erreichbarkeit.mjs http://127.0.0.1:<port>` (mit Token) |
@@ -71,6 +73,7 @@ nächsten Lauf. **Stand 14:12 gemessen:** null Hosts, null Launcher, **0,0 MB**.
 | Form der Host-Ausgabe (`token=<43 Zeichen base64url>`) | aus meiner Sitzung nicht prüfbar — die laufende GUI meldet keinen Token in `DSH_HOME`-Variablen |
 | Widerspruch 17 rot gegen 19 grün bei `atomic-write` | Tests wurden von mir **nicht** ausgeführt (H5) |
 | Ob der pnpm-Store-Gewinn netto 4,3 GB beträgt | im Dokument selbst als offen benannt |
+| **Bestehen die 15 Vertragstests von `native/flock`?** | **nicht prüfbar auf dieser Maschine** — Windows kennt `flock(2)` nicht und kompiliert die Suite weg (`running 0 tests`), WSL Ubuntu hat keinen Rust-Compiler (Befund **B24**). Der Vertrag ist damit auf dieser Maschine **unverifiziert**, nicht falsch |
 
 ## 4. Gefahren, die niemanden stören, solange nichts passiert
 
@@ -102,6 +105,21 @@ bun  run hilfen\anbieter-rauchtest.mjs
 # Waisen aufspüren: Herkunft (Kommandozeile) entscheidet, das Alter siebt nur die
 # lebenden Kinder eines laufenden Tests aus. Ohne -Anwenden wird NICHTS beendet.
 pwsh -NoProfile -ExecutionPolicy Bypass -File hilfen\waisen-aufraeumen.ps1
+```
+
+**Ein Crate prüfen, ohne den fremden Baum anzufassen** (Vorbild: `native/flock`, Befund **B24**). Die
+Kopie liegt außerhalb des Repos, `CARGO_TARGET_DIR` ebenfalls — es wird **nichts** im Baubereich
+geschrieben:
+
+```powershell
+$tmp = "$env:TEMP\pmh-flock-probe"
+New-Item -ItemType Directory -Path "$tmp\native" -Force | Out-Null
+Copy-Item C:\Users\Chang\prometheus-harness\Cargo.toml "$tmp\Cargo.toml"
+Copy-Item C:\Users\Chang\prometheus-harness\native\flock "$tmp\native\flock" -Recurse
+$c = (Get-Content "$tmp\Cargo.toml" -Raw) -replace '(?s)members = \[.*?\]', 'members = ["native/flock"]'
+Set-Content "$tmp\Cargo.toml" -Value $c
+$env:CARGO_TARGET_DIR = "$tmp\target"
+cargo test -p pmh-flock --manifest-path "$tmp\Cargo.toml"   # Windows: contract.rs -> running 0 tests
 ```
 
 > **Zur Ausführungsrichtlinie.** Auf diesem Rechner steht `CurrentUser = Restricted` (und schlägt das

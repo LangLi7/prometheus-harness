@@ -1754,6 +1754,62 @@ nachgemessen und nenne sie deshalb als **Spur**, nicht als Befund.
 Befund **B23** steht vollständig in [`befunde.md`](befunde.md) — mit Beweis, den zwei weiteren
 Defekten derselben Familie und dem Ein-Wort-Fix.
 
+## 2026-10-13 14:25–14:50 — Einunddreißigster Takt: **die Abnahme des `flock`-Vertrags ist hier nicht ausführbar** (B24) — und zwei eigene Fehlalarme
+
+**Der Anlass.** Im Arbeitsbaum liegen neue, unversionierte Rust-Arbeit: `native/flock` (1.473 Zeilen
+Code+Kommentar), dazu `research-2026-dauerhaftigkeit-atomare-dateiops.md`. Mein Auftrag fragt bei jeder
+Anpassung: **ist sie nötig?** Also habe ich sie nachgefahren — **nicht** an ihrem Baum, sondern an einer
+**Kopie außerhalb** (`%TEMP%\pmh-flock-probe`, `CARGO_TARGET_DIR` im Provisorium). Kein Schreibzugriff
+auf ihr Repository; der Befehl steht in `LAGE.md` §5 zum Nachfahren.
+
+**Ergebnis 1 — der Lauf ist grün und beweist nichts.** `cargo test -p pmh-flock` auf Windows:
+
+```
+  src\lib.rs   →  running 12 tests … 12 passed
+  src\main.rs  →  running  5 tests …  5 passed
+  tests\contract.rs →  running  0 tests … 0 passed      ← die Vertragssuite
+```
+
+`#![cfg(unix)]` (Zeile 25) kompiliert die **15** Abnahmetests auf Windows zu **nichts**. Und die
+Plattform, auf der `flock(2)` existiert, hat **keine Werkzeugkette**: in WSL Ubuntu sind `cargo` und
+`rustc` **nicht vorhanden** (`go`, `cc`, `bun` sind da). **Damit gibt es auf dieser Maschine keinen Ort,
+an dem der Vertrag dieses Crates geprüft wird.** Das ist keine Kritik am Code — es ist die Feststellung,
+dass „umgesetzt" hier **Behauptung** bleibt, bis jemand einen POSIX-Host mit Rust hat. **Ein Befehl
+schließt die Lücke** (rustup in WSL, siehe `befunde.md` B24).
+
+**Ergebnis 2 — ein Satz ist falsch, die Sache stimmt.** `unit.json` und README sagen, unter Windows
+werde das Binary „nicht gebaut". Es **ist** gebaut (`target/debug/pmh-flock.exe`, 242.176 B), weil das
+Crate ein Workspace-Mitglied ist. Sein Verhalten habe ich ausgeführt: `--probe` →
+`{"supported":false,"platform":"windows-x86_64"}` mit Exit **0**; `--path`, `--inspect`, `--fd` →
+`ERR_FLOCK_UNSUPPORTED_PLATFORM` mit Exit **125**. Das ist **vorbildlich** — eigener Errcode, JSON,
+sauberer Exit. Falsch war nur der Satz.
+
+**Ergebnis 3 — das Startkommando der Unit tut nichts (B25).** `entry.args = ["--path","sessions.jsonl","--hold-ms","0"]`,
+und `hold()` macht `sleep(0)` → die Sperre ist sofort wieder frei. Die README des Crates nennt den
+richtigen Modus (`--daemon`) — die **Deklaration** nennt ihn nicht. **Systemisch nachgezählt:** **10 von
+10** Dienst-Einträgen nennen einen **nackten Binärnamen**, **keiner** ist im `PATH` auflösbar, und
+mehrere sind **Einmalaufrufe** als `service` deklariert. Das ist **dieselbe Lücke wie B18**: das
+Unit-Format kann „Einmalaufruf" und „Dienst" nicht unterscheiden.
+
+**Ergebnis 4 — mein Urteil zur Notwendigkeit: die Anpassung ist verteidigt, mit *einer* Lücke.** Die
+Fähigkeit wird gebraucht (`node:fs.flock` ist unter Bun `undefined` — gemessen). Ein natives
+Node-API-Addon ist **belegbar** keine Option: derselbe Baum hält fest, dass
+`node-addon-require-builtin` unter Bun nicht ladbar ist (`plugin-host.ts`, `docs/risks.md` §6). **Aber**
+die README wiegt nur das Addon ab — nicht `bun:ffi`, das **kein** Addon ist und das ihre **eigene**
+Recherche als **erste** Option nennt (`sprachwahl-entscheidung-2026.md` Zeile 48). Und der Punkt ist
+nicht bloß Sparen: eine Sperre **im Prozess** erhält die Vorlagensemantik von selbst — der `--fd`-Modus
+existiert nur, *weil* die Sperre in einem **anderen** Prozess lebt. Ich verlange keine Umkehr, sondern
+**diesen einen Vergleich** im Dokument, damit die Entscheidung in einem Jahr nachvollziehbar bleibt.
+
+**Zwei eigene Fehlalarme, beide gegen denselben Bauenden, beide vor der Veröffentlichung
+zurückgezogen.** (1) „Niemand liest `unit.json`" — **falsch**: ich hatte `-SimpleMatch` mit einem
+**escaped** Muster kombiniert, gesucht wurde der Backslash; `unit-export` liest die Manifeste über
+`MANIFEST_FILE = 'unit.json'` (`manifest.ts:488`). (2) „Bedingung 11 hat keinen Test, und 15 + 2 = 17
+von 18 ist ein Rechnungsloch" — **beides falsch**: Bedingung 11 wird als zweiter Teil von
+`condition_10` geprüft (`contract.rs:302`), damit sind **16** Bedingungen abgedeckt und **2** entfallen
+= **18** ✓; die „15" zählt **Testfunktionen**. Beide Korrekturen stehen in `befunde.md` §„Eigene
+Korrekturen" — und `unit.json` steht jetzt in der **Fairness**-Tabelle, wo es hingehört.
+
 ---
 
 ## Offen / nächster Takt
@@ -1782,6 +1838,8 @@ Defekten derselben Familie und dem Ein-Wort-Fix.
 | **B21** „Kette" bedeutet zweierlei | **offen, klein** | Die bindende Reihenfolge meint mit „Kleinste Kette" *Adapter → Agent-Loop → Session*; das Entscheidungsdokument nennt *Plugin → Route → Antwort* „**die ganze Kette**". Ein Leser kann den Meilenstein für erreicht halten. Empfehlung: eigenes Wort („Ladekette") · dazu: `readiness` verbindet PostgreSQL/Redis (Schritt-2-Territorium) — als **Sonde** legitim, aber die Grenze steht nirgends |
 | **B22** Port-Tests hinterlassen laufende Hosts | **erledigt — Ursache gemessen (B23) und behoben** | **Sechs** Waisen (1.129,7 MB, Alter bis 11,4 min, je HTTP 200) um **13:41:50** gemessen; der bauende Agent hat sie um **13:42** **selbst entfernt**; sein Lauf um 13:43 hinterließ **drei** weitere (591,1 MB, Ports 5780/5781/5790) — **auch die sind um 14:12 weg** (null Hosts, null Launcher, 0,0 MB). Die Ursache war **nicht** die Portwahl, sondern die **Aufräumfunktion** (**B23**), und die ist seit 13:53 geheilt. Die **Nachzählung**, die ich empfohlen hatte, steht jetzt im Skript (Zeilen 189–198) |
 | **B23** Die Aufräumfunktion des Port-Tests läuft nie | **behoben um 13:53 — zwei Ein-Wort-Reste** | `function BeendeBaum([int]$pid)` → **`[int]$wurzelPid`**, und der Rumpf ist **konsistent** nachgezogen (Zeilen 101/102). Das war die gefährliche Hälfte: ein halber Fix hätte nicht **nichts** getan, sondern den **eigenen Prozessbaum** beendet. **Dazu ungefragt besser:** die Portprüfung prüft jetzt den **gewählten** Port, und die **Waisen werden nachgezählt** (189–198, mit Eltern-PID). **Offen (je ein Wort):** `$fehler++` in den Zeilen **182/186/197** steht **im Funktionsrumpf** und zählt nicht (`$script:fehler` kommt nirgends vor) — darunter die neue Waisenprüfung; und Zeile **218** gibt den Fehlertext **in die Pipeline**, weshalb der Schutz „dieser Test prueft nichts" nie greift |
+| **B24** Abnahme des `flock`-Vertrags nicht ausführbar | **offen — ein Befehl in WSL** | `cargo test -p pmh-flock` ist auf Windows **grün mit `running 0 tests`**: `#![cfg(unix)]` kompiliert die **15** Vertragstests weg. In WSL Ubuntu fehlen `cargo`/`rustc`. **Damit ist der Vertrag auf dieser Maschine nirgends geprüft** — „umgesetzt" bleibt Behauptung, bis ein POSIX-Host mit Rust da ist. Dazu: `target/debug/pmh-flock.exe` **existiert** (242.176 B), der Satz „unter Windows wird es nicht gebaut" ist falsch; das **Verhalten** selbst ist vorbildlich (`ERR_FLOCK_UNSUPPORTED_PLATFORM`, Exit 125) |
+| **B25** Startkommando der Unit `pmh-flock` tut nichts | **offen, latent** | `--hold-ms 0` → `sleep(0)` → Sperre sofort frei. `units/README.md` Zeile 63 nennt `entry` aber „**wie der Dienst gestartet wird**". Systemisch: **10 von 10** Dienst-Einträgen nennen einen **nackten Binärnamen**, **keiner** im `PATH`; mehrere sind Einmalaufrufe als `service` — **dieselbe Lücke wie B18**. Solange `pmh-supervisor` fehlt, führt niemand sie aus (gemessen: `entry.command` wird nur gelesen) |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |

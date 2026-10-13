@@ -1878,6 +1878,136 @@ die sein Lauf um 13:43 hinterlassen hatte (591,1 MB, Ports 5780/5781/5790), sind
 
 ---
 
+## B24 — Die Abnahme des `flock`-Vertrags ist auf **keiner** von dieser Maschine erreichbaren Plattform ausführbar — **M**
+
+**Anlass.** `native/flock` ist neu (Rust, „Rust successor to `native/system/packages/entry/src/flock.c`").
+Sein `unit.json` behauptet: *„Die 18 Bedingungen sind als Testsuite in `tests/contract.rs` umgesetzt."*
+Diese Behauptung habe ich nachgefahren — **nicht** an ihrem Baum, sondern an einer **Kopie außerhalb**
+(`%TEMP%\pmh-flock-probe`: Wurzel-`Cargo.toml` mit `members = ["native/flock"]` plus das Crate;
+`CARGO_TARGET_DIR` im Provisorium). Kein Schreibzugriff auf ihr Repository.
+
+**Messung (`cargo test -p pmh-flock`, Windows):**
+
+```
+     Running unittests src\lib.rs   →  running 12 tests … ok. 12 passed
+     Running unittests src\main.rs  →  running  5 tests … ok.  5 passed
+     Running tests\contract.rs      →  running  0 tests … ok.  0 passed
+     Doc-tests pmh_flock            →  running  0 tests … ok.  0 passed
+```
+
+**Die Vertragssuite läuft mit `0 tests` — und der Lauf ist trotzdem grün.** Grund: `#![cfg(unix)]`
+(`tests/contract.rs` Zeile 25). Die **15** echten Abnahmetests werden auf Windows zu **nichts**
+kompiliert. Ein grüner `cargo test` auf diesem Rechner sagt über den Vertrag also **nichts** — die
+17 bestandenen Tests prüfen JSON-Feldnamen, Exit-Code-Tabelle und den Argumentparser.
+
+**Und die Plattform, auf der `flock` existiert, hat keine Werkzeugkette** (gemessen in WSL):
+
+```
+wsl -d Ubuntu -- sh -c 'command -v cargo; command -v rustc; command -v go; command -v cc'
+  cargo: FEHLT      rustc: FEHLT      go: /usr/bin/go      cc: /usr/bin/cc
+```
+
+**Folge, in einem Satz:** Die 15 Vertragstests sind auf dieser Maschine **nirgends** ausführbar — auf
+Windows gibt es `flock(2)` nicht, unter WSL gibt es keinen Rust-Compiler. Es gibt damit **keinen**
+erreichbaren Ort, an dem der Vertrag dieses Crates geprüft wird.
+
+**Dazu ein zweiter Widerspruch, gemessen.** `unit.json` und die README sagen: *„Windows nutzt diese API
+nicht … dieses Binary wird dort nicht gebaut."* Es **ist** aber gebaut:
+
+```
+target/debug/pmh-flock.exe   242.176 B
+  --probe              → {"version":1,"syscall":"flock","supported":false,"platform":"windows-x86_64"}   exit 0
+  --path <datei>       → {"code":"ERR_FLOCK_UNSUPPORTED_PLATFORM",…}                                    exit 125
+  --inspect --path …   → derselbe Fehler                                                                 exit 125
+  --fd 0               → derselbe Fehler                                                                 exit 125
+```
+
+Das **Verhalten** ist vorbildlich (klar, JSON, eigener Errcode, Exit 125) — falsch ist nur der **Satz**,
+das Binary werde dort nicht gebaut: ein `cargo build` im Wurzelverzeichnis baut es mit, weil das Crate
+ein Workspace-Mitglied ist.
+
+**Unterstützung, ein Befehl.** In WSL Ubuntu fehlt nur die Kette:
+
+```bash
+wsl -d Ubuntu -- bash -lc 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'
+# danach, im Repo (WSL-Sicht):  cargo test -p pmh-flock   → 15 Vertragstests statt 0
+```
+
+Eine **Kleinigkeit nebenbei, ehrlich benannt:** `--probe` endet auf Windows mit **Exit 0**, obwohl
+`supported:false` dasteht. Das ist laut Exit-Code-Tabelle richtig („`--probe` erfolgreich"), aber ein
+Aufrufer, der **nur den Exit-Code** liest, hält `flock` für benutzbar. Wer das Feld liest, ist sicher.
+
+## B25 — Das deklarierte Startkommando der Unit `pmh-flock` **tut nichts** — **N**
+
+`native/flock/unit.json`:
+
+```json
+"kind": "service",
+"entry": { "command": "pmh-flock", "args": ["--path", "sessions.jsonl", "--hold-ms", "0"] }
+```
+
+`units/README.md` Zeile 63 definiert `entry` bindend als *„bei `service`: `command` + `args`: **wie der
+Dienst gestartet wird**"*. Was dabei herauskommt, steht im Quelltext (`src/main.rs`, `hold`):
+
+```rust
+if let Some(ms) = hold_ms { std::thread::sleep(Duration::from_millis(ms)); }
+```
+
+**`--hold-ms 0` schläft null Millisekunden**, gibt die Sperre frei und der Prozess endet. Als
+**Dienst**-Eintrag ist das ein No-op: Sperre holen, sofort weg. Der passende Modus steht in derselben
+README (`--daemon` hält bis stdin-EOF oder Signal) — die Deklaration nennt ihn nur nicht.
+
+**Der systemische Teil, und er ist nicht flock-spezifisch** (gemessen über **alle elf** `unit.json`):
+
+| Beobachtung | Wert |
+|---|---|
+| Units mit `kind: service` | **10** von 11 |
+| Startkommandos mit **nacktem Binärnamen** (`pmh-flock`, `pmh-nix`, …) | **10** von 10 |
+| davon im `PATH` auflösbar | **0** — `Get-Command pmh-flock` → nicht gefunden; die Binärdateien liegen in `target/debug/*.exe` (7 Stück) |
+| Startkommandos, die **Einmalaufrufe** sind (`detect --json`, `tree . --symbols`, `--hold-ms 0`) | mehrere |
+
+Das ist **dieselbe Lücke, die B18 im Launcher zeigt**: das Unit-Format kann „Einmalaufruf" und „Dienst"
+nicht unterscheiden — `kind: service` deckt beides. Solange `services/pmh-supervisor` nicht gebaut ist,
+führt **niemand** diese Kommandos aus (nachgesehen: `entry.command` wird nur *gelesen* —
+`bundle.ts:391` als Bündel-Einstiegspunkt, `manifest.ts:549` zum Serialisieren; für **Plugins**
+importiert `plugin-host.ts:305` den Einstieg, für **Dienste** startet ihn nichts). Der Befund ist damit
+**latent**, nicht akut — aber er wird akut, sobald der Supervisor existiert, und dann startet er zehn
+Dienste, von denen mehrere sofort wieder enden.
+
+---
+
+### Notwendigkeit der Anpassung — mein Urteil, mit Begründung
+
+Mein Auftrag fragt bei jeder Anpassung: **ist sie nötig, oder wird hier unnötig gebaut?** Die Antwort
+für `native/flock`, in drei Sätzen:
+
+1. **Die Fähigkeit wird gebraucht.** Die Vorlage braucht `flock` für ihren JSONL-Sitzungsspeicher (der
+   Vertrag sagt es, und `--inspect` existiert genau für die Inode-Prüfung, die dieses Backend macht).
+   **Gemessen und bestätigt:** `node:fs.flock` ist unter Bun `undefined` (Befund **B6**-Umfeld) — es gibt
+   also keine eingebaute Sperre.
+2. **Ein natives Node-API-Addon ist hier wirklich keine Option.** Die README begründet den Prozess
+   damit, dass ein Addon „genau die Frage wiederaufwerfen würde, ob native Addons unter Bun überhaupt
+   laufen". Das ist **nicht** bloß eine Vermutung: derselbe Baum hält die Messung fest
+   (`packages/units/unit-export/src/plugin-host.ts`: `node-addon-require-builtin` ist unter Bun
+   **nicht ladbar** — `Unsupported/no-context`, `has_v8_context: false`, Bun 1.4.0, festgehalten in
+   `docs/risks.md` §6). Der Prozess ist damit die **folgerichtige** Wahl, nicht die bequeme.
+3. **Offen bleibt genau eine Alternative, und sie steht in ihrer eigenen Recherche.** `bun:ffi` ist
+   **kein** natives Addon, sondern eine eingebaute Bun-Schnittstelle; sie könnte `flock(2)` **im
+   Prozess** aufrufen. Die Recherche nennt sie als **erste** Option
+   (`sprachwahl-entscheidung-2026.md` Zeile 48: *„Echte OS-Sperre: `flock(2)` / `LockFileEx` via
+   `bun:ffi`, Sidecar-Lo[ck]"*). Der README-Text wiegt sie **nicht** ab — er vergleicht nur mit dem
+   Addon. Und der Punkt ist nicht bloß Sparen: **eine Sperre im Prozess erhält die Vorlagensemantik
+   („die Sperre lebt in der Open File Description des Aufrufers") von selbst** — der `--fd`-Modus
+   existiert nur, *weil* die Sperre in einem anderen Prozess lebt. Der Prozess hat also eine
+   **selbstgebaute** Lösung für ein Problem, das er selbst erzeugt hat.
+
+**Mein Urteil:** keine unnötige Anpassung, sondern eine **verteidigbare** Entscheidung — mit **einer**
+nicht dokumentierten Alternative. Ich verlange keine Umkehr; ich verlange, dass der Vergleich
+`bun:ffi` gegen Sidecar **einmal** dasteht, weil die Entscheidung sonst in einem Jahr niemand mehr
+nachvollziehen kann. Das ist derselbe Maßstab, den ich an B15 angelegt habe.
+
+---
+
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
 
 | Behauptung des bauenden Agenten | Gegenprobe | Ergebnis |
@@ -1900,6 +2030,9 @@ die sein Lauf um 13:43 hinterlassen hatte (591,1 MB, Ports 5780/5781/5790), sind
 | „`website/` versioniert: 2,8 MB, 28 Dateien" | `git ls-files 'website/*'` | **exakt 28 Dateien, 2,82 MB** |
 | „`target/` **5.851** Dateien" | `Get-ChildItem -Recurse` | **exakt 5.851** |
 | „`target/` **731 MB**" | Nutzbytes, Clustergröße des Laufwerks, belegte Bytes | **697,6 MB Nutzbytes · 711,1 MB belegt** (BlockSize 4096, gemessen). Bleibt eine Abweichung von **~20 MB (2,8 %)** bei gleicher Dateizahl. Die Schlussfolgerung („erzeugter Code belegt mehr Platz als unser Quellcode") trägt in **jedem** Fall — 700 MB gegen 1,4 MB |
+| „Die 18 Bedingungen des `flock`-Vertrags sind als Testsuite umgesetzt" (`native/flock/unit.json`) | Nachzählung: `fn condition_NN_…` = **15** Testfunktionen (01–10, 12–14, 17, 18); `unit.json` sagt „**15 abgedeckt, 2 entfallen**"; der Kopf von `contract.rs` sagt „the **three** conditions … do not translate" und listet **vier** Zeilen (14, 15, 16, 18) | **Substanz bestätigt, Wortlaut unscharf.** Bedingung **11** („Last owning descriptor closes") **wird geprüft** — nicht in einer eigenen Funktion, sondern als zweiter Teil von `condition_10` (Zeile 302: *„condition 11: after the last owning description closed the contender must acquire"*). Damit sind **16** Bedingungen abgedeckt und **2** entfallen (15, 16 — beide Node-API-Callbacks) = **18** ✓. Die Zahl „15" zählt **Testfunktionen**, nicht Bedingungen. **Nichts ist stillschweigend weggelassen** — jede nicht übertragbare Bedingung ist **benannt**, und das ist mehr, als die meisten Nachweise dieses Projekts tun |
+| „Windows nutzt diese API nicht und behält seine Semaphore" | Ausführung des Windows-Binaries (Einzelheiten in **B24**) | **Verhalten bestätigt:** `supported:false`, für echte Sperren `ERR_FLOCK_UNSUPPORTED_PLATFORM` mit Exit **125** — genau wie dokumentiert. **Falsch ist nur der Satz**, das Binary werde unter Windows nicht gebaut: es liegt in `target/debug/pmh-flock.exe` (242.176 B) |
+| „`--fd` — der Aufrufer besitzt den Deskriptor; in Rust ist das eine **Compile-Zeit**-Eigenschaft (`BorrowedFd`), kein Kommentar" | `src/main.rs`: `Handle::Borrowed(raw)` für `--fd`, `Handle::Owned(file)` für `--path` | **bestätigt** — die Unterscheidung ist ein Typ, nicht eine Zusicherung. Das ist die stärkste Stelle dieses Crates |
 
 ---
 
@@ -1924,6 +2057,8 @@ die sein Lauf um 13:43 hinterlassen hatte (591,1 MB, Ports 5780/5781/5790), sind
 | 14:02 | In **B23** nannte ich „`BeendeBaum([int]$pid)` **Zeile 86**", „**acht** Aufrufe" und die Zeilen **147 / 102 / 211 / 214 / 266** — **Zeilennummern aus einem Lese-Werkzeug** und eine **geschätzte** Anzahl. | Nachgemessen **in der Shell**: Definition **Zeile 100**, Aufrufstellen **161, 190, 116, 225, 228, 280** (**sechs**), `$fehler++` im Funktionsrumpf **Zeile 166**, `if ($h -eq $null)` **Zeile 202**. Alle Stellen sind berichtigt. | Die Datei ist **285** Zeilen lang (alles LF, gemessen); dasselbe Lese-Werkzeug meldete im selben Moment **271** Zeilen und eine um **14** verschobene Nummerierung. Eine Zeilennummer ist ein **Messwert** — sie gehört in eine Shell, nicht in ein Werkzeug, dessen Zählweise ich nicht geprüft habe. Dieselbe Lehre wie 13:06, eine Ebene tiefer. |
 | 14:06 | Mein Commit-Wächter `if ($out -notmatch 'stimmig') { exit 1 }` brach **ab, obwohl die Prüfung grün war** (`ERGEBNIS: das Protokoll ist in sich stimmig.`). | **`-notmatch` auf einem Array liefert die nicht passenden Zeilen** — jede Zeile außer der letzten erfüllt das, das Ergebnis ist also **wahr**. Richtig: die Ausgabe **zuerst mit `-join` zu einer Zeichenkette** machen und dann prüfen. Der Commit lief danach durch. | **Dritte** Stelle derselben Familie (PowerShell-Semantik statt Logik) nach `$pid` (**B23**) und `$fehler++`. Kein falscher Wert ist dadurch in eine Datei gelangt — aber der Wächter hätte einen Commit **still** verhindern können, und ein Wächter, der falsch alarmiert, ist so schädlich wie einer, der nichts sieht. |
 | 14:20 | Beim Einfügen des B23-Nachtrags habe ich als Anker `---` **plus die Überschrift** des Fairness-Abschnitts benutzt und im Ersatztext die Überschrift **nicht** wiederholt. | Die Überschrift `## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)` war **weg**; die Tabelle stand ohne Abschnitt da. Sofort bemerkt und **wiederhergestellt**. | **Zweiter Fall derselben Familie wie 12:29** (ein Anker ersetzt mehr als beabsichtigt). Die Lehre von damals — „Kontrolle nach jeder Änderung: zählen, nicht annehmen" — gilt auch für **Überschriften**: nach jedem Eingriff die Abschnittsliste prüfen, nicht nur die geänderte Stelle ansehen. |
+| 14:35 | „**Niemand liest `unit.json`** — elf solcher Dateien ohne Verbraucher." | **Falsch.** `packages/units/unit-export` liest sie sehr wohl: `MANIFEST_FILE = 'unit.json'` (`manifest.ts:488`), dazu `readManifest` und `scanRegistry` über konfigurierte Wurzeln. Der Befund ist **vor der Veröffentlichung** zurückgezogen. | Mein Befehl war `Select-String -Pattern 'unit\.json' **-SimpleMatch**` — `-SimpleMatch` schaltet die Regex **aus**, gesucht wurde also der **Backslash** mit. Dieselbe Familie wie 12:14 („das Suchmuster entscheidet über das Ergebnis"), nur in die **andere** Richtung: nicht zu weit, sondern zu **wörtlich**. |
+| 14:38 | „Bedingung **11** des `flock`-Vertrags hat **keinen** Test — und `unit.json` behauptet 15 + 2 = **17** von 18, also ein Rechnungsloch." | **Beides falsch.** Bedingung 11 **wird geprüft**, als zweiter Teil von `condition_10` (`contract.rs:302`). Damit sind **16** Bedingungen abgedeckt, **2** entfallen (15, 16) = **18** ✓ — kein Loch; die „15" zählt **Testfunktionen**, nicht Bedingungen. | Ich hatte die Zahl als *Bedingungen* gelesen und daraus einen Fehler gegen den bauenden Agenten konstruiert. **Zwei Fehlalarme in derselben Prüfung, beide zu seinen Ungunsten** — die Richtung, in die eine Prüfrolle nicht irren darf. Ursache beide Male dieselbe: **schneller geschlossen als nachgesehen.** `unit.json` steht jetzt in der Fairness-Tabelle, wo es hingehört. |
 
 ---
 
