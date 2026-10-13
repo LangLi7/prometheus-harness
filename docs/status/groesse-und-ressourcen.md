@@ -76,23 +76,59 @@ Remove-Item .pmh-build\harness-home\profiles\web\node_modules -Recurse -Force
 Remove-Item website\.bun-cache -Recurse -Force
 ```
 
-## 6. Was **nicht** gemessen ist — und das ist die wichtigere Hälfte
+## 6. Die Laufzeit — nachgemessen am 14.10.2026
 
-**Zur Laufzeit** (RAM, CPU, Startzeit) steht hier **keine** Zahl. Das ist eine
-**eigene** Messung, und sie ist die, die bei „ressourceneffizient" wirklich zählt:
-Platte ist billig, Speicher und Startzeit kosten bei **jedem** Lauf.
+**Nachtrag.** Hier stand: *„zur Laufzeit steht keine Zahl"*. Das ist **überholt** —
+gemessen mit `docs/status/messsonden/startkosten.mjs` (**exit 0**, alle sechs Ziele
+geladen). Das Kind mißt sich **selbst** (`process.hrtime.bigint()`,
+`process.memoryUsage()`), nicht von außen abgetastet.
 
-Was es dazu **gibt** (`docs/review/last-und-suche.md`, gemessen):
+| Was geladen wird | Importzeit | RSS | Heap |
+|---|---|---|---|
+| **nichts** (nur der Laufzeitstart) | 0 ms | **25 MB** | 1 MB |
+| `node:crypto` | 0,75 ms | 27 MB | 2 MB |
+| `postgres` (SQL-Treiber) | 7,04 ms | 30 MB | 2 MB |
+| **unser Speicherpaket** | **3,23 ms** | 29 MB | 2 MB |
+| Kern: Modellschicht | 11,93 ms | 33 MB | 2 MB |
+| **Kern: App-Boot** | **26,82 ms** | **37 MB** | 3 MB |
+
+> **Der Start kostet 25 MB, bevor irgendetwas geladen ist. Der Kern legt 12 MB und
+> 26,8 ms Importzeit drauf. Unser eigener Code: 3,2 ms.**
+
+**Damit ist die Frage „ressourceneffizient?" beantwortet** — jedenfalls zur Hälfte:
+
+* **Speicher ist kein Problem.** Die Größenordnung ist **25–37 MB**, nicht hunderte.
+  Die 2,43 GB waren **Platte**, und davon sind **96 % regenerierbar** (§4).
+* **Der Start wird von der Laufzeit bestimmt, nicht von unserem Code.** Unser Anteil
+  ist in dieser Auflösung **nicht meßbar** — er ist eben 2,7 MB Quelltext.
+
+**Und der Fehler, der zu diesen Zahlen gehört.** Der erste Versuch tastete den
+Kindprozeß **von außen** ab (alle 15 ms `WorkingSet64`) und zeigte „unser
+Speicherpaket" mit **14,8 MB** gegen „bun allein" mit **24,2 MB** — unplausibel. Der
+Import gelingt (23 Exporte, stderr leer): es war **Rauschen der Methode**, und bei
+70–120-ms-Prozessen ist eine 15-ms-Abtastung zu grob. Dazu schrieb die Sonde ihr
+Kindskript nach `%TEMP%`, wo **vier von sechs** Zielen nicht auflösten — und meldete
+**Exit 0**. Jetzt: Messung im Prozeß, Skript im Projekt, **Exit 2** bei einem nicht
+geladenen Ziel.
+
+### Was weiterhin **nicht** gemessen ist — die Zahl, die du bei „Startzeit" meinst
+
+Der **volle Host** bis **`/api/ready` = 200**: Plugin-Aktivierung,
+Datenbankverbindung, Redis-Prüfung, Sitzungsspeicher. Nichts davon ist oben dabei —
+und genau das macht den Unterschied zwischen „37 MB Modullast" und „läuft".
+
+**Dafür braucht es einen laufenden Host.** Der Vorschlag steht: `bun scripts/start.mjs
+--port 3082 --no-go` als **verwalteter Hintergrundjob**, messen, **wieder beenden**
+(mit Nachweis, daß er aus ist). **Ohne das Wort des Betreibers starte ich keinen
+Server** — auch keinen eigenen.
+
+Was es zur Laufzeit sonst gibt (`docs/review/last-und-suche.md`, gemessen):
 
 | Befund | Zahl |
 |---|---|
 | Ein `UPDATE` je Nachricht auf die Chat-Zeile | **−88 %** Durchsatz (8 030 → 938 tps) |
 | Der JSONL-Schreibpfad | **Faktor 64** langsamer, **ohne** Haltbarkeit |
 | 40 Unteragenten an einem Elternteil | **16 463 tps** |
-
-**Der nächste Meßschritt** wäre: Host starten, **Zeit bis `/api/ready` = 200** und
-**Arbeitsspeicher nach dem Start** messen — beides mit Befehl und Zahl. Das braucht
-einen laufenden Host und ist damit ein eigener Lauf.
 
 ## 7. Nachfahren
 
