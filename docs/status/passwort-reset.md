@@ -20,6 +20,8 @@
 | `packages/auth/reset/tests/reset.test.ts` | **15** Prüfungen der Regeln gegen eine Attrappe |
 | `packages/auth/store-postgres/src/index.ts` | `erzeugeTokenAblage(sql)` — die Ablage über der echten Tabelle |
 | `packages/auth/store-postgres/tests/einmaltoken.test.ts` | **7** Prüfungen gegen echtes PostgreSQL |
+| `scripts/reset.mjs` | **Der Aufrufer**: `anfordern`, `pruefen`, `einloesen` |
+| `scripts/reset.test.mjs` | **12** Prüfungen, die den **Aufrufer** fahren |
 
 **Beide zusammen, und das ist der Punkt.** Die Regeln lassen sich ohne Infrastruktur
 prüfen — aber eine Attrappe kann **nicht** belegen, daß in der Spalte nur der Hash steht,
@@ -185,18 +187,81 @@ Prüfungen). Beide sind im Verlauf belegt.
 
 ---
 
-## 7. Was **nicht** belegt ist — und was fehlt
+## 7. Der Aufrufer: warum ein Skript und kein Endpunkt
 
-| Offen | Warum es offen ist |
-|---|---|
-| **Kein Aufrufer.** Weder Skript noch Endpunkt erzeugt ein Token | `erzeugeResetToken` hat außerhalb der Prüfungen **niemanden**, der es ruft. Bis dahin ist C2 **halb**: die Regeln gelten, die Tür ist noch nicht eingebaut |
-| **Kein Versand** | es gibt **keinen** Mail-Übergang im Projekt. Deshalb der gegenwärtige Entwurf: der Bediener gibt das Token weiter („sag es mir gerade jetzt") — und genau deshalb ist die Gültigkeit auf 15 Minuten gesetzt |
-| Die POSIX-Seite von `pruefeDateirechte` | auf NTFS nicht ausführbar (siehe `geheimnisse.md`) |
-| Kein Endpunkt `POST /api/pmh/auth/password-reset` | fehlt; die vier bestehenden Wege sind `register`, `login`, `logout`, `me` |
+`scripts/reset.mjs` mit drei Befehlen:
+
+```
+anfordern --benutzer <email>      erzeugt ein Token (Grenze: 5 je Stunde und Konto)
+pruefen <token>                   sagt, ob es gilt — verbraucht es NICHT
+einloesen <token>                 setzt das neue Passwort (über STDIN)
+```
+
+### Warum kein Endpunkt — und das ist keine Bequemlichkeit
+
+**Es gibt keinen Postausgang.** Ohne Mailübergang kann ein Endpunkt ein Token nicht
+*zuschicken*; er könnte es nur **zurückgeben**, und dann läge es im Antwortkörper einer
+HTTP-Anfrage, im Verlauf des Browsers und in jedem Zwischenprotokoll. Ein Endpunkt wäre
+also **schlechter** als der Bediener, nicht besser. Der Bediener ist hier der **Bote** —
+und genau deshalb gilt das Token **15 Minuten** und nicht einen Tag: es wird mündlich oder
+per Nachricht weitergegeben, nicht in ein Postfach gelegt.
+
+### Die zwei Entscheidungen über Geheimnisse
+
+| Geheimnis | Wie es hereinkommt | Warum |
+|---|---|---|
+| das **neue Paßwort** | über **STDIN**, nie als Argument | ein Argument steht in der Prozeßliste (`/proc/<pid>/cmdline`, unter Windows in der Prozeßabfrage) und ist für **jeden Benutzer desselben Rechners** lesbar. Dasselbe wie bei `scripts/geheimnis.mjs` |
+| das **Reset-Token** | wird **ausgegeben** | es ist der **einzige Zweck** dieses Tokens, weitergegeben zu werden. Es wird **einmal** ausgegeben, mit dem Hinweis, daß es jetzt im Verlauf steht und das Fenster danach zu schließen ist |
+
+Das Paßwort erscheint in **keiner** Ausgabe — auch nicht im Fehlerfall. Eigene Prüfung:
+„das Passwort steht in keiner Ausgabe".
+
+### Warum der Aufrufer selbst geprüft wird
+
+`fuehreAus` ist in **allen** Skripten dieses Repos exportiert, damit man es fahren kann — und
+**kein** Skript wurde gefahren. `grep` über `*.ts` nach `geheimnis.mjs` und `claim.mjs`
+findet **vier** Treffer, und **alle vier sind Kommentare**. Ein Ausgang ohne Aufrufer ist
+dasselbe Muster wie ein Verfahren ohne Aufrufer, nur eine Ebene höher.
+
+`scripts/reset.test.mjs` fährt es deshalb — **12 Prüfungen**, und die Betriebsdatenbank wird
+dabei nicht einmal **gesehen**: die Umgebung wird als **Parameter** übergeben
+(`fuehreAus(argv, umgebung, schreibe, lese)`), nicht aus `process.env` gelesen. Der vierte
+Parameter ist der ausdrückliche Einschub für die Eingabe — eine Prüfung darf die
+Standardeingabe nicht anfassen.
+
+### Gemessen als echter Kommandozeilenaufruf (nicht als Funktionsaufruf)
+
+Gegen `pmh_test`, mit einem Wegwerf-Konto, `DATABASE_URL` auf die Wegwerf-Datenbank gesetzt:
+
+| Schritt | Ausgabe | Exit |
+|---|---|---|
+| `anfordern --benutzer cli@resetcli.invalid` | Token mit **43** Zeichen, „gültig bis … (15 Minuten)" | **0** |
+| `pruefen <token>` | „Das Token gilt für cli@resetcli.invalid. Geprüft, NICHT verbraucht" | **0** |
+| `einloesen <token>` (Paßwort über eine Pipe) | „Passwort neu gesetzt … Sitzungen widerrufen: 0" | **0** |
+| dasselbe Token ein **zweites** Mal | „(verbraucht): dieses Token ist unbekannt, abgelaufen oder wurde bereits eingelöst" | **2** |
+| `SELECT count(*) … FROM one_time_tokens` | **1** Zeile, verbraucht | — |
+
+Das Konto und das Token wurden danach entfernt (`DELETE FROM users …`, `ON DELETE CASCADE`)
+und das Entfernen nachgewiesen. **Zwei eigene Fehler beim Messen**, beide in der
+Meßanweisung und nicht im Code: `users.id` hat keine Voreinstellung (der `INSERT` scheiterte
+an `not-null`), und in einer PowerShell-Zeichenkette mit doppelten Anführungszeichen wurde
+`"$argon2id$platzhalter"` als **Variablen** gelesen und zu leerem Text — der Hash kam leer an.
 
 ---
 
-## 8. Nachfahren
+## 8. Was **nicht** belegt ist — und was fehlt
+
+| Offen | Warum es offen ist |
+|---|---|
+| **Kein Endpunkt** `POST /api/pmh/auth/password-reset` | es gibt **keinen** Mail-Übergang. Ein Endpunkt könnte ein Token nicht zuschicken, nur zurückgeben — dann läge es im Antwortkörper, im Browserverlauf und in jedem Zwischenprotokoll. Solange gilt: der **Bediener ist der Bote** (`scripts/reset.mjs`), und deshalb sind es **15 Minuten** und nicht ein Tag. Ein Endpunkt braucht zuerst einen Postausgang |
+| **Kein Versand** | siehe oben — dieselbe Ursache, dieselbe Folge |
+| Die POSIX-Seite von `pruefeDateirechte` | auf NTFS nicht ausführbar (siehe `geheimnisse.md`) |
+| Kein Auskunftsweg für den Benutzer | der Benutzer erfährt von einem Reset nur dadurch, daß der Bediener es ihm sagt. Ohne Mailübergang gibt es keinen anderen Weg — das ist eine Folge der Lücke oben, kein eigener Mangel |
+| **Der Aufrufer ist da, aber nicht über HTTP** | `scripts/reset.mjs` — und **der Aufrufer hat selbst eine Prüfung** (`scripts/reset.test.mjs`, 12 Prüfungen). Das war nötig: `fuehreAus` ist in **allen** Skripten dieses Repos exportiert, damit man es fahren kann, und in **keiner** Prüfung wurde eines gefahren (`grep` über `*.ts` nach `geheimnis.mjs`/`claim.mjs` findet nur Kommentare) |
+
+---
+
+## 9. Nachfahren
 
 ```powershell
 # die Regeln, ohne Infrastruktur — 15 pass, 0 fail
@@ -207,6 +272,14 @@ $map = @{}; foreach ($l in (Get-Content .env)) { if ($l -match '^\s*([A-Za-z_]\w
 $env:DATABASE_URL = $map['DATABASE_URL']
 $env:PMH_TEST_DATABASE_URL = $map['MIGRATION_DATABASE_URL'] -replace '/pmh(\?|$)','/pmh_test$1'
 & 'C:\Users\Chang\.bun\bin\bun.exe' test packages/auth/store-postgres/tests/einmaltoken.test.ts
+
+# den Aufrufer selbst — ebenfalls gegen die Wegwerf-Datenbank — 12 pass, 0 fail
+& 'C:\Users\Chang\.bun\bin\bun.exe' test scripts/reset.test.mjs
+
+# und von Hand, wie ein Mensch es täte
+& 'C:\Users\Chang\.bun\bin\bun.exe' scripts/reset.mjs anfordern --benutzer <email>
+& 'C:\Users\Chang\.bun\bin\bun.exe' scripts/reset.mjs pruefen <token>
+'Ein-ganz-neues-Passwort-2026' | & 'C:\Users\Chang\.bun\bin\bun.exe' scripts/reset.mjs einloesen <token>
 ```
 
 **Die Sicherung ist eingebaut:** beide DB-Dateien vergleichen vor dem ersten Schreiben
@@ -216,13 +289,13 @@ abgeräumt (`benutzerprofile.md`, §„mein schwerster Vorfall").
 
 ---
 
-## 9. Zahlen
+## 10. Zahlen
 
 | Messung | Wert |
 |---|---|
-| Typprüfung | **24 Pakete grün, 0 rot** — 2.7 s |
-| Voller Lauf | **1107 pass, 2 fail** in **42** Dateien — 11.19 s |
-| Zuwachs gegenüber dem Stand davor (1085) | **+22** = 15 + 7 — **genau**, keine unerklärte Differenz |
+| Typprüfung | **24 Pakete grün, 0 rot** — 2.8 s |
+| Voller Lauf | **1119 pass, 2 fail** in **43** Dateien — 12.87 s |
+| Zuwachs gegenüber dem Stand davor (1085) | **+34** = 15 (Regeln) + 7 (echte Datenbank) + 12 (Aufrufer) — **genau**, keine unerklärte Differenz |
 | Die zwei roten | `apps/cli/tests/flags.test.ts` (typert-loader: *6 contributor(s) failed to register*) und `packages/util/atomic-write` (`os error 5`, `TEMP`) — **beide nicht unsere**, unverändert seit dem vorigen Lauf |
 | `cargo test` (unberührt) | **14 pass, 0 fail** |
 
