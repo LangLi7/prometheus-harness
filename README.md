@@ -191,6 +191,7 @@ Nachgemessen am 13.10.2026:
 | **Eigener Endpunkt** | `GET /api/health` → **200** (offen) · `GET /api/ready` → **401** ohne Anmeldung, **200** mit Sitzungscookie · `POST` → **405** · genaue Pfade, kein Präfix — [Beleg](docs/status/beleg-eigener-endpunkt.md) |
 | **Anmeldung des Cores** | Token-Weiterleitung **303** + Cookie; `GET /` mit Cookie **200**, ohne Cookie **401** — greift |
 | **API des Cores** | **lebt — die frühere Zeile hier war falsch.** `POST /api/goals/create` **mit** Anmeldung → **`{"type":"server-response","rpcId":"invalid-request","result":{"ok":false,"error":{"code":"gateway/bad-request"…`** — der JSON-RPC-Rahmen. `WS /api/remote.mux` **mit** Cookie → **`101 Switching Protocols`** |
+| **Unser eigener Beitrag** | **zwei lesende Endpunkte** (`/api/health`, `/api/ready`). Die Kette — Adapter, Agent-Loop, Session — ist gebaut und in Tests belegt, aber über **keine** Schnittstelle erreichbar. Was der Core sonst hat und was fehlt: [schnittstellen-bestand.md](docs/review/schnittstellen-bestand.md) |
 | **Eigener Kern** | **16 Pakete · 762 Tests grün · 0 rot** (26 Dateien, mit echter PostgreSQL) · **zwei** Pakete davon sind verdrahtet (`health`, `readiness`), die übrigen laufen noch nur in Tests |
 | **Datenbank** | PostgreSQL **17.11** + pgvector **0.8.7**, Redis **7.4.9** — als Stack in **einer** Datei; Rechtemodell mit vier Rollen belegt wirksam |
 | **Stack** | `bun install` **0,1 s** · `tsgo --noEmit` **18 Pakete / 0 rot** · Start **1,1 s** — kein Build-Schritt |
@@ -198,6 +199,11 @@ Nachgemessen am 13.10.2026:
 | **Rust** | 6.569 Zeilen in 6 Crates — **nichts ruft sie auf**, kein Skript baut sie — [Beleg](docs/review/rust-bestand.md) |
 
 ### Der eigene Endpunktweg
+
+**Was hier steht, ist bewußt klein.** Zwei **lesende** Endpunkte, mehr nicht — und
+die Kette (Adapter, Agent-Loop, Session) ist über **keine** Schnittstelle
+erreichbar. Der Umfang dieser Lücke und was der Core sonst anbietet, steht in
+[schnittstellen-bestand.md](docs/review/schnittstellen-bestand.md).
 
 `packages/api/health` hängt sich über den **offiziellen Dienst** `ctx.webServer`
 ein — nicht über eine eigene Serverinstanz. Eine zweite Instanz hätte nicht
