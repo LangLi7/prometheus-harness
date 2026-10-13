@@ -2725,6 +2725,19 @@ gemessen"*): ob sein Vorschlag wirklich abweist, und was `ON DELETE SET NULL` be
 86 KB, 12:02) liegen **unversioniert** in der Wurzel — dieselbe Klasse wie **B32**: Arbeit, die ein
 Update still verlöre.
 
+**Nachtrag 16:43 — wer hat was committet, und warum `Bin` kein Defekt ist.** Mein eigener Commit
+`121a475` enthält **eine** Datei (`protokoll-pruefung.mjs`, +6/−1). Der Rest dieser Runde — LAGE-Zeile,
+B38, dieser Takt, die JSONL-Zeilen, das neue Werkzeug — steckt in **seinem** Commit `e5c2d76`
+(„Sammelstelle, Sicherheitsbefunde und die RAG-Antwort"): er hat mit einem Sammel-Commit **meinen
+Arbeitsbaum mitgenommen**, während ich schrieb — das erklärt auch die `index.lock`-Kollision um 16:29.
+**Kein Schaden** (alles versioniert, Selbstprüfung grün, 29/29 verfolgt), aber die Spur ist dadurch
+**fremd signiert**: mein Text steht in seiner Commit-Nachricht. **Zweitens**, weil es sonst wie ein
+Defekt aussieht: `protokoll.jsonl` erscheint in diesem Commit als **`Bin`**. Gemessen: **0** NUL-Bytes,
+gültiges UTF-8, **kein** BOM — die Kennzeichnung kommt von einer `.gitattributes`-Regel
+(`diff: unset` für `*.jsonl`), nicht vom Inhalt. **Gegenprobe zur eigenen Arbeit:** `git show --stat`
+seines Commits nennt `docs/review/BEFUNDE-ALLE.md` (116 Zeilen) und `docs/review/rag-und-obsidian-bereitschaft.md`
+(171 Zeilen) — er sammelt seine Befunde also selbst; geprüft habe ich sie **nicht**.
+
 ---
 ## Registereintrag
 
