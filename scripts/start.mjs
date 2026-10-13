@@ -55,6 +55,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { choosePort, describePortChoice, portFromEnv } from './port-wahl.mjs'
 import { EIGENE_PAKETE, patchPfad, verdrahte } from './profile-patch.mjs'
+import { ergaenzungNoetig } from './ptc-typentfernung.mjs'
 import { announceAuthUrl } from './token-adresse.mjs'
 
 /** Wurzel des Projekts, abgeleitet aus dem Modulpfad — nie aus dem Aufrufort. */
@@ -405,7 +406,29 @@ async function main() {
       // Die fremde Installation wird dabei **nicht** angetastet: sie gehört einer
       // anderen, laufenden Harness. Der Host bekommt sein eigenes Home — die
       // Korrektur liegt dort, wo sie hingehört.
-      launch('host', BUN, [hostEntry, options.profile, '--port', String(port), '--home', options.home, '--no-open'], {
+      // **Warum `--preload` davorsteht — und warum nur manchmal.**
+      //
+      // `@deepseek-ai/dsh-ptc-runtime-node` importiert `stripTypeScriptTypes` aus
+      // `node:module`. **Node hat die Funktion, Bun nicht** (gemessen: Node
+      // v24.19.0 `function`, Bun 1.4.0 `undefined`). Unter Bun scheitert damit
+      // schon der Import, `ptcRuntime` registriert sich nie, `workflow-ptc` wartet
+      // — und die Voreinstellung `standard` gilt als ungültig, also **läßt sich
+      // keine Sitzung anlegen**. Der Host bediente trotzdem HTTP 200; der Fehler
+      // war nur in einer Warnzeile zu sehen.
+      //
+      // Das Vorladen ersetzt **eine Zeile** in **einer** fremden Datei — und nur
+      // dann, wenn die Laufzeit die Funktion nicht selbst mitbringt. Auf Node
+      // bleibt die Datei unberührt. Siehe `scripts/ptc-typentfernung.mjs`.
+      const vorladen = ergaenzungNoetig()
+        ? ['--preload', join(ROOT, 'scripts', 'ptc-vorladen.mjs')]
+        : []
+      if (vorladen.length > 0) {
+        process.stdout.write(
+          '[pmh] Diese Laufzeit hat kein module.stripTypeScriptTypes — ' +
+            'die PTC-Typentfernung wird ergänzt (scripts/ptc-typentfernung.mjs)\n',
+        )
+      }
+      launch('host', BUN, [...vorladen, hostEntry, options.profile, '--port', String(port), '--home', options.home, '--no-open'], {
         cwd: ROOT,
         kind: 'host',
         // **Warum der Host einen Beobachter bekommt.** Er gibt eine Adresse

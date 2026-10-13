@@ -59,17 +59,6 @@ export const MARKE_ENDE = '# <<< pmh: eigene Einträge'
 const LEERE_LISTE = /^\s*\[\]\s*$/u
 
 /**
- * Die Fähigkeitsprüfung für das PTC-Zwischenstück — siehe {@link bereichsZeilen}.
- *
- * **Warum als Ausdruck im YAML und nicht als Entscheidung hier.** Wird die
- * Patch-Schicht auf einen anderen Rechner oder eine andere Laufzeit kopiert, muß
- * sie dort **weiter stimmen**. Eine hier getroffene Entscheidung stünde als
- * `disabled: true` fest und wäre auf Node **falsch** — dort funktioniert PTC.
- */
-const PTC_FEHLT =
-  "typeof process.getBuiltinModule('node:module').stripTypeScriptTypes !== 'function'"
-
-/**
  * Die Zeilen, die wir in die Patch-Schicht eintragen.
  *
  * **Die Form ist `insert:` — die einzige, die Zeilen anfügt.** Siehe Dateikopf.
@@ -135,12 +124,6 @@ export function bereichsZeilen(packages) {
     zeilen.push(`    name: '${paket}'`)
     zeilen.push(`    inject: [webServer]`)
   }
-  // **Die Abschaltungen stehen NACH dem `insert`-Block**, weil sie bestehende
-  // Einträge der Bundle-Schicht treffen und nicht neue anlegen.
-  for (const id of PTC_EINTRAEGE) {
-    zeilen.push(`- id: ${id}`)
-    zeilen.push(`  disabled: !!js ${PTC_FEHLT}`)
-  }
   for (const zeile of BLEIBENDE_EINTRAEGE) {
     zeilen.push(zeile)
   }
@@ -188,11 +171,22 @@ export const BLEIBENDE_EINTRAEGE = [
 /**
  * Die Einträge der Bundle-Schicht, die das PTC-Zwischenstück ausmachen.
  *
- * **Warum diese drei und in dieser Reihenfolge.** `ptc-runtime` ist der
- * Laufzeitdienst, `workflow-ptc` die Ausführungsschicht darüber (`provider: spawn`),
- * `tool-workflow` das Werkzeug, das der Agent sieht. Fällt der erste, warten die
- * beiden anderen — deshalb müssen **alle drei** weg, sonst bleibt der Zustand
- * „wartet".
+ * **Sie werden NICHT mehr abgeschaltet — und warum das die bessere Lösung ist.**
+ *
+ * Der erste Versuch war, `ptc-runtime`, `workflow-ptc` und `tool-workflow` hier
+ * abzuschalten, weil `ptc-runtime` unter Bun nicht ladbar war. Das war eine
+ * **Umgehung**: sie kostete PTC dauerhaft, und die Voreinstellung `standard` setzt
+ * die beiden letzteren ohnehin **je Sitzung** selbst zusammen
+ * (`dsh-web-app/presets/standard.patch.yml`) — die Profil-Abschaltung hätte dafür
+ * womöglich gar nicht gereicht.
+ *
+ * **Die eigentliche Ursache ist jetzt behoben:** `scripts/ptc-typentfernung.mjs`
+ * ergänzt `stripTypeScriptTypes` für Laufzeiten, die es nicht mitbringen. Damit
+ * **lädt** `ptc-runtime` unter Bun, und **nichts** muß abgeschaltet werden.
+ *
+ * **Warum diese Liste trotzdem stehenbleibt.** Sie benennt die drei Einträge, die
+ * zusammengehören: fällt der erste, warten die beiden anderen. Wer sie sucht, soll
+ * den Zusammenhang finden — und den Hinweis, wo die Ursache behandelt wird.
  */
 export const PTC_EINTRAEGE = ['ptc-runtime', 'workflow-ptc', 'tool-workflow']
 

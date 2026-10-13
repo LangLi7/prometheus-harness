@@ -106,31 +106,29 @@ describe('bereichsZeilen', () => {
     expect(insertBlock.filter((z) => z.startsWith('    '))).toHaveLength(4)
 
     // **Die obersten Einträge — und warum hier gezählt wird.**
-    // Der Bereich ist NICHT nur der `insert`-Block: er trägt zusätzlich die
-    // Abschaltungen des PTC-Zwischenschritts und einen bleibenden Eintrag der
-    // Oberfläche. Die Prüfung hält die Zusammensetzung fest, damit ein
-    // verschwundener Eintrag auffällt — genau der Fehler, der beim ersten
-    // Überschreiben des Bereichs passiert ist.
+    // Der Bereich ist NICHT nur der `insert`-Block: er trägt zusätzlich den
+    // bleibenden Eintrag der Oberfläche. Die Prüfung hält die Zusammensetzung
+    // fest, damit ein verschwundener Eintrag auffällt — genau der Fehler, der
+    // beim ersten Überschreiben des Bereichs passiert ist.
     const oben = zeilen.filter((z) => z.startsWith('- '))
     expect(oben[0]).toBe('- insert:')
-    expect(oben).toHaveLength(1 + PTC_EINTRAEGE.length + 1)
-    for (const id of PTC_EINTRAEGE) expect(oben).toContain(`- id: ${id}`)
+    expect(oben).toHaveLength(2)
     expect(oben).toContain('- id: ui-settings-general')
   })
 
-  test('die PTC-Abschaltung ist eine Fähigkeitsprüfung, keine Plattformabfrage', () => {
-    // **Warum das geprüft wird.** Stünde hier `disabled: true`, wäre der Eintrag
-    // auf **Node** falsch abgeschaltet — dort funktioniert PTC. Die Prüfung
-    // fragt die Fähigkeit ab und schaltet sich damit selbst wieder ein, wenn
-    // eine künftige Bun-Fassung `stripTypeScriptTypes` mitbringt.
+  test('das PTC-Zwischenstück wird NICHT abgeschaltet — es wurde ladbar gemacht', () => {
+    // **Die Prüfung, die eine zurückgenommene Entscheidung festhält.** Der erste
+    // Versuch war, `ptc-runtime`, `workflow-ptc` und `tool-workflow` hier
+    // abzuschalten, weil `ptc-runtime` unter Bun nicht ladbar war. Das war eine
+    // **Umgehung**: sie kostete PTC dauerhaft. Die Ursache ist jetzt behoben
+    // (`scripts/ptc-typentfernung.mjs`), deshalb darf hier **keine** Abschaltung
+    // mehr stehen. Wer sie wieder einbaut, bekommt eine rote Prüfung und muß sich
+    // entscheiden.
     const zeilen = bereichsZeilen(['@a/erst'])
-    const abschaltungen = zeilen.filter((z) => z.startsWith('  disabled: !!js '))
-    expect(abschaltungen).toHaveLength(PTC_EINTRAEGE.length)
-    for (const z of abschaltungen) {
-      expect(z).toContain("process.getBuiltinModule('node:module')")
-      expect(z).toContain('stripTypeScriptTypes')
-      expect(z).not.toContain('process.versions.bun')
+    for (const id of PTC_EINTRAEGE) {
+      expect(zeilen).not.toContain(`- id: ${id}`)
     }
+    expect(zeilen.filter((z) => z.includes('disabled:'))).toHaveLength(0)
   })
 })
 
@@ -227,7 +225,7 @@ describe('mitBereich', () => {
     // `insert`-Block trug. Jetzt trägt er zusätzlich die Abschaltungen des
     // PTC-Zwischenschritts und einen bleibenden Eintrag der Oberfläche. Geprüft
     // wird deshalb der **erste** Eintrag genau und die Anzahl insgesamt.
-    expect(eintraege).toHaveLength(1 + PTC_EINTRAEGE.length + 1)
+    expect(eintraege).toHaveLength(2)
     expect(Object.keys(eintraege[0])).toEqual(['insert'])
     const eingefuegt = eintraege[0].insert
     expect(eingefuegt).toHaveLength(1)
@@ -236,7 +234,6 @@ describe('mitBereich', () => {
     expect(eingefuegt[0].inject).toEqual(['webServer'])
     // **Und die Abschaltungen sind angekommen** — als oberste Einträge mit `id`.
     const ids = eintraege.slice(1).map((e) => e.id)
-    for (const id of PTC_EINTRAEGE) expect(ids).toContain(id)
     expect(ids).toContain('ui-settings-general')
   })
 })
