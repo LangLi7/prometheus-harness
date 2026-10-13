@@ -2044,6 +2044,41 @@ ab jetzt hänge ich mit `Set-Content -NoNewline` und vorgegebenem Zeilenende an.
 CRLF-Klasse geschrieben und sie in der Datei gehabt, die das Herzstück dieses Auftrags ist.** Aufgefallen
 ist es nur, weil ich ausnahmsweise die Zeilenenden **meiner** Dateien gemessen habe.
 
+## 2026-10-13 14:50–14:58 — Sechsunddreißigster Takt: **eine frische Installation hat keinen Modellzugang** (B30) — und zwei eigene Zahlen, die nicht zueinander paßten
+
+**Der Anlass steht in meinem Auftrag:** *„wenn es zb .env braucht wegen model api ect hilf den anderen
+agent dabei"*. Der Installer ist fertig — also habe ich gefragt, was ein **Neuling** nach
+`bun scripts/install.mjs` in der Hand hat. **Vier Messungen, und sie passen nicht zueinander:**
+
+| Artefakt | Befund |
+|---|---|
+| `.env` **und** `.env.example` | **22** Schlüssel, **keiner** für einen Modell-Anbieter. Die zwei Treffer auf „KEY" sind `PMH_MASTER_KEY` und `PMH_MASTER_KEY_VERSION` |
+| `.env.example`, Kommentar zu `PMH_MASTER_KEY` | verspricht, **Anbieter-Schlüssel** lägen mit AES-256-GCM **verschlüsselt in `user_secrets`** — nach **B14** liest aber **kein** Code `PMH_MASTER_KEY`: Schema ohne Code |
+| **eigener Code** | **genau eine** Lesestelle: `providerFromEnv` (`packages/llm/llm-deepseek/src/index.ts:515`) liest `env.DEEPSEEK_API_KEY` — und `deepseek.test.ts:350` prüft, daß sie **ohne** ihn **wirft** |
+| `scripts/` (Installer, Launcher) | **kein** Treffer für `DEEPSEEK_API_KEY`, `API_KEY`, `credentials`. Schritt 7 erklärt `DATABASE_URL`/`REDIS_URL` **samt** 503-Bedeutung — und **kein Wort** zum Modell |
+
+**Die Upstream-Doku, die er selbst übersetzt mitliefert, nennt den Ort** (`translation_de/development.md:113`):
+`DEEPSEEK_API_KEY=sk-...` in der **`.env` im Repo-Root**. Genau dort steht sie nicht.
+
+**Was das heißt:** `bun run start` startet den Host, die Oberfläche kommt, das Token steht in der Ausgabe
+— und der Agent kann **keinen** Auftrag beantworten. Der Installer meldet trotzdem „Installation
+abgeschlossen". **Kein Fehler dieses Projekts** (die Vorlage läßt es ebenso offen) und **keine**
+Sicherheitslücke — aber die eine Lücke, die das Ergebnis unbrauchbar macht, und sie wird **nirgends
+genannt**. Vorgeschlagen: leere dokumentierte Zeile in `.env.example` (wie `PMH_MASTER_KEY`, **nicht** in
+`GEHEIMNIS_NAMEN` — ein fremder Schlüssel läßt sich nicht erzeugen), zwei Zeilen in Schritt 7, und der
+**belegte** Speicher-Weg über `hilfen/zugang-bereitstellen.mjs`.
+
+**Ist-Zustand dieser Maschine, live gemessen (nur Statuscode):** `.pmh-build/harness-home` hat **1**
+Referenz, `DEEPSEEK_API_KEY`, HTTP **200**; `~/.pmh` hat **13**, HTTP **200**. Auf **diesem** Rechner
+läuft es also — eine **frische Kopie** hätte nichts.
+
+**Ein eigener Fehler, und er wäre in die falsche Richtung gegangen.** Ich zählte „`.env` enthält **2**
+Schlüssel mit `KEY`" und hätte daraus fast „es gibt einen Anbieterschlüssel" gelesen. Nachgesehen: es
+sind `PMH_MASTER_KEY` und `PMH_MASTER_KEY_VERSION`. Mein Filter `-match 'KEY'` traf `MASTER_KEY` mit —
+ich hätte eine **Lücke übersehen**. Aufgefallen ist es, weil zwei meiner eigenen Messungen
+(„kein `API_KEY` in `scripts/`" gegen „1 Zeile nennt DEEPSEEK") **nicht zueinander paßten** und ich
+nachgesehen habe, statt mir eine auszusuchen. **Genau dafür sind Gegenproben da.**
+
 ---
 
 ## Offen / nächster Takt
@@ -2079,6 +2114,7 @@ ist es nur, weil ich ausnahmsweise die Zeilenenden **meiner** Dateien gemessen h
 | **B28** Die Datenbank verlangt über die Schleife kein Kennwort | **offen — vor der Drehung** | `pg_hba.conf` (Bildvorgabe, vom Projekt nirgends gesetzt) hat `host all all 127.0.0.1/32 **trust**`. Gemessen: ein **absichtlich falsches** Kennwort meldet sich als `pmh_app` **und** als `pmh_admin` an — auch der Superuser kommt ohne Kennwort hinein. Damit ist das **Rechtemodell** des Projekts über die Schleife **nicht durchgesetzt**, und **eine Drehung ohne diese Datei ist kosmetisch**. **M, mit Entlastung:** Vorgabe des offiziellen Abbilds, Ports nur an `127.0.0.1`. Reihenfolge: `host all all 127.0.0.1/32 scram-sha-256` als erste Zeile + `select pg_reload_conf()` (gemessen wirksam), dauerhaft machen, **dann** drehen |
 | **B29** Die Arbeitskopie widerspricht der eigenen `.gitattributes` | **offen, klein — drei Befehle** | **11** Dateien mit `attr eol=lf` und `w/crlf` (drei `.md`, acht `.ts` in `packages/units/unit-export`), **3** gemischt, 13 `.ps1` unkritisch. **Der Index ist sauber** (1752 von 1773 LF) → ein CRLF kann nicht ins Repository, eine frische Auscheckung bekommt LF. **Latent:** `unit-export/src/cli.ts` trägt `#!/usr/bin/env bun` mit **CRLF im Shebang** und scheitert beim **direkten** Aufruf (WSL). Fix: `git add --renormalize .` und `git checkout -- .` |
 | **V3** Die CRLF-Klasse im JavaScript | **geschlossen — verifiziert** | Alle `split('\n')`-Stellen in `scripts/` einzeln beurteilt: `setzeWerte` trennt `\r` ausdrücklich ab und hängt es wieder an, `gesetzteNamen` nutzt ein Präfix-Muster, `leseEnv` `[^\r\n]*`, `containerUmgebung` `trim()`, die übrigen sind reine Ausgabe — und die **Tests** enthalten jetzt einen CRLF-Fall. Kein `.*$` mehr hinter einem `=` |
+| **B30** Eine frische Installation hat keinen Modellzugang | **offen — drei kleine Schritte** | `.env`/`.env.example` haben **22** Schlüssel, **keinen** für einen Anbieter (die zwei „KEY"-Treffer sind `PMH_MASTER_KEY`/`_VERSION`). Der `.env.example`-Kommentar verspricht Anbieter-Schlüssel **verschlüsselt in `user_secrets`** — nach **B14** liest aber **kein** Code `PMH_MASTER_KEY`. Der eigene Code liest den Schlüssel an **genau einer** Stelle (`providerFromEnv` → `env.DEEPSEEK_API_KEY`) und **wirft** ohne ihn. Der Installer erklärt `DATABASE_URL`/`REDIS_URL` samt 503, sagt zum Modell **nichts**. Empfehlung: leere dokumentierte Zeile in `.env.example`, zwei Zeilen in Schritt 7, und der belegte Speicher-Weg über `hilfen/zugang-bereitstellen.mjs` |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |

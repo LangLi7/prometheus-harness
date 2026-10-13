@@ -2352,6 +2352,50 @@ protokollspezifisch: **jede** `.jsonl` im Projekt ist eine Zeile-ein-Datensatz-D
 Sitzungsprotokolle des Harness sind genau das), und ein `\r` am Zeilenende ist dort dasselbe Problem wie
 in einer `.env`.
 
+## B30 — Eine frische Installation hat **keinen Modellzugang**, und die drei Artefakte widersprechen sich darüber, wo er herkommt — **M**
+
+**Anlass.** Mein Auftrag nennt es ausdrücklich: *„wenn es zb .env braucht wegen model api ect hilf den
+anderen agent dabei"*. Der Installer ist inzwischen fertig — also habe ich gefragt, was ein **Neuling**
+nach `bun scripts/install.mjs` in der Hand hat.
+
+**Vier Messungen, und sie passen nicht zueinander:**
+
+| Artefakt | Was dort steht | Befund |
+|---|---|---|
+| `.env` und `.env.example` | **22** Schlüssel — **keiner** für einen Modell-Anbieter. Die zwei Treffer auf „KEY" sind `PMH_MASTER_KEY` und `PMH_MASTER_KEY_VERSION` | es gibt **keine Variable**, die einen Modellschlüssel aufnimmt |
+| `.env.example`, Kommentar zu `PMH_MASTER_KEY` | *„Anbieter-Schlüssel des Benutzers (etwa DeepSeek) werden mit AES-256-GCM verschlüsselt in `user_secrets` abgelegt."* | **versprochen, aber nicht gebaut** — nach **B14** liest **kein** Code `PMH_MASTER_KEY`; die Umschlagverschlüsselung ist Schema ohne Code |
+| **eigener Code** | `packages/llm/llm-deepseek/src/index.ts:515` — `env.DEEPSEEK_API_KEY ?? ''` in `providerFromEnv`, und `deepseek.test.ts:350` prüft, daß sie **ohne** den Schlüssel **wirft** | der Weg ist die **Umgebungsvariable** — genau **eine** Stelle |
+| `scripts/` (Installer, Launcher, Wächter) | **kein** Treffer für `DEEPSEEK_API_KEY`, `API_KEY` oder `credentials`; Schritt 7 erklärt ausführlich `DATABASE_URL`/`REDIS_URL` **samt** der 503-Bedeutung — und **kein Wort** zum Modell | der Installer sagt dem Neuling nichts |
+
+**Die Upstream-Dokumentation, die er selbst mitliefert und übersetzt hat**, nennt den Ort
+(`docs/dsh/translation_de/development.md:113`): `DEEPSEEK_API_KEY=sk-...` in der **`.env` im
+Repo-Root**. Genau dort steht sie nicht.
+
+**Was das praktisch heißt.** `bun run start` startet den Host, die Oberfläche kommt, das Anmeldetoken
+steht in der Ausgabe — **und der Agent kann keinen einzigen Auftrag beantworten**, weil `providerFromEnv`
+ohne Schlüssel wirft. Der Installer meldet trotzdem „Installation abgeschlossen". Das ist keine
+Sicherheitslücke und **kein Fehler dieses Projekts** (die Vorlage läßt es ebenso offen) — aber es ist die
+eine Lücke, die das Ergebnis unbrauchbar macht, und sie wird **nirgends genannt**.
+
+**Ist-Zustand dieser Maschine, gemessen (live, nur Statuscode):** das **Bau-Home**
+(`.pmh-build/harness-home`) hat **1** Referenz, `DEEPSEEK_API_KEY`, HTTP **200** — weil die Aufsicht sie
+früher bereitgestellt hat (B3-Nachtrag). `~/.pmh` hat **13** Referenzen, ebenfalls HTTP **200**. Auf
+**diesem** Rechner läuft es also; eine **frische Kopie** hätte nichts.
+
+**Empfehlung — drei kleine Schritte, alle in seinem Stil:**
+
+1. **`.env.example`: eine dokumentierte, leere Zeile** `DEEPSEEK_API_KEY=` — mit derselben Begründung,
+   die dort schon für `PMH_MASTER_KEY` steht (*„ein Beispielwert würde kopiert"*). **Nicht** in
+   `GEHEIMNIS_NAMEN` aufnehmen: das ist eine Liste **erzeugter** Geheimnisse, und ein fremder
+   Anbieterschlüssel läßt sich nicht erzeugen.
+2. **Schritt 7 um zwei Zeilen ergänzen**, spiegelbildlich zum Absatz über `DATABASE_URL`/`REDIS_URL`:
+   wo der Schlüssel gelesen wird (`providerFromEnv`, **eine** Stelle) und daß der **Kern** `apiKeyEnv`
+   zusätzlich aus `$DSH_HOME/.credentials.yaml` auflöst — also zwei Wege, nicht einer.
+3. **Der Weg über den Speicher ist bereits gebaut und belegt:**
+   [`hilfen/zugang-bereitstellen.mjs`](hilfen/zugang-bereitstellen.mjs) schreibt die Referenz in ein
+   Harness-Home (Standard: **nur anzeigen**), und `werkzeuge/zugangs-lage.mjs --pruefen` bestätigt sie
+   gegen die echte API (HTTP 200). **Kein Wert steht dabei je in einer Ausgabe.**
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
@@ -2415,6 +2459,7 @@ in einer `.env`.
 | 14:44 | In **B26** stand als Beleg: *„die laufende Datenbank authentifiziert mit veröffentlichten Kennwörtern"* — gestützt auf eine TCP-Anmeldung, die **gelang**. | **Der Beleg trug nicht.** `pg_hba.conf` setzt `trust` für `127.0.0.1/32`: es wird **kein** Kennwort geprüft. Ein absichtlich **falsches** Kennwort meldet sich als `pmh_app` **und** als `pmh_admin` an. B26 ist oben berichtigt; der wahre Sachverhalt steht in **B28**. | **Ich habe genau den Fehler gemacht, den ich in B16 bei anderen diagnostiziert habe:** eine Sonde, deren **Methode** die Frage nicht beantworten kann — und ich habe ihr Ergebnis als Antwort gelesen. Gefunden hat es nicht mein Nachdenken, sondern die **Gegenprobe an einem Wegwerf-Container**: dort fiel auf, dass das *alte* Kennwort nach der Drehung **noch funktionierte**. Lehre: **eine Anmeldung, die gelingt, beweist nichts, solange nicht geprüft ist, dass eine falsche scheitert.** Beide neuen Werkzeuge prüfen das jetzt ausdrücklich. |
 | 14:50 | `git ls-files --eol` zeigte **meine eigene** `docs/protokoll/aufsicht/protokoll.jsonl` als `w/mixed`: **28 von 175 Zeilen endeten mit CRLF**, 147 mit LF. | Ursache **gemessen**: die ersten Zeilen kamen aus dem Schreibwerkzeug (LF), jede angehängte aus `Add-Content` — und das benutzt auf Windows **CRLF**. Die Datei ist auf LF normalisiert (175 Zeilen, 0 CRLF, 175 gültige JSON-Zeilen); ab jetzt hänge ich mit `Set-Content -NoNewline` und vorgegebenem `\n` an. | **Ich habe über die CRLF-Klasse geschrieben und sie in meiner eigenen Spur gehabt** — in der Datei, die das Herzstück des Auftrags ist. Aufgefallen ist es nur, weil ich ausnahmsweise die Zeilenenden **meiner** Dateien gemessen habe. Dritte Bestätigung desselben Musters: der Fehler sitzt dort, wo niemand nachsieht. |
 | 14:58 | Beim Ergänzen der Regel `/.gitattributes text eol=lf` habe ich `Set-Content` mit einem **`.Replace('*.jsonl text eol=lf', …)`** benutzt. Das ersetzte **alle** Vorkommen — auch das in meinem **eigenen Kommentar** — und riss ihn in zwei Zeilen. | Git meldete es sofort: **`**B29**; is not a valid attribute name: …/.gitattributes:21`**. Kommentar wiederhergestellt; `git check-attr` läuft danach **ohne** Warnung, die sechs Regeln stehen unverändert. | **Vierte Fassung derselben Ursache** (12:29, 13:56, 14:32, jetzt): ein Ersatz, der **breiter** greift als beabsichtigt. Neu ist der zweite Teil: ich habe nach der Änderung nicht den Zustand geprüft, sondern nur die eigene Erfolgsmeldung („Zeile ergaenzt") gelesen. Gefunden hat es ein **fremdes** Werkzeug — Git. Was hilft, ist nicht die Lehre, sondern die Kontrolle: nach jeder Änderung den Zustand ausgeben **und auf Werkzeugmeldungen hören**. |
+| 14:53 | Ich habe „`.env` enthält **2** Schlüssel mit `KEY` im Namen" gezählt und daraus beinahe „es gibt einen Anbieterschlüssel" gelesen. | Nachgesehen: es sind **`PMH_MASTER_KEY`** und **`PMH_MASTER_KEY_VERSION`** — der Hauptschlüssel der Umschlagverschlüsselung, **kein** Modellschlüssel. Und die eine DEEPSEEK-Zeile in `.env.example` ist ein **Kommentar**, keine Variable. | Mein Filter `-match 'KEY'` traf `MASTER_KEY` mit. Der Fehler wäre in die **falsche Richtung** gegangen — ich hätte eine Lücke übersehen. Aufgefallen ist es, weil zwei meiner eigenen Messungen („kein API_KEY in scripts/" gegen „1 Zeile nennt DEEPSEEK") **nicht zueinander paßten** und ich nachgesehen habe statt zu wählen. **Genau dafür sind Gegenproben da.** |
 
 ---
 
