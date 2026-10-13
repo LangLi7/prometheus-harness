@@ -2133,6 +2133,36 @@ und jeder Benutzer dieser Maschine — und jeder Container im selben Compose-Net
    Die neuen Werte dann in `.env` eintragen und die Migrationen einmal laufen lassen — dann ist der
    Zugang **belegt** und nicht nur behauptet.
 
+### Nachtrag 13.10.2026, 14:31 — **die unmittelbare Ursache hat er selbst gefunden** — und daraus folgt eine Reihenfolge
+
+Commit **`e9013a5` (14:29:46)**, „setzeWerte: CRLF-Zeilenenden — der Fehler, der im frischen Klon 0 Werte
+setzte". Er beschreibt ihn genauer, als ich es könnte:
+
+> *„Die erste Fassung benutzte `=(.*)$`. Gemessen am 13.10.2026 in einem **frischen Klon**: `Ersetzt: 0`
+> — **kein einziger Wert** wurde geschrieben, obwohl die Namen alle dastanden. […] Die Ursache ist eine
+> Eigenheit von JavaScript: `.` matcht **kein** `\r`. […] **Warum keine Prüfung das fand.** Alle Prüfungen
+> liefen mit Dateien, die **ich** im Speicher gebaut hatte — mit `\n`. Die Wirklichkeit auf einem
+> Windows-Rechner mit `core.autocrlf=true` liefert `\r\n`. Die Prüfungen waren grün und die Installation
+> kaputt."*
+
+**Damit ist die Kette vollständig:** `setzeWerte` schrieb **0** Werte → die `.env` behielt die
+**Vorlagenwerte** → der Stapel wurde damit eingerichtet → PostgreSQL legt Kennwörter **nur beim ersten
+Init** an → und die Ausweichwerte in `docker-compose.yml` hatten den scharfen `:?`-Wächter vorher
+entwertet. Vier Glieder, jedes für sich harmlos; zusammen eine Datenbank mit veröffentlichten Kennwörtern.
+
+**Was daraus für die nächste Stunde folgt — und das ist der eigentliche Rat:**
+
+> **Erst die Kennwörter in der Datenbank drehen, dann den Installer erneut laufen lassen.**
+
+Mit dem CRLF-Fix schreibt ein erneuter Lauf **neue** Geheimnisse in die `.env`, während die Datenbank die
+**alten** behält — genau der Fall, den sein eigener `pruefeKennwortAbgleich` meldet: *„password
+authentication failed for user pmh_owner"*. Der Weg dorthin ist datenverlustfrei (`ALTER ROLE … PASSWORD`
+als `pmh_admin`, danach `.env` nachziehen); der andere Weg (`docker compose down -v`) kostet den Bestand.
+**Stand 14:30 ist die Anmeldung noch in Ordnung** (gemessen: `pmh_app` über TCP), der Zustand ist also
+konsistent — nur eben mit öffentlichen Kennwörtern.
+
+---
+
 ## B27 — Die **Größe** der Bäume misst den Fortschritt nicht: 94 % des Unterschieds sind Abhängigkeiten — **N (Auskunft)**
 
 **Die Frage des Betreibers.** *„Ich habe das Gefühl, nichts wurde groß geändert im Ziel —
