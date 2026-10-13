@@ -2616,7 +2616,9 @@ brauchbar ist.**
 | **B35** Ist die neue Harness ressourceneffizienter? | **Auskunft — gemessen** | Drei Bäume: gegen die **Quelle** (9.029 MB, davon **8.642 MB** `node_modules` von pnpm) sieht das Ziel winzig aus — eine Illusion des **Paketmanagers**. Gegen den **laufenden DSH-Arbeitsbaum** (1.553 MB) ist das Ziel **1.870 MB, also +317 MB**, davon **697,6 MB Rust-`target/`**. Ohne dieses nicht ausgelieferte Bauverzeichnis: **1.172,8 MB → ~24 % kleiner** als DSH, bei **achtmal weniger eigenem Code** (60 `.ts`/23.374 Zeilen gegen 2.542/562.378). **Laufzeit: nichts belegt** — die GUI belegt 2.407,9 MB **mit dieser Sitzung**, ein frischer PMH-Host lag bei 184–198 MB. Eigentlicher Befund: **gebaut wird viel, verdrahtet ist wenig** |
 | **V8** Sein Datenbank-Abgleich | **verifiziert** | `e64f17d` behauptet: der Kern hält in SQL nur einen **wegwerfbaren Suchindex** (SQLite), **keine** Migrationen, und *ihre* `sessions`-Tabelle hält **Anmeldungen** — Namenskonflikt. Nachgemessen: `session-query-sqlite/src/schema.ts:1/7` wörtlich bestätigt, drei Tabellen (`search_state`, `persisted_sessions`, `persisted_docs` als fts5); `information_schema.columns` von `pmh.sessions` zeigt `token_hash`, `csrf_hash`, `idle_expires_at`, `revoked_at` (Gespräche liegen in `chats`/`messages`); `SessionHeader` (`core/session/src/types.ts:61`) hat `cwd`/`parentSession`/`delegationDepth` und **kein** `userId`/`workspaceId`/`chatId`. **Zwei Ergänzungen:** eine **vierte** Tabelle `temp.live_docs`, und der Rücksetzer ist **bewacht** (README:23) — beides fehlt in seiner Zusammenfassung |
 | **B36** Teure Vorgabe des Sitzungsschreibers ohne Begründung | **offen, latent — ein Satz bis ein Wort** | `options.flushEvery ?? 1` an zwei Stellen (`index.ts:368`, `:518`) = ein Schreibvorgang **je Ereignis**. Sein Benchmark: 600–632 ms je 2000 Ereignisse gegen 9,4–12,0 ms gebündelt; **meine** Nachmessung: Faktor **184×** (Bun) / 206× (Node), Kette hilft nicht (1,03× / 0,99×). **Der Kern hat gar kein `flushEvery`** — er arbeitet mit `appendBatch(meta, events, …)`, also stapelweise per Vertrag. **Latent:** das Paket ist nicht verdrahtet (kein Profil-Eintrag, keine Referenz in `apps/cli`, keine Abhängigkeit). **Nachtrag 16:14 — kein `sync`:** im ganzen Paket **null** Treffer für `sync(`/`fsync`/`datasync` (Schreibpfad `appendFile`, `index.ts:308`); **der Kern synct an fünf Stellen** (`index.ts:611, 639, 666, 685, 697`), mit Verzeichnis-fsync und *„discard the crash tail"*. `flushEvery 1` kauft **Reihenfolge** und Rechtzeitigkeit, **keine Haltbarkeit** — die Entscheidung lautet jetzt: **wird Haltbarkeit zugesagt?** |
-| **B37** Der Eigentümer einer Sitzung wird nicht geschrieben | **offen, latent — Vorarbeit für RLS** | `conversation_sessions` **hat** `user_id uuid NOT NULL` und `workspace_id uuid` (Migration `0003`, Zeilen 135/136) und sagt selbst, warum: *„user_id und workspace_id sind unsere Zusätze. … hier steht nur der Kopf."* Aber **niemand schreibt** die Zeile: in `packages/**/*.ts` **7** Vorkommen (6 in Tests, 1 in der Kerntabellen-Liste `packages/api/readiness/src/index.ts:190`), **0** Treffer für ein `INSERT`. Der **JSONL-Kopf** auf der Platte hat **keinen** Eigentümer (0 Treffer für `ownerId\|userId\|workspaceId` in `session-persistence-jsonl/src`). Folge: mit der ersten geschriebenen Sitzung ist die Zuordnung **geraten**; die Bereitschaftsprüfung **verlangt** die Tabelle. Empfehlung: Kopfzeile in derselben Transaktion füllen, Prüfung „Sitzungsdatei ohne Kopfzeile", **erst danach** RLS || **V10** Sein README-Paarungsprüfer | **falsifiziert — er kann scheitern** | Mit vier absichtlichen Brüchen in einer Kopie außerhalb des Baums (`%TEMP%\paar-probe`, der Prüfer leitet seine Wurzel aus dem Modulpfad ab): Basis **exit 0**, dann **je exit 1** für fehlenden Abschnitt, tote Sprungmarke, Linkziel nur in einer Fassung und verschobene Überschrift-Ebene — **mit Ortsangabe** („Anzahl der Überschriften verschieden: 24 gegen 23", „Sprungmarke ohne Ziel: gibt-es-nicht", beide Überschriftentexte). **Zwei gemessene Eigenschaften:** der Vergleich ist **positionell** (ein fehlender Abschnitt erzeugt mehrere Zeilen — die erste ist der Befund), und die Wurzel kommt aus dem **Modulpfad**, nicht aus dem Arbeitsverzeichnis |
+| **B37** Der Eigentümer einer Sitzung wird nicht geschrieben | **offen, latent — Vorarbeit für RLS** | `conversation_sessions` **hat** `user_id uuid NOT NULL` und `workspace_id uuid` (Migration `0003`, Zeilen 135/136) und sagt selbst, warum: *„user_id und workspace_id sind unsere Zusätze. … hier steht nur der Kopf."* Aber **niemand schreibt** die Zeile: in `packages/**/*.ts` **7** Vorkommen (6 in Tests, 1 in der Kerntabellen-Liste `packages/api/readiness/src/index.ts:190`), **0** Treffer für ein `INSERT`. Der **JSONL-Kopf** auf der Platte hat **keinen** Eigentümer (0 Treffer für `ownerId\|userId\|workspaceId` in `session-persistence-jsonl/src`). Folge: mit der ersten geschriebenen Sitzung ist die Zuordnung **geraten**; die Bereitschaftsprüfung **verlangt** die Tabelle. Empfehlung: Kopfzeile in derselben Transaktion füllen, Prüfung „Sitzungsdatei ohne Kopfzeile", **erst danach** RLS |
+| **B38** Sein Mandantentrennungs-Vorschlag: die Löschregel ist nicht ausführbar | **offen, rechtzeitig — N** | `ON DELETE SET NULL` auf einem **zusammengesetzten** Verweis setzt **beide** Spalten auf NULL; gemessen 16:33: `UPDATE ONLY chat SET workspace_id = NULL, user_id = NULL` → `null value in column "workspace_id" violates not-null constraint`. **Sein B-S1 ist bestätigt** (vier Verweise auf **einspaltige** Ziele, **kein** zusammengesetzter Verweis im Schema, 11/11 Tabellen ohne RLS) und **sein Weg weist ab** — nur die Löschregel muß **`NO ACTION`** (oder `CASCADE`) lauten. Weiche Löschungen gibt es: `chats.deleted_at`, `workspaces.archived_at`. Werkzeug: [`hilfen/mandantentrennung-probe.sql`](hilfen/mandantentrennung-probe.sql) (`ROLLBACK`, Rückstand `0 \| 0`) |
+| **V10** Sein README-Paarungsprüfer | **falsifiziert — er kann scheitern** | Mit vier absichtlichen Brüchen in einer Kopie außerhalb des Baums (`%TEMP%\paar-probe`, der Prüfer leitet seine Wurzel aus dem Modulpfad ab): Basis **exit 0**, dann **je exit 1** für fehlenden Abschnitt, tote Sprungmarke, Linkziel nur in einer Fassung und verschobene Überschrift-Ebene — **mit Ortsangabe** („Anzahl der Überschriften verschieden: 24 gegen 23", „Sprungmarke ohne Ziel: gibt-es-nicht", beide Überschriftentexte). **Zwei gemessene Eigenschaften:** der Vergleich ist **positionell** (ein fehlender Abschnitt erzeugt mehrere Zeilen — die erste ist der Befund), und die Wurzel kommt aus dem **Modulpfad**, nicht aus dem Arbeitsverzeichnis |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |
@@ -2677,6 +2679,51 @@ Gate), 33 geänderte Pfade. **Standabgleich 16:27:** 12 Prüfungen, **0 behoben*
 **Eigene Fehler dieses Takts, in der H6-Tabelle eingetragen:** der **falsche Meßweg** (im Container
 gemessen und auf den Host verallgemeinert) und **drei Uhrzeiten in der Zukunft** bei einer Uhr, die auf
 16:11 stand.
+
+---
+## 2026-10-13 16:30–16:40 — Achtundvierzigster Takt: **seinen Mandantentrennungs-Befund bestätigt, seine offene Frage gemessen** (B38) — und zwei eigene Werkzeugmängel
+
+**Er arbeitet weiter.** Seit meinem Commit `4f686a6` **kein** neuer Commit, aber **31** geänderte Pfade:
+`services/pmh-nix` (11 Dateien), `services/pmh-attach` (inkl. README, zwei Tests, `unit.json`),
+`native/flock`, `bun.lock` — und **vier neue Dokumente**, darunter `docs/review/sicherheits-befunde.md`
+(16:30:38, im Arbeitsbaum, **nicht versioniert**). Zehn `node`-Prozesse laufen.
+
+**Sein B-S1 — bestätigt und ergänzt.** Er hat um 16:30 selbst gemessen, daß die Datenbank die
+Mandantentrennung an den Verweisen nicht erzwingt (Vorschlag: zusammengesetzte Fremdschlüssel).
+**Ich habe seinen Katalogbefund unabhängig nachgemessen** (16:31, nur lesend): genau seine vier Verweise,
+alle auf **einspaltige** Ziele; **kein** zusammengesetzter Verweis im Schema; **11 von 11** Tabellen
+`relrowsecurity = false`. **Sein Befund stimmt**, und er hat ihn selbst mit `ROLLBACK` belegt.
+
+**Seine offene Frage hatte er ausdrücklich offen gelassen** (*„Das habe ich nicht entschieden und nicht
+gemessen"*): ob sein Vorschlag wirklich abweist, und was `ON DELETE SET NULL` bei `NOT NULL` tut.
+**Beides gemessen** (16:33, eigene Wegwerf-Tabellen, `ROLLBACK`, Werkzeug
+[`hilfen/mandantentrennung-probe.sql`](hilfen/mandantentrennung-probe.sql)):
+
+* Der zusammengesetzte Verweis **weist ab** — sein Weg ist richtig.
+* **`ON DELETE SET NULL` ist nicht ausführbar:** das Löschen läuft als
+  `UPDATE ONLY chat SET workspace_id = NULL, user_id = NULL` und scheitert an
+  `null value in column "workspace_id" violates not-null constraint`. `DELETE FROM workspaces` wäre
+  unmöglich, solange ein Chat zeigt → **B38**, Empfehlung **`NO ACTION`**.
+* Rückstand am Ende: `0 | 0` — nichts angefaßt, nichts geblieben.
+
+**Zwei eigene Mängel, beide in der H6-Tabelle:**
+
+1. **Mein neues Werkzeug hätte gelogen:** die erste Fassung rollte nach dem eigenen Verweis auf den
+   Sicherungspunkt zurück und entfernte damit **die Zeile, die der Löschtest prüft** — Ausgabe `DELETE 1`
+   statt eines Fehlers. Aufgefallen beim **Ausführen** (genau dafür führt man aus). Korrigiert, Warnung
+   im Dateikopf, danach erneut ausgeführt.
+2. **Meine Werkzeug-Lücke:** `protokoll-pruefung.mjs` las `LAGE.md` **gar nicht** — deshalb ging **B37**
+   ohne Zeile auf der Entscheidungsseite durch, gegen meine eigene Regel von 16:11. **Behoben:** neue
+   Regel **2b** („LAGE.md nennt jede Befundnummer") mit **ausdrücklich benannten** Ausnahmen
+   (B4, B5, B21, V3, V8, V9, V10 — je mit Grund). Eine stille Auslassung ist ab jetzt ein Fehler, eine
+   benannte eine Entscheidung.
+
+**Weiter offen und unverändert:** **B33** — im Lebendstand der `pmh-attach`-Quellen findet sich `Origin`
+**nur** in der Testdatei, trotz Änderungen an `conn.go`, `server.go`, `session.go`. Standabgleich 16:27:
+0 behoben, B29 von 11 auf 12 Dateien gewachsen. **Neu notiert:** zwei Recherchedokumente
+(`research-2026-dauerhaftigkeit-atomare-dateiops.md`, 55 KB, 12:00; `sprachwahl-grosse-systeme-recherche.md`,
+86 KB, 12:02) liegen **unversioniert** in der Wurzel — dieselbe Klasse wie **B32**: Arbeit, die ein
+Update still verlöre.
 
 ---
 ## Registereintrag

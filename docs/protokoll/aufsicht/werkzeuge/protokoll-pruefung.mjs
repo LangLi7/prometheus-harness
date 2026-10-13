@@ -6,10 +6,13 @@
  * Ein Instrument, das nicht sagt, **was** es gemessen hat, hat den falschen Wert geliefert. Genau der
  * Fehler, den diese Rolle bei anderen sucht.
  *
- * Dieses Werkzeug prüft deshalb **vier Dinge**, die zusammen stimmen müssen:
+ * Dieses Werkzeug prüft deshalb **fünf Dinge**, die zusammen stimmen müssen:
  *
  *   1. Die Offen-Tabelle nennt jede Befundnummer **genau einmal** und **aufsteigend**.
  *   2. Zu jeder Nummer in der Tabelle gibt es einen **Abschnitt** in `befunde.md` — und umgekehrt.
+ *   2b. `LAGE.md` **nennt** jede Befundnummer (oder führt sie ausdrücklich als Ausnahme). Diese Regel
+ *      ist am 13.10.2026 dazugekommen, nachdem **B37** ohne LAGE-Zeile geblieben war und **dieses
+ *      Werkzeug es nicht merkte** — es las `LAGE.md` gar nicht.
  *   3. `protokoll.jsonl` ist **zeilenweise gültiges JSON** (append-only heißt: nie eine kaputte Zeile).
  *   4. Jede Datei des Ordners ist **versioniert** — ein nicht versioniertes Protokoll ist nicht
  *      nachprüfbar.
@@ -55,6 +58,43 @@ if (start === -1) {
   const fehlendeZeilen = imText.filter((n) => !nummern.includes(n))
   melde(fehlendeAbschnitte.length === 0, `Befundabschnitte in befunde.md vorhanden${fehlendeAbschnitte.length > 0 ? ` — fehlt: ${fehlendeAbschnitte.join(', ')}` : ''}`)
   melde(fehlendeZeilen.length === 0, `kein Abschnitt ohne Tabellenzeile${fehlendeZeilen.length > 0 ? ` — ohne Zeile: ${fehlendeZeilen.join(', ')}` : ''}`)
+
+  /**
+   * 2b. Die Entscheidungsseite nennt jede Nummer.
+   *
+   * WARUM. Am 13.10.2026 um 16:33 fand ich **B37** ohne jede Zeile in `LAGE.md` — meine eigene
+   * Regel „beide Zeilen vor dem Commit" war verletzt, und **dieses Werkzeug merkte es nicht**,
+   * weil es `LAGE.md` gar nicht las. Die Lücke wird hier geschlossen: wer einen Befund anlegt,
+   * nennt ihn auf der Entscheidungsseite — oder trägt ihn unten **ausdrücklich** als Ausnahme
+   * ein. Eine stille Auslassung ist ab jetzt ein Fehler; eine benannte ist eine Entscheidung.
+   */
+  const ausnahmen = {
+    B4: 'N, latent (Git-Credential-Helfer) — keine Entscheidung nötig',
+    B5: 'N (nur im Testkopf dokumentiert) — kein Handlungsbedarf',
+    B21: 'N (das Wort „Kette" bedeutet zweierlei) — Begriffshinweis',
+    V3: 'Verifikation (CRLF-Klasse geschlossen) — in §2 geführt',
+    V6: 'Verifikation (pmh-attach kompiliert) — in der B33-Zeile mitgeführt',
+    V7: 'Verifikation (drei Installations-Einstiege) — in den Zeilen B30/B34 mitgeführt',
+    V8: 'Verifikation (Datenbank-Abgleich) — im §2-Text erklärt',
+    V9: 'Verifikation (Benchmark) — als Zahl in der B35-Zeile enthalten',
+    V10: 'Verifikation (Paarungsprüfer) — in §1 bei B15/B16 geführt',
+  }
+  const lage = lies(join(ORDNER, 'LAGE.md'))
+  const alleNummern = [...new Set([...befunde.matchAll(/^## (B\d+|V\d+)/gm)].map((t) => t[1]))]
+  // Genannte Nummern: jede fette Marke zählt, auch **gebündelt** (`**B3/B17**`, `**V4/V5**`).
+  // Die erste Fassung dieser Regel suchte die Nummer als Teilzeichenkette — damit galt „B2" als
+  // genannt, weil „B22" ihn enthält. Ein Suchmuster, das zu weit greift, misst das Falsche.
+  const genannt = new Set(
+    [...lage.matchAll(/\*\*([^*]+)\*\*/g)]
+      .flatMap((treffer) => treffer[1].split('/'))
+      .map((teil) => teil.trim())
+      .filter((teil) => /^(B|V)\d+$/.test(teil)),
+  )
+  const ohneNennung = alleNummern.filter((n) => !genannt.has(n) && !(n in ausnahmen))
+  melde(
+    ohneNennung.length === 0,
+    `LAGE.md nennt jede Befundnummer${ohneNennung.length > 0 ? ` — OHNE Nennung: ${ohneNennung.join(', ')}` : ` (Ausnahmen ausdrücklich: ${Object.keys(ausnahmen).join(', ')})`}`,
+  )
 }
 
 /** 3. Die JSONL-Datei */

@@ -2360,6 +2360,55 @@ Sitzungszeile füllen. 2. Eine Prüfung, die eine Sitzungsdatei **ohne** Kopfzei
 der Bestand still. 3. **Erst danach** RLS (siehe Fremdreview unten: ohne Setzer für `app.user_id` macht
 jede Regel jede Abfrage leer).
 
+## B38 — Sein Vorschlag zur Mandantentrennung **weist richtig ab**, aber die vorgeschlagene **Löschregel ist nicht ausführbar** — **N** (latent, vor der Migration)
+
+**Anlaß.** Der bauende Agent hat um **16:30** `docs/review/sicherheits-befunde.md` angelegt (im
+Arbeitsbaum, **noch nicht versioniert**) und darin als **B-S1** gemessen: die Datenbank erzwingt die
+Mandantentrennung an den Verweisen nicht. Sein Vorschlag sind **zusammengesetzte Fremdschlüssel**. Zwei
+Dinge ließ er ausdrücklich offen — wörtlich: *„Das habe ich nicht entschieden und nicht gemessen"*:
+ob der Vorschlag wirklich abweist, und was `ON DELETE SET NULL` mit einer `NOT NULL`-Spalte macht.
+
+**Was ich unabhängig bestätigt habe** (16:31, Katalog, nur lesend) — genau seine vier Verweise, alle auf
+**einspaltige** Ziele:
+
+| Verweis | Ziel |
+|---|---|
+| `conversation_sessions_parent_session_fkey` | `conversation_sessions(id)` |
+| `conversation_sessions_workspace_id_fkey` | `workspaces(id)` |
+| `chats_workspace_id_fkey` | `workspaces(id)` |
+| `messages_chat_id_fkey` | `chats(id)` |
+
+Dazu: **kein** zusammengesetzter Fremdschlüssel im Schema (Zähler 0) und **11 von 11** Tabellen mit
+`relrowsecurity = false`. **Sein B-S1 ist damit bestätigt** — er hat es unabhängig von mir gefunden, mit
+einem eigenen `ROLLBACK`-Nachweis, und er benennt seine Grenzen selbst („keinen Angreiferpfad
+nachgewiesen"; die Lesesicht über `workspace_id` „gibt es heute nicht").
+
+**Seine offene Frage — hier gemessen** (eigene Wegwerf-Tabellen, `ROLLBACK`, Werkzeug:
+[`hilfen/mandantentrennung-probe.sql`](hilfen/mandantentrennung-probe.sql), 16:33 ausgeführt):
+
+* Der zusammengesetzte Verweis **weist ab**: der Fremdverweis scheitert mit
+  `violates foreign key constraint "chat_raum_same_user_fkey"`, der eigene gelingt. **Sein Weg ist
+  richtig.**
+* **Die Löschregel ist es nicht.** `ON DELETE SET NULL` auf einem **zusammengesetzten** Verweis setzt
+  **beide** Spalten auf `NULL`; das Löschen des Arbeitsbereichs läuft als
+  `UPDATE ONLY chat SET workspace_id = NULL, user_id = NULL` und scheitert an
+  **`null value in column "workspace_id" violates not-null constraint`**. Damit wäre
+  `DELETE FROM workspaces` **unmöglich**, solange ein Chat zeigt — und dasselbe gilt für
+  `conversation_sessions.parent_session`, weil dort `user_id` ebenfalls `NOT NULL` ist.
+* **Die wählbaren Regeln:** `NO ACTION` (Löschen abweisen, solange ein Verweis besteht) oder
+  `ON DELETE CASCADE`. Für dieses Schema spricht **`NO ACTION`**, weil es **weiche** Löschungen kennt
+  (`chats.deleted_at`, `workspaces.archived_at` — gemessen vorhanden); hart gelöscht wird offenbar nicht.
+* **Für die Migration noch zu wissen:** `messages_pkey` ist `(chat_id, id)`, also zusammengesetzt — ein
+  Verweis auf `chats (id, user_id)` braucht dort einen **eigenen** eindeutigen Index. Sein Text sagt das
+  bereits.
+
+**Warum trotzdem nur N.** Kein Sicherheitsloch, sondern eine **Betriebsstörung im Entwurf**: würde die
+Migration wie vorgeschlagen geschrieben, wäre Löschen unmöglich, und der Fehler fiele erst beim ersten
+`DELETE` auf. Weil die Migration **noch nicht existiert**, kommt der Hinweis **rechtzeitig** — genau
+dafür ist diese Rolle da. **Fairness:** der Vorschlag ist gut, der Nachweis sauber (`ROLLBACK`, danach
+`0` Testbenutzer und `0` Sitzungen), und er hat die Spannung **selbst** gesehen. Meine Leistung ist
+**eine Messung**, nicht der Fund.
+
 ## V3 — Die CRLF-Klasse im JavaScript ist **geschlossen** (Verifikation, kein Befund)
 
 **Anlass.** Derselbe Fehler ist bei ihm **dreimal** aufgetreten: `setzeWerte` (`e9013a5`), `leseEnv`
@@ -3159,6 +3208,8 @@ nach Hausregel **H4** keine Geheimwerte.
 | 16:14 | **Mein B28-Befund stand 40 Minuten in einer Fassung, die den falschen Weg gemessen hatte.** Ich habe mit `docker exec … -h 127.0.0.1` die **Schleife im Container** gemessen und daraus verallgemeinert: „auf diesem Rechner heißt ‚nur lokal' jeder lokale Prozeß" — und **daraus eine Reihenfolge** abgeleitet („erst `pg_hba`, dann drehen, sonst ist die Drehung kosmetisch"). | Beide Wege nachgemessen: **Windows → `127.0.0.1:5432`** lehnt ein absichtlich falsches Kennwort **ab**, der **Unix-Socket im Container** nicht. Befund auf **N** korrigiert, **zwei Sätze** in `LAGE.md` zurückgezogen, die Reihenfolge in §0 **gedreht**. Gefunden hat es ein **Fremdreview** — es hatte recht, ich nicht. | **Dritte Fassung derselben Ursache** (13:44: eine Anmeldung, die gelingen konnte, ohne etwas zu beweisen; 15:09: nur stdout gelesen; jetzt: den falschen Weg gemessen). Die Richtung ist neu: der Fehler ging **nicht** in einen Befund gegen den bauenden Agenten, sondern in **meine eigene Entscheidungsseite** — dort richtet er den größten Schaden an, weil er eine **Reihenfolge** bestimmt. **Neue Regel: eine Sonde nennt den Weg, den sie gemessen hat** (Host? Container? Socket?) — sonst ist ihr Ergebnis nicht übertragbar. |
 | 16:12 | Ich habe in **drei** Dateien Uhrzeiten geschrieben, die **in der Zukunft** lagen — H6-Zeile „16:18", `protokoll.md` „Nachtrag **16:20**", `LAGE.md` „Stand **16:14**" — bei einer Uhr, die auf **16:11** stand. | Aufgefallen, als ich für diesen Takt die Uhrzeit **gemessen** habe (`16:11:43`); die beiden Datumszeilen auf **16:14** korrigiert, der `LAGE.md`-Stand auf die gemessene Zeit gesetzt. | **Wiederholung eines eigenen, bereits dokumentierten Fehlers** (erfundene Zeitstempel, in einer früheren Runde „bis 45 Minuten in der Zukunft"). Neu ist nur, daß ich ihn **innerhalb desselben Takts** bemerkt habe — und daß ich ihn begangen habe, **während** ich über Meßdisziplin schrieb. Die Regel bleibt: **keine Uhrzeit in eine Datei, die nicht vorher in einer Shell gestanden hat.** |
 | 16:30 | Beim Schreiben von Takt 47 habe ich eine **PowerShell-Hilfsfunktion** benutzt, die ihre Erfolgsmeldung **und** den neuen Text ausgab. PowerShell sammelt **beides** ein — die vier Meldungen landeten **in der Datei**, der ersten Zeile vorangestellt: `  ok      Takt 47   ok      B37-Zeile   ok      B29 11 -> 12   ok      B36 Nachtrag 16:20 -> 16:14 # Protokoll der Aufsicht — Chronologie`. | Sofort nach dem Schreiben **gemessen** — ich habe ausdrücklich nach den Meldungen **in** der Datei gesucht, nicht nur nach dem Ergebnis — und den vorangestellten Text mit einem gezielten `.Replace` entfernt. Danach: Zeile 1 = `# Protokoll der Aufsicht — Chronologie`, **2692** Zeilen, **0** CRLF, und `git diff` zeigt **nur** die beabsichtigten Änderungen. Die **drei** verbliebenen `  ok  `-Treffer sind **echt**: sie zitieren die Ausgabe der Bereitschaftsprobe (V2, Zeilen 1581–1583). | **Neue Ursache, neue Regel:** eine Funktion, die **meldet und zurückgibt**, schreibt in PowerShell beides in den Wert. Ab jetzt melde ich mit `Write-Host` oder die Funktion gibt **nur** den Wert zurück. Bemerkenswert ist, was geholfen hat: **dieselbe Routine wie immer** — den Zustand nach der Änderung ausgeben —, nur diesmal **vor** dem Commit statt danach. |
+| 16:33 | Mein **neues** Werkzeug [`hilfen/mandantentrennung-probe.sql`](hilfen/mandantentrennung-probe.sql) hätte das **Gegenteil** des eigenen Befunds behauptet: die erste Fassung rollte nach dem Prüfschritt „eigener Verweis gelingt" auf den Sicherungspunkt zurück und entfernte damit **die Zeile, die der Löschtest überhaupt prüft**. Die Ausgabe lautete `DELETE 1` statt eines Fehlers. | Aufgefallen beim **Ausführen** — die erwartete Fehlerzeile fehlte. Fassung korrigiert (`D2` bleibt stehen), Warnung in den Dateikopf (*„D2 darf nicht zurückgerollt werden"*), danach erneut ausgeführt: `D1` Fehler, `D2` `INSERT 0 1`, `D3` `not-null constraint`, `E` `0 \| 0`. | **Vierte Fassung derselben Ursache** (13:44 Anmeldung ohne Gegenprobe, 15:09 nur **stdout** gelesen, 16:14 den falschen **Weg** gemessen, jetzt eine Probe, die ihre eigene **Voraussetzung** entfernt). Immer dieselbe Frage: **kann diese Sonde die Frage überhaupt beantworten?** Neu ist, daß es **vor** der Veröffentlichung auffiel — weil ich das Werkzeug **ausgeführt** habe, statt es zu beschreiben. |
+| 16:35 | **B37** ging ohne Zeile in `LAGE.md` durch — gegen meine eigene Regel „beide Zeilen vor dem Commit" (16:11). Und **mein** Selbstprüfwerkzeug meldete trotzdem „das Protokoll ist in sich stimmig": es las `LAGE.md` **gar nicht**. | Beim Schreiben von B38 aufgefallen, weil ich **nachsah**, ob B37 dort steht — nicht, weil ein Werkzeug es gesagt hätte. Zeile nachgetragen und `werkzeuge/protokoll-pruefung.mjs` um **Regel 2b** erweitert: `LAGE.md` muß jede Befundnummer nennen, sonst Fehler; die sieben echten Ausnahmen (B4, B5, B21, V3, V8, V9, V10) stehen mit Grund im Werkzeug. | Der Werkzeugmangel ist der schwerere Teil: **eine Prüfung, die eine Datei nicht liest, meldet für sie „ok"** — dieselbe Familie wie 15:09 (nur eine Quelle gelesen). Meine Regel von 16:11 hätte gegriffen, wenn das Werkzeug sie gekannt hätte; jetzt kennt es sie. |
 
 ---
 
