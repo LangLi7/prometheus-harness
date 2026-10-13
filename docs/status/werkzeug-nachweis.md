@@ -82,14 +82,51 @@ selbst.
 **Die Lehre, die bleibt:** eine Ergänzung, die **Erfolg meldet**, ist damit noch nicht **wirksam**.
 Der Nachweis ist der Werkzeugaufruf, nicht die Meldung des Laders.
 
-## 5. Was nicht geprüft ist
+## 5. Die übrigen Werkzeuge aus dem Selbsttest-Bericht (A3)
 
-* **`web_fetch`** — im Selbsttest-Bericht rot (`dispatcher.close is not a function`). In unserer
-  Werkzeugliste **nicht enthalten** und damit hier **nicht prüfbar**.
-* **`subagent`** — im Selbsttest-Bericht grün. **Nicht nachgefahren.**
-* **Die Häufigkeit des `glob`-Ausfalls** (Abschnitt 2).
-* **`EISDIR … link …tmp`** aus dem Selbsttest-Bericht (Schreiben in den Arbeitsbereich auf `D:`).
-  Unser Arbeitsbereich liegt auf `C:`, dort schreibt `write` nachweislich. **Offen und
-  pfadspezifisch.** Dazu gehört der **getrennte** Befund `packages/util/atomic-write`:
-  `Zugriff verweigert (os error 5)` beim Anlegen der temporären Datei — **nicht** durch unsere
-  Änderung verursacht (ohne `bunfig.toml` scheitert derselbe Test identisch: 18 pass, 1 fail).
+Zweite Sitzung, `session-75a69f2e-856a-4a96-b325-71a81703881b`, derselbe Weg über die API.
+Die Antwort des Agenten wörtlich:
+
+```
+working_directory: OK  Arbeitsverzeichnis = C:\Users\Chang\prometheus-harness
+job_list:          OK  keine Hintergrundjobs vorhanden
+schedule_list:     OK  keine Zeitplaene vorhanden
+web_search:        OK  8 Treffer (u. a. Ollama-Doku, KDnuggets)
+subagent:          OK  Antwort des Unteragenten = SUBAGENT-OK
+```
+
+**Bemerkenswert und ausdrücklich festgehalten:** `subagent` funktioniert, **obwohl** die zwei
+CLI-Adapter (`subagent-claude-code`, `subagent-codex`) abgeschaltet sind (A2). Der **eigene**
+Unteragenten-Mechanismus des Kerns ist davon **unberührt** — die Abschaltung kostet nur die
+Anbindung an die fremden CLIs, nicht die Unteragenten.
+
+## 6. Die vollständige Bilanz gegen den Selbsttest-Bericht
+
+| Werkzeug | Selbsttest-Bericht | **unsere Messung** |
+|---|---|---|
+| `read` | ✅ | **OK** |
+| `write` | ✅ Temp / ❌ Arbeitsbereich auf `D:` | **OK** (unser Arbeitsbereich liegt auf `C:`) |
+| `pwsh` | ❌ `subprocess runner requires target argv…` | **OK** (zweimal) |
+| `glob` | ❌ ripgrep provider failure | **OK** (zweimal) — **einmal rot beobachtet**, siehe §2 |
+| `grep` | ❌ ripgrep provider failure | **OK** (zweimal) |
+| `web_search` | ⚠️ erster Versuch abgebrochen | **OK** |
+| `subagent` | ✅ | **OK** — auch nach der Adapter-Abschaltung |
+| `job_list` | ✅ | **OK** |
+| `schedule_list` | ✅ | **OK** |
+| `working_directory` | ✅ | **OK** |
+| `web_fetch` | ❌ `dispatcher.close is not a function` | **nicht prüfbar** — dieses Werkzeug steht **nicht** in unserer Liste |
+
+**Bilanz: 10 von 10 prüfbaren Werkzeugen grün.** Davon waren **drei** im Selbsttest-Bericht rot
+(`pwsh`, `glob`, `grep`) — dieselben drei sind jetzt grün.
+
+**Was in dieser Bilanz ausdrücklich offen bleibt:**
+
+* **`glob` war einmal rot** (§2). Ein Werkzeug mit einem beobachteten Ausfall ist **nicht**
+  sauber grün. Die Häufigkeit ist **nicht** bestimmt.
+* **`web_fetch`** ist für uns **nicht prüfbar**, weil es in unserer Werkzeugliste fehlt. Der
+  Fremdbericht nennt `dispatcher.close is not a function` — eine Laufzeitaussage, die zu Bun
+  paßt, aber **von uns nicht gemessen** ist.
+* **Der `D:`-Pfad** aus dem Fremdbericht ist **nicht** nachgestellt. Unser Arbeitsbereich liegt
+  auf `C:`. Der Befund bleibt **pfadspezifisch und offen** — dazu gehört der **getrennte**
+  Befund `packages/util/atomic-write` (`Zugriff verweigert (os error 5)`, **nicht** durch unsere
+  Änderung verursacht).
