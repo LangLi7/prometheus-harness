@@ -136,3 +136,82 @@ docker exec pmh-postgres psql -U pmh_admin -d pmh_test -tAc "SELECT string_agg(c
 bun scripts/typecheck.mjs
 Select-String -Path packages/auth/secrets/src/index.ts -Pattern 'export function verpacke' -Context 0,8
 ```
+
+---
+
+## Nachgemessen am 14.10.2026 — die Effizienzfrage, die den Ausschlag geben sollte
+
+Der Betreiber hat gefragt: *„ich würde nach dem je Benutzer gehen, aber Punkt 2 ist
+auch interessant — die Frage ist eher, was ist effizienter, und lohnt sich dieser
+Mehraufwand an Schema-Arbeit?"*
+
+Das ist eine **Meßfrage**, und sie ist mit den zwei vorhandenen Operationen direkt
+meßbar: `verschluessele(stueck, datenschluessel)` (symmetrisch — der Weg „ein
+Schlüssel je Benutzer") gegen `verpacke(stueck, hauptschluessel)` (Umschlag je
+Stück: **Schlüsselerzeugung + Wickeln**). Sonde:
+`docs/status/messsonden/umschlagkosten.mjs` (**exit 0**).
+
+```
+Umschlagkosten — 2000 Stuecke je 1200 Byte, gemessen im Prozeß
+
+  A  nur verschluesseln  (ein Schluessel je Benutzer)   9,50 ms gesamt   4,748 µs je Stueck
+  B  verpacke je Stueck  (ein Umschlag je Stueck)      15,86 ms gesamt   7,931 µs je Stueck
+  C  verpacke EINMAL     (Einmalaufwand von Weg A)      0,075 ms
+
+  Verhaeltnis B/A je Stueck: 1,7x
+  Auf 10.000.000 Stuecke:
+    Weg A: 47,5 s      Weg B: 79,3 s   (+31,8 s)
+```
+
+| Kostenart | ein Schlüssel je Benutzer | Umschlag je Stück |
+|---|---|---|
+| Schreiben je Stück | **4,75 µs** | **7,93 µs** (1,7×) |
+| 10 Mio. Stücke schreiben | 47,5 s | 79,3 s (**+32 s**) |
+| Aufschlag je Stück (bytes) | 0 | **100 Byte = 8,3 %** von 1200 |
+| Auf 1 Mio. Stücke | 0 | 95,4 MiB |
+| Schlüsselwechsel (Master) | **1 Wickeln je Benutzer** | **1 Wickeln je Stück** |
+| Löschen eines Stücks | nur per Benutzer | **je Stück** (Krypto-Shredding) |
+| Schema-Arbeit | 1 Zeile in `user_secrets` | Schlüsselspalte **je Stück** |
+
+### Der Befund widerlegt meine eigene Erwartung
+
+Ich hatte angenommen, ein Umschlag je Stück sei **um Größenordnungen** teurer.
+Gemessen ist er **1,7×** teurer — **+3,2 µs je Stück, über zehn Millionen Stücke
+ganze 32 Sekunden.** Die Schlüsselerzeugung ist billig, und AES-GCM über 1200 Byte
+dominiert beide Wege. **Der Mehraufwand an Schema-Arbeit läßt sich mit
+Schreibleistung also nicht begründen — in keine der beiden Richtungen.**
+
+**Was wirklich entscheidet, ist der Schlüsselwechsel und die Löscheinheit:**
+
+* **Weg B (Umschlag je Stück)** muß beim Masterwechsel **jedes Stück** neu wickeln
+  — O(Stücke). Weg A nur **eine Zeile je Benutzer** — O(Benutzer). Bei 10 Mio.
+  Stücken ist das der Unterschied zwischen Sekunden und einer Migration, die den
+  ganzen Speicher anfaßt.
+* **Die Grenze, um die es hier geht, ist der Benutzer** — nicht das Stück. Die
+  Forderung des Betreibers lautet *Sicherheit, Sandbox-Gedanke, Speicher-System,
+  also der komplette Chat*. Getrennt werden **Benutzer**, nicht Absätze. Ein
+  Umschlag je Stück schützt gegen einen Angreifer, der **genau ein Stück** Schlüssel
+  erbeutet — für dieses Bedrohungsbild gibt es hier keinen Angreifer.
+
+### Entscheidung (empfohlen und umgesetzt)
+
+**Ein Datenschlüssel je Benutzer**, Referenz `rag-datenschluessel` in
+`user_secrets`. **Begründung ausdrücklich nicht „Geschwindigkeit"** — die
+Unterschiede sind zu klein, um eine Entscheidung zu tragen —, sondern: die
+Löscheinheit ist der Benutzer, der Schlüsselwechsel ist O(Benutzer) statt
+O(Stücke), und die Isolationsgrenze des Speichers ist der Mandant.
+
+**Und der Weg zu B bleibt offen.** Das ist keine Einbahnstraße, weil `Umschlag`
+bereits `masterKeyVersion` und `keyHint` mitführt: eine spätere Umstellung auf
+Umschläge je Stück ist eine **Migration**, kein Umbau. Genau wie vom Betreiber
+vorgeschlagen wird die Verschlüsselung hinter einen **Schalter** gelegt (an/aus),
+so daß sie erstellt, ungenutzt gelassen und später wieder eingeschaltet werden
+kann.
+
+> **Ein eigener Meßfehler, festgehalten.** Der erste Versuch maß die Größe mit
+> `JSON.stringify(umschlag).length` und erhielt **4717 Zeichen für 1200 Byte
+> Nutzlast — 293 % Aufschlag.** Das war ein **Artefakt der Messung**, kein
+> Aufschlag: `JSON.stringify` schreibt ein Byte-Array als **Dezimalzahlen**
+> (`[12,34,…]`), jede Zahl kostet ~4 Zeichen. In einer `bytea`-Spalte gilt die
+> Byte-Zahl: **100 Byte = 8,3 %**. Wer den JSON-Wert berichtet hätte, hätte einen
+> 35-fach zu großen Aufschlag behauptet.
