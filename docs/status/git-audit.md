@@ -259,14 +259,15 @@ schwach, ist **nicht geklärt** und gehört in ein eigenes Paket.
 3. **`pmh-supervisor` hat kein Arbeitspaket** im Register, obwohl es Tests hat, die rot
    sind. Das ist eine Registerlücke, kein Codefehler — und sie gehört geschlossen.
 
-### 2026-10-13 · 09:05 UTC · Korrektur: der Windows-Blocker ist keine Bun-Grenze (neunter Push)
+### 2026-10-13 · 09:01 UTC · Korrektur: der Windows-Blocker ist keine Bun-Grenze (neunter Push)
 
 | Prüfung | Ergebnis |
 |---|---|
 | Auslöser | Der Windows-Start ließ sich nicht erklären; die bisherige Erklärung (`windows-start-nachweis.md` §5: „Laufzeit-Grenze von Bun") war eine **Hypothese**, keine Messung |
-| `HEAD` / `origin/main` | nach dem Push dieses Commits erneut über die API zu prüfen |
+| `HEAD` / `origin/main` | `85c4c84` — **identisch**, zusätzlich **über die API** bestätigt (`2026-10-13T09:01:32Z`) |
 | Umfang | **Dokumentation + vier Messsonden** (`docs/status/kleinste-kette-nachweis.md` §6, `docs/status/arbeitspakete.md` P9, `docs/status/messsonden/*`) |
 | Art | **keine Codeänderung** am Produkt. Kein pnpm, kein npx, kein Docker, kein Nix. Ein Go-Dienst wurde **getestet**, nicht gestartet |
+| Commits | `b62da20` (Korrektur + Nachweis), `85c4c84` (Messsonden) |
 
 **Was gemessen wurde — Windows nativ gegen WSL2, gleicher Baum, gleiche Quelldatei:**
 
