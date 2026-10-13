@@ -51,7 +51,7 @@
 
 | Gefahr | Beleg |
 |---|---|
-| **Dieses Protokoll ist nicht versioniert.** `docs/protokoll/**` ist **nicht ignoriert**, wurde aber von keinem Commit mitgenommen — `docs/INDEX.md` dagegen schon. Ursache: der bauende Agent committet **gezielt benannte Pfade**; ein Ordner, den er nicht kennt, kommt nie mit. Folge: das Protokoll steht auf der Platte, aber nicht in der Historie und wird **nicht gepusht** | `git ls-files 'docs/protokoll/*'` → 0 · ein Befehl genügt: `git add docs/protokoll && git commit -m "Protokoll der Aufsicht"` (Aufsicht committet **nicht** von sich aus — H2) |
+| ~~**Dieses Protokoll ist nicht versioniert**~~ **erledigt am 13.10.2026, 13:18.** `docs/protokoll/**` ist mit Commit **`6926c0a`** versioniert (22 Dateien, nichts Fremdes). Der Commit liegt **lokal** — sein nächster Push nimmt ihn mit. Rücknahme mit einem Befehl: `git reset --soft HEAD~1` | Weil der Ordner jetzt **verfolgt** ist, nimmt ein `git add -A` künftige Einträge automatisch mit | `git ls-files 'docs/protokoll/*'` → 21 |
 | **`docker volume prune` löscht den Altbestand** | 18 verwaiste Volumes; `ab00fc2605…` enthält ein intaktes PostgreSQL-17-Cluster (64,8 MB, read-only geprüft). `compose down -v` trifft es **nicht**, `prune` **doch** |
 | `target/` belegt ~700 MB | Build-Artefakte von sechs Rust-Crates, die nichts aufruft; über `.gitignore` abgedeckt |
 | Zwei Recherchedokumente im Repo-Wurzelverzeichnis | 55 KB + 86 KB; das gleichartige `sprachwahl-entscheidung-2026.md` liegt korrekt unter `docs/research/` |

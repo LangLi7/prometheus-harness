@@ -1483,6 +1483,50 @@ Die `.env.example` wurde um **13:14:52** erweitert (6.356 → 7.294 B) — also 
 sind (Prüfung gegen eine **andere** Instanz). **Ich rechne mir das nicht zu** — die Arbeit lief
 parallel, nicht wegen meines Befunds.
 
+### Nachtrag 13.10.2026, 13:20 — **die fehlende Definition ist nachgeliefert, die Zahlen reproduzieren exakt**
+
+Die README nennt die Zahlen jetzt **mit ihrer Definition**: „Quellcode (`packages/`, `services/`,
+`native/`, `apps/cli/src`; **`.ts`, `.go`, `.rs`, `.mjs`, `.sql`, `.ps1`**) | **120 Dateien · 1,5 MB**"
+und „Applikationspakete | **16**". Mit **genau dieser Definition** nachgemessen:
+
+```
+gemessen: 120 Dateien, 1,53 MB   (README: 120 Dateien, 1,5 MB)
+gemessen: 16 Applikationspakete  (README: 16)
+```
+
+**Beide Zahlen reproduzieren exakt.** Damit ist der Teil von B15, der die fehlende Definition
+beanstandete, **erledigt** — und zwar so, wie es sein soll: die Zählweise steht dabei, und die Zahl
+stimmt. Dass die Werte sich gegenüber meiner ersten Prüfung (113 Dateien / 1.443 KB) verschoben haben,
+liegt **nicht** an einem Fehler: dazwischen entstanden `packages/api/health` und
+`packages/api/readiness` (14 → 16 Pakete).
+
+**Was von B15 bleibt:** der in **B6/B12** widerlegte Satz „**nichts ruft sie auf**" steht weiterhin in
+der README (Zeile 107), und die drei Bäume sind weiter falsch beschriftet („unveränderter Upstream"
+für den gepatchten Arbeitsbaum).
+
+### Nachtrag 13.10.2026, 13:20 — die neue Statuscode-Tabelle lässt den Fall weiter aus
+
+Die README hat einen neuen Abschnitt zur Anmeldesperre mit einer Antwort-Tabelle bekommen:
+
+| Antwort | Bedeutung |
+|---|---|
+| **401** `unauthenticated` + `WWW-Authenticate: Cookie` | nicht angemeldet |
+| **403** `untrusted_origin` | nicht der Host, für den wir gebaut sind |
+| **503** `unavailable` | die Prüfung selbst ist nicht erreichbar — **verweigern statt durchlassen** |
+| **503** `eingeschraenkt` / `ausgefallen` | eine bzw. alle Sonden rot |
+
+**Der Fall „null Sonden" steht nicht darin** (Suche „keine Sonden" → 0 Treffer). Und er ist der
+einzige, der **`200`** liefert, ohne dass etwas geprüft wurde. Damit gilt weiter, was der Nachtrag
+oben zeigt: die eine Stelle, die ihn nennt (`.env.example` Zeile 136–138), beschreibt ihn mit einem
+Wortlaut, der dem Feldwert widerspricht.
+
+**Anerkennung für denselben Abschnitt:** er beschreibt den Mechanismus **korrekt** — „Weil
+registrierte Routen am Auffang-Platz und damit an der Anmeldesperre vorbeigehen, hätte **jeder**
+weitere Endpunkt stillschweigend offen gestanden", und nennt die Sperre ausdrücklich „**die des
+Hosts, keine eigene**" (mit der Begründung, dass eine zweite Meinung über gültige Anmeldung
+auseinandergehen würde). Das ist genau die Analyse aus **B19** — und er hat sie selbst gefunden
+(seine Sonde lief vor meinem Befund).
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)

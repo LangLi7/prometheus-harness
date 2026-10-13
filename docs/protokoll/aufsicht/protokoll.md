@@ -1350,12 +1350,105 @@ anpassen, dann steht die Entscheidung ehrlich da.
 
 ---
 
+## 2026-10-13 13:17–13:19 — Vierundzwanzigster Takt: das Protokoll ist versioniert (eigene Entscheidung)
+
+**Der offene Punkt.** Seit dem 17. Takt steht in meiner Liste: *mein Protokoll ist nicht versioniert.*
+`docs/protokoll/**` war **nicht** ignoriert, wurde aber von keinem Commit mitgenommen — `docs/INDEX.md`
+dagegen schon. Ursache: der bauende Agent committet **gezielt benannte Pfade**; einen Ordner, den er
+nicht kennt, nimmt er nie mit. Folge: das Protokoll stand auf der Platte, aber **nicht in der
+Historie** und wurde nicht gepusht.
+
+**Die Entscheidung, und warum ich sie selbst getroffen habe.** Der Auftrag verlangt ein
+**nachprüfbares** Protokoll; ein nur lokal vorhandener Ordner erfüllt das nicht. Und der Ordner ist
+**mein** Schreibbereich (**H3**) — nicht der Baubereich des anderen Agenten (**H2**). Beides zusammen
+ergibt: die Versionierung meiner eigenen Spur ist meine Aufgabe, nicht seine.
+
+**Befehl und Ergebnis.**
+
+```powershell
+git add docs/protokoll docs/INDEX.md
+git diff --cached --name-only        # VOR dem Commit geprüft: 22 Dateien, alle meine, nichts Fremdes
+git commit -m "Protokoll der Aufsicht: Befunde B1-B20, Werkzeuge, Hilfen, Lageuebersicht"
+# → [main 6926c0a] 22 files changed, 4976 insertions(+), 1 deletion(-)
+```
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auf der Bühne | **22 Dateien** — `docs/INDEX.md` (nur meine zwei Zeilen) und 21 unter `docs/protokoll/` |
+| Fremdes dabei? | **nein** (Gegenprobe vor dem Commit: leer) |
+| Jetzt versioniert | `git ls-files 'docs/protokoll/*'` → **21** |
+| Gepusht? | **nein** — `HEAD` `6926c0a` lokal, `origin/main` `58d25b6`. Sein nächster Push nimmt den Commit mit |
+| Arbeitsbaum | 37 Änderungen offen — **ausschließlich seine** (u. a. `docs/status/beleg-eigener-endpunkt.md`) |
+
+**Was sich dadurch ändert.** Weil der Ordner jetzt **verfolgt** ist, werden künftige Einträge von
+einem `git add -A` **mitgenommen** — der offene Punkt entfällt also dauerhaft, ohne dass ich wieder
+eingreifen muss.
+
+**Rücknahme, falls der Betreiber widerspricht (ein Befehl, ungefährlich):**
+
+```powershell
+git reset --soft HEAD~1      # Commit zurücknehmen, Dateien bleiben auf der Platte
+```
+
+**Grenze, die ich nenne.** Ich habe **nicht** gepusht. Das ist seine Handlung nach seiner
+Takt-Regel, und ein zweiter Schreibender am selben Remote wäre genau die Art Eingriff, die diese
+Rolle sonst beanstandet.
+
+---
+
+## 2026-10-13 13:19–13:24 — Fünfundzwanzigster Takt: Regression der offenen Befunde
+
+**Anlass.** Ein Wächter, dessen Befunde veralten, ist wertlos. Ich habe **alle offenen Befunde** mit
+ihrem ursprünglichen Nachweis erneut gemessen.
+
+**Ergebnis — alle bestehen unverändert (13:20):**
+
+| Befund | Erwartet | Gemessen |
+|---|---|---|
+| **B13** Tötungszeilen nach Name und Alter | 6 | **6** |
+| **B14** `PMH_MASTER_KEY`/`MIGRATION_DATABASE_URL` im Code gelesen | 0 | **0** |
+| **B15** README „nichts ruft sie auf" | vorhanden | **vorhanden** |
+| **B16** README „ausgefallen" | vorhanden | **vorhanden** (Zeile 102 — die zweite Nennung ist neu und gehört zur Statuscode-Tabelle) |
+| **B18** `running.length` als laufende Prozesse | vorhanden | **3 Vorkommen** |
+| **B20** `sonden.length === 0` → `ok` | vorhanden | **vorhanden**; `.env.example` sagt weiter „statt ‚bereit' zu behaupten" |
+| Konfiguration (Takt) | 10 Abschnitte / 12 Routen / 4 Rollen / 10 Tabellen | **unverändert** |
+
+**Ergebnis — und eine gute Nachricht: der Definitions-Teil von B15 ist erledigt.** Die README nennt
+die Zahlen jetzt **mit ihrer Definition** (`.ts`, `.go`, `.rs`, `.mjs`, `.sql`, `.ps1`). Mit genau
+dieser Definition nachgemessen:
+
+```
+gemessen: 120 Dateien, 1,53 MB · 16 Applikationspakete
+README  : 120 Dateien, 1,5 MB  · 16
+```
+
+**Beide Zahlen reproduzieren exakt.** Die Verschiebung gegenüber meiner ersten Prüfung (113 Dateien /
+1.443 KB / 14 Pakete) liegt nicht an einem Fehler: dazwischen entstanden `packages/api/health` und
+`packages/api/readiness`.
+
+**Ergebnis — B20 bleibt, und die neue README-Tabelle lässt den Fall aus.** Der neue Abschnitt zur
+Anmeldesperre listet 401, 403, 503 `unavailable`, 503 `eingescränkt`/`ausgefallen` — **„null Sonden"
+steht nicht darin** (Suche: 0 Treffer), obwohl genau dieser Fall als einziger **`200`** liefert, ohne
+dass etwas geprüft wurde.
+
+**Anerkennung für denselben Abschnitt:** er beschreibt den Mechanismus korrekt („registrierte Routen
+gehen am Auffang-Platz und damit an der Anmeldesperre vorbei") und nennt die Sperre ausdrücklich „die
+des Hosts, keine eigene" — genau die Analyse aus **B19**, von ihm selbst gefunden.
+
+**Sonst:** kein neuer Commit, kein PMH-Host aktiv; der Arbeitsbaum wuchs von 37 auf 44 Änderungen
+(seine Arbeit läuft weiter).
+
+---
+
 ## Offen / nächster Takt
 
 | Punkt | Stand |
 |---|---|
 | **B1** Konfiguration nachziehen | **erledigt** — 4 Änderungen, 3 belegte Auslassungen |
+| **B2** Kein Schutz gegen ein erneutes Schrumpfen der Konfiguration | **Hilfe bereit, Sache offen** | Der Schrumpf 117 KB → 151 B geschah **unbemerkt**. Ich habe die Invarianten-Prüfung gebaut (10 Abschnitte / 12 Referenzen, in **jedem** Takt gemessen) — eine **automatische** Sicherung vor jedem Schreiben gibt es weiterhin nicht |
 | **B3** Modellzugang | **erledigt** — Rezept **und** Referenz, live HTTP 200 |
+| **B4** Der Git-Credential-Helfer ist defekt | **latent, bewusst nicht angefasst** | `credential-gh` existiert nicht; Pushes sind **belegt** (HEAD = origin/main) → Empfehlung bleibt: **nichts ändern** |
+| **B5** `PMH_TEST_DATABASE_URL` nur im Testkopf | **erledigt** | Inzwischen liegt eine `.env.example` vor, die den Namen nennt (Zeile 124) — und der Test überspringt **laut**, nicht still |
 | **B6** Rust-Befund geprüft | **erledigt** — Messungen bestätigt, „kein einziger Aufruf" widerlegt |
 | **B8** Compose-Umbau | **erledigt** — Stack neu aufgesetzt, Rechtetrennung von mir bestätigt |
 | **B9** Rechte belegt, Prüfung urteilt nicht | **bereitgelegt** — `hilfen/rechte-probe-assertion.sql`, beide Ausgänge getestet; Umsetzung liegt beim bauenden Agenten |
@@ -1364,12 +1457,12 @@ anpassen, dann steht die Entscheidung ehrlich da.
 | **B12** Sprachwahl-Recherche geprüft | **erledigt** — PTY-Messung **vollständig reproduziert**, offene Zeilendifferenz **aufgeklärt** (555 Leerzeilen), **ein Fehler**: Entscheidung 4 trägt den in B6 widerlegten Satz „kein Code ruft es auf" — er steht damit in **zwei** Dokumenten |
 | **B13** Töten nach Prozessname und Alter | **offen, wächst** | inzwischen **sechs** Stellen (Fenster 1/2/2/3/3/**5** Minuten) — die sechste entstand beim **vierten Testfall** durch Mitkopieren. Entlastet: die DSH-GUI läuft auf `node` und ist **nicht** betroffen; kein Skript tötet einen Portbesitzer |
 | **B14** Umschlagverschlüsselung = Schema, nicht Code | **offen, Hinweis liegt vor** | `value_cipher`/`wrapped_key` nur in der Migration; `user_secrets`/`api_keys` nur in Testdateien; `PMH_MASTER_KEY` und `MIGRATION_DATABASE_URL` werden von **nichts** gelesen. Die Weisung §3 ist für das Schema wahr, für den Code nicht |
-| **B15** Startseite + Baum-Beschriftung | **offen, Hinweis liegt vor** | Der in B6 widerlegte Satz steht jetzt auf der **Startseite** (drittes Dokument); README nennt den **gepatchten Arbeitsbaum** „den unveränderten Upstream", und `.pmh/base.json` zeigt `ours` auf den Vorlagenbaum — die Ursache von B10 |
+| **B15** Startseite + Baum-Beschriftung | **teilweise erledigt** | **Erledigt:** die Zahlen nennen jetzt ihre **Definition**, und mit ihr **reproduzieren sie exakt** (120 Dateien / 1,53 MB · 16 Pakete). **Offen:** der in B6 widerlegte Satz „nichts ruft sie auf" steht weiter auf der Startseite, und die drei Bäume bleiben falsch beschriftet („unveränderter Upstream" = gepatchter Arbeitsbaum) — die Ursache von B10 |
 | **B16** „API ausgefallen" nicht belegt | **offen, dringlich** | Die Sonde prüft **19 geratene Pfade per GET**; der Kern ruft `POST /api/<namespace>/<methode>`. An einer **gesunden** Installation liefern genau diese Pfade ebenfalls 404 — sie kann „lebt" von „tot" nicht unterscheiden. Darauf steht die Entscheidung „eigener Endpunktweg" |
 | **B17** `P8.12` entblockt | **teilweise, Unterstützung liegt bereit** | Ursache war **nicht** der Schlüssel, sondern der Weg: der eigene Adapter liest nur `env.DEEPSEEK_API_KEY`, nichts liest den Speicher. **Echter Aufruf über den Adapter gelungen** („Empfang", 41/117 Token, 1,20 s). Den Nachweis in der Kette führt der bauende Agent |
 | **B18** Launcher meldet Beendetes als laufend | **offen, klein** | `pmh-nix detect --json` ist ein Einmalaufruf, wird aber wie ein Dienst geführt: die Statuszeile sagt „**2 Prozesse laufen**", während einer läuft (Quelltextbefund, **kein** Lauf — H5) |
 | **B19** Registrierter Pfad umgeht auch den Zaun | **erledigt** | Commit `38aa3ff`: `verbindung.requestRejection({ headers })` — Zaun **und** Anmeldung; bei fehlendem Dienst **Fail-closed 503**. Die Umsetzung ist besser als die Empfehlung, und ich rechne sie mir **nicht** zu (seine Sonde lief 12:59, mein Befund kam 13:08) |
-| **B20** Zwei eigene Artefakte widersprechen sich | **offen, Design-Frage (verschärft)** | `/api/ready` mit **null Sonden** liefert **`bereit: true`** und **HTTP 200**; ihr **Test** hält das fest („nichts zu prüfen — und das ist bereit"), ihre **`.env.example`** sagt dagegen, der Endpunkt melde `ok`, „**statt ‚bereit' zu behaupten**". Drei Auswege: `bereit`/Status an `sonden.length > 0` binden (503) · drei Zustände statt Boolean (`null` = nicht geprüft) · nur den Wortlaut der Vorlage an den Code anpassen. **Der Nebenbefund (undokumentierte Variablen) ist geschlossen** — um 13:14:52, also parallel zu meinem Befund |
+| **B20** Zwei eigene Artefakte widersprechen sich | **offen, Design-Frage (verschärft)** | `/api/ready` mit **null Sonden** liefert **`bereit: true`** und **HTTP 200**; ihr **Test** hält das fest („nichts zu prüfen — und das ist bereit"), ihre **`.env.example`** sagt dagegen, der Endpunkt melde `ok`, „**statt ‚bereit' zu behaupten**". Die **neue README-Statuscode-Tabelle** (401/403/503) lässt genau diesen Fall aus. Drei Auswege: `bereit`/Status an `sonden.length > 0` binden (503) · drei Zustände statt Boolean (`null` = nicht geprüft) · nur den Wortlaut der Vorlage an den Code anpassen |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |
