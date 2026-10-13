@@ -149,7 +149,7 @@ bauen und gegen jede Core-Änderung nachziehen").
 | Vorlage | Ziel | Stufe |
 |---|---|---|
 | `llm/llm` (Seam) | `packages/llm/llm` (TS) | A |
-| `llm/llm-deepseek`, `llm/llm-pi-ai` | `packages/llm/llm-deepseek`, `-pi-ai` (TS) | A |
+| `llm/llm-deepseek`, `llm/llm-pi-ai` | `packages/llm/llm-http` (Adapter), `-pi-ai` (TS) | A |
 | `llm/llm-retry`, `llm/token-meter` | `packages/llm/llm-retry`, `-token-meter` (TS) | A |
 | `llm/llm-deepseek-account`, `-api-key`, `deepseek-llm-api-extensions`, `plugin-package-inventory-deepseek` | `packages/llm/*` (TS) | A |
 

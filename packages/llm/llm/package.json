@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "LLM-Seam: Anbieter-unabhängige Schnittstelle für Chat-Anfragen. Der Seam ist die Grenze, die der Agent-Loop sieht; jeder Anbieter (DeepSeek, später weitere) ist eine Implementierung dahinter.",
+  "description": "LLM-Seam: Anbieter-unabhängige Schnittstelle für Chat-Anfragen. Der Seam ist die Grenze, die der Agent-Loop sieht; jeder Anbieter ist eine Implementierung dahinter — heute einer, weitere später.",
   "exports": {
     ".": "./src/index.ts"
   },

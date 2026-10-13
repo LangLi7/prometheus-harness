@@ -2,7 +2,7 @@
  * Der durchgehende Nachweis der kleinsten Kette.
  *
  * ```
- * DeepSeek-Adapter → llm-retry → agent-loop → Werkzeuge → session-format → JSONL → Wiederaufnahme
+ * llm-http-Adapter → llm-retry → agent-loop → Werkzeuge → session-format → JSONL → Wiederaufnahme
  * ```
  *
  * **Warum diese Datei außerhalb der Pakete liegt.** Jeder Pakettest prüft sein
@@ -46,7 +46,7 @@ import {
   messageToolResults,
   type Message,
 } from '@prometheus-harness/llm'
-import { DeepSeekProvider } from '@prometheus-harness/llm-deepseek'
+import { LlmHttpProvider } from '@prometheus-harness/llm-http'
 import { RetryProvider } from '@prometheus-harness/llm-retry'
 import { SESSION_FORMAT_VERSION, type ReadEvent } from '@prometheus-harness/session-format'
 import { createSession, openSession, readSession, type SessionWriter } from '@prometheus-harness/session-persistence-jsonl'
@@ -271,20 +271,20 @@ describe('Kette: Adapter → Wiederholung → Loop → Werkzeuge → Sitzung →
       chatText('In notizen.txt steht: Inhalt von notizen.txt'),
       chatText('Gern. Sonst noch etwas?'),
     ]
-    const deepseek = new DeepSeekProvider(
+    const anbieter = new LlmHttpProvider(
       { apiKey: 'test-schluessel-123', baseUrl: 'https://attrappe.invalid/v1' },
       fakeFetch(answers, fake),
     )
     const waited: number[] = []
     const provider = new RetryProvider({
-      inner: deepseek,
+      inner: anbieter,
       policy: { maxAttempts: 3, baseDelayMs: 250, jitter: 'none' },
       sleep: (ms): Promise<void> => {
         waited.push(ms)
         return Promise.resolve()
       },
     })
-    expect(provider.name).toBe('deepseek+retry')
+    expect(provider.name).toBe('llm-http+retry')
 
     const file = fileTool()
     const tools = new Tools([file.tool])
@@ -397,11 +397,11 @@ describe('Kette: Adapter → Wiederholung → Loop → Werkzeuge → Sitzung →
 
   test('ohne Werkzeuge antwortet der Agent direkt — die Kette bleibt gültig', async () => {
     const fake: FakeRecorder = { bodies: [], paths: [], headers: [] }
-    const deepseek = new DeepSeekProvider(
+    const anbieter = new LlmHttpProvider(
       { apiKey: 'k', baseUrl: 'https://attrappe.invalid/v1' },
       fakeFetch([chatText('Zwei.')], fake),
     )
-    const loop = new AgentLoop({ provider: deepseek, model: 'deepseek-chat' })
+    const loop = new AgentLoop({ provider: anbieter, model: 'deepseek-chat' })
     const writer = await createSession({ root, id: 'kette-2', model: 'deepseek-chat', cwd: '/w', now: NOW })
     const { result, events } = await runTurn(loop, 'Wie viel ist eins plus eins?')
     await writeEvents(writer, loop, events, 2)
@@ -427,12 +427,12 @@ describe('Kette: Adapter → Wiederholung → Loop → Werkzeuge → Sitzung →
   test('der Verlauf aus der Datei ist mit dem aus dem Speicher identisch', async () => {
     const fake: FakeRecorder = { bodies: [], paths: [], headers: [] }
     const file = fileTool()
-    const deepseek = new DeepSeekProvider(
+    const anbieter = new LlmHttpProvider(
       { apiKey: 'k', baseUrl: 'https://attrappe.invalid/v1' },
       fakeFetch([chatToolCall('c9', 'read_file', { path: 'a.txt' }), chatText('gelesen')], fake),
     )
     const loop = new AgentLoop({
-      provider: deepseek,
+      provider: anbieter,
       tools: new Tools([file.tool]),
       model: 'deepseek-chat',
       system: 'S',
@@ -458,13 +458,13 @@ describe('Kette: Adapter → Wiederholung → Loop → Werkzeuge → Sitzung →
 
   test('ein endgültig abgelehnter Aufruf (400) wird nicht wiederholt und benannt', async () => {
     const fake: FakeRecorder = { bodies: [], paths: [], headers: [] }
-    const deepseek = new DeepSeekProvider(
+    const anbieter = new LlmHttpProvider(
       { apiKey: 'k', baseUrl: 'https://attrappe.invalid/v1' },
       fakeFetch([{ status: 400, text: '{"error":{"message":"messages: tool_call_id unbekannt"}}' }], fake),
     )
     const waited: number[] = []
     const provider = new RetryProvider({
-      inner: deepseek,
+      inner: anbieter,
       sleep: (ms): Promise<void> => {
         waited.push(ms)
         return Promise.resolve()
@@ -491,11 +491,11 @@ describe('Kette: Adapter → Wiederholung → Loop → Werkzeuge → Sitzung →
         return Promise.resolve(`Inhalt von ${String(args.path)}`)
       },
     }
-    const deepseek = new DeepSeekProvider(
+    const anbieter = new LlmHttpProvider(
       { apiKey: 'k', baseUrl: 'https://attrappe.invalid/v1' },
       fakeFetch([chatToolCall('c1', 'read_file', { path: 'a.txt' }), chatText('nie erreicht')], fake),
     )
-    const loop = new AgentLoop({ provider: deepseek, tools: new Tools([slow]), model: 'deepseek-chat' })
+    const loop = new AgentLoop({ provider: anbieter, tools: new Tools([slow]), model: 'deepseek-chat' })
     const writer = await createSession({ root, id: 'kette-4', model: 'deepseek-chat', cwd: '/w', now: NOW })
     const { result, events } = await runTurn(loop, 'lies', controller.signal)
     await writeEvents(writer, loop, events, 2)
@@ -513,13 +513,13 @@ describe('Kette: Adapter → Wiederholung → Loop → Werkzeuge → Sitzung →
 
   test('die Wiederholung scheitert sichtbar, wenn der Anbieter dauerhaft überlastet ist', async () => {
     const fake: FakeRecorder = { bodies: [], paths: [], headers: [] }
-    const deepseek = new DeepSeekProvider(
+    const anbieter = new LlmHttpProvider(
       { apiKey: 'k', baseUrl: 'https://attrappe.invalid/v1' },
       fakeFetch([overloaded()], fake),
     )
     const waited: number[] = []
     const provider = new RetryProvider({
-      inner: deepseek,
+      inner: anbieter,
       policy: { maxAttempts: 3, baseDelayMs: 100, multiplier: 2, jitter: 'none' },
       sleep: (ms): Promise<void> => {
         waited.push(ms)

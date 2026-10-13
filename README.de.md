@@ -1,5 +1,5 @@
 ---
-description: "Prometheus Harness — eine Agent-Harness auf Bun mit Cordis-Units, einer steckbaren LLM-Naht und eigenen HTTP-Endpunkten, gebaut auf dem DeepSeek-Harness-Kern."
+description: "Prometheus Harness — eine Agent-Harness auf Bun mit Cordis-Units, einer steckbaren LLM-Naht und eigenen HTTP-Endpunkten, gebaut auf dem DSH-Kern."
 kind: "project"
 ---
 
@@ -7,7 +7,7 @@ kind: "project"
 
 [English](README.md) | Deutsch
 
-Eine selbst betriebene Agent-Harness, die auf dem Kern des DeepSeek Harness
+Eine selbst betriebene Agent-Harness, die auf dem Kern des DSH
 aufbaut. Der Kern wird **benutzt und angepasst** — er ist die Codebasis, nicht
 bloß eine Vorlage. Was wir hinzufügen, liegt in `packages/`, `services/` und
 `native/`; was der Kern liefert, wird nie umgeschrieben, sondern nur komponiert.
@@ -23,7 +23,7 @@ Datenbankmigrationen aus und typisiert jedes Paket. `bun run start` liefert
 danach die Weboberfläche und gibt eine angemeldete Adresse aus; diese Adresse
 trägt ein Starttoken, und ohne dieses antwortet die Oberfläche mit **401**.
 Sechzehn Pakete machen unseren eigenen Code aus — eine anbieterunabhängige
-LLM-Naht mit DeepSeek-Adapter, Wiederholung und Tokenzählung, ein Agent-Loop mit
+LLM-Naht mit llm-http-Adapter, Wiederholung und Tokenzählung, ein Agent-Loop mit
 Werkzeugregister, ein Sitzungsformat mit JSONL-Persistenz, Bausteine für die
 Anmeldung und die ersten eigenen HTTP-Endpunkte. **826 Prüfungen laufen durch und
 18 Pakete typisieren fehlerfrei.** Die kleinste Kette — Adapter → Agent-Loop →
@@ -202,7 +202,7 @@ des Repositories ihre Folge ist.
 apps/cli            der Host: lädt das Profil, komponiert den Cordis-Baum, liefert die Oberfläche
 apps/web            die Oberfläche (aus der Vorlage) — Grundlage für unsere eigene
 packages/api        health (Endpunkte + Sondenregister) · readiness (Sonden für PostgreSQL, Redis)
-packages/llm        die LLM-Naht · llm-deepseek · llm-retry · token-meter
+packages/llm        die LLM-Naht · llm-http · llm-retry · token-meter
 packages/core       agent-tools · agent-loop · scope
 packages/agent      session-format · session-persistence-jsonl
 packages/auth       auth (Argon2id, Sitzungen, CSRF) · db-schema (SQL-Migrationen)
@@ -221,7 +221,7 @@ Der kleinste vollständige Weg führt von einer Anfrage zu einer gespeicherten
 Sitzung:
 
 ```
-LLM-Naht → DeepSeek-Adapter → Wiederholung → Tokenzähler
+LLM-Naht → llm-http-Adapter → Wiederholung → Tokenzähler
     ↓
 Agent-Loop → Werkzeugregister → Sitzungsformat → JSONL-Persistenz → Wiederaufnahme
 ```
@@ -368,7 +368,7 @@ Das sind gegenwärtige Einschränkungen — gemessen und benannt, nicht geschät
   Migrationen sind nicht umgesetzt.
 - **Verdichtung fehlt.** `token-meter` zählt Token; es kürzt nicht.
 - **Kein Aufruf gegen einen echten Anbieter ist verzeichnet.** Der
-  DeepSeek-Adapter wird gegen eine Attrappe geprüft; in dieser Umgebung wurde kein
+  llm-http-Adapter wird gegen eine Attrappe geprüft; in dieser Umgebung wurde kein
   Schlüssel benutzt.
 - **Umschlagverschlüsselung gibt es als Schema, nicht als Code.** Die Spalten
   `value_cipher`/`wrapped_key` und `PMH_MASTER_KEY` existieren; kein Code liest

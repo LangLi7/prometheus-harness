@@ -25,7 +25,7 @@ teilweise läuft und Rust **gar nicht**.
 │  gestartet von start.mjs: pmh-attach, pmh-nix        ← supervisor NICHT    │
 ├────────────────────────────────────────────────────────────────────────────┤
 │  SCHICHT 3 — UNSER KERN         TypeScript  17.733 Zeilen, 14 Pakete       │
-│  llm · llm-deepseek · llm-retry · token-meter · agent-tools · agent-loop   │
+│  llm · llm-http · llm-retry · token-meter · agent-tools · agent-loop   │
 │  session-format · session-persistence-jsonl · auth · db-schema             │
 │  unit-export · atomic-write · home-paths · scope                           │
 │  Zustand: 262 + 108 Tests grün, 15 Typechecks exit 0 — ABER NICHT VERDRAHTET│

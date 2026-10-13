@@ -5,12 +5,12 @@
  * Anbieter nicht kennen. Er kennt diese Datei: eine Anfrage aus Nachrichten
  * geht hinein, ein Ergebnis mit Text und Werkzeugaufrufen kommt heraus. Welcher
  * Anbieter dahinter antwortet, ist eine Konfigurationsfrage — dieselbe Trennung,
- * die der Referenz-Harness mit `llm/llm` (Seam) und `llm/llm-deepseek`
+ * die der Referenz-Harness mit `llm/llm` (Seam) und einem Anbieterpaket daneben
  * (Implementierung) zieht (`MAPPING.md` §3.4, Stufe A).
  *
  * **Was hier bewusst NICHT passiert:** kein HTTP, kein Schlüssel, keine
  * Wiederholung, kein Token-Zählen. Jede dieser Aufgaben ist ein eigenes Paket
- * (`llm-deepseek`, `llm-retry`, `token-meter`), weil sie unabhängig
+ * (`llm-http`, `llm-retry`, `token-meter`), weil sie unabhängig
  * ausgetauscht werden sollen. Ein Seam, der alles mitbringt, ist kein Seam.
  *
  * @module @prometheus-harness/llm
@@ -222,7 +222,7 @@ export class LlmError extends Error {
  * Modellwahl — liegt darüber, nicht darin.
  */
 export interface LlmProvider {
-  /** Stabiler Name, z. B. `deepseek`. Erscheint in Diagnosen und Berichten. */
+  /** Stabiler Name, z. B. `anbieter`. Erscheint in Diagnosen und Berichten. */
   readonly name: string
   /**
    * Stellt eine Anfrage und wartet auf die vollständige Antwort.

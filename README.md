@@ -1,5 +1,5 @@
 ---
-description: "Prometheus Harness — an agent harness on Bun with Cordis units, a pluggable LLM seam, and own HTTP endpoints, built on the DeepSeek Harness core."
+description: "Prometheus Harness — an agent harness on Bun with Cordis units, a pluggable LLM seam, and own HTTP endpoints, built on the DSH core."
 kind: "project"
 ---
 
@@ -7,7 +7,7 @@ kind: "project"
 
 English | [Deutsch](README.de.md)
 
-A self-hosted agent harness being built on top of the DeepSeek Harness core. The
+A self-hosted agent harness being built on top of the DSH core. The
 core is **used and adapted** — it is the codebase, not just a reference. What we
 add lives in `packages/`, `services/`, and `native/`; what the core supplies is
 never rewritten, only composed.
@@ -22,7 +22,7 @@ for their health checks, runs the database migrations, and type-checks every
 package. `bun run start` then serves the Web GUI and prints an authenticated URL;
 that URL carries a launch token and the interface answers **401** without it.
 Sixteen packages make up our own code — a provider-agnostic LLM seam with a
-DeepSeek adapter, retry and token accounting, an agent loop with a tool registry,
+the llm-http adapter, retry and token accounting, an agent loop with a tool registry,
 a session format with JSONL persistence, authentication primitives, and the first
 own HTTP endpoints. **826 tests pass and 18 packages type-check clean.** The
 smallest chain — adapter → agent loop → session — is built and measured, but not
@@ -198,7 +198,7 @@ the repository is a consequence of them.
 apps/cli            the host: loads the profile, composes the Cordis tree, serves the interface
 apps/web            the interface (from the template) — the basis for our own
 packages/api        health (endpoints + probe registry) · readiness (PostgreSQL, Redis probes)
-packages/llm        the LLM seam · llm-deepseek · llm-retry · token-meter
+packages/llm        the LLM seam · llm-http · llm-retry · token-meter
 packages/core       agent-tools · agent-loop · scope
 packages/agent      session-format · session-persistence-jsonl
 packages/auth       auth (Argon2id, sessions, CSRF) · db-schema (SQL migrations)
@@ -216,7 +216,7 @@ docs/               concept, decisions, evidence, research
 The smallest complete path runs from a request to a stored session:
 
 ```
-LLM seam → DeepSeek adapter → retry → token meter
+LLM seam → llm-http → retry → token meter
     ↓
 agent loop → tool registry → session format → JSONL persistence → resume
 ```
@@ -362,7 +362,7 @@ These are current constraints, measured and named rather than estimated.
 - **Session format is v1.** The template's format v4 and its four migrations are
   not implemented.
 - **Compaction is absent.** `token-meter` counts tokens; it does not shorten.
-- **No call against a real provider is recorded.** The DeepSeek adapter is
+- **No call against a real provider is recorded.** The llm-http adapter is
   exercised against a mock; no key was used in this environment.
 - **Envelope encryption exists as a schema, not as code.** The
   `value_cipher`/`wrapped_key` columns and `PMH_MASTER_KEY` exist; no code reads

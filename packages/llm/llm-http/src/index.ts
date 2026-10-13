@@ -1,5 +1,5 @@
 /**
- * `@prometheus-harness/llm-deepseek` — der DeepSeek-Anbieter hinter dem LLM-Seam.
+ * `@prometheus-harness/llm-http` — der HTTP-Anbieter hinter dem LLM-Seam.
  *
  * **Was dieses Paket ist.** Die eine Implementierung, die aus
  * {@link CompletionRequest} einen HTTP-Aufruf macht und aus der Antwort wieder
@@ -15,11 +15,11 @@
  *      Argument herein und geht nirgends hinaus. Das Paket protokolliert ihn
  *      nie, auch nicht in Fehlermeldungen.
  *
- * **Die Schnittstelle.** DeepSeeks Chat-Endpunkt ist OpenAI-kompatibel:
+ * **Die Schnittstelle.** Der Chat-Endpunkt des Anbieters ist OpenAI-kompatibel:
  * `POST /chat/completions` mit `{model, messages, tools}` und einer Antwort
  * `{choices: [{message: {content, tool_calls}, finish_reason}], usage}`.
  *
- * @module @prometheus-harness/llm-deepseek
+ * @module @prometheus-harness/llm-http
  */
 
 import {
@@ -124,7 +124,7 @@ export function assertUsableApiKey(raw: string, pkg: string, ref: string): strin
 export const KNOWN_MODELS = ['deepseek-chat', 'deepseek-reasoner'] as const
 
 /** Einstellungen des Anbieters. */
-export interface DeepSeekOptions {
+export interface LlmHttpOptions {
   /** Zugangsschlüssel. Pflicht — ohne ihn wirft der Aufruf `credentials`. */
   readonly apiKey: string
   /**
@@ -141,7 +141,7 @@ export interface DeepSeekOptions {
   readonly headers?: Readonly<Record<string, string>>
 }
 
-/** Ein Werkzeugaufruf, wie DeepSeek ihn liefert. */
+/** Ein Werkzeugaufruf, wie der Anbieter ihn liefert. */
 interface RawToolCall {
   readonly id?: unknown
   readonly type?: unknown
@@ -198,7 +198,7 @@ function numberOr(value: unknown, fallback: number): number {
 /**
  * Baut die Nutzlast für den Anbieter.
  *
- * **Warum Werkzeugergebnisse als `role: 'tool'` gehen.** DeepSeek (OpenAI-Form)
+ * **Warum Werkzeugergebnisse als `role: 'tool'` gehen.** Der Anbieter (OpenAI-Form)
  * erwartet ein Ergebnis als eigene Nachricht mit `tool_call_id`. Der Seam
  * erlaubt Ergebnisse auch als Teil einer Nachricht; hier wird daraus die
  * Anbieterform — die Übersetzung gehört in den Adapter, nicht in den Loop.
@@ -363,39 +363,39 @@ export function parseArguments(raw: unknown): Readonly<Record<string, unknown>> 
 export function errorForStatus(status: number, detail: string): LlmError {
   const trimmed = detail.length > 500 ? `${detail.slice(0, 500)}…` : detail
   if (status === 401 || status === 403) {
-    return new LlmError('credentials', `DeepSeek lehnt die Zugangsdaten ab (${status}): ${trimmed}`, {
+    return new LlmError('credentials', `Der Anbieter lehnt die Zugangsdaten ab (${status}): ${trimmed}`, {
       providerCode: String(status),
       retryable: false,
     })
   }
   if (status === 429) {
-    return new LlmError('unavailable', `DeepSeek begrenzt die Anfragen (429): ${trimmed}`, {
+    return new LlmError('unavailable', `Der Anbieter begrenzt die Anfragen (429): ${trimmed}`, {
       providerCode: '429',
       retryable: true,
     })
   }
   if (status >= 500) {
-    return new LlmError('unavailable', `DeepSeek ist nicht verfügbar (${status}): ${trimmed}`, {
+    return new LlmError('unavailable', `Der Anbieter ist nicht verfügbar (${status}): ${trimmed}`, {
       providerCode: String(status),
       retryable: true,
     })
   }
-  return new LlmError('rejected', `DeepSeek hat die Anfrage abgelehnt (${status}): ${trimmed}`, {
+  return new LlmError('rejected', `Der Anbieter hat die Anfrage abgelehnt (${status}): ${trimmed}`, {
     providerCode: String(status),
     retryable: false,
   })
 }
 
 /**
- * Der DeepSeek-Anbieter.
+ * Der HTTP-Anbieter.
  *
  * **Der Schlüssel verlässt dieses Objekt nicht.** Er wird im Konstruktor
  * aufgenommen und nur als Kopfzeile gesetzt. Fehlermeldungen enthalten ihn
  * **nie** — auch nicht die Antwort des Anbieters, die ausdrücklich gekürzt
  * wird ({@link errorForStatus}).
  */
-export class DeepSeekProvider implements LlmProvider {
-  readonly name = 'deepseek'
+export class LlmHttpProvider implements LlmProvider {
+  readonly name = 'llm-http'
   readonly #apiKey: string
   readonly #baseUrl: string
   readonly #timeoutMs: number
@@ -411,8 +411,8 @@ export class DeepSeekProvider implements LlmProvider {
    *   kaputten Schlüssel entsteht und erst später scheitert, verschiebt den
    *   Fehler an eine Stelle, an der niemand mehr nach der Konfiguration sucht.
    */
-  constructor(options: DeepSeekOptions, fetchImpl?: typeof globalThis.fetch) {
-    this.#apiKey = assertUsableApiKey(options.apiKey, '@prometheus-harness/llm-deepseek', 'DeepSeekOptions.apiKey')
+  constructor(options: LlmHttpOptions, fetchImpl?: typeof globalThis.fetch) {
+    this.#apiKey = assertUsableApiKey(options.apiKey, '@prometheus-harness/llm-http', 'LlmHttpOptions.apiKey')
     this.#baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '')
     this.#timeoutMs = options.timeoutMs ?? 120_000
     this.#headers = options.headers ?? {}
@@ -458,7 +458,7 @@ export class DeepSeekProvider implements LlmProvider {
           ? 'Anfrage wurde abgebrochen'
           : `Zeitgrenze von ${this.#timeoutMs} ms überschritten`, { cause })
       }
-      throw new LlmError('transport', `Verbindung zu DeepSeek fehlgeschlagen: ${describe(cause)}`, { cause })
+      throw new LlmError('transport', `Verbindung zum Anbieter fehlgeschlagen: ${describe(cause)}`, { cause })
     } finally {
       clearTimeout(timer)
       request.signal?.removeEventListener('abort', onOuterAbort)
@@ -495,28 +495,57 @@ function describe(cause: unknown): string {
 }
 
 /**
+ * Der Name unserer eigenen Umgebungsvariablen für den Anbieterschlüssel.
+ *
+ * **Warum eine eigene Kennung.** Bis zum 13.10.2026 las dieses Paket nur
+ * `DEEPSEEK_API_KEY` — den Namen des **Anbieters**. Damit trug unsere
+ * Konfiguration einen fremden Namen als einzige Möglichkeit, und wer die
+ * Harness aufstellt, mußte raten, welche Variable gemeint ist.
+ */
+export const PMH_LLM_API_KEY_ENV = 'PMH_LLM_API_KEY'
+
+/**
+ * Der Name der Umgebungsvariablen des Anbieters — als **Rückfall**.
+ *
+ * **Warum er bleibt.** Diese Variable steht in der `.credentials.yaml` dieses
+ * Rechners und in der Umgebung, in der die Harness läuft. Sie abzuschaffen
+ * hieße: die bestehende Installation verliert ihren Schlüssel und die Harness
+ * antwortet nicht mehr. Sie wird deshalb **weiter gelesen** — nur nicht mehr
+ * als einzige.
+ */
+export const ANBIETER_API_KEY_ENV = 'DEEPSEEK_API_KEY'
+
+/**
  * Baut einen Anbieter aus dem Schlüssel in der Umgebung.
  *
  * **Warum eine Fabrik und nicht der Konstruktor direkt.** Der Loop soll keinen
  * Schlüssel kennen und keine Umgebungsvariable lesen. Diese Funktion ist die
- * **eine** Stelle, an der `DEEPSEEK_API_KEY` gelesen wird — dadurch ist
- * nachvollziehbar, woher Zugangsdaten kommen.
+ * **eine** Stelle, an der Zugangsdaten aus der Umgebung gelesen werden — dadurch
+ * ist nachvollziehbar, woher sie kommen.
+ *
+ * **Die Reihenfolge: erst unsere Kennung, dann die des Anbieters.** Eigene
+ * Variablen gewinnen, weil sie die ausdrückliche Konfiguration dieses Projekts
+ * sind; die Variable des Anbieters bleibt als Rückfall, damit eine bestehende
+ * Installation weiterläuft.
  *
  * @param env - Umgebung; Vorgabe `process.env`
  * @param options - überschreibbare Adresse, Zeitgrenze, Kopfzeilen
  * @returns der Anbieter
- * @throws LlmError der Art `credentials`, wenn der Schlüssel fehlt
+ * @throws LlmError der Art `credentials`, wenn kein Schlüssel gesetzt ist
  */
 export function providerFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
-  options: Omit<DeepSeekOptions, 'apiKey'> = {},
-): DeepSeekProvider {
+  options: Omit<LlmHttpOptions, 'apiKey'> = {},
+): LlmHttpProvider {
+  const eigen = env[PMH_LLM_API_KEY_ENV]?.trim() ?? ''
+  const vomAnbieter = env[ANBIETER_API_KEY_ENV]?.trim() ?? ''
+  const aus = eigen !== '' ? PMH_LLM_API_KEY_ENV : ANBIETER_API_KEY_ENV
   const apiKey = assertUsableApiKey(
-    env.DEEPSEEK_API_KEY ?? '',
-    '@prometheus-harness/llm-deepseek',
-    'Umgebungsvariable DEEPSEEK_API_KEY',
+    eigen !== '' ? eigen : vomAnbieter,
+    '@prometheus-harness/llm-http',
+    `Umgebungsvariable ${aus}`,
   )
-  return new DeepSeekProvider({ apiKey, ...options })
+  return new LlmHttpProvider({ apiKey, ...options })
 }
 
 /** Übersetzt eine Systemanweisung in eine Nachricht — Kurzform für Aufrufer. */

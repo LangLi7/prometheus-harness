@@ -1,7 +1,7 @@
 /**
  * Tests für den LLM-Seam.
  *
- * **Was hier geprüft wird.** Nicht der Anbieter (das tut `llm-deepseek`),
+ * **Was hier geprüft wird.** Nicht der Anbieter (das tut `llm-http`),
  * sondern die **Form des Verlaufs**. Der Seam ist die Stelle, an der ein
  * Werkzeugaufruf festgehalten wird — geht er verloren, ist der nächste Aufruf
  * beim Anbieter nicht mehr zuordenbar. Diese Tests sind der Riegel davor.
@@ -198,6 +198,6 @@ describe('Anbieter prüfen', () => {
     expect(isLlmProvider({ name: '', complete: () => Promise.resolve() })).toBe(false)
     expect(isLlmProvider({ name: 'x' })).toBe(false)
     expect(isLlmProvider(null)).toBe(false)
-    expect(isLlmProvider('deepseek')).toBe(false)
+    expect(isLlmProvider('llm-http')).toBe(false)
   })
 })

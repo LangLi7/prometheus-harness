@@ -26,7 +26,7 @@
  * **Die Reihenfolge, in der die Sprossen zusammengesteckt werden:**
  *
  * ```ts
- * const provider = new RetryProvider({ inner: new DeepSeekProvider({ apiKey }) })
+ * const provider = new RetryProvider({ inner: new LlmHttpProvider({ apiKey }) })
  * const loop = new AgentLoop({ provider, tools, model: 'deepseek-chat' })
  * for await (const event of loop.run('Bitte lies a.txt')) { … }
  * ```

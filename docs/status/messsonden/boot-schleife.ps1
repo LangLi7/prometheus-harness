@@ -43,7 +43,7 @@ $env:PATH = (Join-Path $env:USERPROFILE '.bun\bin') + ';' + $env:PATH
 $BUN = Join-Path $env:USERPROFILE '.bun\bin\bun.exe'
 
 $tsconfigs = @(
-  'packages/llm/llm', 'packages/llm/llm-deepseek', 'packages/llm/llm-retry', 'packages/llm/token-meter',
+  'packages/llm/llm', 'packages/llm/llm-http', 'packages/llm/llm-retry', 'packages/llm/token-meter',
   'packages/core/agent-tools', 'packages/core/agent-loop',
   'packages/agent/session-format', 'packages/agent/session-persistence-jsonl',
   'packages/auth/auth', 'packages/auth/db-schema',

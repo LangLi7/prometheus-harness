@@ -302,8 +302,8 @@ describe('Anbieter mit Wiederholung', () => {
   })
 
   test('erlaubt einen eigenen Namen', () => {
-    const provider = new RetryProvider({ inner: new ScriptedProvider([null]), name: 'deepseek-mit-wiederholung' })
-    expect(provider.name).toBe('deepseek-mit-wiederholung')
+    const provider = new RetryProvider({ inner: new ScriptedProvider([null]), name: 'llm-http-mit-wiederholung' })
+    expect(provider.name).toBe('llm-http-mit-wiederholung')
   })
 
   test('wiederholt und liefert das Ergebnis des späteren Versuchs', async () => {

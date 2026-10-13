@@ -1,5 +1,5 @@
 /**
- * Tests für den DeepSeek-Anbieter.
+ * Tests für den HTTP-Anbieter.
  *
  * **Warum diese Tests ohne Netz laufen.** Der Anbieter nimmt sein `fetch` als
  * Argument. Damit ist jede Antwortform prüfbar, ohne einen Schlüssel, ohne
@@ -15,7 +15,7 @@
 import { describe, expect, test } from 'bun:test'
 import { LlmError } from '@prometheus-harness/llm'
 import {
-  DeepSeekProvider,
+  LlmHttpProvider,
   buildBody,
   errorForStatus,
   mapFinishReason,
@@ -255,7 +255,7 @@ describe('Anbieter aufrufen', () => {
       seen = { url: String(input), init }
       return response({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] })
     }
-    const provider = new DeepSeekProvider({ apiKey: 'geheim', baseUrl: 'https://example.test/v1/' }, fake)
+    const provider = new LlmHttpProvider({ apiKey: 'geheim', baseUrl: 'https://example.test/v1/' }, fake)
     const result = await provider.complete({ model: 'deepseek-chat', messages: [] })
     expect(result.text).toBe('ok')
     expect(seen.url).toBe('https://example.test/v1/chat/completions')
@@ -268,7 +268,7 @@ describe('Anbieter aufrufen', () => {
     // Ein Anbieter mit kaputtem Schlüssel soll gar nicht erst entstehen: sonst
     // verschiebt sich der Fehler an eine Stelle, an der niemand mehr nach der
     // Konfiguration sucht.
-    expect(() => new DeepSeekProvider({ apiKey: '' })).toThrow(LlmError)
+    expect(() => new LlmHttpProvider({ apiKey: '' })).toThrow(LlmError)
   })
 
   test('nimmt einen Schlüssel mit umgebendem Leerraum an und trimmt ihn', async () => {
@@ -277,7 +277,7 @@ describe('Anbieter aufrufen', () => {
       seen = (init?.headers as Record<string, string>).authorization
       return response({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] })
     }
-    const provider = new DeepSeekProvider({ apiKey: '  geheim  ' }, fake)
+    const provider = new LlmHttpProvider({ apiKey: '  geheim  ' }, fake)
     await provider.complete({ model: 'm', messages: [] })
     // Der Leerraum ist weg — ein umgebender Rand hat genau eine Lesart.
     expect(seen).toBe('Bearer geheim')
@@ -286,11 +286,11 @@ describe('Anbieter aufrufen', () => {
   test('lehnt einen Schlüssel mit Steuerzeichen ab', () => {
     // Ein Zeilenumbruch in einer HTTP-Kopfzeile ist entweder ein Tippfehler
     // oder ein Versuch, zusätzliche Kopfzeilen einzuschmuggeln.
-    expect(() => new DeepSeekProvider({ apiKey: 'geheim\r\nX-Boese: 1' })).toThrow(LlmError)
+    expect(() => new LlmHttpProvider({ apiKey: 'geheim\r\nX-Boese: 1' })).toThrow(LlmError)
   })
 
   test('leitet Ablehnung des Anbieters in rejected über', async () => {
-    const provider = new DeepSeekProvider({ apiKey: 'k' }, async () => response({ error: 'nein' }, 400))
+    const provider = new LlmHttpProvider({ apiKey: 'k' }, async () => response({ error: 'nein' }, 400))
     try {
       await provider.complete({ model: 'm', messages: [] })
       throw new Error('hätte werfen müssen')
@@ -310,7 +310,7 @@ describe('Anbieter aufrufen', () => {
       abort.name = 'AbortError'
       throw Object.assign(abort, { cause: reason })
     }
-    const provider = new DeepSeekProvider({ apiKey: 'k', timeoutMs: 5000 }, fake)
+    const provider = new LlmHttpProvider({ apiKey: 'k', timeoutMs: 5000 }, fake)
     try {
       await provider.complete({ model: 'm', messages: [], signal: controller.signal })
       throw new Error('hätte werfen müssen')
@@ -325,7 +325,7 @@ describe('Anbieter aufrufen', () => {
       abort.name = 'AbortError'
       throw abort
     }
-    const provider = new DeepSeekProvider({ apiKey: 'k', timeoutMs: 10 }, fake)
+    const provider = new LlmHttpProvider({ apiKey: 'k', timeoutMs: 10 }, fake)
     try {
       await provider.complete({ model: 'm', messages: [] })
       throw new Error('hätte werfen müssen')
@@ -336,7 +336,7 @@ describe('Anbieter aufrufen', () => {
 
   test('meldet einen Netzwerkfehler als transport', async () => {
     const fake: typeof globalThis.fetch = async () => { throw new Error('ECONNREFUSED') }
-    const provider = new DeepSeekProvider({ apiKey: 'k' }, fake)
+    const provider = new LlmHttpProvider({ apiKey: 'k' }, fake)
     try {
       await provider.complete({ model: 'm', messages: [] })
       throw new Error('hätte werfen müssen')
@@ -353,6 +353,6 @@ describe('Fabrik aus der Umgebung', () => {
 
   test('baut den Anbieter mit gesetztem Schlüssel', () => {
     const provider = providerFromEnv({ DEEPSEEK_API_KEY: 'k' })
-    expect(provider.name).toBe('deepseek')
+    expect(provider.name).toBe('llm-http')
   })
 })
