@@ -54,6 +54,7 @@ unangetastet.
 | [design/sketches.md](design/sketches.md) | Das Varianten-Verfahren der Skizzen-Sammlung und wie wir es weiterführen |
 | [design/realtime-collaboration.md](design/realtime-collaboration.md) | Zielbild: mehrere Menschen **und** Agenten bearbeiten gleichzeitig dasselbe Dokument |
 | [design/README.md](design/README.md) | Einstieg in den Gestaltungsbereich samt Bildmaterial |
+| [design/3d-zoom-konzept.md](design/3d-zoom-konzept.md) | Konzept (kein Code): warum die Wegdwerf-Messdatei verpixelt war, die verbindliche Koordinatensystem-Konvention, „5D" sauber in drei Begriffe zerlegt, Canvas 2D für die Welt + SVG fürs Overlay, Dolly-Zoom |
 
 ## 5. Nachschlagewerk — *Belege und Vorlagen*
 

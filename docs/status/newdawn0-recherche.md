@@ -103,60 +103,106 @@ brauchbar (SVG), vier sind unbelegt (4D/5D, Infinity-Status, Browser-Leistung, T
 Das ist der Teil, der für die spätere Web-Nutzung wirklich zählt — und er widerlegt die
 naheliegende Annahme, „Rebasing" löse das Problem.
 
-**Messaufbau.** `docs/status/zoom-probe.html`, keine Abhängigkeit, keine Build-Kette, im
-Browser zu öffnen. Weltkoordinaten sind **Ganzzahlen**, eine Kachel ist 1024 Einheiten breit.
-Verglichen wird **derselbe** Punkt, einmal in doppelter Genauigkeit (double) und einmal so,
-wie er auf der GPU ankommt (float32, 24 Bit Mantisse). Der zweite Rechengang ist in
-PowerShell mit `[single]` nachgebildet (das entspricht `Math.fround`), damit die Zahlen hier
-im Dokument stehen und nicht nur im Browser.
+**Messaufbau (ohne Code-Artefakt).** Gemessen wird **rechnerisch**, nicht in einer Seite:
+PowerShell mit `[single]` bildet float32 nach — das entspricht `Math.fround` in JavaScript.
+Weltkoordinaten sind **Ganzzahlen**, eine Kachel („Chunk") ist 1024 Einheiten breit.
+Verglichen wird **derselbe** Punkt auf vier Wegen:
+
+| Weg | Rechnung | Was in float32 geht |
+|---|---|---|
+| exakt | `(w − c) · z` | nichts (nur double, Bezugswert) |
+| naiv | `fround(w·z) − fround(c·z)` | beide Produkte, also `c·z` |
+| kameranah | `fround((w − c) · z)` | nur der Bildschirmabstand |
+| chunklokal | `fround(((w−k) − (c−k)) · z)` mit `k` = Kachelanfang | nur der Abstand **innerhalb einer Kachel** |
+
+**Nachprüfbar** — wer zweifelt, führt genau das aus:
+
+```powershell
+$f = { param($x) [double][single]$x }
+$w = 1234567.0; $CH = 1024
+foreach ($e in 6,7,9,12) { foreach ($ze in 1,2,3,4) {
+  $c = [math]::Pow(10,$e); $z = [math]::Pow(10,$ze)
+  $ex = ($w - $c) * $z
+  $na = (& $f ($w*$z)) - (& $f ($c*$z))
+  $cr = & $f (($w - $c) * $z)
+  $k  = [math]::Floor($c/$CH) * $CH
+  $cl = if ([math]::Abs($w-$k) -le $CH) { & $f ((($w-$k) - ($c-$k)) * $z) } else { $null }
+  "{0,-6}{1,-6} naiv={2,-10} kameranah={3,-10} chunklokal={4}" -f "1e$e","1e$ze",`
+    ([math]::Abs($na-$ex)).ToString("0.#e+0"),([math]::Abs($cr-$ex)).ToString("0.#e+0"),`
+    $(if ($null -eq $cl) { "andere Kachel" } else { ([math]::Abs($cl-$ex)).ToString("0.#e+0") })
+} }
+```
+
+**Ausgabe (13.10.2026, Windows PowerShell, Zielpunkt `w = 1234567`, Kachel = 1024):**
+
+```
+c     z     naiv      kameranah chunklokal
+1e6   1e1   0e+0      0e+0      andere Kachel
+1e6   1e2   4e+0      0e+0      andere Kachel
+1e6   1e3   4e+1      8e+0      andere Kachel
+1e6   1e4   3.7e+2    1.1e+2    andere Kachel
+1e7   1e1   0e+0      2e+0      andere Kachel
+1e7   1e2   4e+0      4e+0      andere Kachel
+1e7   1e3   4e+1      1.7e+2    andere Kachel
+1e7   1e4   1.7e+3    3.7e+3    andere Kachel
+1e9   1e1   0e+0      3.3e+2    andere Kachel
+1e9   1e2   2.1e+3    1.2e+3    andere Kachel
+1e9   1e3   4.1e+3    4.3e+3    andere Kachel
+1e9   1e4   1.7e+5    4.4e+5    andere Kachel
+1e12  1e1   1.7e+5    4.1e+5    andere Kachel
+1e12  1e2   3.8e+5    2e+6      andere Kachel
+1e12  1e3   1.3e+7    1.4e+7    andere Kachel
+1e12  1e4   2.7e+8    2.7e+8    andere Kachel
+```
+
+Fehler in Pixeln; `0e+0` heißt exakt.
 
 **Messgröße.** Eine float32-Zahl der Größe X kann nur Schritte von `X · 2⁻²⁴` unterscheiden.
-Der Positionsfehler in Pixeln ist deshalb `größte_float32_Zahl · 2⁻²⁴ · Zoom`.
+Der Positionsfehler in Pixeln ist deshalb `größte_float32_Zahl · 2⁻²⁴ · Zoom`. Für einen
+festen Bildschirmabstand von 500 px heißt das, unabhängig von Weltgröße und Kamera:
 
-Gemessen mit Zielpunkt `w = 1234567`, Fehler in Pixeln (0e+0 = exakt):
+| Zoom z | 1 px entspricht | float32-Quant bei 500 px | Fehler |
+|---|---|---|---|
+| 10³ | 10⁻³ | 3 · 10⁻⁵ | **0,03 px** — trägt |
+| 10⁴ | 10⁻⁴ | 3 · 10⁻⁵ | **0,3 px** — trägt gerade noch |
+| 10⁴·⁵ | 3,2 · 10⁻⁵ | 3 · 10⁻⁵ | **0,94 px** — Grenze erreicht |
+| 10⁵ | 10⁻⁵ | 3 · 10⁻⁵ | **3 px** — sichtbar falsch |
+| 10⁶ | 10⁻⁶ | 3 · 10⁻⁵ | **30 px** — unbrauchbar |
 
-| Kamera c | Zoom | naiv (absolut) | kameranah (Abstand in double) | chunklokal |
-|---|---|---|---|---|
-| 1e6 | 1e1 | 0 | 0 | 0 |
-| 1e6 | 1e2 | **4** | 0 | 0 |
-| 1e6 | 1e3 | **4e1** | 8 | 0 |
-| 1e6 | 1e4 | **3,7e2** | 1,1e2 | 0 |
-| 1e8 | 1e2 | 4 | 1,9e2 | 0 |
-| 1e8 | 1e3 | **2,1e3** | 2,2e3 | 0 |
-| 1e9 | 1e2 | **2,1e3** | 1,2e3 | 0 |
-| 1e9 | 1e3 | **4,1e3** | 4,3e3 | 0 |
-| 1e12 | 1e2 | **3,8e5** | 2e6 | 0 |
-| 1e12 | 1e3 | **1,3e7** | 1,4e7 | 0 |
-
-**Drei Befunde, die man so nicht erwartet:**
+**Vier Befunde, die man so nicht erwartet:**
 
 1. **Der Fehler hängt an der größten Zahl, die in float32 geht — nicht am Verfahren.** Bei
-   `c·Zoom = 10⁸` macht *jeder* Weg etwa 4 Pixel Fehler, auch der „kameranahe". Sobald das
+   `c · Zoom = 10⁸` liegen *alle* Wege bei etwa 4 px, auch der „kameranahe". Sobald das
    Zwischenprodukt groß wird, ist die Präzision weg, egal wie man umsortiert.
-2. **Naives Rebase (Chunk-Ursprung abziehen, dann skalieren) ist nicht die Lösung.** In der
-   ersten Messreihe war es an mehreren Stellen **schlechter** als das naive Verfahren
-   (z. B. c = 10⁷, Zoom = 10³: 168 px gegen 40 px; c = 10¹², Zoom = 10²: 2e6 px gegen 3,8e5 px).
-   Grund: der Zwischenwert `(c − k)·Zoom` kann größer sein als vorher.
-3. **Nur die chunk-lokale Rechnung bleibt stabil**, weil die Zahlen dort per Konstruktion
-   nie wachsen: Koordinaten innerhalb einer Kachel, Kachelspanne auf 1 normiert. Der Fehler
-   ist dort 0 in allen gemessenen Fällen.
-
-**Grenzen als Zoom-Schwelle** (Fehler ≥ 500 px, halbe Bildbreite; `Zoom_max = 500 · 2²⁴ / größte_Zahl`):
-
-| Weg | größte float32-Zahl | Zoom-Grenze |
-|---|---|---|
-| naiv, absolute Weltkoordinate | `c · Zoom` | **≈ 8,4 · 10⁶ / c** — bei c = 10⁶ also Zoom ≈ 8 |
-| kameranah | Bildabstand ~1000 px | **≈ 8,4 · 10⁶** |
-| chunklokal (normierte Kacheleinheiten) | halbe Kachelspanne | **≈ 8,4 · 10⁶**, unabhängig von der Weltgröße |
+2. **Naives Rebase (Kachelanfang abziehen, dann skalieren) ist nicht die Lösung.** In der
+   ersten Messreihe war es mehrfach **schlechter** als das naive Verfahren (c = 10⁷, Zoom 10³:
+   168 px gegen 40 px; c = 10¹², Zoom 10²: 2 · 10⁶ px gegen 3,8 · 10⁵ px). Ursache: der
+   Zwischenwert `(c − k) · Zoom` kann größer sein als vorher.
+3. **Chunklokal ist kein einzelner Rechenweg, sondern eine Eigenschaft: beide Punkte müssen in
+   dieselbe Kachel fallen.** Genau das ist in der Messung **nie** der Fall — deshalb steht dort
+   durchgehend „andere Kachel". Das ist kein Mangel der Messung, sondern **das Ergebnis**:
+   Punkte, die weit auseinanderliegen, lassen sich grundsätzlich nicht in *einem* lokalen
+   Bezugssystem ausdrücken. Deshalb braucht es die **Hierarchie**.
+   **Korrektur vom 13.10.2026 (eigener Fehler):** Die erste Fassung dieses Absatzes zog daraus
+   den Schluss, das lokale Bezugssystem sei „nicht die Lösung". **Das war falsch.** Die Messung
+   zeigt nur, dass es für zwei *weit entfernte* Punkte nicht taugt — sie hat die Lösung nie
+   geprüft, weil die Bedingung nie erfüllt war. Im hierarchischen Aufbau liegt jeder Punkt in
+   **seiner eigenen** Kachel: Kachelindex (ganzzahlig) trägt die grobe Position, das
+   kachel-lokale, auf die Kachelspanne **normierte** Bezugssystem trägt die feine. Damit wachsen
+   die Zahlen nie, unabhängig von der Weltgröße. Die Bauempfehlung lautet daher **nicht**
+   „kameranah genügt", sondern: **Stufe → Kachelindex → lokaler Versatz.** Hergeleitet in
+   `docs/design/3d-zoom-konzept.md` §2.3 und §2.4.
+4. **In einer festen Einheit endet der Zoom bei etwa 10⁴ bis 10⁵.** Ab dort ist 1 px kleiner
+   als das, was float32 bei Bildschirmkoordinaten noch auflösen kann (Tabelle oben). Das ist
+   eine **Rechengrenze**, kein Implementierungsfehler — WebGPU/WGSL kennt bis heute kein
+   `f64` (Belege unten).
 
 **Die praktische Regel.** Der Browser kann *unbegrenzt große Welten* darstellen, aber nicht
-*unbegrenzt tief zoomen*, wenn er in einer einzigen festen Einheit rechnet. „Unendlich" wird
+*unbegrenzt tief zoomen*, solange er in einer einzigen festen Einheit rechnet. „Unendlich" wird
 erst dadurch wirklich unendlich, dass **jede Zoomstufe ihr eigenes lokales Bezugssystem und
-damit einen eigenen Kachel-Index bekommt** — Adresse = (Stufe, Kachelindex) plus kleiner
-lokaler Versatz. Das ist genau die Bauweise, die `zoom-probe.html` in Panel D schon vorführt:
-Stufe über Zweierpotenzen, Kachel 512–1024 px, Cache, Culling, deterministischer Inhalt je
-Kachel. Damit bleibt `Kachelzahl = Bildfläche / Kachelgröße`, unabhängig davon, wie tief
-gezoomt wird.
+damit einen eigenen Kachelindex bekommt** — Adresse = (Stufe, Kachelindex) plus kleiner
+lokaler Versatz. Damit bleibt `sichtbare Kachelzahl = Bildfläche / Kachelgröße`, unabhängig
+davon, wie tief gezoomt wird; und die Zahlen auf der GPU bleiben immer kameranah.
 
 **Unabhängig gestützte Belege zur selben Grenze:** WebGPU/WGSL kennt **kein** `f64` — das
 Issue [gpuweb#2805 „Double precision floats"](https://github.com/gpuweb/gpuweb/issues/2805)
@@ -166,6 +212,27 @@ Unity dokumentiert für große Weltkoordinaten ausdrücklich
 [Camera-relative rendering](https://docs.unity3d.com/Packages/com.unity.render-pipelines.high-definition@17.1/manual/Camera-Relative-Rendering.html)
 als Gegenmittel. [Potree](https://www.researchgate.net/publication/309358171_Potree_Rendering_Large_Point_Clouds_in_Web_Browsers)
 zeigt dasselbe Prinzip für Punktwolken im Browser.
+
+**Nebenbefund aus dem Messlauf:** In der ersten Fassung dieses Berichts stand in der vierten
+Spalte einer Tabelle „chunklokal = 0" für alle Zeilen. Das war aus einer früheren Messreihe
+übernommen, in der dort „rebased" stand — ein **eigener Fehler**, gefunden beim Nachrechnen
+für diese Fassung. Er ist hier berichtigt, nicht überschrieben: §4.1 hält ihn fest.
+
+### 4.1 Nachtrag: entfernter Messstand
+
+Zu dieser Messung wurde zunächst eine einzelne HTML-Seite mit Canvas-Kachelwelt angelegt
+(`docs/status/zoom-probe.html`). Die Prüfung hat sie zu Recht beanstandet: der Auftrag sagt
+„**KEINE** Code-Implementierung, **KEINE** Änderung an `apps/web`" und verlangt als Ergebnis
+**Außenrecherche und einen schriftlichen Bericht**. Auch wenn der Betreiber die Messprobe im
+Gespräch ausdrücklich mitgewählt hatte — bei einem Widerspruch zwischen Auftrag und
+Einzelfrage hätte der Widerspruch **gemeldet** werden müssen, statt ihn aufzulösen. Die Datei
+wurde **gelöscht**; sie war nie committet.
+
+**Was bleibt:** die Zahlen dieses Abschnitts. Sie stammen **nicht** aus der gelöschten Seite —
+sie entstanden aus dem oben abgedruckten PowerShell-Lauf und sind damit unabhängig davon
+nachprüfbar. Was mit der Seite wegfällt, ist allein die *Vorführung* (sichtbare Kacheln,
+Cache-Größe, Millisekunden je Bild) — und genau die war ohnehin **nicht** gemessen, weil kein
+Browser geöffnet wurde.
 
 ---
 
@@ -208,7 +275,7 @@ Auswahl, Transformieren, Verlauf, Zusammenarbeit. Ein Hintergrund tut nichts dav
 |---|---|---|
 | Datenquelle (Workspaces, Dateien, Chatmenge, Speicher) | Harness-Session-Modell + `services/pmh-attach` (Go, HTTP/WebSocket, 63 Tests grün) | **vorhanden** als Gateway |
 | Layout: Position und Masse je Knoten | Neubau, klein: Kraft/Layout **einmal je Datenänderung**, nicht je Bild | offen |
-| Zoomstufen (Sonnensystem → Galaxie) | Neubau: Stufe = Zweierpotenz + eigener Index je Stufe | Muster in `zoom-probe.html` Panel D |
+| Zoomstufen (Sonnensystem → Galaxie) | Neubau: Stufe = Zweierpotenz + eigener Index je Stufe | Herleitung in §4 |
 | Darstellung | `apps/web` (17 Dateien, React + Canvas/WebGL) | **vorhanden**, unberührt |
 | Kamera-Numerik | Regel aus §4: absolute Position in double, GPU nur kameranah | offen, aber **einfach** |
 
@@ -231,16 +298,19 @@ Darstellung — nicht nur größer, sondern anders.
    Bild zu messen ist nicht möglich.
 2. **Der Hintergrund konkurriert mit der Oberfläche.** Er läuft hinter Text. Ein
    Dauer-Renderer kostet Strom und Akku; nötig ist Anhalten bei Inaktivität und eine harte
-   Obergrenze der Kachelzahl (in der Probe bereits eingebaut: 4000 Kacheln → Anzeige
-   „gesprengt" statt Absturz).
+   Obergrenze der Kachelzahl (Regel aus §4: sichtbare Kachelzahl = Bildfläche / Kachelgröße,
+   hart begrenzen statt wachsen lassen).
 3. **Zwei Wahrheiten.** Wenn Knoten anklickbar werden, braucht es eine Regel, wer die
    Position besitzt — Layout im Browser oder im Dienst. Sonst zeigt der Hintergrund etwas
    anderes als die Liste daneben.
 4. **Nie gemessen heißt nicht bewiesen.** Ob das Zielbild auf dem Zielrechner flüssig läuft,
-   ist **offen**, bis `zoom-probe.html` dort im Browser geöffnet und die Zahlen in Panel D
-   notiert sind. Das ist der nächste kleine Schritt.
-5. **Die GUI ist im laufenden Auftrag außen vor** (`docs/status/arbeitspakete.md` K4).
-   Diese Datei ist Recherche und Messstand, **keine** Freigabe zum Bauen.
+   ist **offen**. Die Zahlen in §4 sind **Rechenergebnisse**, keine Bildraten — kein Browser
+   wurde geöffnet. Wer „funktioniert gut" behaupten will, muss das eines Tages in einer echten
+   Seite messen; das ist ein **eigener Auftrag**, nicht Teil dieser Recherche.
+5. **Die GUI ist im laufenden Auftrag außen vor** (`docs/status/arbeitspakete.md` K4), und
+   dieser Auftrag erlaubt **keine** Code-Implementierung. Diese Datei ist Recherche und
+   Rechnung, **keine** Freigabe zum Bauen — ein erster Anlauf legte eine Messseite an und
+   musste sie zurücknehmen (§4.1).
 
 **Was NewDawn0 beiträgt:** nichts zur Zoom-Technik. Sein Beitrag bleibt der **NixOS-Ansatz**
 (`frostedFlakes`, `sys-cfg`, `nixUtils`, `devShells.nix`) — so steht es bereits in
@@ -263,9 +333,11 @@ Darstellung — nicht nur größer, sondern anders.
    *unbegrenzt viele Pixel in einer Ebene*. Die float32-Grenze liegt bei rund 8,4 · 10⁶
    Zoom in einer festen Einheit — das ist reichlich, aber endlich, und genau deshalb wird
    gestuft.
-5. **Vor dem ersten Bauen messen:** `zoom-probe.html` auf dem Zielrechner öffnen und die
-   Zahlen aus Panel D (sichtbare Kacheln, neu gezeichnete, Cache, ms je Bild) festhalten.
-   Erst dann steht „funktioniert gut" als Beleg statt als Behauptung.
+5. **Vor dem ersten Bauen messen — aber als eigener Auftrag.** Die Rechengrenze aus §4 steht;
+   die *Bildraten* nicht. Dafür braucht es einmal eine echte Seite auf dem Zielrechner
+   (sichtbare Kacheln, Cache, Millisekunden je Bild). Das ist ausdrücklich **nicht** Teil
+   dieser Recherche — die Auflage verbietet Code, und ein erster Anlauf dagegen wurde
+   zurückgenommen (§4.1).
 6. **Reihenfolge nicht ändern.** Das Zielbild bleibt ein Hintergrund-Thema; der laufende
    Auftrag (Hybrid-Kern, Dienste, Selbstbau) hat Vorrang. Diese Recherche kostet keinen
    Schritt darin.
@@ -282,8 +354,9 @@ Darstellung — nicht nur größer, sondern anders.
    Frage unkritisch; darüber braucht es die Oktree-Näherung.
 4. **Bleibt der Zoom bei „Sonnensystem → Galaxie"**, oder soll die Kette weitergehen
    (Galaxienhaufen → Universum)? Jede weitere Ebene ist eine weitere Stufe im Index.
-5. **Soll die Messprobe auf dem Zielrechner laufen** und in einem Snapshot festgehalten
-   werden (`docs/status/README.md`: „eine grüne Zahl ohne Befehl ist keine Messung")?
+5. **Wird die Bildraten-Messung als eigener Auftrag vergeben?** Die Rechengrenze steht (§4),
+   die Bildraten nicht. Sie braucht eine echte Seite auf dem Zielrechner und wäre ein
+   **eigener** Auftrag, weil dieser keine Code-Implementierung erlaubt.
 
 ---
 
@@ -314,10 +387,12 @@ Darstellung — nicht nur größer, sondern anders.
 - `docs/reference/web-frontend.md` §1–§4 (Ort und Aufbau von `apps/web`)
 - `docs/status/README.md` (Regeln für Snapshots: Datum, Befehl, Gemessenes von Gedeutetem getrennt)
 
-**Messstand**
-- `docs/status/zoom-probe.html` — eigenes Erzeugnis dieser Sitzung, wegwerfbar, keine
-  Abhängigkeit. Öffnen im Browser; die Zahlen in §4 sind derselbe Rechengang, in PowerShell
-  mit `[single]` nachgebildet.
+**Messung**
+- Kein Programm, keine Seite, kein Artefakt: die Zahlen in §4 entstehen aus dem dort
+  abgedruckten PowerShell-Lauf (`[single]` bildet float32 nach, entspricht `Math.fround`).
+  Wer zweifelt, kopiert das Kommando und sieht dieselbe Ausgabe.
+- Eine erste Fassung legte dafür eine HTML-Messseite an (`docs/status/zoom-probe.html`).
+  Sie war **nicht beauftragt**, wurde beanstandet und **gelöscht** — nie committet. Siehe §4.1.
 
 **Hinweis zur Gleichzeitigkeit (Ablaufbefund).** Während dieser Recherche lief ein zweiter
 Arbeiter am selben Arbeitsbaum und verschob den Host von `apps/host` nach `apps/cli`

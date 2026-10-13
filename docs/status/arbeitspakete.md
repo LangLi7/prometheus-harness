@@ -343,6 +343,70 @@ Kommentarkopf von `apps/host/src/main.ts` und im README.
 
 ---
 
+## P7 · t39 — Web-Rendering: Canvas/SVG, Koordinatensystem, n-dimensionale Rotation, 3D-Zoom
+
+**Phase: `geplant` — Konzept liegt vor, Code nicht begonnen.** Angelegt am **13.10.2026** auf
+Weisung, nach dem Betreiber-Befund *„alles verpixelt, weil kein canvas genutzt wird"* samt
+fehlendem Koordinatensystem, fehlender Rotation und fehlendem 3D-Zoom.
+
+> **Auflage des Betreibers: „erst Konzept, dann Code."** Deshalb steht dieses Paket auf
+> `geplant` und **nicht** auf `in Arbeit`. Das Konzept ist geschrieben, der Code beginnt erst
+> nach Abnahme.
+
+**Beleg für die Konzeptphase:** [`docs/design/3d-zoom-konzept.md`](../design/3d-zoom-konzept.md)
+
+### P7.1 Was zu diesem Paket gemessen und gefunden wurde (nicht gedeutet)
+
+**1. Die Verpixelung ist erklärt und hat eine Ursache in eigenem Code.** Der Betreiber hatte
+`docs/status/zoom-probe.html` geöffnet — die Wegwerf-Messdatei, die auf Prüfauflage **gelöscht**
+worden war. Sie zeichnete Sterne **einmal** in ein 1024×1024-Bitmap und vergrößerte dieses
+Bitmap danach auf Bildschirmgröße; zusätzlich war die Zoomstufe bei 20 **gedeckelt**. Bei
+Zoom 10¹² wurde dasselbe Bitmap um ~2¹⁰ vergrößert → Klötzchen. **Der Befund des Betreibers war
+also richtig, und die Ursache liegt in meinem eigenen Code.** Die Deckelung war als
+Speicherschutz gedacht und hat genau die Verpixelung erzeugt, die sie verhindern sollte.
+
+**2. `apps/web` hat diese Verpixelung nicht — dort wird gar nichts gezeichnet.**
+`src/lib/Universe.tsx` ist ein **leeres `<div>`** mit
+`radial-gradient(ellipse at 50% 35%, #0c0a10, #050507 75%)`; die Dynamic Island ist HTML.
+`three` ist in `apps/web/package.json` deklariert und liegt in `node_modules`, wird aber von
+**keiner Zeile** benutzt (die Datei sagt das selbst). Möglich ist dort **Banding** des
+Verlaufs — etwas anderes als Klötzchen und **nicht geprüft**.
+
+**3. „5D" ist im ganzen Projekt nicht definiert.** Die Suche über `docs` (ohne `docs/dsh`,
+`docs/design`) nach `5D|4D|360|gimbal|dolly|quaternion|koordinatensystem` findet dazu **nichts**
+außer einer Einstufung als *nicht belegt* in `newdawn0-recherche.md` §3. Der Auftrag, vorhandene
+Spezifikationen „z. B. aus t36/t37" zu lesen, geht ins Leere: **t37 ist `pending`.**
+
+**4. Eigener Rechenfehler korrigiert.** `newdawn0-recherche.md` §4 hatte aus der Messung
+geschlossen, das kachel-lokale Bezugssystem sei „nicht die Lösung". Das war falsch — die
+Messung hat es nie geprüft. Die zutreffende Bauempfehlung lautet: **Stufe → Kachelindex →
+lokaler Versatz.** Korrektur dort eingetragen und in §2.3/§2.4 des Konzepts hergeleitet.
+
+### P7.2 Die Phasen (Checkliste)
+
+| # | Phase | Schritt | Stand |
+|---|---|---|---|
+| P7.1 | **Untersuchung** | Ursache der Verpixelung in eigenem Code gefunden und belegt | **erledigt** |
+| P7.2 | **Untersuchung** | `apps/web` inventarisiert: kein Canvas, `three` ungenutzt | **erledigt** |
+| P7.3 | **Untersuchung** | Suche nach vorhandener 5D-/Rotations-Spezifikation — keine vorhanden | **erledigt** |
+| P7.4 | **Konzept** | Koordinatensystem-Konvention verbindlich festschreiben (Händigkeit, Achsen, Kachelmaß, zwei Zahlenräume) | **erledigt** — Konzept §2 |
+| P7.5 | **Konzept** | „5D" in drei Begriffe zerlegen und entscheiden | **erledigt** — Konzept §3, Betreiber wählte „beides" |
+| P7.6 | **Konzept** | Darstellungsweg festlegen: Canvas 2D für die Welt, SVG fürs Overlay, `devicePixelRatio` Pflicht | **erledigt** — Konzept §4 |
+| P7.7 | **Abnahme** | Betreiber nimmt das Konzept ab; **danach** beginnt der Code | **offen** |
+| P7.8 | Implementierung | Rotationsmodul für `n` Dimensionen (5D → 10 Drehflächen), Quaternion für 3D | **offen** |
+| P7.9 | Implementierung | Kamera: `logZoom`, `double`-Zustand, Dolly-Zoom | **offen** |
+| P7.10 | Implementierung | Canvas-Welt mit `devicePixelRatio`, pro Stufe **neu gezeichnet** | **offen** |
+| P7.11 | Implementierung | SVG-Overlay: Achsen, Gitter, Teilstriche, Einheiten, Maßstab | **offen** |
+| P7.12 | Test | Längentreue, 360°-Rückkehr, Orthogonalität/Determinante, Zoom-Äquivalenz, Welt↔Bildschirm | **offen** |
+| P7.13 | Test | **Schärfe-Test:** ein Kreis bleibt bei Zoom 10⁰…10¹² rund — der Test gegen die Verpixelung | **offen** |
+| P7.14 | Nachweis | `bun run typecheck` exit 0, Tests exit 0, Host aus `apps/cli` HTTP 200, Funktionen manuell geprüft | **offen** |
+| P7.15 | Nachweis | Bericht in `docs/status/` + Register aktualisiert | **offen** |
+
+**Regel für dieses Paket:** kein Häkchen ohne Beleg. P7.13 ist der wichtigste Test — er prüft
+genau die Eigenschaft, die P7.1 verloren hat.
+
+---
+
 ## R · Erinnerte Harness-Anforderungen / Technikliste
 
 > **Was dieser Abschnitt ist:** die vom Betreiber erneut vorgelegte Technik- und
@@ -392,7 +456,7 @@ Jede Zeile nennt Klasse, Phase und Beleg **oder** den Grund, warum sie offen ist
 | **Tesseract OCR** | **B / D** | Phase 1 (Go) | `services/pmh-ocr`. **Konflikt:** Tesseract ist C++ — als **externes Programm** über die Prozessgrenze aufrufbar (Regel 4), **nicht** als eingebundene Bibliothek. Die Grenze ist damit einhaltbar, aber sie muss ausdrücklich gezogen werden |
 | **Mirage-Tesseract** | **D** | — | `docs/vision.md` führt es als **„ungeprüft"**: die Recherche fand nur Foto-Editor-Apps, nicht den gemeinten Dienst. **Muss vom Betreiber präzisiert werden**, bevor es geplant wird |
 | **Assistent / Researcher / Fine-Tune-Skills** | **C** | `geplant` | Zielbild aus `docs/vision.md`. Skills sind das **billigste** Unit (`concept.md`: „Agent-Skill ohne Host-Code") — deshalb hier als eigener Backlog-Punkt, obwohl der Core fehlt |
-| **NewDawn-Zoom-Technik** | **D** | recherchiert | **Konflikt:** `docs/project-profile.md` §4 hat die frühere Deutung **korrigiert** — NewDawn0 ist ein **Nix-/Systementwickler ohne UI-Projekt**; die „Zeichnungen" sind die **eigenen Skizzen** des Betreibers. Die Zoom-/Tensor-Technik ist damit **Darstellungsvorbild**, kein übertragbarer Code. GUI bleibt außen vor. **Nachtrag 13.10.2026:** Außenrecherche erbracht — alle 70 öffentlichen Repos geprüft (3 Seiten + Profilsuche nach `zoom`: 0 Treffer), **keine** der acht Behauptungen dort belegbar; dafür die eigentliche Technik geprüft und die **float32-Zoom-Grenze gemessen**. Beleg: [`newdawn0-recherche.md`](newdawn0-recherche.md), Messstand: [`zoom-probe.html`](zoom-probe.html) |
+| **NewDawn-Zoom-Technik** | **D** | recherchiert | **Konflikt:** `docs/project-profile.md` §4 hat die frühere Deutung **korrigiert** — NewDawn0 ist ein **Nix-/Systementwickler ohne UI-Projekt**; die „Zeichnungen" sind die **eigenen Skizzen** des Betreibers. Die Zoom-/Tensor-Technik ist damit **Darstellungsvorbild**, kein übertragbarer Code. GUI bleibt außen vor. **Nachtrag 13.10.2026:** Außenrecherche erbracht — alle 70 öffentlichen Repos geprüft (3 Seiten + Profilsuche nach `zoom`: 0 Treffer), **keine** der acht Behauptungen dort belegbar; dafür die eigentliche Technik geprüft und die **float32-Zoom-Grenze nachgerechnet**. Beleg: [`newdawn0-recherche.md`](newdawn0-recherche.md) — **kein** Messprogramm, kein Artefakt (siehe §4.1 dort) |
 | **Obsidian-Docking als UX/GUI/UI-Konzept** | **D** | — | **Konflikt:** es ist ein **Oberflächen**-Konzept. Laut Auftrag bleibt GUI/UI/Web unverändert. Als Konzept notiert, **keine** Umsetzung |
 
 ### R.2 Die Konflikte, ausdrücklich benannt
@@ -442,5 +506,13 @@ damit sie nicht später als „vergessen" oder als „stillschweigend übernomme
 | 2026-10-13 | **P6 angelegt und abgenommen: Auflage A1 erfüllt.** `apps/cli`, `apps/desktop`, `apps/desktop-host` entfernt (1.043 byte-identische Dateien, 158 `workspace:*`-Verweise); `apps/host` um `--profile`/`--port`/`--patches` erweitert; `LICENSE` (MIT) angelegt | Die Kopien widersprachen dem Auftrag und blockierten `bun install`. Nachweis: `bun install` exit 0, `bun run typecheck` exit 0 (6/6), Host-Start 6 s, HTTP 200 mit 32.184 B |
 | 2026-10-13 | **Korrektur eines eigenen Messfehlers:** Startzeit des Hosts ist **6 s**, nicht 35 s | Die 35 s stammten aus einem **kalten** Einzellauf. Erst die Wiederholung über drei Läufe ergab den belastbaren Wert — eine Einzelmessung ohne Wiederholung ist keine Messung |
 | 2026-10-13 | **Befund DrvFS:** `/mnt/c` ist als 9p **ohne `metadata`** gemountet, `chmod` wirkt dort nicht | Der Credential-Dienst verweigerte den Start korrekt (`mode 777`). Behebung: Harness-Home ins Linux-Dateisystem (`~/pmh`) |
-| 2026-10-13 | **NewDawn-Zoom-Technik (Abschnitt R) von `—` auf `recherchiert`** — neuer Beleg [`newdawn0-recherche.md`](newdawn0-recherche.md) und Messstand [`zoom-probe.html`](zoom-probe.html) | Betreiber stellte klar: NewDawn0 war nur ein **Beispiel**, gemeint ist die **Sache** (Zoom-/Chunk-Technik als Universum-Hintergrund). Ergebnis: bei NewDawn0 **nichts** belegbar (70 Repos, Profilsuche `zoom` = 0 Treffer), aber die Technik selbst geprüft — und dabei eine **gemessene** Grenze gefunden (float32). **Kein** Projektcode berührt, `apps/web` unverändert; die Probe ist eine einzelne Datei unter `docs/status/` ohne Abhängigkeit |
+| 2026-10-13 | **NewDawn-Zoom-Technik (Abschnitt R) von `—` auf `recherchiert`** — neuer Beleg [`newdawn0-recherche.md`](newdawn0-recherche.md) | Betreiber stellte klar: NewDawn0 war nur ein **Beispiel**, gemeint ist die **Sache** (Zoom-/Chunk-Technik als Universum-Hintergrund). Ergebnis: bei NewDawn0 **nichts** belegbar (70 Repos, Profilsuche `zoom` = 0 Treffer), aber die Technik selbst geprüft — und dabei eine **nachgerechnete** Grenze gefunden (float32). **Kein** Projektcode berührt, `apps/web` unverändert |
+| 2026-10-13 | **Auflage verletzt und zurückgenommen:** zu diesem Paket wurde eine HTML-Messseite angelegt (`docs/status/zoom-probe.html`) — der Auftrag sagt aber „**KEINE** Code-Implementierung", verlangt waren Außenrecherche und Bericht | Die Prüfung beanstandete es zu Recht. Datei **gelöscht** (war nie committet), alle Verweise entfernt, `docs/INDEX.md` bereinigt. Der Fehler war nicht die Messung, sondern dass ein **Widerspruch zwischen Auftrag und Einzelfrage** nicht gemeldet, sondern einseitig aufgelöst wurde. Der Messweg steht jetzt als **abdruckbares Kommando** im Bericht (§4) — nachprüfbar ohne Artefakt |
+| 2026-10-13 | **Eigener Rechenfehler im Bericht korrigiert:** die vierte Spalte der Messtabelle führte „chunklokal = 0" für alle Zeilen — übernommen aus einer älteren Messreihe, in der dort „rebased" stand | Beim Nachrechnen für die korrigierte Fassung aufgefallen. Richtig ist: beide Punkte liegen in **verschiedenen Kacheln**, chunklokal ist dort gar nicht definiert — und **das ist der Befund**, der die Hierarchie begründet. §4.1 des Berichts hält den Fehler fest statt ihn zu überschreiben |
+| 2026-10-13 | **„Messung" von „Rechnung" getrennt:** die Zahlen in §4 sind Rechenergebnisse, keine Bildraten — kein Browser wurde geöffnet | `docs/status/README.md` verlangt, Gemessenes von Gedeutetem zu trennen. „Funktioniert im Browser gut" ist damit weiterhin **unbewiesen**; die Bildraten-Messung wäre ein **eigener** Auftrag |
+| 2026-10-13 | **Neues Paket P7 / Todo t39 angelegt** — „Web-Rendering: Canvas/SVG, Koordinatensystem, n-dimensionale Rotation, 3D-Zoom", Phase `geplant`, Beleg [`../design/3d-zoom-konzept.md`](../design/3d-zoom-konzept.md) | Betreiber meldete verpixelte Darstellung, fehlendes Koordinatensystem, fehlende 5D-Rotation und fehlenden 3D-Zoom. Er wählte ausdrücklich **„erst Konzept, dann Code"** → Paket bleibt auf `geplant`, Code beginnt erst nach Abnahme (P7.7) |
+| 2026-10-13 | **Ursache der Verpixelung gefunden — in eigenem Code.** Der Betreiber hatte die **gelöschte** Wegwerf-Datei `docs/status/zoom-probe.html` geöffnet; sie malte Sterne einmal in ein 1024-px-Bitmap, **deckelte** die Zoomstufe bei 20 und vergrößerte dann dasselbe Bitmap um ~2¹⁰ → Klötzchen | Der Befund des Betreibers war **richtig**. Die Deckelung war als Speicherschutz gedacht und erzeugte genau das, was sie verhindern sollte. Merksatz im Konzept: *ein gerastertes Bild, das man vergrößert, wird unscharf.* Der frühere Auftrag hatte die Faktenlage **umgekehrt** dargestellt (Bericht „gelöscht", Probe als lebend) — richtig ist: **Probe gelöscht, Bericht committet** |
+| 2026-10-13 | **Befund: `apps/web` zeichnet gar nichts.** `src/lib/Universe.tsx` ist ein **leeres `<div>`** mit CSS-Verlauf; `three` ist deklariert, installiert und **von keiner Zeile benutzt** | Damit ist die Verpixelung **nicht** in `apps/web` entstanden. Möglich ist dort **Banding** des Verlaufs (wenige Farbstufen zwischen `#0c0a10` und `#050507`) — das ist etwas anderes als Klötzchen und **nicht geprüft** |
+| 2026-10-13 | **Befund: „5D" ist im Projekt nirgends definiert.** Suche über `docs` nach `5D\|4D\|360\|gimbal\|dolly\|quaternion\|koordinatensystem` → kein Treffer außer der Einstufung *nicht belegt* | Der Auftrag verlangte, vorhandene Spezifikationen „z. B. aus t36/t37" zu lesen — **t37 ist `pending`**. Deshalb wurde „5D" im Konzept §3 in **drei Begriffe** zerlegt (N-dim Raum / 3D-Welt / semantische Stufe) und vom Betreiber entschieden: **beides**, Modul für n Dimensionen **und** sichtbare 3D-Welt |
+| 2026-10-13 | **Eigener Denkfehler korrigiert:** `newdawn0-recherche.md` §4 hatte aus der Messung geschlossen, das kachel-lokale Bezugssystem sei „nicht die Lösung" | **Falsch** — die Messung hat es nie geprüft (die Bedingung „beide Punkte in derselben Kachel" war nie erfüllt, deshalb stand dort „andere Kachel"). Zutreffend ist: **Stufe → Kachelindex → lokaler Versatz.** Korrektur in §4 eingetragen, Herleitung in Konzept §2.3/§2.4 |
 | 2026-10-13 | **Eigener Messfehler korrigiert:** die erste Messreihe führte „rebased (Chunk-Ursprung)" als Lösung — die Messung zeigt, dass es an mehreren Stellen **schlechter** ist als naiv | Der Fehler hängt an der **größten** float32-Zahl, nicht am Verfahren. Die Probe wurde auf vier Wege umgestellt (naiv / kameranah / chunklokal) und die Zahlen in §4 des Berichts offengelegt. Die erste Fassung der Probe hätte eine falsche Bauempfehlung gestützt |

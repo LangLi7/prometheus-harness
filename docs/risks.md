@@ -82,7 +82,7 @@ erreichen.
 **Die Messung (12.10.2026, Bun 1.4.0, Windows x64, Node 26 als Vergleich):**
 
 ```
-bun run apps/host/src/main.ts web --port 5199 --no-open
+bun run apps/cli/src/main.ts web --port 5199 --no-open
 → pmh: host preparation failed: node-addon-require-builtin unsupported:
        Unsupported/no-context (required V8 current-context symbols were not found)
    diagnostics: { mode: "napi", backend: "napi", node: "26.3.0",
@@ -95,7 +95,7 @@ einer Node-Laufzeit funktionieren.
 
 **Was wir daraufhin tun (und warum das die Architektur bestätigt).** `PluginPackages` wird
 im eigenen Host **weggelassen**, nicht umgangen. Die Bündel-Pakete stehen als gewöhnliche
-Abhängigkeiten in `apps/host/package.json` und werden über den Installations-Anker
+Abhängigkeiten in `apps/cli/package.json` und werden über den Installations-Anker
 aufgelöst. Damit läuft der Harness — belegt: `GET /?token=…` → **HTTP 200** (3.845 B).
 
 **Was dadurch fehlt.** Profil-deklarierte Plugins werden **nicht** automatisch installiert.
