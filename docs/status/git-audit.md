@@ -370,3 +370,49 @@ P7.9 (cmd), P7.10 (Ctrl+C, Waisen) — und die Verdrahtung der Kette in den Host
    **Core**-Oberfläche aus; unser `agent-loop`/`session` läuft in Tests, nicht in
    der Anwendung. Das ist der nächste große Schritt.
 3. **`bun run typecheck`** bleibt in dieser Umgebung nur einzeln ausführbar.
+
+---
+
+### 2026-10-13 · Startadresse war unbenutzbar (Token fehlte in der Anleitung)
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Betreiber befolgte die README-Anleitung und landete auf einer **Fehlerseite** (401) |
+| Umfang | `README.md`, `scripts/token-adresse.mjs` (neu), `scripts/tests/token-adresse.test.mjs` (neu), `scripts/start.mjs`, `scripts/port-test.ps1`, `docs/status/beleg-startadresse.md` (neu) |
+| Art | **Codeänderung im Repo.** Kein `~/.dsh`-Zugriff, keine Fremdinstallation angefaßt |
+| Nachweis | [beleg-startadresse.md](beleg-startadresse.md) |
+| Tests | `bun test scripts/tests/` → **34 pass · 0 fail** (18 davon neu) |
+| Prozeßprüfung | `scripts/port-test.ps1` → **4 Fälle, 0 Befunde** |
+| Links | README: **15 relative Links geprüft, 0 fehlend** |
+
+**Der Befund.** Die README sagte `bun run start`, dann `http://127.0.0.1:3080/`
+öffnen. Der Start lief, die Adresse stimmte — und der Aufruf antwortete **401**.
+Gemessen: ohne Token **401** (16.004 Byte), mit dem Token aus der Hostausgabe
+**200** (35.664 Zeichen), mit falschem Token **401**. Der Starter kannte die
+Adresse und gab sie nicht weiter.
+
+**Drei eigene Fehler, jeder von einer Prüfung gefunden — nicht durch Nachdenken:**
+Auf einen Zeilenumbruch gewartet, den es nicht gibt · eine geratene Längenschranke
+von 8 Zeichen für „vollständig" gehalten · den Pufferrest sofort ausgegeben. Die
+letzten beiden sind derselbe Denkfehler: „vollständig" wurde aus einer Annahme
+abgeleitet statt aus dem Datenstrom.
+
+**Die Lücke in der Prüfung, die den 401 durchgelassen hat.** `port-test.ps1`
+prüfte in Fall 1–3, daß die genannte Adresse den gewählten Port **nennt** — als
+Zeichenkette. Sie nannte ihn. Der Aufruf antwortete trotzdem 401. Fall 4 **ruft**
+die Adresse jetzt auf: mit Token **200 / 35.664 Zeichen**, ohne Token **401**.
+
+#### Offene Punkte, die dieser Eintrag stehen lässt
+
+1. **`credential-gh`** — siebter Push, siebte Warnung; unverändert offen.
+2. **Fremde, nicht committete Arbeit im Arbeitsbaum** — 27 geänderte Dateien
+   (`services/pmh-nix` mit neuem `remote`-Modus und `approve`-Schritt,
+   `services/pmh-attach`, `native/flock`, `docs/INDEX.md`, `package.json`,
+   `bun.lock`) plus 8 unversionierte Dateien, zusammen **2.353 Zeilen**. Nicht von
+   diesem Lauf, **nicht committet**: fremde Arbeit wird nicht unter fremdem Namen
+   gepusht. Geprüft, damit sie nicht unbemerkt kaputt ist: `go build ./...` und
+   `go test ./...` in **beiden** Diensten **exit 0**.
+3. **Die Kette ist gebaut, aber nicht verdrahtet** (P8.13) — unverändert.
+4. **`bun run typecheck`** bleibt in dieser Umgebung nur einzeln ausführbar.
+5. **`native/flock`** ist mitgeändert, aber in diesem Lauf **nicht** geprüft —
+   `cargo test` lief nicht.
