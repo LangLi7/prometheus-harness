@@ -1948,6 +1948,69 @@ Ballast der Vorlage.
   zweimal hier und hat nicht geholfen. Was hilft, ist die Handlung: **die Tabelle nach jeder Änderung
   vollständig ausgeben und die Nummernfolge prüfen.**
 
+## 2026-10-13 14:32–14:45 — Vierunddreißigster Takt: **mein eigener Beleg trug nicht** (B26 berichtigt) — und der wahre Befund: die Datenbank verlangt über die Schleife **kein** Kennwort (B28)
+
+**Was ich in diesem Takt wollte.** Aus **B26** folgte eine dringende Reihenfolge: erst die Kennwörter
+drehen, dann den Installer erneut laufen lassen. Dafür habe ich eine Hilfe geschrieben —
+[`hilfen/kennwoerter-drehen.mjs`](hilfen/kennwoerter-drehen.mjs) — und sie **vor** der Auslieferung
+ausgeführt, gegen einen **eigenen Wegwerf-Container** (nicht gegen ihren Stapel, Hausregel H5).
+
+**Und dabei fiel mein eigener Fehler auf.** Nach der Drehung funktionierte das **alte** Kennwort noch.
+Das kann nur eines heißen: es wird **gar kein Kennwort geprüft**. `pg_hba.conf` beider Container:
+
+```
+local   all  all                     trust
+host    all  all  127.0.0.1/32       trust            ← TCP von localhost: kein Kennwort
+host    all  all  ::1/128            trust
+host    all  all  all                scram-sha-256    ← nur von außen
+```
+
+**Gegenprobe mit einem absichtlich falschen Kennwort:**
+
+```
+PGPASSWORD=voellig-falsches-kennwort-12345 psql -h 127.0.0.1 -U pmh_app   → ANMELDUNG GEHT
+PGPASSWORD=voellig-falsches-kennwort-12345 psql -h 127.0.0.1 -U pmh_admin → ANMELDUNG GEHT
+```
+
+**Damit war mein B26-Beleg ungültig** — ich hatte eine Anmeldung geprüft, die **kein** Kennwort
+verlangt. **Ich habe genau den Fehler gemacht, den ich in B16 bei anderen diagnostiziert habe**: eine
+Sonde, deren **Methode** die Frage nicht beantworten kann. Gefunden hat es nicht mein Nachdenken,
+sondern die Ausführung. B26 ist berichtigt; der wahre Sachverhalt steht als **B28**.
+
+**B28 — und er ist ernster als B26.** Das Projekt hat ein **Rechtemodell** gebaut (`pmh_owner`,
+`pmh_app`, `pmh_readonly`, kleinste Rechte, Nur-Lese-Rolle für Fremdwerkzeuge, RLS geplant). Über die
+Schleife ist davon **nichts** wirksam: wer ein Paket an `127.0.0.1:5432` schicken kann, **wählt seine
+Rolle selbst** — auch den Superuser. Kennwörter sind dann schmückend, gleich ob veröffentlicht oder
+gedreht. **Entlastung, ausdrücklich:** das ist die **Vorgabe des offiziellen Abbilds**, kein Versehen
+dieses Projekts, und die Ports sind **nur an die Schleife** gebunden (gemessen) — aus dem Netz ist
+nichts erreichbar. Benannt gehört es, weil zwischen der **Behauptung** („Rechtetrennung") und der
+**Durchsetzung** genau diese Datei liegt. **Reihenfolge:** erst `host all all 127.0.0.1/32
+scram-sha-256` als **erste** Zeile + `select pg_reload_conf()` — **gemessen**, dass es wirkt: danach
+scheitert ein falsches Kennwort mit `FATAL: password authentication failed` — **dann** drehen.
+
+**Die Hilfe ist trotzdem fertig und geprüft — in beiden Zweigen:**
+
+| Zweig | Zustand | Ergebnis der Hilfe |
+|---|---|---|
+| **A** | `pg_hba` auf `trust` (wie im Zielprojekt) | dreht **und sagt**, dass es **kosmetisch** ist: „Für diese Rollen ist die Kennwortprüfung abgeschaltet … der Zugang bleibt offen" |
+| **B** | `pg_hba` auf `scram-sha-256` gesetzt | dreht, prüft, meldet „die Prüfung greift" — und die Gegenprobe bestätigt: **altes** Kennwort scheitert, **neue** funktionieren für alle drei Rollen |
+
+Was sie tut: `ALTER ROLE … PASSWORD` für vier Rollen (SQL über **stdin**, nie als Argument), dann
+`.env` nachziehen (nur vorhandene Zeilen, **Zeilenenden bleiben** — dieselbe Klasse Fehler, die den
+Installer zuletzt lahmlegte), Sicherung der `.env`, Kontrolle mit den **neuen** Kennwörtern. Nach außen
+nur Längen und Fingerabdrücke.
+
+**Eigene Fehler dieses Takts, beide vor der Auslieferung gefunden:**
+
+1. **Der Beleg trug nicht** (siehe oben) — B26 berichtigt, B28 neu.
+2. **Port-Verwechslung in der Hilfe:** die Anmelde-Prüfung lief *im Container* gegen den **Wirt-Port**
+   → „Connection refused" bei allen Rollen. Beim ersten Test aufgefallen und behoben; jetzt sind
+   `--port` (Wirt, für die Verbindungsadressen) und `--container-port` (5432, für die Prüfung) getrennt.
+   Im Ernstfall hätte der Fehler **zufällig** funktioniert — umso wichtiger, dass die Probe ihn zeigte.
+
+**Aufgeräumt:** der Wegwerf-Container ist entfernt, die Probe-Dateien gelöscht, ihr Stapel
+(`pmh-postgres`, `pmh-redis`) **unberührt**.
+
 ---
 
 ## Offen / nächster Takt
@@ -1978,8 +2041,9 @@ Ballast der Vorlage.
 | **B23** Die Aufräumfunktion des Port-Tests läuft nie | **behoben — ein Ein-Wort-Rest** | `function BeendeBaum([int]$pid)` → **`[int]$wurzelPid`**, und der Rumpf ist **konsistent** nachgezogen (Zeilen 101/102). Das war die gefährliche Hälfte: ein halber Fix hätte nicht **nichts** getan, sondern den **eigenen Prozessbaum** beendet. **Dazu ungefragt besser:** die Portprüfung prüft jetzt den **gewählten** Port, und die **Waisen werden nachgezählt** (189–198, mit Eltern-PID). **Offen (je ein Wort):** `$fehler++` in den Zeilen **182/186/197** steht **im Funktionsrumpf** und zählt nicht (`$script:fehler` kommt nirgends vor) — darunter die neue Waisenprüfung; und Zeile **218** gibt den Fehlertext **in die Pipeline**, weshalb der Schutz „dieser Test prueft nichts" nie greift | **Nachgetragen 14:08:** die undichte Rückgabe in `BelegePort` ist **behoben** — und besser als verlangt: er fand die tiefere Ursache (`port-halter.mjs` schreibt seinen Fehler nach **stdout**, deshalb war `.err` leer) und gibt jetzt beide Dateien mit Exit-Code aus (Zeile 216–227). **Offen bleibt:** `$fehler++` in **182, 186, 197** steht weiter im Funktionsrumpf von `StarteHost` (151–201) → die neue Waisenprüfung zählt nicht |
 | **B24** Abnahme des `flock`-Vertrags nicht ausführbar | **offen — ein Befehl in WSL** | `cargo test -p pmh-flock` ist auf Windows **grün mit `running 0 tests`**: `#![cfg(unix)]` kompiliert die **15** Vertragstests weg. In WSL Ubuntu fehlen `cargo`/`rustc`. **Damit ist der Vertrag auf dieser Maschine nirgends geprüft** — „umgesetzt" bleibt Behauptung, bis ein POSIX-Host mit Rust da ist. Dazu: `target/debug/pmh-flock.exe` **existiert** (242.176 B), der Satz „unter Windows wird es nicht gebaut" ist falsch; das **Verhalten** selbst ist vorbildlich (`ERR_FLOCK_UNSUPPORTED_PLATFORM`, Exit 125) |
 | **B25** Startkommando der Unit `pmh-flock` tut nichts | **offen, latent** | `--hold-ms 0` → `sleep(0)` → Sperre sofort frei. `units/README.md` Zeile 63 nennt `entry` aber „**wie der Dienst gestartet wird**". Systemisch: **10 von 10** Dienst-Einträgen nennen einen **nackten Binärnamen**, **keiner** im `PATH`; mehrere sind Einmalaufrufe als `service` — **dieselbe Lücke wie B18**. Solange `pmh-supervisor` fehlt, führt niemand sie aus (gemessen: `entry.command` wird nur gelesen) |
-| **B26** Die laufende Datenbank benutzt die Kennwörter aus dem Repository | **offen, dringlich — zwei Empfehlungen** | Die vier Rollenkennwörter in `.env` sind **identisch** mit den Vorlagenwerten, und `pmh_app`/`pmh_owner` melden sich **über TCP** damit an. Ursache: `docker-compose.yml` liefert **Ausweichwerte** (`:-bitte-aendern-*`, fünf Stellen) und entwertet die scharfe Prüfung in `docker/02-roles.sh`; PostgreSQL setzt Kennwörter nur beim **ersten** Init, und das Volume blieb (Container 14:25 neu, Volume von 12:05). **Schwere M, nicht H — gemessen:** alle Ports nur an `127.0.0.1`. **Der Autor kennt den Fall** und sein Werkzeug meldet nur (richtig); es fehlt der Schritt **aus Weg A heraus**. Empfehlung: (1) `${VAR:?…}` statt Ausweichwert in compose, (2) laufenden Stapel **drehen** (`ALTER ROLE … PASSWORD` als `pmh_admin`), `.env` nachziehen, Migrationen laufen lassen |
+| **B26** Datenbank benutzt die Kennwörter aus dem Repository | **BERICHTIGT — die Anmelde-Aussage fällt** | Gemessen bleibt: die vier Rollenkennwörter in `.env` sind **identisch** mit den Vorlagenwerten (Längen/Gleichheit), und die Kette ist belegt (CRLF-Fehler in `setzeWerte` → 0 Werte geschrieben → `.env` behielt die Vorlage → Init nur beim ersten Start → Compose-Ausweichwerte entwerteten das `:?`). **Gefallen ist „meldet sich über TCP damit an"** — es wird überhaupt kein Kennwort geprüft (**B28**). Mein Beleg hatte denselben Fehler, den ich in B16 bei anderen diagnostiziert habe: eine Sonde, deren Methode die Frage nicht beantworten kann. Ursprünglicher Stand: Ursache: `docker-compose.yml` liefert **Ausweichwerte** (`:-bitte-aendern-*`, fünf Stellen) und entwertet die scharfe Prüfung in `docker/02-roles.sh`; PostgreSQL setzt Kennwörter nur beim **ersten** Init, und das Volume blieb (Container 14:25 neu, Volume von 12:05). **Schwere M, nicht H — gemessen:** alle Ports nur an `127.0.0.1`. **Der Autor kennt den Fall** und sein Werkzeug meldet nur (richtig); es fehlt der Schritt **aus Weg A heraus**. Empfehlung: (1) `${VAR:?…}` statt Ausweichwert in compose, (2) laufenden Stapel **drehen** (`ALTER ROLE … PASSWORD` als `pmh_admin`), `.env` nachziehen, Migrationen laufen lassen |
 | **B27** Die Größe der Bäume misst den Fortschritt nicht | **beantwortet (Auskunft)** | Ziel **1.867 MB**, Quelle **9.029 MB** — aber **8.642 MB (96 %)** der Quelle sind `node_modules`, und im Ziel sind **1.490 MB** `node_modules` + Rust-`target`; eigener Quelltext **~4 MB**. Die echten Zahlen: **54 Commits in 15 Stunden**, **1.224 Dateien · +42.338 / −97.781 Zeilen** seit dem ersten Commit, **~147 Dateien / ~49.200 Zeilen** eigener Quelltext, **51 Testdateien**. Der Zielbaum **muss** kleiner sein — 97.781 gelöschte Zeilen sind abgeworfener Ballast |
+| **B28** Die Datenbank verlangt über die Schleife kein Kennwort | **offen — vor der Drehung** | `pg_hba.conf` (Bildvorgabe, vom Projekt nirgends gesetzt) hat `host all all 127.0.0.1/32 **trust**`. Gemessen: ein **absichtlich falsches** Kennwort meldet sich als `pmh_app` **und** als `pmh_admin` an — auch der Superuser kommt ohne Kennwort hinein. Damit ist das **Rechtemodell** des Projekts über die Schleife **nicht durchgesetzt**, und **eine Drehung ohne diese Datei ist kosmetisch**. **M, mit Entlastung:** Vorgabe des offiziellen Abbilds, Ports nur an `127.0.0.1`. Reihenfolge: `host all all 127.0.0.1/32 scram-sha-256` als erste Zeile + `select pg_reload_conf()` (gemessen wirksam), dauerhaft machen, **dann** drehen |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |

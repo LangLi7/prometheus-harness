@@ -2031,6 +2031,15 @@ nachvollziehen kann. Das ist derselbe Maßstab, den ich an B15 angelegt habe.
 
 ## B26 — Die **laufende** Datenbank authentifiziert mit **veröffentlichten** Kennwörtern — **M**
 
+> **KORREKTUR 14:44 — der Beleg trug nicht.** Dieser Abschnitt behauptet, die Datenbank
+> „authentifiziere mit veröffentlichten Kennwörtern", gestützt auf eine TCP-Anmeldung, die gelang.
+> **Diese Messung beweist das nicht.** `pg_hba.conf` setzt für `127.0.0.1/32` **`trust`** — es wird
+> **kein** Kennwort geprüft. Der Gegenbeweis: ein **absichtlich falsches** Kennwort meldet sich als
+> `pmh_app` **und** als `pmh_admin` an. **Was gemessen bleibt:** die `.env` trägt die Vorlagenwerte
+> (Längen und Gleichheit — gemessen), und die Kette aus Ausweichwerten, Init-Zeitpunkt und dem
+> CRLF-Fehler ist belegt. **Was fällt:** die Aussage über die *Anmeldung*. Der wahre Sachverhalt steht
+> in **B28** — und er ist ernster als dieser Befund.
+
 **Anlass.** Der Betreiber fragte, ob im Zielbaum überhaupt etwas geschieht. Beim Nachsehen stieß ich auf
 eine neue `.env` (8.170 B, 14:09) und ein neues Installer-Skript. Die `.env` ist sauber abgeschirmt
 (`.gitignore:56`, nicht verfolgt, in **keiner** Historie) — aber ihr **Inhalt** ist das Problem.
@@ -2207,6 +2216,51 @@ git -C C:\Users\Chang\prometheus-harness rev-list --count HEAD
 # Groesse und Zerlegung: siehe LAGE.md §5
 ```
 
+## B28 — Die Datenbank verlangt **über die Schleife kein Kennwort**: `trust` in `pg_hba.conf` — **M**
+
+**Der Befund.** `pg_hba.conf` (Vorgabe des Abbilds `pgvector/pgvector:pg17`, vom Projekt **nirgends**
+gesetzt — geprüft: kein Vorkommen in `docker/`, `docker-compose.yml` oder den Dokumenten):
+
+```
+local   all  all                     trust
+host    all  all  127.0.0.1/32       trust            ← TCP von localhost: kein Kennwort
+host    all  all  ::1/128            trust
+host    all  all  all                scram-sha-256    ← nur von außen
+```
+
+**Gemessen** (ein absichtlich **falsches** Kennwort):
+
+```
+docker exec -e PGPASSWORD=voellig-falsches-kennwort-12345 pmh-postgres psql -h 127.0.0.1 -U pmh_app   → ANMELDUNG GEHT
+docker exec -e PGPASSWORD=voellig-falsches-kennwort-12345 pmh-postgres psql -h 127.0.0.1 -U pmh_admin → ANMELDUNG GEHT
+```
+
+**Warum das zählt.** Das Projekt hat ein **Rechtemodell** gebaut: `pmh_owner` / `pmh_app` /
+`pmh_readonly`, kleinste Rechte, `search_path` je Rolle, RLS geplant, und der Betrieb bekommt
+ausdrücklich die **Nur-Lese-Rolle**. Über die Schleife ist davon **nichts** wirksam: wer ein Paket an
+`127.0.0.1:5432` schicken kann, **wählt seine Rolle selbst** — auch den Superuser. Kennwörter sind dann
+schmückend, gleich ob gedreht oder veröffentlicht. **Eine Drehung ohne diese Datei zu ändern ist
+kosmetisch** (die Hilfe unten sagt das ausdrücklich und verweigert die Erfolgsmeldung).
+
+**Schwere M, nicht H — und ausdrücklich mit Entlastung.** Die Ports sind **nur an die Schleife**
+gebunden (gemessen), aus dem Netz ist nichts erreichbar; und das ist die **Vorgabe des offiziellen
+Abbilds**, kein Versehen dieses Projekts. Benannt gehört es trotzdem, weil zwischen der **Behauptung**
+(„Rechtetrennung") und der **Durchsetzung** genau diese Datei liegt.
+
+**Empfehlung, in dieser Reihenfolge:**
+
+1. **Erst scharf stellen** — als **erste** Zeile in `pg_hba.conf` (PostgreSQL nimmt die erste passende
+   Zeile, sie gewinnt also):
+   ```
+   host all all 127.0.0.1/32 scram-sha-256
+   ```
+   dann `select pg_reload_conf();` — **gemessen**, dass es wirkt: danach scheitert ein falsches Kennwort
+   mit `FATAL: password authentication failed for user "pmh_app"`.
+2. **Dauerhaft machen:** eine `pg_hba.conf` einhängen oder `docker/postgres-init/` um einen Schritt
+   ergänzen — sonst ist die Änderung beim nächsten neuen Volume weg.
+3. **Dann** die Kennwörter drehen ([`hilfen/kennwoerter-drehen.mjs`](hilfen/kennwoerter-drehen.mjs)) —
+   vorher ist es Kosmetik.
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
@@ -2267,6 +2321,7 @@ git -C C:\Users\Chang\prometheus-harness rev-list --count HEAD
 | **14:10** | Im einunddreißigsten Takt schrieb ich eine **Abschnittsüberschrift „14:25–14:50"**, ins Lageblatt **„Stand 14:45"** und in sechs JSONL-Zeilen Zeitstempel **12:30Z bis 12:42Z**. | **Die echte Uhrzeit war 13:56 bis 14:07** (`Get-Date` um **14:07:46**; meine Commits tragen 14:03:10 / 14:07:02). Alle Angaben berichtigt — Lageblatt, Überschrift, JSONL-Zeitstempel — und `Get-Date` ist jetzt der erste Befehl eines Takts. | **Ich habe Uhrzeiten aus dem Gefühl geschrieben, statt sie zu messen** — der klarste Verstoß gegen meine **eigene** Hausregel H7 (13:06: „kein Wert in eine Datei, der nicht vorher in einer Shell gestanden hat"). Bei anderen beanstande ich erfundene Zahlen seit dem zwölften Takt; hier waren es **meine eigenen**. Der Unterschied zu einer echten Messung fiel nur auf, weil ein Dateizeitstempel nicht zu meiner erfundenen Zeitlinie passte. **Zweiter Fall um 14:29, sieben Minuten später:** ich hatte `Get-Date` **richtig** gemessen (14:26:43), dann aber für die sechs neuen JSONL-Zeilen je Schritt zwei Minuten **addiert** — vier davon lagen wieder in der Zukunft (12:30–12:34Z statt ≤ 12:29Z). Auch die Abschnittsüberschrift („14:14–14:35") und das Lageblatt („14:35") waren vorgeschrieben statt abgelesen. Alles berichtigt. **Die Lehre ist nicht „Zeit messen", sondern: eine Zeit wird nicht fortgeschrieben, sondern neu gemessen** — und die Gegenprobe dafür lautet: „kein Zeitstempel in der Zukunft" (Zeichenkettenvergleich gegen `Get-Date` UTC). |
 | 14:20 | Mein **neues** Werkzeug `leck-pruefung.mjs` meldete beim ersten Lauf: *„⚠ 2 Wert(e) stehen in der Historie oder in verfolgten Dateien — das ist ein Leck"* — gemeint waren `PGADMIN_PASSWORD` und `REDIS_URL`. | **Kein Leck.** Beide Werte **sind die Vorlagewerte** (`bitte-aendern-pgadmin` bzw. `redis://127.0.0.1:6379`) und stehen deshalb selbstverständlich in `.env.example`, `docker-compose.yml` und `README.md`. Ich habe das Werkzeug um die Trennung **Geheimnis ↔ Vorlagenwert** erweitert (`--vorlage .env.example`); der zweite Lauf meldet **0 Lecks** und führt die neun Vorlagenwerte getrennt. | Ein Scanner **ohne Vergleichsbasis** schlägt bei jedem Standardwert Alarm. Ein Werkzeug, das falsch Alarm schlägt, wird ignoriert — und dann übersieht es den echten Fall. Dieselbe Lehre wie 14:00, eine Ebene tiefer: **erst die eigene Messung prüfen, dann melden.** Aus dem Fehlalarm ist ein **echter** Befund geworden (**B26**): die zwei Werte sind nicht geheim, aber sie sind **die Kennwörter der laufenden Datenbank**. |
 | 14:32 | **Denselben Fehler wie um 12:29 und 13:56 noch einmal gemacht:** beim Einfügen der Zeilen B26/B27 in die Lage-Tabelle habe ich als Anker die **ganze B25-Zeile** benutzt und sie im Ersatztext **nicht** wiederholt — B25 war damit aus der Tabelle **verschwunden**. | Sofort bemerkt (Tabelle nachgezählt: B23, B24, **B26**, B27 — B25 fehlte) und in derselben Minute **wiederhergestellt**. | **Dritter Fall derselben Ursache.** Die Lehre stand schon zweimal in dieser Tabelle, und ich habe sie trotzdem wiederholt — ein Anker, der eine **ganze Zeile** ist, ersetzt diese Zeile. Was wirklich hilft, ist nicht die Lehre, sondern die **Handlung danach**: die Tabelle nach **jeder** Änderung vollständig ausgeben und die Nummernfolge prüfen. |
+| 14:44 | In **B26** stand als Beleg: *„die laufende Datenbank authentifiziert mit veröffentlichten Kennwörtern"* — gestützt auf eine TCP-Anmeldung, die **gelang**. | **Der Beleg trug nicht.** `pg_hba.conf` setzt `trust` für `127.0.0.1/32`: es wird **kein** Kennwort geprüft. Ein absichtlich **falsches** Kennwort meldet sich als `pmh_app` **und** als `pmh_admin` an. B26 ist oben berichtigt; der wahre Sachverhalt steht in **B28**. | **Ich habe genau den Fehler gemacht, den ich in B16 bei anderen diagnostiziert habe:** eine Sonde, deren **Methode** die Frage nicht beantworten kann — und ich habe ihr Ergebnis als Antwort gelesen. Gefunden hat es nicht mein Nachdenken, sondern die **Gegenprobe an einem Wegwerf-Container**: dort fiel auf, dass das *alte* Kennwort nach der Drehung **noch funktionierte**. Lehre: **eine Anmeldung, die gelingt, beweist nichts, solange nicht geprüft ist, dass eine falsche scheitert.** Beide neuen Werkzeuge prüfen das jetzt ausdrücklich. |
 
 ---
 
