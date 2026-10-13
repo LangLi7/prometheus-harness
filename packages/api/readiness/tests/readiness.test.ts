@@ -379,9 +379,12 @@ describe('apply — die Einhängung selbst', () => {
       ctx.plugin({ name, inject, apply })
       await new Promise((r) => setTimeout(r, 200))
       expect(register.alle()).toHaveLength(0)
-      // Und das Register ist trotzdem benutzbar.
+      // **Und das Register meldet ehrlich „ungeprueft".** Ohne Adressen wird
+      // nichts geprüft — dann darf die Antwort nicht „ok" sein (Befund B20 der
+      // Aufsicht). Das Einhängen selbst ist trotzdem gelungen; es scheitert nicht.
       const { lauf } = await register.pruefe()
-      expect(lauf.zustand).toBe('ok')
+      expect(lauf.zustand).toBe('ungeprueft')
+      expect(lauf.sonden).toHaveLength(0)
     } finally {
       for (const [k, v] of Object.entries(vorher)) {
         if (v !== undefined) process.env[k] = v

@@ -171,7 +171,34 @@ export interface Sondenergebnis {
 }
 
 /** Der Gesamtzustand. */
-export type Gesamtzustand = 'ok' | 'eingeschraenkt' | 'ausgefallen'
+export type Gesamtzustand = 'ok' | 'eingeschraenkt' | 'ausgefallen' | 'ungeprueft'
+
+/**
+ * Ab wie vielen eingetragenen Sonden „bereit" überhaupt etwas bedeuten darf.
+ *
+ * **Der Widerspruch, der diese Zahl erzwungen hat — gefunden von der Aufsicht,
+ * nicht von mir (Befund B20).** Die erste Fassung lieferte bei **null Sonden**
+ * `bereit: true` und **HTTP 200**, mit der Begründung „nichts zu prüfen — und das
+ * ist bereit". Gleichzeitig sagte `.env.example` über denselben Fall, der
+ * Endpunkt melde `ok`, „statt ‚bereit' zu behaupten". **Zwei eigene Artefakte
+ * widersprachen sich.**
+ *
+ * Und der Code lag falsch, nicht die Vorlage: ein Orchestrator liest den
+ * **Statuscode** und das Feld **`bereit`**. Beide sagten „ja", obwohl **nichts**
+ * geprüft worden war. Wer daraufhin Verkehr einleitet, schickt ihn an einen
+ * Dienst, dessen Abhängigkeiten niemand angesehen hat.
+ *
+ * **Warum die Vorgabe 1 ist.** Wer eine Bereitschaftsauskunft fragt, will wissen,
+ * ob die Anwendung **mit ihren Abhängigkeiten** arbeiten kann. Ist keine Sonde
+ * eingetragen, ist die ehrliche Antwort „das habe ich nicht geprüft" — und die
+ * muß **503** sein, sonst ist sie von „alles in Ordnung" nicht zu unterscheiden.
+ *
+ * **Warum es überhaupt abschaltbar ist.** Ohne `DATABASE_URL`/`REDIS_URL` gibt es
+ * nichts zu prüfen — dann wäre der Endpunkt dauerhaft rot und damit als
+ * Erreichbarkeitsprüfung unbrauchbar. `PMH_READY_REQUIRE_PROBES=0` sagt
+ * ausdrücklich: „mir genügt, daß der Prozess lebt". Die Vorgabe bleibt streng.
+ */
+export const STANDARD_MINDEST_SONDEN = 1
 
 /** Wie die geschützte Auskunft aussieht. */
 export interface ReadyBody extends Omit<HealthBody, 'status'> {
@@ -311,27 +338,34 @@ export function healthBody(now: number = Date.now()): HealthBody {
 /**
  * Faßt Einzelergebnisse zu einem Gesamtzustand zusammen.
  *
- * **Die Regel, und warum sie drei Stufen hat.** Bei zwei Stufen („geht" /
- * „geht nicht") ist die Frage „eine von drei Sonden ausgefallen — ist der Dienst
- * bereit?" nicht beantwortbar. Drei Stufen machen die Antwort ehrlich:
+ * ## Die vier Stufen, und warum es vier sein müssen
  *
- * | Lage | Zustand | HTTP |
- * |---|---|---|
- * | keine Sonde eingetragen | `ok` | 200 |
- * | alle grün | `ok` | 200 |
- * | einige rot | `eingeschraenkt` | **503** |
- * | alle rot | `ausgefallen` | **503** |
+ * | Lage | Zustand | `bereit` | HTTP |
+ * |---|---|---|---|
+ * | **keine** Sonde eingetragen | `ungeprueft` | **false** | **503** |
+ * | alle grün | `ok` | true | 200 |
+ * | einige rot | `eingeschraenkt` | false | 503 |
+ * | alle rot | `ausgefallen` | false | 503 |
+ *
+ * **Warum „keine Sonde" nicht „ok" ist.** Das war der Fehler, den die Aufsicht
+ * gefunden hat (Befund B20, siehe {@link STANDARD_MINDEST_SONDEN}): `bereit: true`
+ * und **200**, obwohl nichts geprüft wurde. Ein Orchestrator liest Statuscode und
+ * `bereit` — beide sagten „ja".
  *
  * **Warum schon eine rote Sonde 503 ergibt.** Ein Lastverteiler, der einen
  * halbfähigen Dienst weiter beliefert, verschlimmert den Ausfall. Wer
- * „eingeschraenkt" lesen will, liest den Körper — der Statuscode ist für
+ * „eingeschränkt" lesen will, liest den Körper — der Statuscode ist für
  * Maschinen, und für die gilt: nicht bereit ist nicht bereit.
  *
  * @param ergebnisse - die Einzelergebnisse
+ * @param mindestSonden - ab wie vielen Sonden überhaupt geurteilt wird
  * @returns der Gesamtzustand
  */
-export function fasseZusammen(ergebnisse: readonly Sondenergebnis[]): Gesamtzustand {
-  if (ergebnisse.length === 0) return 'ok'
+export function fasseZusammen(
+  ergebnisse: readonly Sondenergebnis[],
+  mindestSonden: number = STANDARD_MINDEST_SONDEN,
+): Gesamtzustand {
+  if (ergebnisse.length < mindestSonden) return 'ungeprueft'
   const rot = ergebnisse.filter((e) => e.zustand !== 'ok').length
   if (rot === 0) return 'ok'
   return rot === ergebnisse.length ? 'ausgefallen' : 'eingeschraenkt'
@@ -339,6 +373,8 @@ export function fasseZusammen(ergebnisse: readonly Sondenergebnis[]): Gesamtzust
 
 /**
  * Der HTTP-Status zu einem Gesamtzustand.
+ *
+ * **Nur `ok` ergibt 200.** Alles andere — auch `ungeprueft` — ergibt **503**.
  *
  * @param zustand - der Gesamtzustand
  * @returns 200 oder 503
@@ -362,12 +398,22 @@ export function erzeugeRegister(optionen: {
   sondenFristMs?: number
   gesamtFristMs?: number
   haltbarkeitMs?: number
+  /** Ab wie vielen Sonden überhaupt geurteilt wird. */
+  mindestSonden?: number
   /** Die Uhr, austauschbar für Prüfungen. */
   jetzt?: () => number
 } = {}): Sondenregister {
   const sondenFrist = optionen.sondenFristMs ?? STANDARD_SONDEN_FRIST_MS
   const gesamtFrist = optionen.gesamtFristMs ?? STANDARD_GESAMT_FRIST_MS
   const haltbarkeit = optionen.haltbarkeitMs ?? STANDARD_HALTBARKEIT_MS
+  const mindestSonden =
+    optionen.mindestSonden ??
+    (() => {
+      const roh = process.env['PMH_READY_REQUIRE_PROBES']
+      if (roh === undefined || roh.trim() === '') return STANDARD_MINDEST_SONDEN
+      const zahl = Number(roh)
+      return Number.isInteger(zahl) && zahl >= 0 ? zahl : STANDARD_MINDEST_SONDEN
+    })()
   const jetzt = optionen.jetzt ?? Date.now
 
   const sonden: Sonde[] = []
@@ -424,9 +470,8 @@ export function erzeugeRegister(optionen: {
    * gleichzeitig laufen.
    */
   async function durchlauf(): Promise<Sondenlauf> {
-    if (sonden.length === 0) return { zustand: 'ok', sonden: [] }
     const ergebnisse = await Promise.all(sonden.map((s) => fuehreAus(s)))
-    return { zustand: fasseZusammen(ergebnisse), sonden: ergebnisse }
+    return { zustand: fasseZusammen(ergebnisse, mindestSonden), sonden: ergebnisse }
   }
 
   return {
@@ -511,6 +556,10 @@ export function readyBody(
   const { status: _status, ...rest } = healthBody(now)
   return {
     ...rest,
+    // **`bereit` ist nur `true`, wenn wirklich geurteilt wurde.** `ungeprueft`
+    // heißt „keine Sonde eingetragen" — dann wäre `bereit: true` eine Auskunft
+    // über etwas, das nie angesehen wurde. Genau dieser Widerspruch war Befund
+    // B20 der Aufsicht.
     bereit: lauf.zustand === 'ok',
     zustand: lauf.zustand,
     prozessSekunden: Math.round(process.uptime()),

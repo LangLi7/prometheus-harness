@@ -27,19 +27,177 @@ $BUN = Join-Path $env:USERPROFILE '.bun\bin\bun.exe'
 $TESTPORT = 5780
 $fehler = 0
 
+# -----------------------------------------------------------------------------
+# Aufraeumen NACH PID — nicht nach Prozessname und Alter
+# -----------------------------------------------------------------------------
+#
+# **Der Fehler, der hier stand — gefunden von der Aufsicht (Befund B13).**
+# Die erste Fassung raeumte so auf:
+#
+#     Get-Process bun | Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-2) }
+#                     | Stop-Process -Force
+#
+# Das toetet **jeden** bun-Prozess, der juenger als zwei Minuten ist — auch den
+# `bun test` oder `bun install` eines anderen. Still: der fremde Lauf stirbt
+# ohne Meldung, und ein abgebrochenes `bun install` kann `node_modules`
+# beschaedigen. Das Muster stand an **sechs** Stellen im Projekt.
+#
+# Jetzt wird nur getoetet, was **dieses Skript selbst** gestartet hat: die PID
+# aus `-PassThru`, und mit `/T` auch deren Kinder. Was nicht in der Liste steht,
+# wird nicht angefasst.
+# -----------------------------------------------------------------------------
+
+# Die PIDs, die dieses Skript gestartet hat.
+$script:gestartet = New-Object System.Collections.Generic.List[int]
+
+<#
+** Sammelt eine PID und ALLE Nachfahren.
+**
+** Warum die Nachfahren ausdruecklich gesucht werden.** `bun run scripts/start.mjs`
+** startet einen **zweiten** `bun`-Prozess — den Host. `taskkill /T` nimmt diesen
+** Enkel nachweislich **nicht** mit: gemessen am 13.10.2026 hinterliess jeder Lauf
+** dieses Skripts ein Paar aus Launcher und Host als Waise; **sechs** Paare
+** standen noch, als es auffiel.
+**
+** Warum EINE Abfrage und nicht eine je Knoten.** Die erste Fassung fragte fuer
+** jeden Knoten `Get-CimInstance` mit Filter ab. Gemessen: das Skript brauchte
+** dadurch **ueber fuenf Minuten** und lief in die Zeitgrenze — WMI-Abfragen sind
+** teuer, und der Baum ist klein. Jetzt wird die Prozesstabelle **einmal** geholt
+** und der Baum im Speicher gebaut.
+#>
+function SammleBaum([int]$wurzel) {
+  $alle = New-Object System.Collections.Generic.List[int]
+  $alle.Add($wurzel)
+  # Eine Abfrage fuer alle Prozesse, dann im Speicher arbeiten.
+  $tabelle = @{}
+  foreach ($p in (Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
+    $eltern = [int]$p.ParentProcessId
+    if (-not $tabelle.ContainsKey($eltern)) {
+      $tabelle[$eltern] = New-Object System.Collections.Generic.List[int]
+    }
+    $tabelle[$eltern].Add([int]$p.ProcessId)
+  }
+  $offen = New-Object System.Collections.Generic.Queue[int]
+  $offen.Enqueue($wurzel)
+  while ($offen.Count -gt 0) {
+    $jetzt = $offen.Dequeue()
+    if (-not $tabelle.ContainsKey($jetzt)) { continue }
+    foreach ($k in $tabelle[$jetzt]) {
+      if (-not $alle.Contains($k)) {
+        $alle.Add($k)
+        $offen.Enqueue($k)
+      }
+    }
+  }
+  return $alle
+}
+
+<#
+** Beendet einen Prozessbaum — erst die Kinder, dann die Wurzel.
+**
+** Nur diese PIDs. Nie nach Prozessname und Alter (Befund B13 der Aufsicht).
+#>
+function BeendeBaum([int]$wurzelPid) {
+  if ($wurzelPid -le 0) { return }
+  $baum = @(SammleBaum $wurzelPid)
+  # Umgekehrte Reihenfolge: die Blätter zuerst. Wird die Wurzel zuerst beendet,
+  # verliert man die Verbindung zu den Kindern und sie bleiben als Waisen.
+  [array]::Reverse($baum)
+  foreach ($p in $baum) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue }
+  # `taskkill` zusaetzlich, ohne `/T`: es erreicht auch Prozesse, die
+  # `Stop-Process` nicht auflisten kann. Es ist **nicht** die einzige Maßnahme.
+  foreach ($p in $baum) { & taskkill /PID $p /F 2>&1 | Out-Null }
+}
+
+<#
+** Beendet alles, was dieses Skript gestartet hat — und nur das.
+#>
+function BeendeEigene {
+  foreach ($p in ($script:gestartet | Sort-Object -Descending)) { BeendeBaum $p }
+  $script:gestartet.Clear()
+  Start-Sleep -Milliseconds 500
+}
+
+<#
+** Prueft, ob ein Port noch belegt ist. Beweist, dass das Aufraeumen wirkte.
+#>
+function PortIstFrei([int]$port) {
+  $t = New-Object System.Net.Sockets.TcpClient
+  try {
+    $t.Connect('127.0.0.1', $port)
+    $t.Close()
+    return $false
+  } catch {
+    return $true
+  } finally {
+    $t.Dispose()
+  }
+}
+
+<#
+** Wartet, bis ein Port frei ist — oder meldet, dass er es nicht wurde.
+**
+** Warum gewartet wird: der Kernel gibt einen Port nicht im selben Augenblick
+** frei, in dem der Prozess endet.
+#>
+function WarteAufFreienPort([int]$port, [int]$sekunden = 5) {
+  for ($i = 0; $i -lt ($sekunden * 2); $i++) {
+    if (PortIstFrei $port) { return $true }
+    Start-Sleep -Milliseconds 500
+  }
+  return $false
+}
+
 function StarteHost([string[]]$extra) {
   $log = Join-Path $env:TEMP "pmh-porttest-$([guid]::NewGuid().ToString('N').Substring(0,6)).log"
   $a = @('run', 'scripts/start.mjs', '--no-go', '--port', "$TESTPORT") + $extra
   $proc = Start-Process -FilePath $BUN -ArgumentList $a -WorkingDirectory $repo `
     -RedirectStandardOutput $log -RedirectStandardError "$log.err" -PassThru -NoNewWindow
+  $script:gestartet.Add($proc.Id)
   Start-Sleep -Seconds 6
   $lines = @()
   foreach ($f in @($log, "$log.err")) { if (Test-Path $f) { $lines += (Get-Content $f -ErrorAction SilentlyContinue) } }
   $beendet = $proc.HasExited
-  if (-not $beendet) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
-  Get-Process bun -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-1) } | Stop-Process -Force -ErrorAction SilentlyContinue
-  Start-Sleep -Seconds 1
-  return @{ Lines = ($lines | Where-Object { $_ -match '^\[pmh\]' }); All = $lines; Exited = $beendet }
+
+  # ---------------------------------------------------------------------------
+  # Den Port pruefen, den der Host WIRKLICH genommen hat — nicht den gefragten.
+  # ---------------------------------------------------------------------------
+  # **Der Fehler, der hier stand.** Geprueft wurde `$TESTPORT`. Nimmt der Host
+  # wegen Belegung den naechsten Port (5781), band er 5780 **nie** — und die
+  # Pruefung meldete „Port 5780 ist nach dem Aufraeumen noch belegt", obwohl das
+  # Aufraeumen gewirkt hatte. Ein **falscher Befund** ist so schaedlich wie ein
+  # uebersehener: er lehrt, die Pruefung zu ignorieren.
+  $gewaehlt = $null
+  foreach ($z in $lines) {
+    $m = [regex]::Match($z, 'Oberfl(ä|ae)che: http://127\.0\.0\.1:(\d+)/')
+    if ($m.Success) { $gewaehlt = [int]$m.Groups[2].Value; break }
+  }
+
+  BeendeBaum $proc.Id
+
+  # Der Prozessbaum ist weg. Jetzt muss der Port frei werden.
+  if ($gewaehlt -ne $null) {
+    if (-not (WarteAufFreienPort $gewaehlt 8)) {
+      Write-Host "  FEHLER: Port $gewaehlt ist nach dem Aufraeumen noch belegt"
+      $fehler++
+    }
+  } elseif (-not $beendet -and -not $proc.HasExited) {
+    Write-Host "  FEHLER: der Launcher laeuft nach dem Aufraeumen noch"
+    $fehler++
+  }
+
+  # **Und keine Waisen.** Der Enkel (`apps/cli`) ist der, den `taskkill /T` nicht
+  # mitnimmt. Ein Test, der bei jedem Lauf Prozesse hinterlaesst, ist selbst ein
+  # Fehler — hier wird es nachgezaehlt.
+  $waisen = @(Get-CimInstance Win32_Process -Filter "Name = 'bun.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -like '*apps\cli\src\main.ts*' -or $_.CommandLine -like '*apps/cli/src/main.ts*' })
+  if ($waisen.Count -gt 0) {
+    Write-Host "  FEHLER: $($waisen.Count) Host-Prozess(e) ueberlebten das Aufraeumen"
+    foreach ($w in $waisen) { Write-Host ("    PID {0} Eltern {1}" -f $w.ProcessId, $w.ParentProcessId) }
+    $fehler++
+  }
+
+  return @{ Lines = ($lines | Where-Object { $_ -match '^\[pmh\]' }); All = $lines; Exited = $beendet; Port = $gewaehlt }
 }
 
 function BelegePort([int]$port) {
@@ -47,6 +205,7 @@ function BelegePort([int]$port) {
   Remove-Item $log, "$log.err" -ErrorAction SilentlyContinue
   $proc = Start-Process -FilePath $BUN -ArgumentList @('scripts/port-halter.mjs', "$port") -WorkingDirectory $repo `
     -RedirectStandardOutput $log -RedirectStandardError "$log.err" -PassThru -NoNewWindow
+  $script:gestartet.Add($proc.Id)
   # **Auf den Nachweis warten, nicht auf die Zeit hoffen.** Ohne diese Zeile
   # haette der Test wieder nichts geprueft.
   for ($i = 0; $i -lt 20; $i++) {
@@ -55,12 +214,20 @@ function BelegePort([int]$port) {
       return $proc
     }
     if ($proc.HasExited) {
-      Write-Host "  FEHLER: Halter beendet sich — " -NoNewline
-      Get-Content "$log.err" -ErrorAction SilentlyContinue | Select-Object -First 1
+      # **Die Begruendung vollstaendig ausgeben.** Hier stand nur die erste Zeile
+      # von `.err` — und die war leer, weil `port-halter.mjs` seinen Fehler nach
+      # **stdout** schreibt. Eine Meldung „Halter beendet sich — " ohne Grund
+      # sagt niemandem etwas.
+      Write-Host ("  FEHLER: Halter beendet sich (exit {0})" -f $proc.ExitCode)
+      foreach ($f in @("$log.err", $log)) {
+        if (Test-Path $f) {
+          Get-Content $f -ErrorAction SilentlyContinue | Select-Object -First 3 | ForEach-Object { Write-Host "         $_" }
+        }
+      }
       return $null
     }
   }
-  Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+  BeendeBaum $proc.Id
   return $null
 }
 
@@ -95,11 +262,11 @@ if ($h2 -eq $null) {
   $r3 = StarteHost @('--strict-port')
   $r3.Lines | Select-Object -First 8 | ForEach-Object { "  " + $_ }
   if (($r3.Lines -join ' ') -match 'FEHLER: Kein freier Port') { Write-Host "  OK: sichtbarer Abbruch mit Begruendung" } else { Write-Host "  FEHLER: kein Abbruch gemeldet"; $fehler++ }
-  Stop-Process -Id $h2.Id -Force -ErrorAction SilentlyContinue
+  BeendeBaum $h2.Id
 }
 
-if ($h -ne $null) { Stop-Process -Id $h.Id -Force -ErrorAction SilentlyContinue }
-Get-Process bun -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-5) } | Stop-Process -Force -ErrorAction SilentlyContinue
+if ($h -ne $null) { BeendeBaum $h.Id }
+BeendeEigene
 
 Write-Host ""
 Write-Host "=== FALL 4: die genannte Adresse ist BENUTZBAR (nicht nur vorhanden) ==="
@@ -150,9 +317,12 @@ if ($gefunden -eq $null) {
     else { Write-Host "  FEHLER: ohne Token -> $code (erwartet 401)"; $fehler++ }
   }
 }
-if (-not $p4.HasExited) { Stop-Process -Id $p4.Id -Force -ErrorAction SilentlyContinue }
-Get-Process bun -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-2) } | Stop-Process -Force -ErrorAction SilentlyContinue
+if (-not $p4.HasExited) { BeendeBaum $p4.Id }
+BeendeEigene
 
 Write-Host ""
 Write-Host ("=== Ergebnis: {0} Befund(e) ===" -f $fehler)
 Pop-Location
+# **Der Exit-Code ist das Ergebnis.** Wer dieses Skript aufruft, liest ihn — nicht
+# die Ausgabe. Ohne diese Zeile endet es immer mit 0, auch bei Befunden.
+if ($fehler -gt 0) { exit 1 } else { exit 0 }

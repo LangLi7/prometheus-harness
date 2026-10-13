@@ -25,6 +25,7 @@ import WebServer from '@deepseek-ai/dsh-host-webserver'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import type { Sondenregister } from '../src/index.ts'
 import apply, {
   HEALTH_PATH,
   READY_PATH,
@@ -386,11 +387,38 @@ describe('readyBody', () => {
 })
 
 describe('fasseZusammen', () => {
-  test('keine Sonde heißt "ok"', () => {
-    // **Die Entscheidung, die hier festgehalten wird.** Keine Sonde heißt nicht
-    // „unbekannt", sondern „nichts zu prüfen" — und das ist bereit. Die Antwort
-    // verrät es durch `sonden: []`.
-    expect(fasseZusammen([])).toBe('ok')
+  test('keine Sonde heißt "ungeprueft" — NICHT "ok"', () => {
+    // **Der Befund der Aufsicht (B20), hier festgehalten.** Die erste Fassung
+    // lieferte `ok` und HTTP 200 bei **null** Sonden. Ein Orchestrator liest den
+    // Statuscode und das Feld `bereit` — beide sagten „ja", obwohl **nichts**
+    // geprüft worden war. Wer daraufhin Verkehr einleitet, schickt ihn an einen
+    // Dienst, dessen Abhängigkeiten niemand angesehen hat.
+    expect(fasseZusammen([])).toBe('ungeprueft')
+  })
+
+  test('"ungeprueft" ergibt 503, nicht 200', () => {
+    expect(statusFuer('ungeprueft')).toBe(503)
+  })
+
+  test('unter der Mindestzahl von Sonden wird nicht geurteilt', () => {
+    // Zwei Sonden erwartet, eine eingetragen: die Antwort darf nicht „ok" sein,
+    // denn eine der beiden Abhängigkeiten wurde nie angesehen.
+    expect(fasseZusammen([{ name: 'a', zustand: 'ok', dauerMs: 1 }], 2)).toBe('ungeprueft')
+    expect(
+      fasseZusammen(
+        [
+          { name: 'a', zustand: 'ok', dauerMs: 1 },
+          { name: 'b', zustand: 'ok', dauerMs: 2 },
+        ],
+        2,
+      ),
+    ).toBe('ok')
+  })
+
+  test('mindestens 0 Sonden heißt: es wird nicht geurteilt', () => {
+    // Die ausdrückliche Abschaltung (`PMH_READY_REQUIRE_PROBES=0`) — dann ist
+    // „nichts zu prüfen" der gewollte Zustand.
+    expect(fasseZusammen([], 0)).toBe('ok')
   })
 
   test('alle grün heißt "ok"', () => {
@@ -481,11 +509,22 @@ describe('bereinigeGrund', () => {
 })
 
 describe('erzeugeRegister', () => {
-  test('ein leeres Register ist "ok" mit leerer Liste', async () => {
+  test('kein Register mehr: "ungeprueft" mit 503', async () => {
     const register = erzeugeRegister({ haltbarkeitMs: 0 })
     const { lauf, ausSpeicher } = await register.pruefe()
-    expect(lauf).toEqual({ zustand: 'ok', sonden: [] })
+    expect(lauf).toEqual({ zustand: 'ungeprueft', sonden: [] })
     expect(ausSpeicher).toBe(false)
+    // **Der Befund der Aufsicht.** `ok` bei leerem Register wäre eine Auskunft
+    // über etwas, das nie angesehen wurde.
+    expect(statusFuer(lauf.zustand)).toBe(503)
+  })
+
+  test('mit ausdrücklicher Abschaltung ist ein leeres Register "ok"', async () => {
+    // `PMH_READY_REQUIRE_PROBES=0` — „mir genügt, daß der Prozess lebt".
+    const register = erzeugeRegister({ haltbarkeitMs: 0, mindestSonden: 0 })
+    const { lauf } = await register.pruefe()
+    expect(lauf.zustand).toBe('ok')
+    expect(statusFuer(lauf.zustand)).toBe(200)
   })
 
   test('führt die Sonden in Eintragsreihenfolge aus', async () => {
@@ -778,8 +817,15 @@ describe('macheReadyHandler — die Sperre wirkt', () => {
         },
       }),
     }
-    const register = erzeugeRegister({ haltbarkeitMs: 0 })
-    for (const sonde of sonden) register.register(sonde)
+    // **Eine gesunde Sonde als Vorgabe.** Ohne sie wäre das Register leer und
+    // `/api/ready` antwortete `ungeprueft` mit **503** — dann ließe sich „die
+    // Sperre ließ durch" nicht von „nichts zu prüfen" unterscheiden. Wer den
+    // leeren Fall prüfen will, übergibt `[]` ausdrücklich.
+    const vorgabe = sonden.length === 0 && ergebnis === undefined
+      ? [{ name: 'vorgabe', pruefe: async () => undefined }, ...sonden]
+      : sonden
+    const register = erzeugeRegister({ haltbarkeitMs: 0, mindestSonden: 1 })
+    for (const sonde of vorgabe) register.register(sonde)
     return { handler: macheReadyHandler(ctx as never, register), gefragt, register }
   }
 
@@ -916,6 +962,22 @@ describe('macheReadyHandler — die Sperre wirkt', () => {
   })
 })
 
+/**
+ * Hängt das Plugin ein und holt das Register, das es bereitstellt.
+ *
+ * **Warum über den Kontext und nicht selbst gebaut.** Das Register gehört dem
+ * Plugin — es mit `provide` anzumelden ist der Vertrag. Genau diesen Vertrag
+ * prüft das hier mit: nach dem Einhängen **muß** `ctx.get('readyness')` etwas
+ * liefern, sonst käme `@prometheus-harness/readiness` nie an seine Sonden.
+ */
+async function pluginMitRegister(): Promise<Sondenregister> {
+  aufbau.plugin()
+  await ruhe()
+  const register = aufbau.ctx.get('readyness') as Sondenregister | undefined
+  if (register === undefined) throw new Error('das Plugin hat kein Register bereitgestellt')
+  return register
+}
+
 describe('apply — /api/ready über HTTP', () => {
   test('vor dem Einhängen antwortet die Adresse 404', async () => {
     expect((await fetch(aufbau.readyUrl)).status).toBe(404)
@@ -930,21 +992,58 @@ describe('apply — /api/ready über HTTP', () => {
     expect(res.headers.get('www-authenticate')).toBe('Cookie')
   })
 
-  test('mit Anmeldung antwortet sie 200 mit der Bereitschaftsauskunft', async () => {
+  test('das Plugin stellt das Register bereit — sonst käme keine Sonde an', async () => {
+    // **Der Vertrag mit `@prometheus-harness/readiness`.** Dieses Paket trägt
+    // seine Sonden über `ctx.readyness.register` ein. Stellt `health` das Register
+    // nicht bereit, wartet der Loader dort für immer — oder das Paket scheitert.
+    const register = await pluginMitRegister()
+    expect(typeof register.register).toBe('function')
+  })
+
+  test('ohne Sonde antwortet sie 503 "ungeprueft" — nicht 200', async () => {
+    // **Der Befund der Aufsicht (B20), am laufenden HTTP nachgewiesen.** Ein
+    // Orchestrator liest Statuscode und `bereit`; beide müssen „nein" sagen,
+    // solange nichts geprüft wurde.
+    await pluginMitRegister()
+    const res = await fetch(aufbau.readyUrl)
+    expect(res.status).toBe(503)
+    const body = (await res.json()) as { bereit: boolean; zustand: string; sonden: unknown[] }
+    expect(body.bereit).toBe(false)
+    expect(body.zustand).toBe('ungeprueft')
+    expect(body.sonden).toEqual([])
+  })
+
+  test('mit einer gesunden Sonde antwortet sie 200', async () => {
     aufbau.abweisungMit(undefined)
-    aufbau.plugin()
-    await ruhe()
+    const register = await pluginMitRegister()
+    register.register({ name: 'gesund', pruefe: async () => undefined })
     const res = await fetch(aufbau.readyUrl)
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { bereit: boolean; prozessSekunden: number }
+    const body = (await res.json()) as { bereit: boolean; zustand: string; sonden: unknown[] }
     expect(body.bereit).toBe(true)
-    expect(body.prozessSekunden).toBeGreaterThanOrEqual(0)
+    expect(body.zustand).toBe('ok')
+    expect(body.sonden).toHaveLength(1)
+  })
+
+  test('mit einer kranken Sonde antwortet sie 503', async () => {
+    aufbau.abweisungMit(undefined)
+    const register = await pluginMitRegister()
+    register.register({
+      name: 'krank',
+      pruefe: async () => {
+        throw new Error('absichtlich kaputt')
+      },
+    })
+    const res = await fetch(aufbau.readyUrl)
+    expect(res.status).toBe(503)
+    const body = (await res.json()) as { bereit: boolean; zustand: string }
+    expect(body.bereit).toBe(false)
+    expect(body.zustand).toBe('ausgefallen')
   })
 
   test('mit Anmeldung und falscher Methode: 405', async () => {
     aufbau.abweisungMit(undefined)
-    aufbau.plugin()
-    await ruhe()
+    await pluginMitRegister()
     const res = await fetch(aufbau.readyUrl, { method: 'POST' })
     expect(res.status).toBe(405)
     expect(res.headers.get('allow')).toBe('GET, HEAD')
@@ -964,6 +1063,8 @@ describe('apply — /api/ready über HTTP', () => {
     aufbau.abweisungMit(undefined)
     const fiber = aufbau.plugin()
     await ruhe()
+    const register = aufbau.ctx.get('readyness') as Sondenregister | undefined
+    register?.register({ name: 'gesund', pruefe: async () => undefined })
     expect((await fetch(aufbau.readyUrl)).status).toBe(200)
     await fiber.dispose()
     await ruhe()
