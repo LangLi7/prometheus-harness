@@ -13,24 +13,40 @@
 ## 1. Der Befund
 
 ```
-verpacke(<Schlüssel>, klartext)  ->  { valueCipher, wrappedKey, masterKeyVersion }   DREI Teile
+export function verpacke(klartext: Uint8Array, haupt: Hauptschluessel): Umschlag
 ```
 
-Und die Spalten, gemessen in `pmh_test`:
+**Die Reihenfolge ist `(klartext, haupt)`** — und der Umschlag trägt **vier** Felder:
+
+```
+{ valueCipher, wrappedKey, masterKeyVersion, keyHint }
+```
+
+**Und ein eigener Fehler, der hierher gehört.** Mein Einleser rief
+`verpacke(haupt, bytes)` auf — **vertauscht**. Der Typlauf meldete daraufhin
+*„Type 'Hauptschluessel' is missing the following properties from type
+'Uint8Array'"* — und ich habe das **falsch gelesen**: ich schrieb in die erste Fassung
+dieses Dokuments, `verpacke` erwarte ein `Uint8Array` statt eines Hauptschlüssels.
+**Das war falsch.** Die Signatur war die ganze Zeit richtig; mein **Aufruf** war es
+nicht. Die Gegenprobe (`Select-String 'export function verpacke'`) hat es aufgedeckt —
+**nachdem** das Dokument schon eingecheckt war.
+
+**Der Befund selbst bleibt und wird sogar schärfer.** Gemessen in `pmh_test`:
 
 | Tabelle | Umschlag-Spalten |
 |---|---|
 | `user_secrets` | `value_cipher`, **`wrapped_key`**, **`master_key_version`**, **`key_hint`** — **vier** |
 | `chunks` | `content_cipher` — **eine** |
 
-**Wer `chunks.content_cipher` mit dem Ergebnis von `verpacke` füllt, verliert den
+**Wer `chunks.content_cipher` mit `verpacke(…).valueCipher` füllt, verliert den
 Schlüssel.** Das Ergebnis ist **Geheimtext ohne Schlüssel** — aus Sicht der
 Wiederherstellung also **Datenverlust**, nicht Verschlüsselung. Es gibt keinen
 Typfehler, der das meldet: `bytea` nimmt jeden Byte-Strom.
 
-**Und das ist genau die Art Fehler, die man nur beim Verdrahten findet.** Der
-Typlauf hat ihn aufgedeckt (`verpacke` erwartet ein `Uint8Array` und liefert ein
-Objekt), die Migration 0006 hätte ihn nie gemeldet.
+**Und das ist genau die Art Fehler, die man nur beim Verdrahten findet** — der
+Typlauf hat ihn aufgedeckt (wenn auch über einen Umweg: erst durch meinen
+vertauschten Aufruf, dann durch das Nachsehen der Signatur). Die Migration 0006
+hätte ihn nie gemeldet.
 
 ## 2. Die zwei Wege
 
