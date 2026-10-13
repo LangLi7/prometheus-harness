@@ -649,6 +649,71 @@ Skript **exit 0** meldete. Zwei Fehler deckten einander zu.
 3. **Fremde, nicht committete Arbeit im Arbeitsbaum** — unverändert.
 4. **Nur Windows gemessen.**
 
+---
+
+### 2026-10-13 · Plug-and-Play-Installation + Korrektur der API-Aussage (13.–18. Push)
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Auftrag: ein Installationsskript nach dem Vorbild der Referenz-Harness, für **Linux und Windows**, das alles Nötige selbst installiert |
+| Umfang | `scripts/install.sh` · `install.ps1` · `install.cmd` · `install.mjs` · `install-teile.mjs` · `migrate.mjs` · `typecheck.mjs` · `.gitattributes` · `README.md` · `docs/status/beleg-installation.md` · zwei Testdateien in `packages/` · `docs/review/api-flaeche.md` (Korrekturvermerk) |
+| Art | **Codeänderung im Repo.** Kein `~/.dsh`-Zugriff |
+| Nachweis | [beleg-installation.md](beleg-installation.md) |
+| Frischer Klon, Windows | `scripts\install.cmd` → **exit 0**, 7/7 Schritte |
+| Tests im installierten Klon | **826 pass · 0 fail** (2 skip: Rust-Binary fehlt) |
+| Typecheck | **18 Pakete, 0 rot** |
+| Syntaktische Prüfung der Hüllen | `sh -n` · `dash -n` · `bash -n` — **alle OK** |
+
+**Der Befund.** Ein Befehl vom frischen Klon bis zum laufenden Projekt, mit drei
+dünnen Hüllen und **einer** Logik in Bun. Der Installer prüft und installiert
+Bun, auf Linux zusätzlich `curl`/`git`; er richtet `.env` mit erzeugten
+Geheimnissen ein, startet den Stapel, wartet auf seine Gesundheit, migriert und
+typecheckt.
+
+**Vier eigene Fehler, drei gefunden, einer offen:**
+
+1. **`=(.*)$` scheitert an `\r`** — in JavaScript matcht `.` **kein** `\r`. Im
+   Klon wurden **0 Werte** geschrieben. Nach der Korrektur an einer Stelle fand
+   die **Suche nach allen Stellen desselben Musters** vier weitere — darunter den
+   **README-Befehl für den Benutzer**, der jedem Windows-Nutzer jede Variable mit
+   einem `\r` angehängt hätte.
+2. **`.gitattributes` fehlte.** `core.autocrlf=true` speicherte jedes Textfile als
+   CRLF. Auf Linux hätte `./scripts/install.sh` gemeldet:
+   `/bin/sh^M: bad interpreter: No such file or directory` — **jede
+   Linux-Installation wäre gescheitert.** Jetzt LF für Skripte, CRLF für
+   `.cmd`/`.ps1`.
+3. **Eine eigene Prüfung verdoppelte die Wirklichkeit.** `split('\n').join('\r\n')`
+   ergab `\r\r\n`, weil die ausgecheckte Datei schon CRLF hat — die Prüfung war
+   rot, obwohl der Code richtig arbeitete.
+4. **Der Treiber-Import — Ursache NICHT gefunden.** Im sauberen Klon scheiterte
+   `import('postgres')` reproduzierbar, während dieselbe Datei im selben
+   Verzeichnis direkt durchlief. Sieben Messungen schließen die naheliegenden
+   Ursachen aus (auch einen Wettlauf mit `bun install`). Die Migration läuft jetzt
+   als **eigener Prozeß** — auf dem Weg, der in jedem gemessenen Fall funktioniert.
+   **Umgangen, nicht behoben**; die Diagnose bleibt im Code.
+
+**Und eine Aussage der eigenen README war falsch.** Auf Befund **B16** der
+Aufsicht hin nachgemessen: `POST /api/goals/create` **mit** Anmeldung liefert den
+JSON-RPC-Rahmen `{"type":"server-response","rpcId":"invalid-request",…}`, und
+`WS /api/remote.mux` antwortet **`101 Switching Protocols`**. Der Gateway der
+Vorlage **lebt**. Die frühere Zeile „API ausgefallen" beruhte auf **geratenen**
+Pfaden und der Anmeldesperre. Der eigene Endpunktweg bleibt richtig — aber aus
+einem anderen Grund: die API der Vorlage ist ein **RPC-Kanal**, kein Weg für
+`GET /api/health`.
+
+#### Offene Punkte
+
+1. **Die Linux-Installation ist nicht bis Schritt 7 gelaufen.** In WSL2 ist Docker
+   nicht erreichbar; ein Klon **im** Linux-Dateisystem scheiterte an den fehlenden
+   Git-Anmeldedaten für das private Repository. Gemessen: der Weg über `/mnt/c`
+   **bis** zur Werkzeugprüfung und die Syntax in drei Shells.
+2. **Der frische Klon setzt einen bestehenden Container voraus.** Der Weg „gar
+   kein Container, alles neu" ist **nicht** gemessen.
+3. **Der Treiber-Import-Fehler ist nicht erklärt.**
+4. **`credential-gh`** — dreizehnter Push, dreizehnte Warnung.
+5. **25 fremde Dateien im Arbeitsbaum** — unverändert, **nicht** committet.
+6. **Nur Windows nativ und WSL2 gemessen.** Kein macOS.
+
 | Prüfung | Ergebnis |
 |---|---|
 | Auslöser | Der eigene Beleg nannte die Lücke selbst: *„`/api/ready` sagt, daß die Anwendung antwortet; ob PostgreSQL erreichbar ist, sagt es nicht."* |
