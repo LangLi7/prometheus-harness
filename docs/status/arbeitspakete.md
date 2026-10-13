@@ -270,6 +270,79 @@ eine Absicht. Das steht so in `docs/status/README.md` und wird hier nicht schön
 
 ---
 
+## P6 · t34 — Auflage A1: die kopierten Apps entfernen
+
+**Phase: `abgenommen` (13.10.2026)** · **Auflage A1** aus `docs/review/backend-review.md`,
+wörtlich:
+
+> **A1** | `apps/cli`, `apps/desktop`, `apps/desktop-host` aus dem Bun-Workspace entfernen
+> (erledigt) und danach als Kopie entfernen oder bewusst dokumentieren | 1.043
+> byte-identische Dateien widersprechen `docs/concept.md`; sie haben `bun install` und
+> damit jeden Typecheck blockiert
+
+**Ausgangsbefund (gemessen mit SHA-256 über jede Datei):**
+
+| Ordner | Vorlage | Ziel | identisch | abweichend | `workspace:*` |
+|---|---:|---:|---:|---:|---:|
+| `apps/cli` | 220 | 220 | **220** | **0** | **129** |
+| `apps/desktop` | 773 | 773 | **773** | **0** | 13 |
+| `apps/desktop-host` | 50 | 50 | **50** | **0** | 16 |
+
+**Was getan wurde:**
+
+| # | Schritt | Stand |
+|---|---|---|
+| P6.1 | `apps/host` um `--profile`, `-p`, `--port`, `--patches` erweitert (eigener Code) | **erledigt** |
+| P6.2 | Unterkommando setzt das Profil (`pmh web` → Profil `web`) | **erledigt** |
+| P6.3 | `--patches` lädt Overlays **hinter** die Profil-Schichten; fehlende Datei scheitert **vor** dem Boot | **erledigt** |
+| P6.4 | Die drei Kopien entfernt (1.043 Dateien) | **erledigt** |
+| P6.5 | `apps/web` unberührt | **erledigt** — weiterhin **17** Dateien |
+| P6.6 | `LICENSE` (MIT) angelegt — Pflicht bei Nutzung als Codebasis | **erledigt** |
+
+**Nachweis, unter WSL2 gemessen (Linux 6.6.87.2):**
+
+```
+bun install            → exit 0 · "Checked 522 installs across 610 packages"
+bun run typecheck      → exit 0 · 6/6 Pakete (scope, host, atomic-write, home-paths, unit-export, web)
+Host-Start 3×          → 6 s · 6 s · 6 s   (erster, kalter Lauf: 35 s)
+pmh web --port 5199    → "pmh: Core läuft (Profil \"web\", Loader aktiv)"
+GET /?token=…          → HTTP 303 (Weiterleitung setzt das Cookie)
+GET / mit Cookie       → HTTP 200 · 32.184 B · <!doctype html>
+```
+
+**Struktur vorher → nachher:**
+
+| | vorher | nachher |
+|---|---|---|
+| `apps/` | 5 Ordner, 1.064 Dateien | **2 Ordner**: `host` (4) · `web` (17) |
+| Tote Verweise | 158 `workspace:*` | **0** |
+
+### Drei Befunde, die dabei entstanden sind
+
+**1. Der Host scheiterte zunächst — und zwar zu Recht.** Der Credential-Dienst brach ab:
+
+```
+error: credentials-local: /mnt/c/Users/Chang/.pmh/.credentials.yaml is readable
+beyond its owner (mode 777); run "chmod 600 …" before starting again
+```
+
+Das ist **korrektes Verhalten** (fail-closed): eine für alle lesbare Zugangsdatei wird nicht
+benutzt. **Die Ursache liegt aber tiefer:** `/mnt/c` ist als **9p ohne `metadata`** gemountet —
+`chmod 600` **wirkt dort nicht** (Datei blieb `-rwxrwxrwx`). Behebung: Harness-Home ins
+**Linux-Dateisystem** (`~/pmh`) — dort greift `chmod 600`. `sudo` für einen Remount mit
+`metadata` war nicht verfügbar (Passwort nötig) und wurde **nicht** erzwungen.
+
+**2. Der erste Messwert war falsch.** Ein erster Lauf meldete **~35 s** Startzeit; über drei
+Läufe gemessen sind es **konstant 6 s**. 35 s war ein **Kaltstart** (Erstinitialisierung).
+Die belastbare Zahl ist **6 s** — die erste war eine Einzelmessung ohne Wiederholung.
+
+**3. `apps/host` ist eine Abweichung von `MAPPING.md`.** §3.5 nennt den Host `apps/cli`
+(Stufe A). Da die Kopie dort unbrauchbar war (129 unauflösbare Verweise), tritt `apps/host`
+an ihre Stelle. **Die Abweichung ist damit begründet, aber sie ist eine** — sie steht im
+Kommentarkopf von `apps/host/src/main.ts` und im README.
+
+---
+
 ## R · Erinnerte Harness-Anforderungen / Technikliste
 
 > **Was dieser Abschnitt ist:** die vom Betreiber erneut vorgelegte Technik- und
@@ -366,3 +439,6 @@ damit sie nicht später als „vergessen" oder als „stillschweigend übernomme
 | 2026-10-13 | **L12 behoben → P2 von `in Arbeit` auf `abgenommen`** | Die Notiz in `unit-export/unit.json` behauptete noch, der Plugin-Host sei „nicht Teil dieses Pakets". Das war beim Schreiben korrekt und wurde durch die Nacharbeit falsch. Korrigiert; `description` nennt den Host jetzt mit. Nachgemessen: `unit.json` strukturell gültig (4 notes, `contract: ^0.2.0`), `bun run typecheck` **exit 0**, `bun test` **158 pass / 0 fail** |
 | 2026-10-13 | **Roundtrip-Nachweis als eigene Datei** [`plugin-export-nachweis.md`](plugin-export-nachweis.md) | Der Beweis lag bisher nur als Kommandoausgabe im Protokoll. Als Datei ist er nachprüfbar: Export-Digest `sha256:ac37e0ec…`, Rückexport **identisch**, Inhalt `sha256:84cef3f8…` beide Male gleich. Der **Dateihash** des Bündels ist bewusst **nicht** das Vergleichsmaß — er enthält Zeitstempel |
 | 2026-10-13 | **Befund: paralleles Testen erzeugt Fehlalarme** — zweimal `checkBundle > H1` rot, isoliert exit 0 | Ursache war ein Testlauf, während ein anderer Arbeiter dieselben Dateien schrieb (`errors.ts` 00:06:57, `plugin-host.test.ts` 00:16:52). Regel daraus: **Tests nicht parallel zu Schreibvorgängen auf denselben Dateien** — ein Ergebnis über einen halbfertigen Stand ist ein Befund über den Ablauf, nicht über den Code |
+| 2026-10-13 | **P6 angelegt und abgenommen: Auflage A1 erfüllt.** `apps/cli`, `apps/desktop`, `apps/desktop-host` entfernt (1.043 byte-identische Dateien, 158 `workspace:*`-Verweise); `apps/host` um `--profile`/`--port`/`--patches` erweitert; `LICENSE` (MIT) angelegt | Die Kopien widersprachen dem Auftrag und blockierten `bun install`. Nachweis: `bun install` exit 0, `bun run typecheck` exit 0 (6/6), Host-Start 6 s, HTTP 200 mit 32.184 B |
+| 2026-10-13 | **Korrektur eines eigenen Messfehlers:** Startzeit des Hosts ist **6 s**, nicht 35 s | Die 35 s stammten aus einem **kalten** Einzellauf. Erst die Wiederholung über drei Läufe ergab den belastbaren Wert — eine Einzelmessung ohne Wiederholung ist keine Messung |
+| 2026-10-13 | **Befund DrvFS:** `/mnt/c` ist als 9p **ohne `metadata`** gemountet, `chmod` wirkt dort nicht | Der Credential-Dienst verweigerte den Start korrekt (`mode 777`). Behebung: Harness-Home ins Linux-Dateisystem (`~/pmh`) |
