@@ -44,6 +44,38 @@ Python), n8n (kein Kern-Orchestrator), Tesseract (nur über die Prozessgrenze), 
 ist nach dem nächsten Kontextwechsel weg — und dann wird sie entweder doppelt gebaut oder
 stillschweigend als „erledigt" angenommen. Beides ist teurer als diese 60 Zeilen Doku.
 
+### 2026-10-13 · 00:34 UTC · Auflage A1: kopierte Apps entfernt, Host erweitert
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Auflage **A1** aus `docs/review/backend-review.md`: die 1.043 byte-identischen Dateien in `apps/` entfernen oder bewusst dokumentieren |
+| `HEAD` / `origin/main` | `f0ac6f70` — **identisch**, zusätzlich **über die API** bestätigt (`2026-10-13T00:34:45Z`) |
+| Umfang | **1.636** versionierte Dateien (vorher 2.676) — die Differenz sind die entfernten Kopien |
+| Art | **Codeänderung** (Host-Flags) + **Löschung** (1.043 Dateien) + Doku |
+
+**Entfernt:** `apps/cli` (220) · `apps/desktop` (773) · `apps/desktop-host` (50) — zusammen
+**1.043 Dateien**, alle byte-identisch mit der Vorlage, mit **158 unauflösbaren
+`workspace:*`-Verweisen**. Sie hatten jedes `bun install` blockiert und damit jeden Typecheck.
+
+**Hinzugekommen:** `apps/host` besitzt eine eigene Kommandofläche — das Unterkommando setzt
+das Profil (`pmh web`), `--profile`/`-p` überschreibt es, `--port` wird an das Web-Bündel
+durchgereicht, `--patches` lädt Overlays **hinter** die Profil-Schichten.
+
+**Regressionsnachweis (WSL2, Linux 6.6.87.2):**
+
+```
+bun install         → exit 0 · 522 installs across 610 packages
+bun run typecheck   → exit 0 · 6/6 Pakete
+Host-Start 3×       → 6 s · 6 s · 6 s   (erster, kalter Lauf: 35 s)
+GET /?token=…       → 303 · GET / mit Cookie → HTTP 200 · 32.184 B
+```
+
+**`apps/` vorher → nachher:** 5 Ordner / 1.064 Dateien → **2 Ordner**: `host` (4) · `web` (17).
+
+**Außerdem angelegt:** `LICENSE` (MIT, *Copyright (c) 2026 DeepSeek*). Mit der Nutzung als
+**Codebasis** verlangt die Lizenz, den Copyright-Hinweis in allen Kopien zu führen — er fehlte
+bis hierher vollständig.
+
 ## Einträge
 
 ### 2026-10-12 · 21:27 UTC · Ausgangsstand
