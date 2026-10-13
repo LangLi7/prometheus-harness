@@ -194,3 +194,110 @@ des Projekts ist und dem Betreiber gehört.
 2. **Die 4-Stunden-Kadenz ist bisher dreimal innerhalb von vier Minuten gefeuert** — das ist
    kein Takt, das ist die Ersteinrichtung. Der Takt beginnt ab jetzt zu zählen.
 3. **`credential-gh`** bleibt bis zur Entscheidung des Betreibers offen (siehe oben).
+
+### 2026-10-13 · 08:48 UTC · Die kleinste Kette (achter Push)
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Der Übergabepunkt des vorigen Berichts: „`llm-retry` → danach der Agent-Loop" — und alles, was zur ersten vollständigen Kette gehört |
+| `HEAD` / `origin/main` | `730b0ede` — **identisch**, zusätzlich **über die API** bestätigt (`2026-10-13T08:48:00Z`) |
+| Umfang | **35 Dateien** in einem Commit: acht Pakete, ein durchgehender Test, zwei Berichte, `package.json`, `bun.lock` |
+| Versionierte Dateien | **1.674** (laut API-Baum) |
+| Art | **Codeänderung** (TypeScript) + Doku. **Keine** Installation außer `bun install` (nur Verknüpfungen im eigenen Arbeitsbereich), **keine** Web-Änderung, kein Go-Dienst gestartet |
+
+**Nachweis des Commits:** [`kleinste-kette-nachweis.md`](kleinste-kette-nachweis.md) —
+262 Tests grün, 671 `expect()`-Aufrufe, 13 Einzel-Typechecks `exit 0`.
+
+**Neu in diesem Commit:** `packages/llm/llm-retry`, `packages/llm/token-meter`,
+`packages/core/agent-tools`, `packages/core/agent-loop`,
+`packages/agent/session-format`, `packages/agent/session-persistence-jsonl`,
+`tests/integration/kleinste-kette.test.ts`; dazu Erweiterungen an `packages/llm/llm`
+(`ToolCallPart`, `checkHistory`), `packages/llm/llm-deepseek` (`tool_calls` in der
+Nutzlast) und `package.json` (der Workspace-Eintrag zeigt jetzt auf `apps/cli`).
+
+#### Was dieser Push **nicht** enthält — und warum
+
+**Die 31 veränderten Dateien der Arbeitspakete P1 (Go) und der Rust-Crates bleiben
+unangetastet.** Sie stammen aus früheren Sitzungen und sind hier **nicht** nachgemessen
+worden; Regel **A6** („nur Fertiges wird committet") verbietet, sie unter einen Beleg zu
+mischen, der sie nicht abdeckt. Der Zustand ist damit derselbe Widerspruch, der oben unter
+Punkt 1 schon steht — und er wird hier **nicht** stillschweigend erweitert.
+
+#### Befund: zwei Supervisor-Tests sind rot — und zwar schon am `HEAD` davor
+
+Beim Prüfen der Go-Dienste (nicht Teil dieses Commits) fielen zwei Fehlschläge auf:
+
+```
+--- FAIL: TestShutdownReverseOrder (15.04s)
+    Abschaltfrist ueberschritten: [gamma beta alpha]; beendete Dienste = []
+--- FAIL: TestSingleRestartStartetNeu (2.10s)
+    PID blieb gleich (6660); der Dienst wurde nicht neu gestartet
+```
+
+**Nachgemessen in einem eigenen `git worktree` auf `7e23932` (dem Stand *vor** diesem
+Commit): **identisch rot**, dieselben zwei Tests, dieselben Meldungen. Die Fehlschläge
+sind also **nicht** durch diese Sitzung entstanden — und sie betreffen `pmh-supervisor`,
+ein Paket, das in diesem Register noch **kein** Arbeitspaket hat.
+
+**Was daran auffällt:** beide Fehlschläge sehen nach **Windows-Prozessführung** aus
+(Abschaltreihenfolge, PID-Wechsel). `pmh-supervisor` hat Tests für genau das — und sie
+laufen auf diesem Wirt nicht durch. Ob die Tests zu streng sind oder die Umsetzung zu
+schwach, ist **nicht geklärt** und gehört in ein eigenes Paket.
+
+**Die übrigen Dienste sind grün:** `pmh-nix` (`vet=0`, `test=0`), `pmh-attach`
+(`vet=0`, `test=0` — auch das früher hängende `internal/wire` läuft jetzt durch),
+`native/flock` (Rust, 17 Tests grün).
+
+#### Offene Punkte, die dieses Audit stehen lässt
+
+1. **`bun run typecheck` läuft in dieser Umgebung nicht** — der Sandkasten verbietet
+   erfasste Kindprozesse (benannte Pipes). Ersatzweg: 13 Einzelaufrufe, alle `exit 0`.
+   Ob das Skript geändert werden soll (damit es ohne `--filter` auskommt), ist eine
+   **offene Regelentscheidung**.
+2. **`credential-gh`** ist bei diesem Push **erneut** aufgetreten — vierter Push, vierte
+   Warnung. Der Befund von oben bleibt unverändert offen.
+3. **`pmh-supervisor` hat kein Arbeitspaket** im Register, obwohl es Tests hat, die rot
+   sind. Das ist eine Registerlücke, kein Codefehler — und sie gehört geschlossen.
+
+### 2026-10-13 · 09:05 UTC · Korrektur: der Windows-Blocker ist keine Bun-Grenze (neunter Push)
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Der Windows-Start ließ sich nicht erklären; die bisherige Erklärung (`windows-start-nachweis.md` §5: „Laufzeit-Grenze von Bun") war eine **Hypothese**, keine Messung |
+| `HEAD` / `origin/main` | nach dem Push dieses Commits erneut über die API zu prüfen |
+| Umfang | **Dokumentation + zwei Messsonden** (`docs/status/kleinste-kette-nachweis.md` §6, `docs/status/arbeitspakete.md` P9, `.pmh-build/*`) |
+| Art | **keine Codeänderung** am Produkt. Kein pnpm, kein npx, kein Docker, kein Nix. Ein Go-Dienst wurde **getestet**, nicht gestartet |
+
+**Was gemessen wurde — Windows nativ gegen WSL2, gleicher Baum, gleiche Quelldatei:**
+
+| | Windows nativ (Bun 1.4.0) | WSL2 (Bun 1.4.3) |
+|---|---|---|
+| deaktivierte Profil-Einträge | **27** | **0** |
+| Token-Zeile | fehlt | vorhanden |
+| `GET /?token=…` | nicht erreichbar | **303** + `set-cookie` |
+| `GET /` mit Cookie | nicht erreichbar | **200 · 32.184 B** · Titel „DeepSeek Harness" |
+
+**Damit ist die frühere Erklärung widerlegt:** unter WSL2 läuft **dieselbe
+Laufzeit** (Bun) — wäre es eine Bun-Grenze, liefe es dort ebenso wenig. Das
+Verhalten ist **plattform**abhängig, nicht laufzeitabhängig.
+
+**Der Fehlertext beschreibt ein Paket, das es hier nicht gibt:**
+`Plugin @deepseek-ai/dsh-llm@0.1.1-rc.2 is incompatible with dsh 0.2.1-alpha.2`.
+Nachgemessen: die installierte `dsh-llm` ist `0.2.1-alpha.2` und deklariert als Peer
+**nur** `@deepseek-ai/cordis`; `bun pm ls` findet genau **eine** Kopie; die
+Zeichenkette `0.1.1-rc.2` kommt in `bun.lock`, `apps/cli/package.json` und allen
+245 `@deepseek-ai`-Paketen des Projekts **nicht** vor. Die Laufzeitversion selbst
+ist korrekt (`dsh-app-boot/package.json` → `0.2.1-alpha.2`, per Sonde geprüft).
+
+**Die Korrektur steht nur in den neuen Dokumenten.** `windows-start-nachweis.md`
+wird **nicht** nachträglich geändert — nach der eigenen Regel dieses Ordners wird ein
+Snapshot nicht korrigiert, sondern ein **neuer** Befund daneben gestellt.
+
+#### Offene Punkte, die dieses Audit stehen lässt
+
+1. **Die Herkunft der fremden Paketidentität ist ungeklärt.** Ohne sie ist der
+   Windows-Start nicht zu reparieren, nur zu umgehen (WSL2). Das ist der
+   wichtigste offene Punkt des ganzen Vorhabens — er blockiert `t40`.
+2. **`credential-gh`** — fünfter Push, fünfte Warnung; unverändert offen.
+3. **`bun run typecheck`** bleibt in dieser Umgebung nur einzeln ausführbar
+   (Sandkasten: benannte Pipes). 13 Einzelaufrufe, alle `exit 0`.

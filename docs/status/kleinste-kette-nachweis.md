@@ -187,7 +187,97 @@ lief es mit `exit 0` und **`2 packages installed`**.
 er ist eine zweite, unabhängige Ursache für denselben Fehlschlag. Beide gilt es
 zu prüfen, wenn `bun run typecheck` wieder erwartet wird.
 
-## 6. Was NICHT belegt ist — namentlich
+## 6. Der t40-Blocker: neue Messungen — und eine **Korrektur** der bisherigen Erklärung
+
+Der Host unter **Windows nativ** kommt nicht hoch. Der bisherige Bericht
+(`windows-start-nachweis.md` §5) erklärte das mit einer **Laufzeit-Grenze von
+Bun** („derselbe Grenzbefund wie `node-addon-require-builtin`"). **Diese
+Erklärung ist nach den Messungen dieser Sitzung nicht mehr haltbar.**
+
+### Was gemessen wurde
+
+Beide Läufe benutzen **denselben** Arbeitsbaum, dasselbe `node_modules`,
+dieselbe Quelldatei (`apps/cli/src/main.ts`, Aufruf `web --port <n>`):
+
+| Messung | Windows nativ (Bun 1.4.0) | WSL2 (Bun 1.4.3) |
+|---|---|---|
+| Profil-Einträge deaktiviert („version-incompatible") | **27** | **0** |
+| `entries did not activate` | 27 | 2 |
+| `pmh: Core läuft (Profil "web", Loader aktiv)` | ja | ja |
+| Token-Zeile `dsh web: http://127.0.0.1:<port>/?token=…` | **fehlt** | vorhanden |
+| `GET /` ohne Token | nicht erreichbar | **401** |
+| `GET /?token=…` | nicht erreichbar | **303** + `set-cookie` |
+| `GET /` mit Cookie | nicht erreichbar | **200 · 32.184 B · `text/html`** |
+| Titel der ausgelieferten Seite | nicht erreichbar | **`DeepSeek Harness`** |
+
+**Die deaktivierten Einträge sind nicht Randnotizen, sondern der Kern:** `llm`,
+`session`, `agent`, `agent-default-model`, `jobs`, `llm-retry`, `token-meter`,
+`settings`, `credentials`, `webserver`, `web`, `web-startup`, `directory-picker`,
+`session-persistence-jsonl`, `session-query-sqlite`, `storage`, `typert`,
+`typert-loader`, `user-questions` …
+
+**Und der Fehlertext ist in sich widersprüchlich** — daran hängt alles:
+
+```
+Plugin @deepseek-ai/dsh-llm@0.1.1-rc.2 is incompatible with dsh 0.2.1-alpha.2:
+peerDependencies {"@deepseek-ai/dsh-brand":"^0.1.1-rc.2", …}
+```
+
+### Warum die alte Erklärung nicht mehr trägt
+
+1. **Es ist keine Laufzeit-Grenze.** Unter WSL2 läuft **Bun** — dieselbe
+   Laufzeit, andere Plattform. Wäre es eine Bun-Grenze, liefe es dort ebenso
+   wenig. Das Ergebnis ist **plattform**abhängig, nicht laufzeitabhängig.
+2. **Die Laufzeitversion stimmt.** `getDshRuntimeVersion()` liest
+   `@deepseek-ai/dsh-app-boot/package.json`. Nachgemessen mit einer Sonde
+   (`.pmh-build/runtime-version-probe.ts`), die dieselbe Spezifikation aus
+   demselben Einstieg auflöst wie der Host:
+
+   ```
+   Bun.resolveSync('@deepseek-ai/dsh-app-boot/package.json', 'apps/cli/src')
+     → …\node_modules\@deepseek-ai\dsh-app-boot\package.json
+     → Version 0.2.1-alpha.2
+   Node-Kette: dieselbe Datei.  Weitere Kopien im Baum: keine.
+   ```
+3. **Die Fassung `0.1.1-rc.2` gibt es auf diesem Rechner nicht.**
+   `node_modules/@deepseek-ai/dsh-llm/package.json` deklariert
+   `version = 0.2.1-alpha.2` und als Peer **nur** `@deepseek-ai/cordis` — die im
+   Fehlertext genannten Peers (`dsh-brand`, `dsh-attachment`, …) stehen dort
+   **überhaupt nicht**. `bun pm ls` findet genau **eine** Kopie
+   (`@deepseek-ai/dsh-llm@0.2.1-alpha.2`); die Zeichenkette `0.1.1-rc.2` kommt in
+   `bun.lock`, in `apps/cli/package.json` und in allen 245 `@deepseek-ai`-Paketen
+   des Projekts **nicht** vor — nur in zwei Vorlage-Dokumenten
+   (`docs/dsh/**/manifest.json`).
+
+**Der Fehlertext beschreibt also ein Paket, das auf diesem Rechner nicht
+existiert.** Damit ist die Meldung nicht „ein veraltetes Paket wurde gefunden",
+sondern „die Auflösung liefert eine fremde Identität". Woher sie kommt, ist
+**nicht geklärt** (§8). Fest steht: die Kompatibilitätsprüfung sieht unter
+Windows eine andere Paketidentität als unter Linux.
+
+**Und die Folge ist genau der gemeldete Blocker:** `webserver` und `web-startup`
+werden deaktiviert → kein Token, kein HTTP, sauberes Prozessende (Exitcode 0).
+
+### Was das für den bisherigen Bericht bedeutet
+
+Der Befund `connection (required): cannot get property "webRuntime" without
+inject` aus `windows-start-nachweis.md` §5 ist damit **erklärt**: `web-runtime`
+kommt aus `dsh-web-app` (Zeile `web-startup`), und diese Zeile wird unter Windows
+**deaktiviert**. Der Pflicht-Eintrag `connection` wartet deshalb auf einen Dienst,
+den eine abgeschaltete Zeile bereitstellen sollte. Es ist **keine**
+Reihenfolge-Frage und **keine** Bun-Grenze, sondern die Folge der Deaktivierung.
+
+**Und der HMR-Befund (P9.2) ordnet sich ein:** `hmr` steht in der Liste der
+deaktivierten Zeilen. Die Patch-Zeile `{ id: 'hmr', disabled: true }` (P7.6)
+wirkt also — nur wird `hmr` **zusätzlich** von der Kompatibilitätsprüfung
+deaktiviert und erscheint daher weiter als „nicht aktiviert".
+
+**Was daraus folgt:** `WSL2 ist der Weg` bleibt richtig, aber aus einem anderen
+Grund als bisher dokumentiert — nicht weil Bun unter Windows eine Grenze hat,
+sondern weil die Profil-Auflösung dort 27 Kern-Einträge als inkompatibel
+abschaltet.
+
+## 7. Was NICHT belegt ist — namentlich
 
 Diese Liste ist der wichtigste Abschnitt dieser Datei. Ein Bericht ohne
 Fehlschläge ist entweder leer oder geschönt.
@@ -198,36 +288,16 @@ Fehlschläge ist entweder leer oder geschönt.
 | **Formatversion 4 der Vorlage ist nicht erreicht** | dieses Paket beginnt bei `v1`. Die vier Migrationen (v0→v1→v2→v3→v4) aus `MAPPING.md` §3.3 fehlen: die Feldbedeutungen der Vorlage sind ohne Vorlage-Daten nicht rekonstruierbar, und eine erfundene Migration würde fremde Verläufe **stillschweigend verfälschen** | ein Verlauf aus der Vorlage lässt sich **nicht** einlesen. `migrateEvents` meldet das ehrlich als `skipped` mit Grund, statt zu raten |
 | **Keine Verdichtung** (Compaction) | `token-meter` **zählt**, es kürzt nicht. Bei einem langen Verlauf wächst die Anfrage bis zum `length`-Fehler des Anbieters | ein langer Turn endet unvermittelt |
 | **Die Kette läuft nicht in der Anwendung** | sie ist über einen Test belegt, nicht über einen Start. Der Host unter Windows nativ kommt weiterhin **nicht** hoch (§7) | „der Harness hat einen Agenten" ist damit noch **nicht** gezeigt |
-| **Kein `unit.json` für die neuen Pakete** | `units/README.md` verlangt es für Units; die neuen Ordner liegen unter `packages/` wie die bereits vorhandenen (`llm`, `unit-export`). **Der Widerspruch ist nicht von mir zu entscheiden** (§8) | die Pakete sind nicht als Units deklariert und damit nicht exportierbar |
-| **Nur ein Werkzeug getestet** (`read_file` als Attrappe) | die Werkzeug-Registry ist geprüft (19 Tests), aber kein **echtes** Werkzeug (Dateisystem, Shell) hängt daran | der Weg Werkzeug → Systemwirkung ist ungeprüft |
+| **Kein `unit.json` für die neuen Pakete** | `units/README.md` verlangt es für Units; die neuen Ordner liegen unter `packages/` wie die bereits vorhandenen (`llm`, `unit-export`). **Der Widerspruch ist nicht vom Executor zu entscheiden** | die Pakete sind nicht als Units deklariert und damit nicht exportierbar |
+ (`read_file` als Attrappe) | die Werkzeug-Registry ist geprüft (19 Tests), aber kein **echtes** Werkzeug (Dateisystem, Shell) hängt daran | der Weg Werkzeug → Systemwirkung ist ungeprüft |
 | **Streaming fehlt** | `LlmProvider.complete` liefert die ganze Antwort; das ist die dokumentierte Entscheidung im Seam | die Oberfläche kann nichts anzeigen, während das Modell arbeitet |
-
-## 7. Der unveränderte Blocker aus `t40`
-
-Der Host unter **Windows nativ** kommt nicht hoch. Der Stand vom 13.10.2026 ist
-unverändert: der Pflicht-Eintrag `connection` wartet auf den Dienst
-`webRuntime`. Unter **WSL2** lief derselbe Host und lieferte HTTP 200.
-
-**Ein neuer Befund** aus dem Launcher-Lauf dieser Sitzung (gemessen, aus dem
-Protokoll des Hintergrundauftrags):
-
-```
-[host] pmh: startup failed: 1 required plugin did not activate
-[host] Failed plugins (8): hmr
-[host]   Package: @deepseek-ai/dsh-hmr
-[host]   Error: --expose-internals is required for HMR service
-```
-
-Also: **`hmr` wird weiterhin als „required" gezählt**, obwohl der Host eine
-Patch-Zeile `{ id: 'hmr', disabled: true }` mitgibt. Acht statt sieben fehlende
-Plugins — die Zahl aus `windows-start-nachweis.md` §5 ist damit überholt. Ob
-die Patch-Zeile nicht greift oder ob ein **deaktivierter** Eintrag als „nicht
-aktiviert" gemeldet wird, ist **nicht geklärt** und steht als offener Punkt.
-`t40` bleibt offen.
+| **Die Herkunft der fremden Paketidentität `0.1.1-rc.2` ist nicht geklärt** | gemessen ist: sie liegt **nicht** auf diesem Rechner, und die Laufzeitversion ist korrekt (§6). Der Weg, auf dem die Kompatibilitätsprüfung unter Windows zu dieser Identität kommt, ist offen | ohne die Ursache ist der Windows-Start nicht zu reparieren — nur zu umgehen (WSL2) |
 
 ## 8. Was auf diesem Rechner nicht angefasst wurde
 
 Kein pnpm, kein npx, **keine Installation** außer `bun install` (das ist die
 Paketverwaltung dieses Projekts und legt nur Verknüpfungen im eigenen
 Arbeitsbereich an). `docs\dsh` und `docs\design` wurden nicht geöffnet; `apps/web`
-ist unberührt. Kein Go-Dienst gestartet, kein Nix, kein Docker, kein Tesseract.
+ist unberührt. Kein Nix, kein Docker, kein Tesseract. **Ein** Go-Dienst wurde
+**getestet** (`go vet`/`go test`), aber **nicht gestartet**; der Rust-Crate
+`native/flock` wurde getestet, nicht installiert.

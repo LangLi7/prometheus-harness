@@ -600,11 +600,29 @@ nachträglich korrigiert).
 |---|---|---|
 | P9.1 | Launcher-Lauf mit dem bestehenden `scripts/start.mjs` | **belegt** — der Launcher startet, der Host scheitert (§5/P7-Nachtrag) |
 | P9.2 | Zahl der fehlenden Plugins: **8** statt 7; `hmr` weiterhin darunter | **belegt** — Protokoll des Laufs |
-| P9.3 | Ursache der `hmr`-Meldung trotz `disabled: true` | **offen — nicht geklärt** |
+| P9.3 | Ursache der `hmr`-Meldung trotz `disabled: true` | **belegt** — `hmr` wird **zusätzlich** von der Kompatibilitätsprüfung deaktiviert (P9.8) |
 | P9.4 | `bun install` in dieser Umgebung | **belegt** — `EPERM` im Sandkasten, nach Freigabe `exit 0` (`2 packages installed`) |
 | P9.5 | `bun run typecheck` in dieser Umgebung | **belegt** — `Failed to start process` (Sandkasten, benannte Pipes). Ersatzweg: 13 Einzel-Typechecks, alle `exit 0` |
-| P9.6 | HTTP 200 des Hosts unter Windows nativ | **nicht erreicht** — hängt an P7.7 |
-| P9.7 | cmd-Nachweis, Ctrl+C, Waisenprozesse | **offen** |
+| P9.6 | **WSL2-Lauf: Host kommt hoch und liefert die Oberfläche** | **belegt** — Bun 1.4.3, Token gelesen; `GET /` **401** → `GET /?token=…` **303** + `set-cookie` → `GET /` mit Cookie **200 · 32.184 B · `text/html`**, Titel „DeepSeek Harness" |
+| P9.7 | **Windows nativ: 27 Profil-Einträge werden als version-inkompatibel deaktiviert** | **belegt** — darunter `llm`, `session`, `agent`, `webserver`, `web`, `web-startup`. Folge: kein Token, kein HTTP, Exitcode 0 |
+| P9.8 | **Die Laufzeitversion ist korrekt (0.2.1-alpha.2)** — die Fehlermeldung nennt eine Fassung, die es auf diesem Rechner **nicht gibt** | **belegt** — Sonde: `dsh-app-boot/package.json` → 0.2.1-alpha.2; `dsh-llm` deklariert 0.2.1-alpha.2 mit Peer **nur** `cordis`; `bun pm ls` = eine Kopie; `0.1.1-rc.2` in `bun.lock`/`apps/cli`/allen 245 `@deepseek-ai`-Paketen: **0 Treffer** |
+| P9.9 | **Die bisherige Erklärung ist widerlegt** — es ist **keine** Bun-Laufzeitgrenze | **belegt** — unter WSL2 läuft dieselbe Laufzeit (Bun) und **null** Einträge werden deaktiviert. Das Verhalten ist **plattform**abhängig |
+| P9.10 | Herkunft der fremden Paketidentität `0.1.1-rc.2` | **offen — nicht geklärt** |
+| P9.11 | cmd-Nachweis, Ctrl+C, Waisenprozesse | **offen** |
+
+### Die Korrektur, ausdrücklich ausgesprochen
+
+`windows-start-nachweis.md` §5 erklärte den Windows-Blocker mit einer **Grenze der
+Laufzeit Bun** („derselbe Grenzbefund wie `node-addon-require-builtin`"). Diese
+Erklärung ist nach P9.9 **nicht haltbar**. Der Bericht wird **nicht** nachträglich
+geändert (Regel: kein Snapshot wird korrigiert) — die Korrektur steht hier und in
+[`kleinste-kette-nachweis.md`](kleinste-kette-nachweis.md) §6.
+
+**Was der Blocker wirklich ist:** die Zeilen `webserver` und `web-startup` werden
+unter Windows nativ von der **Profil-Kompatibilitätsprüfung** deaktiviert, weil sie
+angeblich `0.1.1-rc.2` sind. Damit kommt kein Webserver hoch — und der Pflicht-Eintrag
+`connection` wartet auf `webRuntime`, das die abgeschaltete Zeile hätte liefern sollen.
+**Die frühere Deutung als „Reihenfolge-Frage" und „Bun-Grenze" war falsch.**
 
 ## Geändert
 
