@@ -1,0 +1,100 @@
+# =============================================================================
+# Zeilenenden — und warum sie hier ausdrücklich geregelt sind
+# =============================================================================
+#
+# **Der Befund, der diese Datei erzwungen hat (gemessen, 13.10.2026).**
+#
+# Auf dem Zielrechner steht `core.autocrlf = true`, und es gab **keine**
+# `.gitattributes`. Git speicherte deshalb **jedes** Textfile als CRLF — auch
+# `scripts/install.sh`. Nachgeprüft am Blob:
+#
+#     $ git cat-file -p :scripts/install.sh | ...   →  CRLF
+#
+# **Was das auf Linux bewirkt:**
+#
+#     ./scripts/install.sh
+#     /bin/sh^M: bad interpreter: No such file or directory
+#
+# Der Kernel liest die erste Zeile als Pfad zum Interpreter — und `sh\r` gibt es
+# nicht. **Jede Linux-Installation wäre gescheitert**, und zwar mit einer
+# Meldung, die nach einem fehlenden Paket aussieht.
+#
+# **Der umgekehrte Fall gilt genauso.** Eine `.cmd`-Datei mit **LF** ist auf
+# Windows fehlerhaft: `cmd.exe` liest Zeilen mit LF nicht zuverlässig als
+# Befehle, und bei Marken (`:schleife`, `goto`) führt das zu Sprüngen an die
+# falsche Stelle. Gemessen: eine Batendatei mit LF lief bis zur ersten Marke und
+# brach dann ohne Meldung ab.
+#
+# **Deshalb: LF für alles, was ein Skript ist, CRLF für Windows-Batch.** Und
+# `text=auto` als Grundregel, damit Git Binärdateien erkennt und in Ruhe läßt.
+#
+# =============================================================================
+
+# Grundregel: Git entscheidet selbst, was Text ist. Im Repository liegt Text
+# immer mit LF; die Arbeitskopie bekommt je nach Plattform, was sie braucht.
+* text=auto
+
+# --- Skripte, die auf POSIX laufen: IMMER LF --------------------------------
+# Ein `\r` in der ersten Zeile macht den Shebang unbrauchbar.
+*.sh    text eol=lf
+*.bash  text eol=lf
+# `configure`-artige Skripte ohne Endung sind ebenfalls POSIX.
+Makefile    text eol=lf
+Dockerfile  text eol=lf
+
+# --- Windows-Batch: IMMER CRLF ----------------------------------------------
+# `cmd.exe` braucht CRLF, sonst springen Marken falsch.
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+
+# --- PowerShell: CRLF -------------------------------------------------------
+# PowerShell kommt mit beiden zurecht, aber CRLF ist auf Windows die Erwartung
+# jedes Editors und jeder Werkzeugkette. Kein Grund, davon abzuweichen.
+*.ps1   text eol=crlf
+*.psm1  text eol=crlf
+
+# --- Quelltext und Konfiguration: LF ----------------------------------------
+# Bun, tsgo, Git und YAML sind plattformunabhängig und erwarten LF. Eine
+# Mischung wäre der schlimmste Fall: sie erzeugt Diffs, die nur Zeilenenden
+# betreffen, und verdeckt echte Änderungen.
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.mjs   text eol=lf
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.json  text eol=lf
+*.jsonc text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.md    text eol=lf
+*.sql   text eol=lf
+*.go    text eol=lf
+*.rs    text eol=lf
+*.toml  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+
+# --- Binärdateien: Git soll nicht „normalisieren" ---------------------------
+# Ohne diese Zeilen würde `text=auto` eine Bilddatei als Text behandeln und die
+# Zeilenenden darin verändern — die Datei wäre danach beschädigt.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.pdf   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.zip   binary
+*.gz    binary
+*.exe   binary
+*.dll   binary
+*.node  binary
+
+# --- Sitzungsprotokolle: nicht in Diffs anzeigen ----------------------------
+# Diese Dateien können sehr lang werden; ein Diff davon ist unlesbar und
+# verdrängt alles andere aus der Ausgabe der Prüfung.
+*.jsonl -diff
+*.sqlite -diff

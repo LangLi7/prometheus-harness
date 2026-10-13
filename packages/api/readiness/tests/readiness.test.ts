@@ -29,7 +29,7 @@ import {
   trageSondenEin,
   zerlegeRedisAdresse,
 } from '../src/index.ts'
-import { erzeugeRegister } from '../../health/src/index.ts'
+import { erzeugeRegister, statusFuer } from '../../health/src/index.ts'
 import type { Sondenregister } from '../../health/src/index.ts'
 
 /** Eine Attrappe, die aufgezeichnete Abfragen beantwortet. */
@@ -362,58 +362,83 @@ describe('apply — die Einhängung selbst', () => {
 
   test('ohne Adressen trägt es keine Sonde ein, ohne zu scheitern', async () => {
     // **Der ehrliche Fall.** Keine Sonde heißt nicht „kaputt", sondern „nichts
-    // zu prüfen" — `/api/ready` meldet dann `ok` mit leerer Sondenliste.
-    const ctx = new Context()
-    const register = erzeugeRegister({ haltbarkeitMs: 0 })
-    ctx.provide('readyness', register)
-    await new Promise((r) => setTimeout(r, 50))
-
-    const vorher = {
-      DATABASE_URL: process.env['DATABASE_URL'],
-      REDIS_URL: process.env['REDIS_URL'],
-      PMH_READY_DATABASE_URL: process.env['PMH_READY_DATABASE_URL'],
-      PMH_READY_REDIS_URL: process.env['PMH_READY_REDIS_URL'],
-    }
-    for (const k of Object.keys(vorher)) delete process.env[k]
-    try {
-      ctx.plugin({ name, inject, apply })
-      await new Promise((r) => setTimeout(r, 200))
-      expect(register.alle()).toHaveLength(0)
-      // **Und das Register meldet ehrlich „ungeprueft".** Ohne Adressen wird
-      // nichts geprüft — dann darf die Antwort nicht „ok" sein (Befund B20 der
-      // Aufsicht). Das Einhängen selbst ist trotzdem gelungen; es scheitert nicht.
-      const { lauf } = await register.pruefe()
-      expect(lauf.zustand).toBe('ungeprueft')
-      expect(lauf.sonden).toHaveLength(0)
-    } finally {
-      for (const [k, v] of Object.entries(vorher)) {
-        if (v !== undefined) process.env[k] = v
+    // zu prüfen" — `/api/ready` meldet dann `ungeprueft` mit HTTP 503.
+    await ohneAdressen(async () => {
+      const ctx = new Context()
+      const register = erzeugeRegister({ haltbarkeitMs: 0 })
+      ctx.provide('readyness', register)
+      await new Promise((r) => setTimeout(r, 50))
+      try {
+        ctx.plugin({ name, inject, apply })
+        await new Promise((r) => setTimeout(r, 200))
+        expect(register.alle()).toHaveLength(0)
+        // **Und das Register meldet ehrlich „ungeprueft".** Ohne Adressen wird
+        // nichts geprüft — dann darf die Antwort nicht „ok" sein (Befund B20 der
+        // Aufsicht). Das Einhängen selbst ist trotzdem gelungen; es scheitert nicht.
+        const { lauf } = await register.pruefe()
+        expect(lauf.zustand).toBe('ungeprueft')
+        expect(lauf.sonden).toHaveLength(0)
+        expect(statusFuer(lauf.zustand)).toBe(503)
+      } finally {
+        await (ctx as unknown as { fiber: { dispose: () => Promise<void> } }).fiber.dispose()
       }
-      await (ctx as unknown as { fiber: { dispose: () => Promise<void> } }).fiber.dispose()
-    }
+    })
   })
 
-  test('das Abhängen nimmt die Sonden wieder heraus', async () => {
-    const ctx = new Context()
-    const register = erzeugeRegister({ haltbarkeitMs: 0 })
-    ctx.provide('readyness', register)
-    await new Promise((r) => setTimeout(r, 50))
-    const vorher = process.env['REDIS_URL']
-    process.env['REDIS_URL'] = 'redis://127.0.0.1:6379'
-    try {
-      const fiber = ctx.plugin({ name, inject, apply }) as unknown as {
-        dispose: () => Promise<void>
-      }
-      await new Promise((r) => setTimeout(r, 200))
-      expect(register.alle()).toHaveLength(1)
-      await fiber.dispose()
-      await new Promise((r) => setTimeout(r, 100))
-      expect(register.alle()).toHaveLength(0)
-    } finally {
-      if (vorher === undefined) delete process.env['REDIS_URL']
-      else process.env['REDIS_URL'] = vorher
-      await (ctx as unknown as { fiber: { dispose: () => Promise<void> } }).fiber.dispose()
+  /**
+   * Räumt die Adressvariablen weg, die die Umgebung mitbringen könnte.
+   *
+   * **Der Fehler, der diese Funktion erzwungen hat.** Diese Prüfungen hatten die
+   * Sondenzahl **fest** erwartet (`toHaveLength(1)`) und dabei stillschweigend
+   * vorausgesetzt, daß **nur** `REDIS_URL` gesetzt ist. Wer `DATABASE_URL` in der
+   * Shell exportiert — und das tut man, wenn man die Bereitschaft von Hand
+   * prüft —, bekam **zwei** Sonden und damit eine rote Prüfung.
+   *
+   * Das ist eine Prüfung, die von der Umgebung abhängt: sie ist grün auf einem
+   * frischen Rechner und rot auf einem benutzten. **Beides sagt nichts über den
+   * Code.** Die Prüfung setzt die Umgebung jetzt selbst — und stellt sie danach
+   * wieder her.
+   */
+  const ADRESS_VARIABLEN = ['DATABASE_URL', 'REDIS_URL', 'PMH_READY_DATABASE_URL', 'PMH_READY_REDIS_URL']
+
+  /** Führt einen Körper mit **leeren** Adressvariablen aus. */
+  async function ohneAdressen(koerper: () => Promise<void>): Promise<void> {
+    const vorher: Record<string, string | undefined> = {}
+    for (const name of ADRESS_VARIABLEN) {
+      vorher[name] = process.env[name]
+      delete process.env[name]
     }
+    try {
+      await koerper()
+    } finally {
+      for (const [name, wert] of Object.entries(vorher)) {
+        if (wert === undefined) delete process.env[name]
+        else process.env[name] = wert
+      }
+    }
+  }
+
+  test('das Abhängen nimmt die Sonden wieder heraus', async () => {
+    await ohneAdressen(async () => {
+      const ctx = new Context()
+      const register = erzeugeRegister({ haltbarkeitMs: 0 })
+      ctx.provide('readyness', register)
+      await new Promise((r) => setTimeout(r, 50))
+      // Genau EINE Adresse: nur Redis. Die Prüfung setzt das jetzt selbst.
+      process.env['REDIS_URL'] = 'redis://127.0.0.1:6379'
+      try {
+        const fiber = ctx.plugin({ name, inject, apply }) as unknown as {
+          dispose: () => Promise<void>
+        }
+        await new Promise((r) => setTimeout(r, 200))
+        expect(register.alle().map((s) => s.name)).toEqual([SONDE_REDIS])
+        await fiber.dispose()
+        await new Promise((r) => setTimeout(r, 100))
+        expect(register.alle()).toHaveLength(0)
+      } finally {
+        await (ctx as unknown as { fiber: { dispose: () => Promise<void> } }).fiber.dispose()
+      }
+    })
   })
 })
 

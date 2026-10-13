@@ -18,11 +18,102 @@ Ein Agent-Kern in TypeScript auf Bun, dessen Fähigkeiten als **Units** steckbar
 alles andere (Sandbox, Werkzeuge, Dienste, Datenbanken) liegt als **eigener Prozess**
 dahinter, nicht im Core.
 
-## Starten
+## Installieren
+
+**Windows** (Eingabeaufforderung, PowerShell oder Doppelklick):
+
+```bat
+git clone https://github.com/LangLi7/prometheus-harness.git
+cd prometheus-harness
+scripts\install.cmd
+```
+
+**Linux / macOS:**
+
+```bash
+git clone https://github.com/LangLi7/prometheus-harness.git
+cd prometheus-harness
+./scripts/install.sh
+```
+
+Der Installer prüft und **installiert**, was fehlt (Bun, und auf Linux die
+Basispakete `curl`/`git`), legt `.env` mit erzeugten Geheimnissen an, startet
+PostgreSQL und Redis, wartet auf deren Gesundheit, führt die Migrationen aus und
+prüft den Typecheck. Danach:
+
+```bash
+bun run start
+```
+
+**Kein pnpm, kein Build-Schritt.** Bun führt TypeScript direkt aus; „bauen" heißt
+hier `bun run typecheck` (gemessen: **18 Pakete, 1,8 s**).
+
+### Warum es drei Einstiege gibt
+
+| Datei | Wofür | Vorbedingung |
+|---|---|---|
+| `scripts/install.cmd` | **Windows, immer** | keine |
+| `scripts/install.ps1` | Windows, aus PowerShell | Ausführungsrichtlinie erlaubt Skripte |
+| `scripts/install.sh` | Linux, macOS | `sh` (überall vorhanden) |
+
+Auf einem Windows-Rechner mit `CurrentUser = Restricted` **lädt** eine `.ps1`
+nicht:
+
+```
+& : Die Datei …\install.ps1 kann nicht geladen werden, weil das Ausführen
+    von Skripten auf diesem System deaktiviert ist.
+```
+
+Deshalb ist `.cmd` der Einstieg, den die Anleitung nennt: **es ist von der
+Richtlinie nicht betroffen**. Es ruft `install.ps1` mit
+`-ExecutionPolicy Bypass` — nur für diesen Aufruf, ohne die Einstellung des
+Rechners zu ändern.
+
+**Die Logik steht in `scripts/install.mjs` — einmal.** Die drei Dateien sind
+dünne Hüllen. Eine zweite Fassung in `sh` wäre eine zweite Wahrheit, die
+auseinandergeht.
+
+### Was der Installer **nicht** automatisch installiert
+
+**Docker** auf Windows: der offizielle Weg ist Docker Desktop — ein Programm mit
+Oberfläche und eigener Lizenz. Es still zu installieren wäre eine Entscheidung
+über die Lizenz des Benutzers. Der Installer nennt den Befehl und bricht sichtbar
+ab. Auf Linux nennt er `curl -fsSL https://get.docker.com | sudo sh`, führt es
+aber nicht aus: das braucht root.
+
+### Unter WSL2
+
+`docker` ist dort **im PATH** und der Dienst trotzdem **nicht erreichbar**
+(gemessen am 13.10.2026). Der Installer erkennt das und sagt, was zu tun ist:
+Docker Desktop starten, dann *Settings → Resources → WSL Integration* für diese
+Distribution einschalten — oder den Windows-Einstieg `scripts\install.cmd`
+benutzen.
+
+### Wenn der Stapel schon läuft
+
+PostgreSQL legt Rollen und Kennwörter beim **ersten** Start des
+Datenverzeichnisses an. Ein späterer Start mit anderen Werten ändert sie **nicht**.
+Der Installer liest deshalb die Kennwörter des **laufenden** Containers und
+übernimmt sie in `.env` — neue würden den Zugang zur bestehenden Datenbank
+zerstören. Passt eine vorhandene `.env` nicht zum Container, bricht er mit beiden
+Auswegen ab (übernehmen oder `docker compose down -v`) statt zu raten.
+
+### Ohne Datenbank aufsetzen
+
+```bash
+scripts\install.cmd --ohne-stapel      # Windows
+./scripts/install.sh --ohne-stapel     # Linux
+```
+
+Für den Typecheck und die Tests ohne Datenbank. Die 14 PostgreSQL-Prüfungen
+werden dann **übersprungen** und melden das — nicht bestanden.
+
+### Von Hand, wenn der Installer nicht paßt
 
 ```bash
 bun install                     # Abhängigkeiten (Bun, nicht pnpm)
 docker compose up -d            # PostgreSQL 17 + pgvector, Redis 7
+bun scripts/migrate.mjs         # Schema anlegen (Rolle pmh_owner)
 bun run start                   # Host starten, Adresse steht am Ende der Ausgabe
 ```
 

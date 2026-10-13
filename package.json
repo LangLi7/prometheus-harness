@@ -10,16 +10,18 @@
     "apps/cli"
   ],
   "scripts": {
-    "typecheck": "bun run --filter '*' typecheck",
+    "typecheck": "bun run scripts/typecheck.mjs",
+    "build": "bun run scripts/typecheck.mjs",
     "test": "bun test",
-    "build": "bun run --filter '*' build",
+    "install:alles": "bun run scripts/install.mjs",
     "start": "bun run scripts/start.mjs",
     "start:web": "bun run scripts/start.mjs --no-go",
     "start:go": "bun run scripts/start.mjs --no-host",
+    "migrate": "bun run scripts/migrate.mjs",
     "lint": "echo \"lint: noch nicht verdrahtet — es ist kein Linter konfiguriert (siehe docs/backend-ts.md)\""
   },
   "devDependencies": {
-    "@types/bun": "^1.3.4",
+    "@types/bun": "^1.4.3",
     "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "postgres": "^3.4.9"
   },

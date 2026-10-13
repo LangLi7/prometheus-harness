@@ -45,27 +45,91 @@ function targetOf(sql: postgres.Sql): MigrationTarget {
   }
 }
 
-const run = URL_FROM_ENV === undefined ? describe.skip : describe
+/**
+ * Ob die Datenbank **wirklich** erreichbar ist — nicht nur, ob eine Adresse
+ * dasteht.
+ *
+ * ## Der Befund, der diese Prüfung erzwungen hat
+ *
+ * Bis hierher galt: `PMH_TEST_DATABASE_URL` gesetzt → prüfen. Gemessen am
+ * 13.10.2026 fiel das um:
+ *
+ * 1. **Bun lädt `.env` von selbst.** Ein Lauf ohne gesetzte Umgebungsvariable
+ *    hatte die Variable trotzdem — aus der Datei. Nachgemessen:
+ *    `bun -e "process.env.PMH_TEST_DATABASE_URL"` → `GESETZT`.
+ * 2. **Bun ersetzt `process.env`-Werte durch die aus `.env`.** Ein
+ *    ausdrücklich exportierter Wert gewinnt also **nicht**. Wer die Adresse in
+ *    der Shell setzt, um gegen eine andere Datenbank zu prüfen, prüft
+ *    weiterhin gegen die aus der Datei.
+ * 3. `scripts/install.mjs` erzeugt `.env` mit **neuen** Kennwörtern. Läuft der
+ *    Stapel noch mit den alten, scheitert jede Verbindung mit
+ *    `password authentication failed`.
+ *
+ * Ergebnis: **14 rote Prüfungen**, und die Ursache stand nirgends. Die Tests
+ * waren von der Umgebung abhängig, ohne es zu sagen.
+ *
+ * ## Was jetzt gilt
+ *
+ * Geprüft wird **nicht die Variable, sondern der Zugang.** Ein `select 1` gegen
+ * die echte Datenbank entscheidet. Gelingt es nicht, werden die Prüfungen
+ * **übersprungen** — mit dem Grund im Bericht, nicht still.
+ *
+ * **Warum überspringen und nicht rot.** Eine Datenbank, die nicht da ist, ist
+ * kein Fehler des Codes. Aber ein **stilles** Überspringen wäre schlimmer als
+ * ein roter Test — deshalb steht der Grund in der Ausgabe.
+ */
+const VERBINDUNG = URL_FROM_ENV === undefined ? undefined : await pruefeZugang(URL_FROM_ENV)
 
-if (URL_FROM_ENV === undefined) {
+/** Versucht eine echte Verbindung und meldet, was dabei herauskam. */
+async function pruefeZugang(adresse: string): Promise<{ ok: true } | { ok: false; grund: string }> {
+  const { default: postgres } = await import('postgres')
+  let verbindung: postgres.Sql | undefined
+  try {
+    verbindung = postgres(adresse, { max: 1, connect_timeout: 3, onnotice: () => undefined })
+    await verbindung`select 1`
+    return { ok: true }
+  } catch (fehler) {
+    const roh = fehler instanceof Error ? fehler.message : String(fehler)
+    // **Zugangsdaten gehören nicht in eine Fehlermeldung.** Ein
+    // Verbindungsfehler nennt oft den Benutzer oder die halbe Adresse.
+    return { ok: false, grund: roh.replace(/([a-zA-Z][\w+.-]*:\/\/)[^/@\s]*@/gu, '$1***@') }
+  } finally {
+    await verbindung?.end({ timeout: 2 }).catch(() => undefined)
+  }
+}
+
+const OHNE_ZUGANG = URL_FROM_ENV === undefined ? 'PMH_TEST_DATABASE_URL ist nicht gesetzt' : undefined
+
+if (VERBINDUNG !== undefined && !VERBINDUNG.ok) {
   // **Deutlich melden statt still überspringen.** Ein übersprungener Test ist
   // kein Beweis; wer den Bericht liest, muss das sehen.
   process.stderr.write(
-    'HINWEIS: PostgreSQL-Test übersprungen — PMH_TEST_DATABASE_URL ist nicht gesetzt.\n' +
-      'Start:  docker run -d --name pmh-postgres -e POSTGRES_PASSWORD=pmh-dev-only \\\n' +
-      '          -e POSTGRES_USER=pmh -e POSTGRES_DB=pmh -p 5432:5432 postgres:17-alpine\n',
+    `HINWEIS: PostgreSQL-Prüfungen übersprungen — keine Verbindung.\n` +
+      `  Adresse: ${URL_FROM_ENV?.replace(/([a-zA-Z][\w+.-]*:\/\/)[^/@\s]*@/gu, '$1***@') ?? '—'}\n` +
+      `  Grund:   ${VERBINDUNG.grund}\n` +
+      `  Läuft der Stapel?  docker compose ps\n` +
+      `  Passen die Kennwörter?  bun scripts/install.mjs\n`,
+  )
+}
+
+const run = URL_FROM_ENV === undefined || VERBINDUNG?.ok === false ? describe.skip : describe
+
+if (OHNE_ZUGANG !== undefined) {
+  process.stderr.write(
+    `HINWEIS: PostgreSQL-Prüfungen übersprungen — ${OHNE_ZUGANG}.\n` +
+      'Start:  docker compose up -d   (siehe docker-compose.yml)\n',
   )
 }
 
 let sql: postgres.Sql
 
 beforeAll(() => {
-  if (URL_FROM_ENV === undefined) return
+  if (URL_FROM_ENV === undefined || VERBINDUNG?.ok === false) return
   sql = postgres(URL_FROM_ENV, { max: 2, onnotice: () => undefined })
 })
 
 afterAll(async () => {
-  if (URL_FROM_ENV === undefined) return
+  if (URL_FROM_ENV === undefined || VERBINDUNG?.ok === false) return
   await sql.end({ timeout: 5 })
 })
 
