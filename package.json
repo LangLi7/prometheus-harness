@@ -7,12 +7,15 @@
   "workspaces": [
     "packages/*/*",
     "apps/web",
-    "apps/host"
+    "apps/cli"
   ],
   "scripts": {
     "typecheck": "bun run --filter '*' typecheck",
     "test": "bun test",
     "build": "bun run --filter '*' build",
+    "start": "bun run scripts/start.mjs",
+    "start:web": "bun run scripts/start.mjs --no-go",
+    "start:go": "bun run scripts/start.mjs --no-host",
     "lint": "echo \"lint: noch nicht verdrahtet — es ist kein Linter konfiguriert (siehe docs/backend-ts.md)\""
   },
   "devDependencies": {

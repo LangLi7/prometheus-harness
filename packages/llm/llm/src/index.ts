@@ -38,8 +38,46 @@ export interface ToolResultPart {
   readonly content: string
 }
 
+/**
+ * Ein Werkzeugaufruf, den das **Modell** angefordert hat, als Teil einer
+ * Assistenten-Nachricht.
+ *
+ * **Warum das ein eigener Teil ist und nicht bloß ein Feld der Antwort.** Die
+ * Antwort eines Modells ist flüchtig; die Nachricht bleibt. Im Verlauf muss
+ * stehen, **welche** Werkzeuge das Modell verlangt hat, sonst kann der nächste
+ * Aufruf die zugehörigen Ergebnisse nicht zuordnen.
+ *
+ * **Der Befund, der zu diesem Typ geführt hat (gemessen, 13.10.2026).** Ohne
+ * ihn war der Verlauf nach der ersten Werkzeugrunde **nicht mehr
+ * rekonstruierbar**: der Adapter übersetzte eine Assistenten-Nachricht mit
+ * Werkzeugergebnissen zu `{role: 'assistant', content: ''}` — die
+ * `tool_call_id`s der folgenden `role: 'tool'`-Nachrichten zeigten damit auf
+ * Aufrufe, die im Verlauf nicht mehr existierten. OpenAI-kompatible Anbieter
+ * beantworten das mit `400 Bad Request`. Der Fehler wäre **erst bei der ersten
+ * echten Werkzeugrunde** aufgetreten, also genau dort, wo er am teuersten ist.
+ *
+ * **Der Ersatzweg, der verworfen wurde:** die Argumente als JSON in den Text
+ * schreiben. Dann stünde im Verlauf ein Text, den das Modell selbst nie gesagt
+ * hat — eine Fälschung des Protokolls. Ein Verlauf, der nicht zeigt, was
+ * wirklich geschah, ist als Grundlage für Wiederaufnahme und Prüfung wertlos.
+ *
+ * **Der Preis dieser Entscheidung, ausdrücklich benannt:** der Seam hat einen
+ * fünften Wert in {@link MessagePart} bekommen. Er beschreibt **keine**
+ * Anbieter-Eigenheit — „das Modell hat ein Werkzeug verlangt" gilt für jeden
+ * Anbieter —, aber die Umsetzung ins Anbieterformat (`tool_calls`) gehört
+ * weiterhin in den Adapter.
+ */
+export interface ToolCallPart {
+  readonly type: 'tool-call'
+  /** Die Kennung, unter der das Ergebnis zurückkommt. */
+  readonly callId: string
+  readonly name: string
+  /** Argumente, bereits geparst. Ein ungültiges Argument-JSON ergibt `{}`. */
+  readonly arguments: Readonly<Record<string, unknown>>
+}
+
 /** Ein Teil einer Nachricht. */
-export type MessagePart = TextPart | ToolResultPart
+export type MessagePart = TextPart | ToolResultPart | ToolCallPart
 
 /** Eine Nachricht im Verlauf. */
 export interface Message {
@@ -217,6 +255,117 @@ export function messageText(message: Message): string {
     .filter((part): part is TextPart => part.type === 'text')
     .map((part) => part.text)
     .join('')
+}
+
+/** Baut einen Werkzeugaufruf-Teil aus einem Aufruf des Modells. */
+export function toolCallPart(call: ToolCall): ToolCallPart {
+  return { type: 'tool-call', callId: call.id, name: call.name, arguments: call.arguments }
+}
+
+/** Alle Werkzeugaufrufe einer Nachricht, in Reihenfolge. */
+export function messageToolCalls(message: Message): readonly ToolCallPart[] {
+  return message.parts.filter((part): part is ToolCallPart => part.type === 'tool-call')
+}
+
+/** Alle Werkzeugergebnisse einer Nachricht, in Reihenfolge. */
+export function messageToolResults(message: Message): readonly ToolResultPart[] {
+  return message.parts.filter((part): part is ToolResultPart => part.type === 'tool-result')
+}
+
+/**
+ * Baut die Assistenten-Nachricht zu einer Antwort.
+ *
+ * **Warum diese Nachricht verlustfrei sein muss.** Sie ist der einzige Ort, an
+ * dem festgehalten wird, was das Modell verlangt hat. Fehlt ein Werkzeugaufruf
+ * hier, ist das zugehörige Ergebnis im nächsten Aufruf nicht mehr zuordenbar
+ * (siehe {@link ToolCallPart}). Diese Funktion ist deshalb der **eine** Weg,
+ * eine Assistenten-Nachricht zu bauen — nicht eine von mehreren.
+ *
+ * @param result - die Antwort des Anbieters
+ * @returns die Nachricht mit Text- und Werkzeugaufruf-Teilen; ohne Text gibt es
+ *   genau einen Teil je Aufruf
+ */
+export function assistantMessage(result: CompletionResult): Message {
+  const parts: MessagePart[] = []
+  if (result.text !== '') parts.push({ type: 'text', text: result.text })
+  for (const call of result.toolCalls) parts.push(toolCallPart(call))
+  return { role: 'assistant', parts }
+}
+
+/** Baut eine Nachricht mit Werkzeugergebnissen. */
+export function toolResultMessage(results: readonly ToolResultPart[]): Message {
+  return { role: 'tool', parts: [...results] }
+}
+
+/** Ein Befund über einen Verlauf, der nicht an einen Anbieter gehen darf. */
+export interface HistoryProblem {
+  /** Die Nachricht, an der der Befund hängt (Index im Verlauf). */
+  readonly index: number
+  /** Was fehlt oder doppelt ist. */
+  readonly problem: 'result-without-call' | 'duplicate-call-id' | 'duplicate-result'
+  /** Die betroffene Aufruf-Kennung. */
+  readonly callId: string
+}
+
+/**
+ * Prüft einen Verlauf auf Zuordenbarkeit der Werkzeugergebnisse.
+ *
+ * **Warum das geprüft wird, obwohl der Loop den Verlauf selbst baut.** Ein
+ * Verlauf kommt aus zwei Quellen: dem Loop und der **Persistenz**. Ein
+ * wiederaufgenommener Verlauf ist die Stelle, an der eine fehlende
+ * Assistenten-Nachricht am teuersten ist — der Fehler zeigt sich dann als
+ * `400` des Anbieters, ohne zu sagen, welcher Schritt kaputt ist. Diese
+ * Funktion macht daraus einen benannten Befund.
+ *
+ * **Sie prüft drei Dinge:** jedes Ergebnis hat einen vorangehenden Aufruf,
+ * keine Aufruf-Kennung kommt zweimal vor, keine Ergebniskennung zweimal.
+ *
+ * @param messages - der zu prüfende Verlauf
+ * @returns die Befunde; leer heißt zuordenbar
+ */
+export function checkHistory(messages: readonly Message[]): readonly HistoryProblem[] {
+  const problems: HistoryProblem[] = []
+  const calls = new Set<string>()
+  const results = new Set<string>()
+
+  for (let index = 0; index < messages.length; index += 1) {
+    const message = messages[index]
+    if (message === undefined) continue
+
+    for (const call of messageToolCalls(message)) {
+      if (calls.has(call.callId)) {
+        problems.push({ index, problem: 'duplicate-call-id', callId: call.callId })
+      }
+      calls.add(call.callId)
+    }
+
+    for (const result of messageToolResults(message)) {
+      if (!calls.has(result.callId)) {
+        problems.push({ index, problem: 'result-without-call', callId: result.callId })
+      }
+      if (results.has(result.callId)) {
+        problems.push({ index, problem: 'duplicate-result', callId: result.callId })
+      }
+      results.add(result.callId)
+    }
+  }
+
+  return problems
+}
+
+/**
+ * Wirft, wenn ein Verlauf nicht an einen Anbieter gehen darf.
+ *
+ * @param messages - der zu prüfende Verlauf
+ * @throws LlmError der Art `malformed` mit allen Befunden im Text
+ */
+export function assertUsableHistory(messages: readonly Message[]): void {
+  const problems = checkHistory(messages)
+  if (problems.length === 0) return
+  const detail = problems
+    .map((problem) => `[${problem.index}] ${problem.problem}: ${problem.callId}`)
+    .join(', ')
+  throw new LlmError('malformed', `Verlauf ist nicht zuordenbar: ${detail}`, { retryable: false })
 }
 
 /**

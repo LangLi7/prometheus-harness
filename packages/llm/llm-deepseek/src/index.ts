@@ -26,6 +26,8 @@ import {
   LlmError,
   isAbortCause,
   messageText,
+  messageToolCalls,
+  messageToolResults,
   type CompletionRequest,
   type CompletionResult,
   type FinishReason,
@@ -201,6 +203,22 @@ function numberOr(value: unknown, fallback: number): number {
  * erlaubt Ergebnisse auch als Teil einer Nachricht; hier wird daraus die
  * Anbieterform — die Übersetzung gehört in den Adapter, nicht in den Loop.
  *
+ * **Der Befund, der diese Funktion geändert hat (gemessen, 13.10.2026).** In der
+ * ersten Fassung wurde eine Assistenten-Nachricht **nur als Text** übersetzt:
+ *
+ * ```ts
+ * if (text !== '' || message.role !== 'assistant') messages.push({ role, content: text })
+ * ```
+ *
+ * Eine Assistenten-Nachricht, die ausschließlich einen Werkzeugaufruf trug,
+ * wurde damit **ganz weggelassen**; trug sie Text und Aufruf, ging nur der Text
+ * hinaus. Die folgenden `role: 'tool'`-Nachrichten zeigten dann auf
+ * `tool_call_id`s, die in der Nutzlast nicht existierten — OpenAI-kompatible
+ * Anbieter beantworten das mit `400 Bad Request`. Der Fehler wäre erst bei der
+ * **ersten echten Werkzeugrunde** aufgetreten. Jetzt wird der Aufruf mit
+ * übersetzt (`tool_calls` mit `function.arguments` als **String**, wie es die
+ * Schnittstelle verlangt).
+ *
  * @param request - die Seam-Anfrage
  * @returns der JSON-Body
  */
@@ -208,14 +226,33 @@ export function buildBody(request: CompletionRequest): Record<string, unknown> {
   const messages: Record<string, unknown>[] = []
   for (const message of request.messages) {
     const text = messageText(message)
-    const toolResults = message.parts.filter((part) => part.type === 'tool-result')
-    if (toolResults.length > 0 && message.role === 'tool') {
+    const toolResults = messageToolResults(message)
+
+    if (message.role === 'tool' && toolResults.length > 0) {
       for (const part of toolResults) {
-        if (part.type !== 'tool-result') continue
         messages.push({ role: 'tool', tool_call_id: part.callId, content: part.content })
       }
       continue
     }
+
+    const calls = messageToolCalls(message)
+    if (calls.length > 0) {
+      // Die Argumente gehen als **String** hinaus: die Schnittstelle erwartet
+      // JSON als Text, nicht als verschachteltes Objekt.
+      messages.push({
+        role: message.role,
+        content: text,
+        tool_calls: calls.map((call) => ({
+          id: call.callId,
+          type: 'function',
+          function: { name: call.name, arguments: JSON.stringify(call.arguments ?? {}) },
+        })),
+      })
+      continue
+    }
+
+    // Eine leere Assistenten-Nachricht ohne Aufruf wird **weggelassen**: sie
+    // trägt nichts, und ein Anbieter darf an ihr keinen Anstoß nehmen.
     if (text !== '' || message.role !== 'assistant') {
       messages.push({ role: message.role, content: text })
     }

@@ -1,0 +1,16 @@
+{
+  "name": "@prometheus-harness/agent-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Werkzeug-Registry des Agent-Loops: Namen, Beschreibungen, Parameter und die eine Ausführungsfunktion — anbieter-unabhängig, mit fail-closed Ausführung unbekannter Werkzeuge.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/llm": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

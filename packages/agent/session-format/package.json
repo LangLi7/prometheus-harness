@@ -1,0 +1,16 @@
+{
+  "name": "@prometheus-harness/session-format",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Session-Format v1: der Verlauf als Folge von Ereignissen in JSON-Zeilen. Jede Zeile ist für sich lesbar, jede trägt eine Versionsnummer, und ein unbekanntes Ereignis bricht die Wiederaufnahme nicht ab.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/llm": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

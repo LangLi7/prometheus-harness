@@ -514,6 +514,98 @@ derselbe Laufzeit-Grenzbefund wie `node-addon-require-builtin` (`docs/risks.md` 
 **t40 wird deshalb NICHT als `completed` geführt.** Die vier offenen Punkte (P7.7–P7.10)
 stehen namentlich im Nachweis unter §6.
 
+**Nachtrag 13.10.2026 (spätere Sitzung):** Der Launcher-Lauf meldet jetzt **acht**
+fehlende Plugins statt sieben, und `hmr` steht weiterhin darunter:
+
+```
+[host] pmh: startup failed: 1 required plugin did not activate
+[host] Failed plugins (8): hmr
+[host]   Error: --expose-internals is required for HMR service
+```
+
+Die Patch-Zeile `{ id: 'hmr', disabled: true }` (P7.6) führt also **nicht** dazu, dass
+`hmr` aus den fehlenden Pflicht-Einträgen verschwindet. Ob die Zeile nicht greift oder ob
+ein **deaktivierter** Eintrag als „nicht aktiviert" gezählt wird, ist **nicht geklärt** und
+bleibt offen. Der zweite Befund derselben Sitzung: `bun run typecheck` und `bun install`
+scheitern in dieser Umgebung an einer **Sandkasten-Grenze** (benannte Pipes für erfasste
+Kindprozesse, `EPERM`), nicht am Code — `bun install` lief nach ausdrücklicher Freigabe mit
+`exit 0`. Einzelheiten: [`kleinste-kette-nachweis.md`](kleinste-kette-nachweis.md) §5.
+
+---
+
+## P8 · Kleinste Kette — LLM-Seam → Anbieter → Wiederholung → Loop → Session
+
+**Phase: `Nachweis offen` (13.10.2026)** · Nachweis:
+[`kleinste-kette-nachweis.md`](kleinste-kette-nachweis.md)
+
+**Was das Paket ist.** Der Gegenstand des vorigen Übergabepunkts: „`llm-retry` →
+danach der Agent-Loop" — und alles, was zur **ersten vollständigen Kette** gehört.
+Acht neue Pakete, 262 Tests, alle Typechecks `exit 0`, plus ein durchgehender Test,
+der die Kette von der Nutzlast über die Wiederholung und den Loop bis zur
+Wiederaufnahme aus der Datei fährt.
+
+| # | Punkt | Stand |
+|---|---|---|
+| P8.1 | `packages/llm/llm-retry` — Wiederholung mit begrenztem Rückzug (`LlmError.retryable`) | **belegt** — 41 Tests, exit 0 |
+| P8.2 | `packages/llm/token-meter` — Zählung **mit Herkunft** (`reported`/`estimated`/`mixed`) | **belegt** — 37 Tests, exit 0 |
+| P8.3 | `packages/core/agent-tools` — Werkzeug-Registry, Fehler werden zum Ergebnis | **belegt** — 19 Tests (in `agent-loop.test.ts`) |
+| P8.4 | `packages/core/agent-loop` — Turn-/Step-Zustandsmaschine | **belegt** — 48 Tests, exit 0 |
+| P8.5 | `packages/agent/session-format` — Ereignisse, JSON-Zeilen, toleranter Leser, Falten | **belegt** — 41 Tests, exit 0 |
+| P8.6 | `packages/agent/session-persistence-jsonl` — Anhängen in Reihenfolge, Wiederaufnahme | **belegt** — 36 Tests, exit 0 |
+| P8.7 | **Durchgehender Nachweis** der Kette mit dem echten Adapter gegen eine Attrappe | **belegt** — 6 Tests, exit 0 |
+| P8.8 | Behebung **Fehler 1**: Assistenten-Nachricht verlor die Werkzeugaufrufe (`400` beim Anbieter) | **belegt** — Seam + Adapter + 3 Tests |
+| P8.9 | Behebung **Fehler 2**: Sitzung verlor Benutzereingabe und Systemanweisung | **belegt** — 2 neue Ereignisarten + Tests |
+| P8.10 | **Formatversion 4** der Vorlage mit den vier Migrationen (v0→v4) | **offen** — dieses Paket beginnt bei `v1`; die Migrationskette ist **leer** und meldet das begründet (§6 des Nachweises) |
+| P8.11 | Verdichtung (Compaction) | **offen** — eigenes Paket; `token-meter` zählt, kürzt nicht |
+| P8.12 | Aufruf gegen den **echten** Anbieter | **offen** — kein Schlüssel in dieser Umgebung; kein Nachweis gegen den Dienst |
+| P8.13 | Kette in der **Anwendung** (Host startet und bedient sie) | **offen** — hängt an P7.7 |
+| P8.14 | `unit.json` für die neuen Pakete | **offen — Widerspruch** (`units/README.md` verlangt Units unter `units/`; die vorhandenen Pakete liegen unter `packages/`). Nicht vom Executor zu entscheiden |
+| P8.15 | Ein **echtes** Werkzeug (Dateisystem, Shell) an der Registry | **offen** — nur eine Attrappe geprüft |
+
+**Warum P8 auf `Nachweis offen` steht und nicht auf `abgenommen`.** Die acht Pakete
+sind gemessen; die Kette ist gemessen. Aber sie läuft **nicht in der Anwendung**,
+es gibt **keinen** Aufruf gegen den echten Dienst, und die Formatversion der
+Vorlage ist **nicht** erreicht. Nach der eigenen Regel dieses Registers („ein
+Paket ohne Nachweis wird nicht abgenommen") heißt das: `Nachweis offen`.
+
+### Die zwei Fehler, die kein Pakettest finden konnte
+
+Beide saßen in der **Lücke zwischen Loop und Persistenz** — und beide hätten sich
+in einer laufenden Sitzung als „der Agent verhält sich seltsam" gezeigt, nicht
+als Absturz:
+
+1. **Der Seam hatte keinen Typ für „das Modell hat ein Werkzeug verlangt".**
+   Die Assistenten-Nachricht ging ohne Aufrufe hinaus; die folgenden
+   `role: 'tool'`-Nachrichten zeigten auf Aufrufe, die die Nutzlast nicht kannte
+   → `400 Bad Request` beim Anbieter, **erst bei der ersten echten Werkzeugrunde**.
+   Behoben durch `ToolCallPart` im Seam, `assistantMessage()` als einzigen Weg,
+   `checkHistory()` als Prüfung und die Übersetzung in `buildBody`.
+2. **Die Sitzung verlor die Benutzereingabe und die Systemanweisung.**
+   Der Loop meldete den Benutzertext nur als Feld von `turn-start`; der Verlauf
+   aus der Datei begann mit einer Antwort auf eine Frage, die niemand mehr sieht.
+   Behoben durch die Ereignisse `system-prompt` und `user-input`.
+
+**Der Merksatz daraus:** sechs grüne Pakete sind **kein** Beweis für eine Kette.
+Was die Lücke prüft, ist nur ein Test, der **durch** die Lücke läuft.
+
+---
+
+## P9 · t40-Nachtrag — was in dieser Sitzung zu `t40` neu gemessen wurde
+
+**Phase: `Nachweis offen`** · gehört zu **P7**, steht hier nur, damit die neuen
+Messungen nicht in P7 hineinkorrigiert werden (Regel: kein Snapshot wird
+nachträglich korrigiert).
+
+| # | Punkt | Stand |
+|---|---|---|
+| P9.1 | Launcher-Lauf mit dem bestehenden `scripts/start.mjs` | **belegt** — der Launcher startet, der Host scheitert (§5/P7-Nachtrag) |
+| P9.2 | Zahl der fehlenden Plugins: **8** statt 7; `hmr` weiterhin darunter | **belegt** — Protokoll des Laufs |
+| P9.3 | Ursache der `hmr`-Meldung trotz `disabled: true` | **offen — nicht geklärt** |
+| P9.4 | `bun install` in dieser Umgebung | **belegt** — `EPERM` im Sandkasten, nach Freigabe `exit 0` (`2 packages installed`) |
+| P9.5 | `bun run typecheck` in dieser Umgebung | **belegt** — `Failed to start process` (Sandkasten, benannte Pipes). Ersatzweg: 13 Einzel-Typechecks, alle `exit 0` |
+| P9.6 | HTTP 200 des Hosts unter Windows nativ | **nicht erreicht** — hängt an P7.7 |
+| P9.7 | cmd-Nachweis, Ctrl+C, Waisenprozesse | **offen** |
+
 ## Geändert
 
 | Datum | Änderung | Grund |
@@ -545,3 +637,9 @@ stehen namentlich im Nachweis unter §6.
 | 2026-10-13 | **Befund: „5D" ist im Projekt nirgends definiert.** Suche über `docs` nach `5D\|4D\|360\|gimbal\|dolly\|quaternion\|koordinatensystem` → kein Treffer außer der Einstufung *nicht belegt* | Der Auftrag verlangte, vorhandene Spezifikationen „z. B. aus t36/t37" zu lesen — **t37 ist `pending`**. Deshalb wurde „5D" im Konzept §3 in **drei Begriffe** zerlegt (N-dim Raum / 3D-Welt / semantische Stufe) und vom Betreiber entschieden: **beides**, Modul für n Dimensionen **und** sichtbare 3D-Welt |
 | 2026-10-13 | **Eigener Denkfehler korrigiert:** `newdawn0-recherche.md` §4 hatte aus der Messung geschlossen, das kachel-lokale Bezugssystem sei „nicht die Lösung" | **Falsch** — die Messung hat es nie geprüft (die Bedingung „beide Punkte in derselben Kachel" war nie erfüllt, deshalb stand dort „andere Kachel"). Zutreffend ist: **Stufe → Kachelindex → lokaler Versatz.** Korrektur in §4 eingetragen, Herleitung in Konzept §2.3/§2.4 |
 | 2026-10-13 | **Eigener Messfehler korrigiert:** die erste Messreihe führte „rebased (Chunk-Ursprung)" als Lösung — die Messung zeigt, dass es an mehreren Stellen **schlechter** ist als naiv | Der Fehler hängt an der **größten** float32-Zahl, nicht am Verfahren. Die Probe wurde auf vier Wege umgestellt (naiv / kameranah / chunklokal) und die Zahlen in §4 des Berichts offengelegt. Die erste Fassung der Probe hätte eine falsche Bauempfehlung gestützt |
+| 2026-10-13 | **P8 angelegt: die kleinste Kette ist gebaut und belegt** — acht neue Pakete (`llm-retry`, `token-meter`, `agent-tools`, `agent-loop`, `session-format`, `session-persistence-jsonl` + Erweiterungen an `llm`/`llm-deepseek`), **262 Tests grün**, 13 Einzel-Typechecks `exit 0`, plus ein **durchgehender** Test der Kette | Der vorige Bericht endete mit einem Übergabepunkt: „`llm-retry` → danach der Agent-Loop". Der ist jetzt erledigt — und darüber hinaus die ganze Kette bis zur Wiederaufnahme aus der Datei. Beleg: [`kleinste-kette-nachweis.md`](kleinste-kette-nachweis.md) |
+| 2026-10-13 | **Zwei echte Fehler gefunden und behoben, die kein Pakettest finden konnte:** (1) der Seam hatte keinen Typ für „das Modell hat ein Werkzeug verlangt" → die Nutzlast zeigte auf unbekannte `tool_call_id`s → `400` beim Anbieter, **erst bei der ersten echten Werkzeugrunde**; (2) die Sitzung verlor **Benutzereingabe** und **Systemanweisung** | Beide saßen in der **Lücke zwischen Loop und Persistenz** — genau der Stelle, die kein Pakettest abdeckt. Gemessen: der durchgehende Test faltete nach dem ersten Turn **eine** Nachricht aus der Datei statt zwei. Merksatz im Register: *sechs grüne Pakete sind kein Beweis für eine Kette* |
+| 2026-10-13 | **Der Loop führt jetzt die Turn-Nummer und meldet den Benutzertext als eigenes Ereignis** (`user-input`, `system-prompt`, `turn`, `firstTurn`, `events()`) | Ohne die Turn-Nummer hießen alle Zeilen einer fortgesetzten Sitzung „Turn 1"; ohne `user-input` fehlte die Frage im Verlauf; ohne `system-prompt` arbeitete der fortgesetzte Agent unter **anderen** Anweisungen als der erste |
+| 2026-10-13 | **Eigener Messfehler korrigiert: die Testzahlen galten je Ordner, nicht je Datei.** `bun test packages/llm/llm` meldet **94** Tests statt 20, weil der Pfad als **Teilzeichenkette** geprüft wird und `packages/llm/llm-deepseek` mitzählt | Aufgefallen beim Gegenzählen für den Nachweis. Die Tabelle in `kleinste-kette-nachweis.md` §1 nennt jetzt je **Testdatei** gemessene Zahlen. Eine Ordnungszahl, die mehr Tests meldet als es gibt, ist genau die Art Beleg, die dieses Register verbietet |
+| 2026-10-13 | **P9 angelegt: neue Messungen zu `t40`, ohne P7 zu überschreiben.** Der Launcher-Lauf meldet **8** fehlende Plugins (statt 7), `hmr` weiterhin darunter, trotz `disabled: true` (P7.6). Ursache **nicht geklärt** | Die Zahl aus `windows-start-nachweis.md` §5 ist damit überholt; nach der eigenen Regel wird kein Snapshot nachträglich korrigiert, sondern ein neuer Befund daneben gestellt. `t40` bleibt offen |
+| 2026-10-13 | **P8.10 ausdrücklich offen: Formatversion 4 der Vorlage ist NICHT erreicht.** Dieses Paket beginnt bei `v1`; die Migrationskette ist **leer**, und `migrateEvents` meldet jede ältere Zeile als `skipped` **mit Grund** | Die Feldbedeutungen der Vorlage-Fassungen 0–4 sind ohne Vorlage-Daten nicht rekonstruierbar. Eine erfundene Migration würde fremde Verläufe **stillschweigend verfälschen** — sie sähe erfolgreich aus und wäre falsch. Ehrlich offen ist besser als scheinbar fertig |

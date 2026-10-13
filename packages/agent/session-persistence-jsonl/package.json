@@ -1,0 +1,16 @@
+{
+  "name": "@prometheus-harness/session-persistence-jsonl",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Persistenz des Session-Formats: eine Sitzung ist eine Datei mit JSON-Zeilen. Anhängen ist gepuffert und in Reihenfolge, Lesen ist fehlertolerant, Wiederaufnahme prüft die Kette und meldet, was fehlt.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/session-format": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

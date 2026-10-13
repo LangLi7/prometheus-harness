@@ -117,6 +117,9 @@ Der frühere Auftrag „je 18–46 Dateien an einen Arbeiter" ist damit ersetzt.
 | [status/2026-10-12.md](status/2026-10-12.md) | Der erste Snapshot: Harness läuft (HTTP 200), Repository erstmals versioniert, und die sechs offenen Lücken L1–L6 |
 | [status/arbeitspakete.md](status/arbeitspakete.md) | Das Register der Arbeitspakete mit eigener Todo-Liste je Paket, Phase und Nachweis — die Regel „abgehakt wird nur Belegtes" |
 | [status/newdawn0-recherche.md](status/newdawn0-recherche.md) | Außenrecherche zur Zoom-/Chunk-Technik: NewDawn0 hat dazu **nichts** (70 Repos geprüft), jede der acht Behauptungen einzeln eingestuft — plus die gemessene float32-Grenze als eigentlicher Befund |
+| [status/kleinste-kette-nachweis.md](status/kleinste-kette-nachweis.md) | **Der Nachweis der ersten vollständigen Kette**: Seam → Anbieter → Wiederholung → Loop → Werkzeuge → Sitzung → Persistenz → Wiederaufnahme. Acht Pakete, 262 Tests grün, je Testdatei gemessen — samt der zwei Fehler, die erst der durchgehende Test fand, und der namentlichen Liste dessen, was **nicht** belegt ist |
+| [status/windows-start-nachweis.md](status/windows-start-nachweis.md) | Der Windows-Start (`t40`): drei `bun`-Einträge, zwei defekt; der Launcher funktioniert, der Host kommt unter Windows nativ **nicht** hoch (HTTP 200 nur unter WSL2) |
+| [status/plugin-export-nachweis.md](status/plugin-export-nachweis.md) | Der Rundlauf des Unit-Exports: Export → Import → Rückexport mit **identischem** Digest (`sha256:ac37e0ec…`) |
 
 ## 8. Weitere Ablage
 

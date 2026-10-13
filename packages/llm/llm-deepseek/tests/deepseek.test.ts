@@ -162,6 +162,68 @@ describe('Nutzlast bauen', () => {
     expect(tools[0]?.type).toBe('function')
     expect(tools[0]?.function.name).toBe('read')
   })
+
+  test('übersetzt einen Werkzeugaufruf der Assistenten-Nachricht mit (Befund vom 13.10.2026)', () => {
+    const body = buildBody({
+      model: 'm',
+      messages: [
+        { role: 'user', parts: [{ type: 'text', text: 'lies a.txt' }] },
+        {
+          role: 'assistant',
+          parts: [
+            { type: 'text', text: 'Ich sehe nach.' },
+            { type: 'tool-call', callId: 'c1', name: 'read', arguments: { path: 'a.txt' } },
+          ],
+        },
+        { role: 'tool', parts: [{ type: 'tool-result', callId: 'c1', content: 'Inhalt' }] },
+      ],
+    })
+    const messages = body.messages as {
+      role: string
+      content: string
+      tool_call_id?: string
+      tool_calls?: { id: string; type: string; function: { name: string; arguments: string } }[]
+    }[]
+    expect(messages).toHaveLength(3)
+    const assistant = messages[1]
+    expect(assistant?.role).toBe('assistant')
+    expect(assistant?.content).toBe('Ich sehe nach.')
+    expect(assistant?.tool_calls).toHaveLength(1)
+    expect(assistant?.tool_calls?.[0]?.id).toBe('c1')
+    expect(assistant?.tool_calls?.[0]?.type).toBe('function')
+    expect(assistant?.tool_calls?.[0]?.function.name).toBe('read')
+    // Die Argumente gehen als **String** hinaus — die Schnittstelle verlangt das.
+    expect(assistant?.tool_calls?.[0]?.function.arguments).toBe('{"path":"a.txt"}')
+    // Und die Zuordnung stimmt: das Ergebnis zeigt auf einen Aufruf, der da ist.
+    expect(messages[2]?.tool_call_id).toBe(assistant?.tool_calls?.[0]?.id)
+  })
+
+  test('lässt eine leere Assistenten-Nachricht ohne Aufruf weiterhin weg', () => {
+    const body = buildBody({
+      model: 'm',
+      messages: [
+        { role: 'user', parts: [{ type: 'text', text: 'x' }] },
+        { role: 'assistant', parts: [{ type: 'text', text: '' }] },
+      ],
+    })
+    expect(body.messages).toHaveLength(1)
+  })
+
+  test('eine Assistenten-Nachricht mit Aufruf, aber ohne Text wird nicht weggelassen', () => {
+    const body = buildBody({
+      model: 'm',
+      messages: [
+        { role: 'assistant', parts: [{ type: 'tool-call', callId: 'c9', name: 'n', arguments: {} }] },
+        { role: 'tool', parts: [{ type: 'tool-result', callId: 'c9', content: 'ok' }] },
+      ],
+    })
+    const messages = body.messages as { role: string; content: string; tool_calls?: unknown[] }[]
+    // Vor der Korrektur stand hier genau **eine** Nachricht: die tool-Nachricht
+    // zeigte damit auf einen Aufruf, den die Nutzlast nicht kannte.
+    expect(messages).toHaveLength(2)
+    expect(messages[0]?.tool_calls).toHaveLength(1)
+    expect(messages[0]?.content).toBe('')
+  })
 })
 
 describe('HTTP-Fehler zuordnen', () => {

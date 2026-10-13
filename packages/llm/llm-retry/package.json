@@ -1,0 +1,16 @@
+{
+  "name": "@prometheus-harness/llm-retry",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Wiederholung hinter dem LLM-Seam: ein Anbieter wird umschlossen, wiederholbare Fehler werden mit begrenztem Rückzug erneut versucht. Entscheidet nichts über Fehlerarten hinaus — die Tatsache kommt vom Adapter, die Entscheidung liegt hier.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/llm": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

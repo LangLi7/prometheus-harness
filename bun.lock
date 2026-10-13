@@ -9,8 +9,8 @@
         "@typescript/native-preview": "^7.0.0-dev.20260707.2",
       },
     },
-    "apps/host": {
-      "name": "@prometheus-harness/host",
+    "apps/cli": {
+      "name": "@prometheus-harness/cli",
       "version": "0.0.0",
       "dependencies": {
         "@deepseek-ai/cordis": "~4.0.5-alpha.1",
@@ -44,9 +44,64 @@
         "vite": "^8.3.4",
       },
     },
+    "packages/agent/session-format": {
+      "name": "@prometheus-harness/session-format",
+      "version": "0.1.0",
+      "dependencies": {
+        "@prometheus-harness/llm": "workspace:*",
+      },
+    },
+    "packages/agent/session-persistence-jsonl": {
+      "name": "@prometheus-harness/session-persistence-jsonl",
+      "version": "0.1.0",
+      "dependencies": {
+        "@prometheus-harness/session-format": "workspace:*",
+      },
+    },
+    "packages/core/agent-loop": {
+      "name": "@prometheus-harness/agent-loop",
+      "version": "0.1.0",
+      "dependencies": {
+        "@prometheus-harness/agent-tools": "workspace:*",
+        "@prometheus-harness/llm": "workspace:*",
+        "@prometheus-harness/token-meter": "workspace:*",
+      },
+    },
+    "packages/core/agent-tools": {
+      "name": "@prometheus-harness/agent-tools",
+      "version": "0.1.0",
+      "dependencies": {
+        "@prometheus-harness/llm": "workspace:*",
+      },
+    },
     "packages/core/scope": {
       "name": "@prometheus-harness/scope",
       "version": "0.0.0",
+    },
+    "packages/llm/llm": {
+      "name": "@prometheus-harness/llm",
+      "version": "0.1.0",
+    },
+    "packages/llm/llm-deepseek": {
+      "name": "@prometheus-harness/llm-deepseek",
+      "version": "0.1.0",
+      "dependencies": {
+        "@prometheus-harness/llm": "workspace:*",
+      },
+    },
+    "packages/llm/llm-retry": {
+      "name": "@prometheus-harness/llm-retry",
+      "version": "0.1.0",
+      "dependencies": {
+        "@prometheus-harness/llm": "workspace:*",
+      },
+    },
+    "packages/llm/token-meter": {
+      "name": "@prometheus-harness/token-meter",
+      "version": "0.1.0",
+      "dependencies": {
+        "@prometheus-harness/llm": "workspace:*",
+      },
     },
     "packages/units/unit-export": {
       "name": "@prometheus-harness/unit-export",
@@ -760,13 +815,29 @@
 
     "@oxc-project/types": ["@oxc-project/types@0.153.0", "", {}, "sha512-jSNrRIyvPVLL5E1z/tS5zLAprosGz/FuI1PWwEOz59j3E4TTTzSpqKb/RDGqJhhW0QHYISGXxq582wGx6T11Tw=="],
 
+    "@prometheus-harness/agent-loop": ["@prometheus-harness/agent-loop@workspace:packages/core/agent-loop"],
+
+    "@prometheus-harness/agent-tools": ["@prometheus-harness/agent-tools@workspace:packages/core/agent-tools"],
+
     "@prometheus-harness/atomic-write": ["@prometheus-harness/atomic-write@workspace:packages/util/atomic-write"],
+
+    "@prometheus-harness/cli": ["@prometheus-harness/cli@workspace:apps/cli"],
 
     "@prometheus-harness/home-paths": ["@prometheus-harness/home-paths@workspace:packages/util/home-paths"],
 
-    "@prometheus-harness/host": ["@prometheus-harness/host@workspace:apps/host"],
+    "@prometheus-harness/llm": ["@prometheus-harness/llm@workspace:packages/llm/llm"],
+
+    "@prometheus-harness/llm-deepseek": ["@prometheus-harness/llm-deepseek@workspace:packages/llm/llm-deepseek"],
+
+    "@prometheus-harness/llm-retry": ["@prometheus-harness/llm-retry@workspace:packages/llm/llm-retry"],
 
     "@prometheus-harness/scope": ["@prometheus-harness/scope@workspace:packages/core/scope"],
+
+    "@prometheus-harness/session-format": ["@prometheus-harness/session-format@workspace:packages/agent/session-format"],
+
+    "@prometheus-harness/session-persistence-jsonl": ["@prometheus-harness/session-persistence-jsonl@workspace:packages/agent/session-persistence-jsonl"],
+
+    "@prometheus-harness/token-meter": ["@prometheus-harness/token-meter@workspace:packages/llm/token-meter"],
 
     "@prometheus-harness/unit-export": ["@prometheus-harness/unit-export@workspace:packages/units/unit-export"],
 

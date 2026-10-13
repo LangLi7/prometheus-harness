@@ -1,0 +1,16 @@
+{
+  "name": "@prometheus-harness/token-meter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Token-Zählung hinter dem LLM-Seam: meldet der Anbieter eine Zählung, wird sie übernommen; sonst wird geschätzt — und die Schätzung wird als Schätzung gekennzeichnet, nie als Messung ausgegeben.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/llm": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}
