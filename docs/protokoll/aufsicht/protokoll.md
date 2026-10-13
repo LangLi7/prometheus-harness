@@ -1876,6 +1876,78 @@ Hausregel H7** („kein Wert in eine Datei, der nicht vorher in einer Shell gest
 anderen einfordere. Berichtigt: Lageblatt, Abschnittsüberschrift, die Zeitstempel der JSONL-Zeilen
 dieses Takts und die drei Zeilen der Korrekturtabelle.
 
+## 2026-10-13 14:14–14:30 — Dreiunddreißigster Takt: **die laufende Datenbank benutzt die Kennwörter aus dem Repository** (B26) — und die Antwort auf die Betreiberfrage nach dem Fortschritt (B27)
+
+**Der Anlass kam vom Betreiber:** *„Ich habe das Gefühl, nichts wurde groß geändert im Ziel — unter 2 GB,
+während die Quelle mehr als das ist."* Beim Nachsehen fand ich zugleich neue Arbeit: einen **Installer**
+(`install.mjs` 20 KB, `install-teile.mjs`, `install.ps1/.cmd/.sh`, `migrate.mjs`, `typecheck.mjs`, dazu
+`install-teile.test.mjs`) und eine **`.env` mit 8.170 B**.
+
+**1. Die `.env` ist sauber abgeschirmt — geprüft, nicht angenommen.** `.gitignore:56-58` (`.env`,
+`.env.*`, `!.env.example`), `git check-ignore -v .env` greift, `git log --all -- .env` ist leer: die
+Datei steht in **keiner** Historie. Dafür habe ich ein neues Werkzeug gebaut,
+[`werkzeuge/leck-pruefung.mjs`](werkzeuge/leck-pruefung.mjs), das **echte** Werte aus `.env` und beiden
+Credential-Speichern gegen **jeden** der **53** Commits, den verfolgten Arbeitsbaum und die unverfolgten
+Dateien hält. Ergebnis: **14 echte Geheimwerte, 0 Treffer** — ein **Negativbeweis** (auch für die vier
+43-Zeichen-Kennwörter, die um 14:16 in der `.env` standen).
+
+**2. Und dann der Befund: die laufende Datenbank authentifiziert mit veröffentlichten Kennwörtern.**
+Gemessen, nicht vermutet:
+
+```
+.env  POSTGRES_SUPERUSER_PASSWORD 19  == .env.example 19   identisch
+.env  PMH_OWNER_PASSWORD          19  == .env.example 19   identisch
+.env  PMH_APP_PASSWORD            17  == .env.example 17   identisch
+.env  PMH_READONLY_PASSWORD       19  == .env.example 19   identisch
+.env  PGADMIN_PASSWORD            21  == .env.example 21   identisch
+.env  PMH_MASTER_KEY              43  != .env.example  0   erzeugt ✓
+
+docker exec -e PGPASSWORD=<Wert aus .env> pmh-postgres psql -h 127.0.0.1 -U pmh_app -d pmh -tAc "select current_user"
+  → pmh_app          (dasselbe für pmh_owner → pmh_owner)
+```
+
+**3. Die Ursache ist ein Konstruktionsfehler, und er sitzt in `docker-compose.yml`.** Das Init-Skript
+prüft scharf — `: "${PMH_OWNER_PASSWORD:?PMH_OWNER_PASSWORD fehlt}"` — aber Compose **liefert immer
+einen Wert**: `${PMH_OWNER_PASSWORD:-bitte-aendern-owner}` (fünf solcher Stellen). **Die Prüfung kann nie
+greifen**, und weil PostgreSQL Kennwörter **nur beim ersten Start** eines leeren Datenverzeichnisses
+anlegt (`pmh-postgres` erstellt **14:25:48**, Volume `pmh-postgres-data` von **12:05** — die Init-Skripte
+liefen nicht erneut), wird der veröffentlichte Platzhalter **dauerhaft**.
+
+**4. Was ich dem Autor ausdrücklich nicht vorwerfe.** Er kennt den Fall, hat ihn **selbst gemessen** und
+aufgeschrieben (`install-teile.mjs:303-320`, mit dem echten Fehlertext *„password authentication failed
+for user pmh_owner"*), und er hat die richtige Konsequenz gezogen: `pruefeKennwortAbgleich` **vergleicht
+nur und meldet**, `kennwortKonfliktHinweise` nennt beide Auswege **mit Preis** — und begründet, warum er
+nichts ändert: *„Das Kennwort im Container zu ändern wäre ein Eingriff in fremde Daten; das Volume zu
+löschen wäre der Verlust aller Daten. Beides gehört einem Menschen, nicht einem Installationsskript."*
+**Das ist besser als das, was ich empfohlen hätte.** Der Ist-Zustand ist **Weg A** — eine dokumentierte
+Entscheidung. Was fehlt: **nichts führt aus Weg A wieder heraus.**
+
+**5. Schwere: M, nicht H — gemessen.** Alle Ports sind nur an die Schleife gebunden
+(`5432/tcp -> 127.0.0.1:5432`, `6379/tcp -> 127.0.0.1:6379`, netstat bestätigt). Aus dem Netz ist die
+Datenbank nicht erreichbar. Im lokalen Modell bleibt jeder Prozess dieser Maschine und jeder Container im
+Compose-Netz — also auch **pgAdmin** (Profil `tools`), das als Datenbank-Client den ganzen Bestand sieht.
+
+**6. Die Betreiberfrage, mit Zahlen beantwortet (B27).** Ziel **1.867 MB** / 52.323 Dateien, Quelle
+**9.029 MB** / 110.468 Dateien. **Aber: 8.642 MB (96 %) der Quelle sind `node_modules`** eines
+pnpm-Monorepos, und im Ziel sind **1.490 MB** `node_modules` + Rust-`target` — eigener Quelltext im Ziel
+ist **~4 MB**. **Ein Größenvergleich zweier Bäume vergleicht Installiertes, nicht Geleistetes.** Die
+echten Zahlen: **54 Commits in 15 Stunden** (erster Commit 12.10. 23:27), seitdem **1.224 Dateien ·
++42.338 / −97.781 Zeilen**, eigener Quelltext **~147 Dateien / ~49.200 Zeilen**, **51 Testdateien**.
+Dass der Zielbaum **kleiner** ist, ist der Zweck: **97.781 gelöschte Zeilen** sind der abgeworfene
+Ballast der Vorlage.
+
+**Zwei eigene Fehler, beide korrigiert:**
+
+- Mein **neues** Werkzeug meldete beim ersten Lauf *„2 Werte sind ein Leck"* — `PGADMIN_PASSWORD` und
+  `REDIS_URL`. **Beide sind Vorlagenwerte** und stehen deshalb in `.env.example`/`README.md`. Ich habe
+  das Werkzeug um die Trennung **Geheimnis ↔ Vorlagenwert** erweitert (`--vorlage`); der zweite Lauf
+  meldet **0 Lecks**. Ein Scanner ohne Vergleichsbasis schlägt bei jedem Standardwert Alarm.
+- Beim Einfügen der Zeilen **B26/B27** in die Lage-Tabelle habe ich als Anker die **ganze B25-Zeile**
+  benutzt und sie nicht wiederholt — **B25 war weg**. Sofort bemerkt und wiederhergestellt. Das ist der
+  **dritte** Fall derselben Ursache in dieser Sitzung (12:29, 13:56, jetzt); die Lehre stand schon
+  zweimal hier und hat nicht geholfen. Was hilft, ist die Handlung: **die Tabelle nach jeder Änderung
+  vollständig ausgeben und die Nummernfolge prüfen.**
+
 ---
 
 ## Offen / nächster Takt
@@ -1906,6 +1978,8 @@ dieses Takts und die drei Zeilen der Korrekturtabelle.
 | **B23** Die Aufräumfunktion des Port-Tests läuft nie | **behoben — ein Ein-Wort-Rest** | `function BeendeBaum([int]$pid)` → **`[int]$wurzelPid`**, und der Rumpf ist **konsistent** nachgezogen (Zeilen 101/102). Das war die gefährliche Hälfte: ein halber Fix hätte nicht **nichts** getan, sondern den **eigenen Prozessbaum** beendet. **Dazu ungefragt besser:** die Portprüfung prüft jetzt den **gewählten** Port, und die **Waisen werden nachgezählt** (189–198, mit Eltern-PID). **Offen (je ein Wort):** `$fehler++` in den Zeilen **182/186/197** steht **im Funktionsrumpf** und zählt nicht (`$script:fehler` kommt nirgends vor) — darunter die neue Waisenprüfung; und Zeile **218** gibt den Fehlertext **in die Pipeline**, weshalb der Schutz „dieser Test prueft nichts" nie greift | **Nachgetragen 14:08:** die undichte Rückgabe in `BelegePort` ist **behoben** — und besser als verlangt: er fand die tiefere Ursache (`port-halter.mjs` schreibt seinen Fehler nach **stdout**, deshalb war `.err` leer) und gibt jetzt beide Dateien mit Exit-Code aus (Zeile 216–227). **Offen bleibt:** `$fehler++` in **182, 186, 197** steht weiter im Funktionsrumpf von `StarteHost` (151–201) → die neue Waisenprüfung zählt nicht |
 | **B24** Abnahme des `flock`-Vertrags nicht ausführbar | **offen — ein Befehl in WSL** | `cargo test -p pmh-flock` ist auf Windows **grün mit `running 0 tests`**: `#![cfg(unix)]` kompiliert die **15** Vertragstests weg. In WSL Ubuntu fehlen `cargo`/`rustc`. **Damit ist der Vertrag auf dieser Maschine nirgends geprüft** — „umgesetzt" bleibt Behauptung, bis ein POSIX-Host mit Rust da ist. Dazu: `target/debug/pmh-flock.exe` **existiert** (242.176 B), der Satz „unter Windows wird es nicht gebaut" ist falsch; das **Verhalten** selbst ist vorbildlich (`ERR_FLOCK_UNSUPPORTED_PLATFORM`, Exit 125) |
 | **B25** Startkommando der Unit `pmh-flock` tut nichts | **offen, latent** | `--hold-ms 0` → `sleep(0)` → Sperre sofort frei. `units/README.md` Zeile 63 nennt `entry` aber „**wie der Dienst gestartet wird**". Systemisch: **10 von 10** Dienst-Einträgen nennen einen **nackten Binärnamen**, **keiner** im `PATH`; mehrere sind Einmalaufrufe als `service` — **dieselbe Lücke wie B18**. Solange `pmh-supervisor` fehlt, führt niemand sie aus (gemessen: `entry.command` wird nur gelesen) |
+| **B26** Die laufende Datenbank benutzt die Kennwörter aus dem Repository | **offen, dringlich — zwei Empfehlungen** | Die vier Rollenkennwörter in `.env` sind **identisch** mit den Vorlagenwerten, und `pmh_app`/`pmh_owner` melden sich **über TCP** damit an. Ursache: `docker-compose.yml` liefert **Ausweichwerte** (`:-bitte-aendern-*`, fünf Stellen) und entwertet die scharfe Prüfung in `docker/02-roles.sh`; PostgreSQL setzt Kennwörter nur beim **ersten** Init, und das Volume blieb (Container 14:25 neu, Volume von 12:05). **Schwere M, nicht H — gemessen:** alle Ports nur an `127.0.0.1`. **Der Autor kennt den Fall** und sein Werkzeug meldet nur (richtig); es fehlt der Schritt **aus Weg A heraus**. Empfehlung: (1) `${VAR:?…}` statt Ausweichwert in compose, (2) laufenden Stapel **drehen** (`ALTER ROLE … PASSWORD` als `pmh_admin`), `.env` nachziehen, Migrationen laufen lassen |
+| **B27** Die Größe der Bäume misst den Fortschritt nicht | **beantwortet (Auskunft)** | Ziel **1.867 MB**, Quelle **9.029 MB** — aber **8.642 MB (96 %)** der Quelle sind `node_modules`, und im Ziel sind **1.490 MB** `node_modules` + Rust-`target`; eigener Quelltext **~4 MB**. Die echten Zahlen: **54 Commits in 15 Stunden**, **1.224 Dateien · +42.338 / −97.781 Zeilen** seit dem ersten Commit, **~147 Dateien / ~49.200 Zeilen** eigener Quelltext, **51 Testdateien**. Der Zielbaum **muss** kleiner sein — 97.781 gelöschte Zeilen sind abgeworfener Ballast |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |

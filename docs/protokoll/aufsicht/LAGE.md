@@ -2,7 +2,7 @@
 
 > **Was das ist.** Die Kurzfassung von [`befunde.md`](befunde.md) und [`protokoll.md`](protokoll.md):
 > was **jetzt** zu tun ist, was erledigt ist, was **nicht** geprüft werden konnte. Stand:
-> **2026-10-13, 14:12**. Die Einzelbelege stehen in `befunde.md` — hier steht nur, was eine
+> **2026-10-13, 14:30**. Die Einzelbelege stehen in `befunde.md` — hier steht nur, was eine
 > Entscheidung braucht.
 >
 > **Wer das schreibt.** Die **Aufsicht** (Wächter-Rolle), nicht der bauende Agent. Jede Zahl hier ist
@@ -36,6 +36,8 @@ nächsten Lauf. **Stand 14:12 gemessen:** null Hosts, null Launcher, **0,0 MB**.
 | **B23** | **behoben** (`$wurzelPid` in `b75c9f6`), **ein Ein-Wort-Rest offen** (siehe §0) | Die Kernursache ist weg — und sie war gefährlicher, als sie aussah: ein halber Fix hätte das **eigene Skript** beendet. Die zwei Reste kosten die **Sichtbarkeit**: die neue Waisenprüfung zählt nicht, und der Schutz „dieser Test prueft nichts" greift nie | `Select-String -Path scripts\port-test.ps1 -Pattern '\$fehler\+\+|\$script:fehler'` |
 | **B24** | **Die 15 Vertragstests von `native/flock` sind auf dieser Maschine nirgends ausführbar** — Windows: `running 0 tests` (grün, weil `#![cfg(unix)]`); WSL Ubuntu: **kein `cargo`/`rustc`**. Ein grüner `cargo test` beweist hier **nichts** über den Vertrag | Ohne diesen Nachweis trägt „der Vertrag ist umgesetzt" nur als **Behauptung**. **Ein Befehl schließt die Lücke** (rustup in WSL) — danach laufen 15 Tests statt 0. **Dazu:** `target/debug/pmh-flock.exe` **existiert**, der Satz „unter Windows wird es nicht gebaut" ist damit falsch (gemessen, das Verhalten selbst ist vorbildlich) | `wsl -d Ubuntu -- sh -c 'command -v cargo \|\| echo FEHLT'` |
 | **B25** | **Das deklarierte Startkommando der Unit `pmh-flock` tut nichts:** `--hold-ms 0` schläft 0 ms → Sperre sofort frei, Prozess endet. `units/README.md` Zeile 63 definiert `entry` als „**wie der Dienst gestartet wird**" | **Latent, nicht akut** — niemand führt die Kommandos aus, solange `pmh-supervisor` fehlt. **Systemisch:** **10** von 10 Dienst-Einträgen nennen einen **nackten Binärnamen**, **0** davon sind im `PATH`; mehrere sind **Einmalaufrufe** als `service` deklariert — **dieselbe Lücke wie B18** im Launcher. Fix: `--daemon` und die Unterscheidung Einmalaufruf/Dienst im Format | `Get-Command pmh-flock` → nicht gefunden |
+| **B26** | **Die laufende Datenbank authentifiziert mit Kennwörtern, die im Repository stehen.** Gemessen: die vier Rollenkennwörter in `.env` sind **identisch** mit den Vorlagenwerten, und `pmh_app`/`pmh_owner` melden sich **über TCP** damit an. Ursache: `docker-compose.yml` liefert **Ausweichwerte** (`:-bitte-aendern-*`) und entwertet damit die scharfe Prüfung in `docker/02-roles.sh` (`: "${…:?}"`) — und PostgreSQL setzt Kennwörter **nur beim ersten Init**, das Volume blieb (Container 14:25 neu, Volume von 12:05) | **Aus dem Netz nicht erreichbar** (alle Ports an `127.0.0.1` gebunden — gemessen), also **M**, nicht H. Lokal bleibt: jeder Prozess/Benutzer dieser Maschine und jeder Container im Compose-Netz, also auch **pgAdmin**. Der Autor **kennt** den Fall und hat ihn selbst gemessen; sein Werkzeug **meldet nur** und ändert nichts (richtig). Was fehlt: **nichts führt aus Weg A („Kennwörter übernehmen") wieder heraus** | 1) In compose `${VAR:?…}` statt `:-bitte-aendern-…` (fünf Stellen) · 2) laufenden Stapel **drehen** statt löschen: `ALTER ROLE … PASSWORD` als `pmh_admin`, dann `.env` nachziehen |
+| **B27** | **Auskunft auf die Betreiberfrage „da wurde doch nichts geändert".** Der Zielbaum ist **1.867 MB**, die Quelle **9.029 MB** — aber **8.642 MB (96 %) der Quelle sind `node_modules`** eines pnpm-Monorepos, und im Ziel sind **1.490 MB** `node_modules` + Rust-`target`. Eigener Quelltext im Ziel: **~4 MB.** | **Die Größe zweier Bäume vergleicht Installiertes, nicht Geleistetes.** Die echten Zahlen: **54 Commits in 15 Stunden**, seit dem ersten Commit **1.224 Dateien · +42.338 / −97.781 Zeilen**, eigener Quelltext **~147 Dateien / ~49.200 Zeilen**, **51 Testdateien**. Dass der Zielbaum **kleiner** ist, ist der Zweck (Ballast abwerfen) | `git -C C:\Users\Chang\prometheus-harness diff --shortstat (git rev-list --max-parents=0 HEAD) HEAD` |
 
 | **B22** | **erledigt** — die Waisen sind **erklärt** (B23), **aufgeräumt** und die Ursache ist **behoben**: um 13:41:50 noch **sechs** (1,13 GB, Alter bis 11,4 min), um 13:42 **null**; sein Lauf um 13:43 hinterließ **drei** weitere (591,1 MB, Ports 5780/5781/5790), auch die sind um **14:12 weg** (null Hosts, null Launcher, 0,0 MB). Der Nachzähl-Schritt, den ich empfohlen hatte, steht jetzt **im Skript** (Zeilen 189–198) | Sechs Hosts = sechs Ports, sechs Harness-Homes, **1,13 GB**; dazu blockierten sie die eigenen nächsten Läufe (Fall 1 fiel deshalb um). **Bleibt nützlich:** [`hilfen/waisen-aufraeumen.ps1`](hilfen/waisen-aufraeumen.ps1) als Netz — Herkunft entscheidet, das Alter siebt nur die Kinder eines laufenden Tests aus (Trockenlauf; `-Anwenden` beendet) |
 | **B16** | ~~**„API ausgefallen" ist nicht belegt.**~~ **ENTSCHIEDEN — die Behauptung ist widerlegt.** Angemeldet an ihrem **laufenden** Host antwortet `POST /api/goals/create` mit **HTTP 200 und JSON-RPC-Rahmen**: der Typert-Gateway **lebt**. Die README-Zeile „API des Cores ausgefallen" ist damit **falsch**, und die Begründung der Entscheidung „eigener Endpunktweg" („die Vorlage hat keine erreichbare API") **hinfällig** — die Entscheidung selbst bleibt legitim | Die eigene Sonde konnte es nicht sehen: ohne Anmeldung ist **jeder** `/api/*`-Pfad 401, mit Anmeldung sind ihre 19 **geratenen** Pfade 404. Nur ein **registrierter** Pfad antwortet. **Offen:** der WS-Pfad `/api/remote.mux` scheitert auf **beiden** Installationen schon beim Handschlag | `bun run docs\protokoll\aufsicht\werkzeuge\api-erreichbarkeit.mjs http://127.0.0.1:<port>` (mit Token) |
@@ -120,6 +122,32 @@ $c = (Get-Content "$tmp\Cargo.toml" -Raw) -replace '(?s)members = \[.*?\]', 'mem
 Set-Content "$tmp\Cargo.toml" -Value $c
 $env:CARGO_TARGET_DIR = "$tmp\target"
 cargo test -p pmh-flock --manifest-path "$tmp\Cargo.toml"   # Windows: contract.rs -> running 0 tests
+```
+
+**Leckprüfung** — echte Werte gegen **alle** Commits, den verfolgten Arbeitsbaum und die unverfolgten
+Dateien. `--vorlage` trennt veröffentlichte Standardwerte von Geheimnissen; **ohne diese Trennung meldet
+das Werkzeug jeden Platzhalter als Leck** (eigener Fehler um 14:20):
+
+```powershell
+cd C:\Users\Chang\prometheus-harness
+node docs\protokoll\aufsicht\werkzeuge\leck-pruefung.mjs C:\Users\Chang\prometheus-harness `
+  .env C:\Users\Chang\.dsh\.credentials.yaml C:\Users\Chang\.pmh\.credentials.yaml --vorlage .env.example
+```
+
+**Größe und Fortschritt zweier Bäume** — die Größe vergleicht Installiertes, nicht Geleistetes
+(Befund **B27**):
+
+```powershell
+foreach ($t in 'C:\Users\Chang\prometheus-harness','C:\Users\Chang\harness\prometheus-harness') {
+  foreach ($teil in '','node_modules','.git','target','docs','packages','services','native','apps') {
+    $p = if ($teil) { Join-Path $t $teil } else { $t }
+    if (-not (Test-Path $p)) { continue }
+    $f = Get-ChildItem $p -Recurse -File -Force -ErrorAction SilentlyContinue
+    "{0,-16} {1,-12} {2,7} Dateien {3,9:N0} MB" -f (Split-Path $t -Leaf), $teil, $f.Count, (($f | Measure-Object -Sum Length).Sum / 1MB)
+  }
+}
+git -C C:\Users\Chang\prometheus-harness rev-list --count HEAD
+git -C C:\Users\Chang\prometheus-harness diff --shortstat (git -C C:\Users\Chang\prometheus-harness rev-list --max-parents=0 HEAD) HEAD
 ```
 
 > **Zur Ausführungsrichtlinie.** Auf diesem Rechner steht `CurrentUser = Restricted` (und schlägt das

@@ -2029,6 +2029,156 @@ nachvollziehen kann. Das ist derselbe Maßstab, den ich an B15 angelegt habe.
 
 ---
 
+## B26 — Die **laufende** Datenbank authentifiziert mit **veröffentlichten** Kennwörtern — **M**
+
+**Anlass.** Der Betreiber fragte, ob im Zielbaum überhaupt etwas geschieht. Beim Nachsehen stieß ich auf
+eine neue `.env` (8.170 B, 14:09) und ein neues Installer-Skript. Die `.env` ist sauber abgeschirmt
+(`.gitignore:56`, nicht verfolgt, in **keiner** Historie) — aber ihr **Inhalt** ist das Problem.
+
+**Messung 1 — die Werte sind die der Vorlage** (nur Namen und Längen, keine Werte):
+
+| Schlüssel | `.env` | `.env.example` | identisch |
+|---|---|---|---|
+| `POSTGRES_SUPERUSER_PASSWORD` | 19 | 19 | **ja** |
+| `PMH_OWNER_PASSWORD` | 19 | 19 | **ja** |
+| `PMH_APP_PASSWORD` | 17 | 17 | **ja** |
+| `PMH_READONLY_PASSWORD` | 19 | 19 | **ja** |
+| `PGADMIN_PASSWORD` | 21 | 21 | **ja** |
+| `PMH_MASTER_KEY` | 43 | 0 (leer, mit Absicht) | nein — **erzeugt** ✓ |
+
+**Messung 2 — der laufende Stapel akzeptiert sie** (über TCP, nicht über den lokalen Socket):
+
+```
+docker exec -e PGPASSWORD=<Wert aus .env> pmh-postgres psql -h 127.0.0.1 -U pmh_app  -d pmh -tAc "select current_user"
+  → pmh_app
+dasselbe für pmh_owner
+  → pmh_owner
+```
+
+**Die Kennwörter der vier Rollen sind also genau die, die im Repository stehen** — sie erscheinen in
+`.env.example`, `docker-compose.yml` und `README.md`.
+
+**Messung 3 — warum das so bleibt.** PostgreSQL legt Rollen und Kennwörter **nur beim ersten Start**
+eines leeren Datenverzeichnisses an:
+
+```
+pmh-postgres  erstellt 2026-10-13T12:25:48Z      ← heute neu erzeugt
+Volume pmh-postgres-data   erstellt 2026-10-13T10:05:21Z   ← fünf Stunden älter
+```
+
+Der Container wurde neu erzeugt, **das Volume blieb** — die Init-Skripte liefen **nicht** erneut. Die
+Kennwörter stammen damit aus der Einrichtung um 12:05 (Ortszeit), und damals trug die `.env` die
+Vorlagenwerte.
+
+**Die Ursache, und sie ist ein Konstruktionsfehler.** `docker/02-roles.sh` prüft **scharf**:
+
+```bash
+: "${PMH_OWNER_PASSWORD:?PMH_OWNER_PASSWORD fehlt}"
+```
+
+… aber `docker-compose.yml` **liefert immer einen Wert**:
+
+```yaml
+PMH_OWNER_PASSWORD:    ${PMH_OWNER_PASSWORD:-bitte-aendern-owner}
+PMH_APP_PASSWORD:      ${PMH_APP_PASSWORD:-bitte-aendern-app}
+PMH_READONLY_PASSWORD: ${PMH_READONLY_PASSWORD:-bitte-aendern-lesen}
+POSTGRES_PASSWORD:     ${POSTGRES_SUPERUSER_PASSWORD:-bitte-aendern-admin}
+PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-bitte-aendern-pgadmin}
+```
+
+**Die Prüfung im Init-Skript kann deshalb nie greifen.** Der Ausweichwert ist der veröffentlichte
+Platzhalter — und weil Kennwörter nur beim ersten Init entstehen, wird er **dauerhaft**: der Stapel
+startet, der Installer meldet Erfolg, und die Datenbank behält ein Kennwort, das in jeder Kopie des
+Repositories steht.
+
+**Was ich dem Autor ausdrücklich **nicht** vorwerfe.** Er kennt diesen Fall, hat ihn **selbst gemessen**
+und aufgeschrieben (`install-teile.mjs`, Zeile 303–320: *„password authentication failed for user
+pmh_owner"*), und er hat die richtige Konsequenz gezogen: `pruefeKennwortAbgleich` **vergleicht nur und
+meldet**, und `kennwortKonfliktHinweise` sagt ausdrücklich, warum:
+
+> *„Das Kennwort im Container zu ändern wäre ein Eingriff in fremde Daten; das Volume zu löschen wäre der
+> Verlust aller Daten. Beides gehört einem Menschen, nicht einem Installationsskript."*
+
+Das ist **besser als das, was ich empfohlen hätte**. Der Ist-Zustand ist damit **Weg A** („die
+vorhandenen Kennwörter übernehmen, kein Datenverlust") — eine dokumentierte, bewusste Entscheidung.
+**Was der Entwurf nicht abdeckt:** Weg A ist ein **Notausgang**, und nichts führt aus ihm wieder heraus.
+Kein Schritt verlangt danach eine Änderung; die Installation meldet Erfolg und bleibt im unsicheren
+Zustand stehen.
+
+**Schwere: M, nicht H — gemessen.** Alle Ports sind **nur an die Schleife** gebunden:
+
+```
+pmh-postgres   5432/tcp -> 127.0.0.1:5432        netstat: TCP 127.0.0.1:5432  ABHÖREN
+pmh-redis      6379/tcp -> 127.0.0.1:6379        netstat: TCP 127.0.0.1:6379  ABHÖREN
+```
+
+Aus dem Netz ist die Datenbank **nicht** erreichbar. Im lokalen Bedrohungsmodell bleibt: jeder Prozess
+und jeder Benutzer dieser Maschine — und jeder Container im selben Compose-Netz, also auch **pgAdmin**
+(Profil `tools`), das als vollwertiger Datenbank-Client den ganzen Bestand sieht.
+
+**Empfehlung, zwei Teile — und der erste ist ein Wort je Zeile:**
+
+1. **In `docker-compose.yml` scharf machen statt ausweichen:** `${PMH_OWNER_PASSWORD:?PMH_OWNER_PASSWORD
+   fehlt in .env}` statt `:-bitte-aendern-owner` (fünf Stellen). Dann **kann** der Stapel ohne echte
+   `.env` nicht starten, die Falle entsteht nicht, und das `:?`-Muster steht schon im Init-Skript — es
+   wird nur von der Compose-Datei entwertet. **Ich ändere das nicht** (A3: erst einstufen, vollziehen tut
+   der Betreiber).
+2. **Für den laufenden Stapel: drehen statt löschen.** Die Kennwörter lassen sich ohne Datenverlust
+   ändern — als `pmh_admin`:
+   ```sql
+   ALTER ROLE pmh_owner    WITH PASSWORD '<neu>';
+   ALTER ROLE pmh_app      WITH PASSWORD '<neu>';
+   ALTER ROLE pmh_readonly WITH PASSWORD '<neu>';
+   ```
+   Die neuen Werte dann in `.env` eintragen und die Migrationen einmal laufen lassen — dann ist der
+   Zugang **belegt** und nicht nur behauptet.
+
+## B27 — Die **Größe** der Bäume misst den Fortschritt nicht: 94 % des Unterschieds sind Abhängigkeiten — **N (Auskunft)**
+
+**Die Frage des Betreibers.** *„Ich habe das Gefühl, nichts wurde groß geändert im Ziel —
+unter 2 GB, während die Quelle mehr als das ist."* Nachgemessen:
+
+| | Ziel `prometheus-harness` | Quelle `harness/prometheus-harness` |
+|---|---|---|
+| **Gesamt** | **1.867 MB** · 52.323 Dateien | **9.029 MB** · 110.468 Dateien |
+| davon `node_modules` | 792 MB · 29.031 | **8.642 MB · 82.037** |
+| davon `target` (Rust-Build) | 698 MB · 5.851 | — |
+| davon `docs` | 57 MB · 1.493 | 22 MB · 692 |
+| davon `apps` | 110 MB · 3.304 | 31 MB · 1.885 |
+| davon `packages` | **1 MB** · 89 | 205 MB · 19.540 (enthält verschachtelte `node_modules`) |
+| davon `services` | **1 MB** · 66 | — |
+
+**Der Satz, der die Frage beantwortet:** von den 9.029 MB der Quelle sind **8.642 MB (96 %)
+installierte Abhängigkeiten** eines pnpm-Monorepos. Der Zielbaum hat weniger davon installiert (Bun) und
+trägt stattdessen 698 MB Rust-Build-Artefakte. **Ein Größenvergleich zweier Bäume vergleicht also
+wesentlich Installiertes, nicht Geleistetes.** Im Ziel sind **1.490 der 1.867 MB** (80 %) `node_modules`
+und `target` — eigener Quelltext ist davon **~4 MB**.
+
+**Was tatsächlich geschehen ist** (dieselbe Minute gemessen):
+
+| Maß | Wert |
+|---|---|
+| Commits im Ziel | **54** |
+| erster Commit | **2026-10-12 23:27:06** — das Projekt ist **15 Stunden** alt |
+| Änderung seit dem ersten Commit | **1.224 Dateien · +42.338 / −97.781 Zeilen** |
+| gerade unversioniert | 22 Dateien · +2.090 / −185 · dazu **30 unverfolgte Dateien** |
+| eigener Quelltext (ohne `node_modules`/`target`/`dist`) | **~147 Dateien · ~49.200 Zeilen** — `packages` 22.059 · `services` 15.225 · `native` 5.969 · `scripts` 4.564 · `apps` 785 |
+| Testdateien | **51** |
+
+**Und das ehrliche Körnchen Wahrheit in dem Gefühl:** der Zielbaum **schrumpft** gegenüber der Vorlage —
+**97.781 gelöschte Zeilen** sind kein Unfall, sondern der Zweck (schlanker Kern, „Rust statt Python",
+nur was gebraucht wird). Ein Port, der Ballast abwirft, **muss** kleiner sein als das Original. Die
+Größe kann den Fortschritt deshalb nicht zeigen — die Zahlen oben können es.
+
+**Zum Nachfahren, drei Befehle:**
+```powershell
+git -C C:\Users\Chang\prometheus-harness diff --shortstat (git -C C:\Users\Chang\prometheus-harness rev-list --max-parents=0 HEAD) HEAD
+git -C C:\Users\Chang\prometheus-harness rev-list --count HEAD
+# Groesse und Zerlegung: siehe LAGE.md §5
+```
+
+---
+
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
 
 | Behauptung des bauenden Agenten | Gegenprobe | Ergebnis |
@@ -2054,6 +2204,10 @@ nachvollziehen kann. Das ist derselbe Maßstab, den ich an B15 angelegt habe.
 | „Die 18 Bedingungen des `flock`-Vertrags sind als Testsuite umgesetzt" (`native/flock/unit.json`) | Nachzählung: `fn condition_NN_…` = **15** Testfunktionen (01–10, 12–14, 17, 18); `unit.json` sagt „**15 abgedeckt, 2 entfallen**"; der Kopf von `contract.rs` sagt „the **three** conditions … do not translate" und listet **vier** Zeilen (14, 15, 16, 18) | **Substanz bestätigt, Wortlaut unscharf.** Bedingung **11** („Last owning descriptor closes") **wird geprüft** — nicht in einer eigenen Funktion, sondern als zweiter Teil von `condition_10` (Zeile 302: *„condition 11: after the last owning description closed the contender must acquire"*). Damit sind **16** Bedingungen abgedeckt und **2** entfallen (15, 16 — beide Node-API-Callbacks) = **18** ✓. Die Zahl „15" zählt **Testfunktionen**, nicht Bedingungen. **Nichts ist stillschweigend weggelassen** — jede nicht übertragbare Bedingung ist **benannt**, und das ist mehr, als die meisten Nachweise dieses Projekts tun |
 | „Windows nutzt diese API nicht und behält seine Semaphore" | Ausführung des Windows-Binaries (Einzelheiten in **B24**) | **Verhalten bestätigt:** `supported:false`, für echte Sperren `ERR_FLOCK_UNSUPPORTED_PLATFORM` mit Exit **125** — genau wie dokumentiert. **Falsch ist nur der Satz**, das Binary werde unter Windows nicht gebaut: es liegt in `target/debug/pmh-flock.exe` (242.176 B) |
 | „`--fd` — der Aufrufer besitzt den Deskriptor; in Rust ist das eine **Compile-Zeit**-Eigenschaft (`BorrowedFd`), kein Kommentar" | `src/main.rs`: `Handle::Borrowed(raw)` für `--fd`, `Handle::Owned(file)` für `--path` | **bestätigt** — die Unterscheidung ist ein Typ, nicht eine Zusicherung. Das ist die stärkste Stelle dieses Crates |
+| „`.env` ist von Git ausgeschlossen" (nicht behauptet, sondern geprüft) | `.gitignore:56-58` (`.env`, `.env.*`, `!.env.example`), `git check-ignore -v .env`, `git log --all -- .env` | **bestätigt:** `.env` ist unterschlagen, nicht verfolgt, steht in **keiner** Historie. **Genau der Punkt, an dem die meisten Projekte scheitern — hier nicht.** |
+| Der Installer **erzeugt** die Geheimnisse, statt die Vorlage zu kopieren | `install-teile.mjs:104-110` (`GEHEIMNIS_NAMEN`, 5 Einträge), `neuesGeheimnis()` (32 Zufallsbytes, base64url), `abgeleiteteWerte()`; die Prüfung `kein Geheimnis steht mit einem echten Wert in der Vorlage` verlangt für jeden Namen einen **erkennbaren Platzhalter** (`bitte-aendern\|example\|changeme\|platzhalter`) und für `PMH_MASTER_KEY` **leer**, damit niemand ihn übernimmt | **bestätigt und gut begründet.** Dazu die Prüfung „**die Ausnahme ist nicht gewachsen**": die Ausnahmeliste muß genau `['PMH_MASTER_KEY']` bleiben — eine Prüfung **gegen sich selbst**. Das ist die Art Nachweis, die dieses Projekt sonst von anderen einfordert |
+| „Kein echtes Geheimnis in der Historie" | neues Werkzeug `werkzeuge/leck-pruefung.mjs`: echte Werte aus `.env` und beiden Credential-Speichern gegen **jeden** Commit (`git grep -F -f` über `rev-list --all`), gegen den verfolgten Arbeitsbaum und gegen die unverfolgten, nicht ignorierten Dateien | **bestätigt:** **14 echte Geheimwerte** (u. a. `PMH_MASTER_KEY`, `DEEPSEEK_API_KEY`, `OPENAI_API_KEY` …) → **0 Treffer**, in **53 Commits**. Auch die vier 43-Zeichen-Kennwörter, die um **14:16** in der `.env` standen, hatten **0 Treffer**. Das ist ein **Negativbeweis**, nicht „vermutlich sauber" |
+| **B14** — Nachtrag: `MIGRATION_DATABASE_URL` liest jetzt jemand | `migrate.mjs:17/21/67/73/78` benutzt sie als **einzige** Quelle für die Migrationen (als `pmh_owner`, weil Migrationen DDL sind); `install.mjs:506` gibt sie aus | **teilweise erledigt.** Der **Kern** von B14 bleibt: die Umschlagverschlüsselung ist weiterhin **Schema ohne Code** — `PMH_MASTER_KEY` wird von **keinem** Krypto-Code gelesen, nur vom Installer erzeugt und in Tests geprüft. Aber diese Lücke ist jetzt **benannt und getestet** statt still |
 
 ---
 
@@ -2080,7 +2234,9 @@ nachvollziehen kann. Das ist derselbe Maßstab, den ich an B15 angelegt habe.
 | 13:56 | Beim Einfügen des B23-Nachtrags habe ich als Anker `---` **plus die Überschrift** des Fairness-Abschnitts benutzt und im Ersatztext die Überschrift **nicht** wiederholt. | Die Überschrift `## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)` war **weg**; die Tabelle stand ohne Abschnitt da. Sofort bemerkt und **wiederhergestellt**. | **Zweiter Fall derselben Familie wie 12:29** (ein Anker ersetzt mehr als beabsichtigt). Die Lehre von damals — „Kontrolle nach jeder Änderung: zählen, nicht annehmen" — gilt auch für **Überschriften**: nach jedem Eingriff die Abschnittsliste prüfen, nicht nur die geänderte Stelle ansehen. |
 | 14:00 | „**Niemand liest `unit.json`** — elf solcher Dateien ohne Verbraucher." | **Falsch.** `packages/units/unit-export` liest sie sehr wohl: `MANIFEST_FILE = 'unit.json'` (`manifest.ts:488`), dazu `readManifest` und `scanRegistry` über konfigurierte Wurzeln. Der Befund ist **vor der Veröffentlichung** zurückgezogen. | Mein Befehl war `Select-String -Pattern 'unit\.json' **-SimpleMatch**` — `-SimpleMatch` schaltet die Regex **aus**, gesucht wurde also der **Backslash** mit. Dieselbe Familie wie 12:14 („das Suchmuster entscheidet über das Ergebnis"), nur in die **andere** Richtung: nicht zu weit, sondern zu **wörtlich**. |
 | 14:02 | „Bedingung **11** des `flock`-Vertrags hat **keinen** Test — und `unit.json` behauptet 15 + 2 = **17** von 18, also ein Rechnungsloch." | **Beides falsch.** Bedingung 11 **wird geprüft**, als zweiter Teil von `condition_10` (`contract.rs:302`). Damit sind **16** Bedingungen abgedeckt, **2** entfallen (15, 16) = **18** ✓ — kein Loch; die „15" zählt **Testfunktionen**, nicht Bedingungen. | Ich hatte die Zahl als *Bedingungen* gelesen und daraus einen Fehler gegen den bauenden Agenten konstruiert. **Zwei Fehlalarme in derselben Prüfung, beide zu seinen Ungunsten** — die Richtung, in die eine Prüfrolle nicht irren darf. Ursache beide Male dieselbe: **schneller geschlossen als nachgesehen.** `unit.json` steht jetzt in der Fairness-Tabelle, wo es hingehört. |
-| **14:10** | Im einunddreißigsten Takt schrieb ich eine **Abschnittsüberschrift „14:25–14:50"**, ins Lageblatt **„Stand 14:45"** und in sechs JSONL-Zeilen Zeitstempel **12:30Z bis 12:42Z**. | **Die echte Uhrzeit war 13:56 bis 14:07** (`Get-Date` um **14:07:46**; meine Commits tragen 14:03:10 / 14:07:02). Alle Angaben berichtigt — Lageblatt, Überschrift, JSONL-Zeitstempel — und `Get-Date` ist jetzt der erste Befehl eines Takts. | **Ich habe Uhrzeiten aus dem Gefühl geschrieben, statt sie zu messen** — der klarste Verstoß gegen meine **eigene** Hausregel H7 (13:06: „kein Wert in eine Datei, der nicht vorher in einer Shell gestanden hat"). Bei anderen beanstande ich erfundene Zahlen seit dem zwölften Takt; hier waren es **meine eigenen**. Der Unterschied zu einer echten Messung fiel nur auf, weil ein Dateizeitstempel nicht zu meiner erfundenen Zeitlinie passte. |
+| **14:10** | Im einunddreißigsten Takt schrieb ich eine **Abschnittsüberschrift „14:25–14:50"**, ins Lageblatt **„Stand 14:45"** und in sechs JSONL-Zeilen Zeitstempel **12:30Z bis 12:42Z**. | **Die echte Uhrzeit war 13:56 bis 14:07** (`Get-Date` um **14:07:46**; meine Commits tragen 14:03:10 / 14:07:02). Alle Angaben berichtigt — Lageblatt, Überschrift, JSONL-Zeitstempel — und `Get-Date` ist jetzt der erste Befehl eines Takts. | **Ich habe Uhrzeiten aus dem Gefühl geschrieben, statt sie zu messen** — der klarste Verstoß gegen meine **eigene** Hausregel H7 (13:06: „kein Wert in eine Datei, der nicht vorher in einer Shell gestanden hat"). Bei anderen beanstande ich erfundene Zahlen seit dem zwölften Takt; hier waren es **meine eigenen**. Der Unterschied zu einer echten Messung fiel nur auf, weil ein Dateizeitstempel nicht zu meiner erfundenen Zeitlinie passte. **Zweiter Fall um 14:29, sieben Minuten später:** ich hatte `Get-Date` **richtig** gemessen (14:26:43), dann aber für die sechs neuen JSONL-Zeilen je Schritt zwei Minuten **addiert** — vier davon lagen wieder in der Zukunft (12:30–12:34Z statt ≤ 12:29Z). Auch die Abschnittsüberschrift („14:14–14:35") und das Lageblatt („14:35") waren vorgeschrieben statt abgelesen. Alles berichtigt. **Die Lehre ist nicht „Zeit messen", sondern: eine Zeit wird nicht fortgeschrieben, sondern neu gemessen** — und die Gegenprobe dafür lautet: „kein Zeitstempel in der Zukunft" (Zeichenkettenvergleich gegen `Get-Date` UTC). |
+| 14:20 | Mein **neues** Werkzeug `leck-pruefung.mjs` meldete beim ersten Lauf: *„⚠ 2 Wert(e) stehen in der Historie oder in verfolgten Dateien — das ist ein Leck"* — gemeint waren `PGADMIN_PASSWORD` und `REDIS_URL`. | **Kein Leck.** Beide Werte **sind die Vorlagewerte** (`bitte-aendern-pgadmin` bzw. `redis://127.0.0.1:6379`) und stehen deshalb selbstverständlich in `.env.example`, `docker-compose.yml` und `README.md`. Ich habe das Werkzeug um die Trennung **Geheimnis ↔ Vorlagenwert** erweitert (`--vorlage .env.example`); der zweite Lauf meldet **0 Lecks** und führt die neun Vorlagenwerte getrennt. | Ein Scanner **ohne Vergleichsbasis** schlägt bei jedem Standardwert Alarm. Ein Werkzeug, das falsch Alarm schlägt, wird ignoriert — und dann übersieht es den echten Fall. Dieselbe Lehre wie 14:00, eine Ebene tiefer: **erst die eigene Messung prüfen, dann melden.** Aus dem Fehlalarm ist ein **echter** Befund geworden (**B26**): die zwei Werte sind nicht geheim, aber sie sind **die Kennwörter der laufenden Datenbank**. |
+| 14:32 | **Denselben Fehler wie um 12:29 und 13:56 noch einmal gemacht:** beim Einfügen der Zeilen B26/B27 in die Lage-Tabelle habe ich als Anker die **ganze B25-Zeile** benutzt und sie im Ersatztext **nicht** wiederholt — B25 war damit aus der Tabelle **verschwunden**. | Sofort bemerkt (Tabelle nachgezählt: B23, B24, **B26**, B27 — B25 fehlte) und in derselben Minute **wiederhergestellt**. | **Dritter Fall derselben Ursache.** Die Lehre stand schon zweimal in dieser Tabelle, und ich habe sie trotzdem wiederholt — ein Anker, der eine **ganze Zeile** ist, ersetzt diese Zeile. Was wirklich hilft, ist nicht die Lehre, sondern die **Handlung danach**: die Tabelle nach **jeder** Änderung vollständig ausgeben und die Nummernfolge prüfen. |
 
 ---
 
