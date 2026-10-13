@@ -97,7 +97,57 @@ davon ist in der Laufzeit vorhanden und erprobt. Für `atomicfs` ist der Bedarf
 `fsync` und `rename` funktionieren — nicht, dass sie für den JSONL-Schreibpfad
 **genügen**. Für `flock`, `pty` und `landlock-run` ist der Bedarf echt.
 
-## 6. Drei Abweichungen von der eigenen Doku
+## 6. Die entscheidende Messung: der Verzeichnis-fsync scheitert auf Windows
+
+Die Doku verlangt für `atomicfs` die Messung selbst („Vorschlag — messen"). Hier
+ist sie — und sie **widerlegt meine eigene erste Einschätzung**, `atomicfs` sei
+vermutlich überflüssig.
+
+```
+Bun 1.4.0, Windows nativ:
+
+1. Verzeichnis öffnen ('r') + sync():   FEHLER -> EPERM: operation not permitted, fsync
+2. O_RDONLY + sync():                   FEHLER -> EPERM
+3. DATEI öffnen + sync():               OK
+```
+
+**Was das bedeutet.** Der POSIX-Weg für einen **dauerhaften** atomaren Ersatz ist
+dreistufig:
+
+```
+1. in eine temporäre Datei schreiben
+2. die DATEI fsyncen            ← geht auf Windows (Zeile 3)
+3. umbenennen (rename)
+4. das VERZEICHNIS fsyncen      ← geht auf Windows NICHT (Zeilen 1 und 2)
+```
+
+Schritt 4 macht den `rename` dauerhaft: ohne ihn kann nach einem Stromausfall die
+Datei umbenannt **und der Verzeichniseintrag verloren** sein. Auf Windows lässt
+sich ein Verzeichnis nicht als Datei-Handle öffnen — deshalb gibt es dort
+`MoveFileExW` mit `MOVEFILE_WRITE_THROUGH`, das die Dauerhaftigkeit in den
+**Rename selbst** legt. Und genau das deckte `koffi` ab.
+
+**Damit ist die Frage „brauchen wir `atomicfs`?" beantwortet: ja — auf Windows.**
+Nicht weil Rust schöner ist, sondern weil ein Syscall fehlt, den die Laufzeit nicht
+anbietet. Der Rust-Anteil ist an dieser Stelle **kein Ballast, sondern die einzige
+Möglichkeit**.
+
+**Und die drei Folgerungen, die sofort gelten:**
+
+| # | Folgerung |
+|---|---|
+| 1 | **Weg B (streichen) ist gestrichen.** `atomicfs` bleibt. Meine Empfehlung von oben war falsch und ist hier korrigiert — die Messung hat sie widerlegt, nicht die Meinung. |
+| 2 | **Weg A (`crypto` streichen) bleibt richtig.** Für Krypto fehlt **kein** Syscall: SHA-256, Zufall, zeitkonstanter Vergleich und AES-GCM sind gemessen vorhanden. |
+| 3 | **Der JSONL-Schreibpfad muss den Windows-Fall ausdrücklich behandeln.** Der Code, der heute `fsync` auf das Verzeichnis ruft, bekommt auf Windows ein `EPERM` — und ein stillschweigend verschluckter Fehler wäre **Datenverlust ohne Meldung**. Das gehört als eigener Punkt in die Kette (P8). |
+
+**Was diese Messung NICHT belegt:** ob `MOVEFILE_WRITE_THROUGH` unter Bun
+**aufrufbar** wäre. Das braucht ein natives Programm — und genau deshalb existiert
+`atomicfs`. Der Test, der seine Notwendigkeit *und* seine Wirkung zeigt, bräuchte
+einen echten Stromausfall, nicht einen Prozessabbruch; das bleibt ein offener
+Punkt (Weg B in der ursprünglichen Fassung — jetzt als „Wirkungsnachweis", nicht
+als „Bedarfsmessung").
+
+## 7. Drei Abweichungen von der eigenen Doku
 
 | # | Die Doku sagt | Der Bestand tut | Bewertung |
 |---|---|---|---|
@@ -117,7 +167,7 @@ JSON-Ausgabe, Tests) — zusammen **1.036 Zeilen**, die nichts tun außer die T�
 | # | Weg | Was er bringt | Aufwand | Risiko |
 |---|---|---|---|---|
 | **A** | **`crypto` streichen** (685 + 152 Zeilen) | Der einfachste und sicherste Gewinn: die Laufzeit kann alles davon, und selbst gebaute Krypto ist in der Sicherheitsbetrachtung ein Minus, kein Plus | klein — Unit entfernen, in `docs` als „entfällt, Grund: Laufzeit kann es" führen | **keines** für die Funktion: es ruft heute nichts auf |
-| **B** | **Messen, ob `atomicfs` nötig ist** (623 + 182) | Die Doku verlangt die Messung selbst. Fällt sie aus, verschwinden weitere 805 Zeilen **und** die `koffi`-Frage | mittel — ein Test, der den JSONL-Pfad unter Windows mit Stromausfall-Simulation prüft | klein; das Ergebnis ist eine Zahl, keine Meinung |
+| **B** | ~~Messen, ob `atomicfs` nötig ist~~ **GEMESSEN UND GESTRICHEN** — siehe §6: der Verzeichnis-fsync scheitert auf Windows mit `EPERM`. `atomicfs` bleibt. Offen ist nur der **Wirkungsnachweis** (braucht einen echten Stromausfall) | Die Messung ist erbracht; sie hat meine Empfehlung widerlegt | — | — |
 | **C** | **`landlock-run` + `flock` + `pty` zu EINEM Dienst zusammenfassen** | Aus drei Prozessgrenzen wird eine — spart rund **600 Zeilen Drumherum** und einen Startvorgang | gross — Umbau von drei Crates | mittel; die Fähigkeiten sind echt, nur ihre Verpackung ist zu groß |
 | **D** | **Den ganzen Rust-Bestand einfrieren und aus dem Repo nehmen**, bis die Kette ihn braucht | Repo-Größe und Sprachstatistik sagen wieder die Wahrheit; die Sprachwahl wird neu entschieden, wenn es etwas zu entscheiden gibt | klein (Verschieben), aber **Verlust** der Vorarbeit | die Arbeit ist da, nur unbenutzt — Wegwerfen wäre schade |
 
@@ -129,7 +179,7 @@ einen **echten** Bedarf; sie zu löschen, bevor die Kette sie braucht, wäre die
 falsche Sparsamkeit. Was dagegen **jetzt** passieren sollte: dass der Bestand
 nicht als „fertig" gilt, solange ihn nichts aufruft.
 
-## 8. Nebenbefund: die Sprachstatistik zählt erzeugten Code mit
+## 9. Nebenbefund: die Sprachstatistik zählt erzeugten Code mit
 
 Beim Nachrechnen der Anteile fiel ein zweiter Fehler auf — und er erklärt, warum
 die Statistik auf den ersten Blick „nicht aufgeht":
@@ -175,7 +225,7 @@ Anzeige überein** — gemessen nur über handgeschriebenen Code:
 in `.gitignore` — 33.577 Zeilen erzeugter Code und ein Cache-Verzeichnis, das bei
 jedem VitePress-Lauf neu entsteht. Das ist ein eigener kleiner Auftrag.
 
-## 9. Was dieser Befund NICHT ist
+## 10. Was dieser Befund NICHT ist
 
 - **Keine Sprachkritik an Rust.** Rust ist für Betriebssystem-Arbeit eine gute
   Wahl — die Frage hier ist **wie viel davon, und für was**, nicht ob.
@@ -186,7 +236,7 @@ jedem VitePress-Lauf neu entsteht. Das ist ein eigener kleiner Auftrag.
   „schadet", hängt daran, ob er die Sprachwahl für die nächste Stufe
   vorwegnimmt — und genau deshalb steht diese Entscheidung hier.
 
-## 10. Die offene Frage an den Betreiber
+## 11. Die offene Frage an den Betreiber
 
 1. **Weg A sofort?** (`crypto` streichen — die Laufzeit kann es, und eigener
    Krypto-Code ist ein Sicherheitsminus.)
