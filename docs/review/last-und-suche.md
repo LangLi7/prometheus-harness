@@ -193,6 +193,51 @@ benennt:**
   gehen"* neben die Vorgabe — und `flushEvery: 1` ist als Vorgabe **schwer zu begründen**, weil
   es 64× kostet und trotzdem nichts garantiert.
 
+### Nachtrag: die Ursache war falsch benannt — und sie ist plattformabhängig
+
+**Eine Fremdprüfung hat zu Recht beanstandet, daß „es sind die Aufrufe" zwei Dinge mischt:**
+das **Öffnen und Schließen** der Datei und das **Schreiben** selbst. `appendFile` tut beides je
+Aufruf. Nachgemessen — und zwar **auf beiden Plattformen**, weil die Vermutung im Raum stand,
+ein Windows-Wächterdienst blähe die Zahlen auf. 2000 Zeilen à 280 Bytes, Median aus drei Läufen:
+
+| Schreibart | Windows / Bun 1.4.0 | Linux (WSL2) / Bun 1.4.3 |
+|---|---|---|
+| `appendFile` je Zeile | 299 ms | 108 ms |
+| ein Griff, N × `write` | **36 ms** | **105 ms** |
+| ein Griff, `sync` je Zeile | 693 ms | 223 ms |
+| **Puffer, ein `write` + ein `sync`** | **2 ms** | **1 ms** |
+| **Faktor `appendFile` / ein Griff** | **8,3** | **1,0** |
+
+**Die Widerlegung meiner eigenen Aussage.** *„Das Öffnen und Schließen ist der Kostentreiber"*
+gilt **nur unter Windows**. Unter Linux ist der Faktor **1,0** — 108 gegen 105 ms, kein
+Unterschied. Der Grund ist plausibel: unter Windows kostet das Öffnen und Schließen je Aufruf
+spürbar, unter Linux ist es ein billiger Systemaufruf auf einem bereits warmen Verzeichniseintrag.
+**Die Produktion läuft auf Linux** (der ganze Stapel ist Docker/Compose) — die daraus
+abgeleitete Empfehlung *„nimm einen offenen Griff"* wäre dort **wirkungslos** gewesen.
+Das ist der teuerste Fehler dieser Untersuchung: eine richtige Messung auf der **falschen**
+Plattform.
+
+**Was auf beiden Plattformen gilt — und damit die eigentliche Antwort ist:**
+
+1. **`sync` je Ereignis ist überall der teuerste Weg** (693 ms Windows, 223 ms Linux).
+   Haltbarkeit je Ereignis ist echt teuer.
+2. **Puffer plus EIN `sync` kostet 1–2 ms** — 100- bis 300-fach billiger als `sync` je Zeile,
+   und das **Einzige, was überhaupt haltbar ist**.
+3. Die Behebung heißt deshalb **nicht** „ein offener Griff", sondern:
+   **Ereignisse im Speicher sammeln, in **einem** `write` schreiben und **einmal** syncen** —
+   beim Turn-Ende oder nach einem kurzen Zeitgeber.
+
+**Und die Zahlen des Benchmarks bleiben davon unberührt:** `flushEvery: 1` gegen `flushEvery: 256`
+ist ein Unterschied von **Faktor 66** (gemessen: 621,21 ms gegen 9,47 ms) — das ist die **Zahl**
+der Schreibaufrufe, und die ist plattformunabhängig. Nur die **Ursache** (Öffnen/Schließen)
+war falsch benannt.
+
+**Was daran noch offen ist:** ob ein Windows-Wächterdienst die Zahlen wirklich aufbläht, ist
+**plausibel gemacht, nicht bewiesen**. Belegt ist nur der Unterschied (Windows rund dreimal
+teurer für Dateiarbeit). Wer es genau wissen will, schaltet den Echtzeitschutz für das
+Projektverzeichnis ab und wiederholt den Lauf — **das habe ich nicht getan**, weil es einen
+Sicherheitsmechanismus des Betreibers verändert hätte.
+
 ## 7. Die zwei Klartext-Kopien — die Vorbedingung für jede Suche
 
 **Das ist der Befund, der die Suchfrage entscheidet, und er ist gemessen.**

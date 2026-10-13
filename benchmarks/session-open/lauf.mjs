@@ -43,13 +43,14 @@
  * @module benchmarks/session-open
  */
 
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { foldSession, parseSession, serializeLine } from '../../packages/agent/session-format/src/index.ts'
 import {
   readSession,
+  sessionPaths,
   writeSession,
 } from '../../packages/agent/session-persistence-jsonl/src/index.ts'
 import { fuehreAus, alsGroesse, messe, messeSpeicher, pruefeBudget, pruefeSkalierung } from '../support/messen.mjs'
@@ -69,9 +70,9 @@ import { fuehreAus, alsGroesse, messe, messeSpeicher, pruefeBudget, pruefeSkalie
 export const BUDGETS = {
   /** 2.000 Ereignisse falten: was das Modell als Verlauf sieht. */
   falten2000: 60,
-  /** 2.000 Zeilen schreiben, Vorgabe lushEvery: 1 — jedes Ereignis einzeln. */
+  /** 2.000 Zeilen schreiben, Vorgabe flushEvery: 1 — jedes Ereignis einzeln. */
   schreiben2000: 250,
-  /** Derselbe Weg gebündelt (lushEvery: 256). */
+  /** Derselbe Weg gebündelt (flushEvery: 256). */
   schreiben2000Gebuendelt: 250,
   /** 2.000 Zeilen lesen: eine Sitzung öffnen. */
   lesen2000: 250,
@@ -235,6 +236,72 @@ export async function laufe() {
     title: 'Benchmark',
   })
 
+  /**
+   * Zählt die nicht-leeren Zeilen der geschriebenen Ereignisdatei.
+   *
+   * **Warum diese Kontrolle sein muß.** Ein Benchmark, der die Dauer eines
+   * Schreibvorgangs mißt, ohne nachzusehen, ob etwas geschrieben wurde, meldet
+   * die Geschwindigkeit von **nichts**. Genau das ist hier passiert: ein falscher
+   * Aufruf ließ `writeSession` werfen, und die Messung darunter meldete
+   * `readSession: 0,00 ms` — eine hervorragende Zahl für eine Datei, die es nicht
+   * gab. Die **Lese**messung prüft seitdem, daß sie lesen konnte (`probe`);
+   * die **Schreib**messungen taten es nicht. Diese Funktion schließt die Lücke.
+   *
+   * **Warum die Zeilenzahl und nicht `probe.events.length`.** Der Leser liefert
+   * **mehr** Ereignisse als übergeben wurden (gemessen: 2004 bei 2000) — er
+   * ergänzt eigene. Eine Gleichheit wäre deshalb eine falsche Zusicherung; die
+   * Zeilenzahl der Datei ist die Zahl, die der Schreibvorgang tatsächlich
+   * erzeugt hat, und damit die ehrliche.
+   *
+   * **Der eigene Fehler, den diese Kontrolle sofort gefunden hat — zweimal.**
+   * Die erste Fassung nahm `readdirSync(root).find((d) => d.includes('event'))`
+   * und traf einen **Ordner**: `ROT  EISDIR: illegal operation on a directory,
+   * read`. Die zweite Fassung nahm nur noch Dateien — und meldete dann korrekt
+   * „keine Ereignisdatei geschrieben", weil die Datei **nicht** direkt in `root`
+   * liegt. Beide Male hat die Kontrolle eine kaputte Messung **laut** gemacht,
+   * statt eine Zahl zu melden, die niemand nachrechnet.
+   *
+   * **Die Lehre, die daraus im Code steht:** nicht raten, wo die Datei liegt —
+   * das Paket exportiert `sessionPaths(root, id)` mit dem Feld `events`. Wer den
+   * Pfad selbst zusammensetzt, baut beim nächsten Umbau still daneben.
+   *
+   * @param root - das Sitzungsverzeichnis
+   * @returns Dateiname und Zeilenzahl
+   */
+  function zeilenDerEreignisdatei(root) {
+    const pfad = sessionPaths(root, BENCH_ID).events
+    if (!existsSync(pfad)) return { name: pfad, zeilen: 0 }
+    const text = readFileSync(pfad, 'utf8')
+    return { name: pfad, zeilen: text.split('\n').filter((z) => z.length > 0).length }
+  }
+
+  /**
+   * Die Kontrolle, die vor jedes Schreiburteil gehört.
+   *
+   * @param root - das Sitzungsverzeichnis
+   * @param erwartet - die Zahl der übergebenen Ereignisse
+   * @param beschriftung - der Name der Messung für die Meldung
+   * @returns `undefined`, wenn alles stimmt — sonst ein roter Befund
+   */
+  function pruefeGeschrieben(root, erwartet, beschriftung) {
+    const { name, zeilen } = zeilenDerEreignisdatei(root)
+    if (name === undefined || zeilen === 0) {
+      return {
+        ok: false,
+        text: `ROT  ${beschriftung}: keine Ereignisdatei geschrieben — die Messung ist ungültig, nicht schnell`,
+      }
+    }
+    if (zeilen < erwartet) {
+      return {
+        ok: false,
+        text:
+          `ROT  ${beschriftung}: nur ${String(zeilen)} Zeilen in ${name}, übergeben wurden ` +
+          `${String(erwartet)} — die Messung ist ungültig`,
+      }
+    }
+    return undefined
+  }
+
   teile.push(async () =>
     await mitVerzeichnis(async (dir) => {
       const ereignisse = baueEreignisse(2000)
@@ -247,6 +314,14 @@ export async function laufe() {
         },
         { aufwaermen: 3, laeufe: 10 },
       )
+      // **Erst nachsehen, dann urteilen.** Sonst meldet der Benchmark die
+      // Geschwindigkeit einer Datei, die es nicht gibt.
+      const ungültig = pruefeGeschrieben(
+        schreibOptionen(dir).root,
+        ereignisse.length,
+        'writeSession (flushEvery 1)',
+      )
+      if (ungültig !== undefined) return ungültig
       return pruefeBudget(
         {
           name: 'writeSession (flushEvery 1), 2000 Ereignisse',
@@ -291,6 +366,8 @@ export async function laufe() {
         },
         { aufwaermen: 3, laeufe: 10 },
       )
+      const ungueltig = pruefeGeschrieben(optionen.root, ereignisse.length, 'writeSession (flushEvery 256)')
+      if (ungueltig !== undefined) return ungueltig
       return pruefeBudget(
         {
           name: 'writeSession (flushEvery 256), 2000 Ereignisse',

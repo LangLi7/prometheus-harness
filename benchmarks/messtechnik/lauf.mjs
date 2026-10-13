@@ -275,6 +275,144 @@ export async function pruefeTrennschaerfe() {
 }
 
 /**
+ * Die Schreibarten, mit denen ein Ereignisstrom auf die Platte kommt.
+ *
+ * **Warum das hier gemessen wird — und warum die frühere Antwort unvollständig
+ * war.** Der Benchmark `session-open` schloß aus drei Messungen: *„Faktor 240,
+ * und die Kette hilft nicht — es sind die **Aufrufe**, nicht die Reihenfolge und
+ * nicht ein `fsync`."* Das mischt zwei Dinge: das **Öffnen und Schließen** der
+ * Datei und das **Schreiben** selbst. `appendFile` tut beides je Aufruf. Wer nur
+ * `appendFile` gegen `writeFile` stellt, kann nicht sagen, welches der beiden die
+ * 97 ms kostet — und greift deshalb zur falschen Behebung.
+ *
+ * **Der Befund vom 13.10.2026 — auf ZWEI Plattformen gemessen, und sie sind sich
+ * uneinig.** 2000 Zeilen à 280 Bytes, Median aus drei Läufen:
+ *
+ * | Art | Windows / Bun 1.4.0 | Linux (WSL2) / Bun 1.4.3 |
+ * |---|---|---|
+ * | `appendFile` je Zeile | 299 ms | 108 ms |
+ * | ein Griff, N × `write` | **36 ms** | **105 ms** |
+ * | ein Griff, `sync` je Zeile | 693 ms | 223 ms |
+ * | Puffer, **ein** `sync` am Ende | **2 ms** | **1 ms** |
+ * | **Faktor `appendFile` / ein Griff** | **8,3** | **1,0** |
+ *
+ * Vier Folgerungen — und die erste ist eine **Widerlegung meiner eigenen
+ * vorigen Aussage**:
+ *
+ * 1. **„Das Öffnen und Schließen ist der Kostentreiber" gilt NUR unter Windows.**
+ *    Unter Windows kostet `appendFile` je Zeile das 8,3-fache eines offenen
+ *    Griffs; unter Linux **nichts** (Faktor 1,0 — 108 gegen 105 ms). Wer aus der
+ *    Windows-Messung „nimm einen offenen Griff" ableitet, leitet aus einem
+ *    Plattformartefakt ab. **Die Produktion läuft auf Linux** — die Empfehlung
+ *    wäre dort wirkungslos gewesen.
+ * 2. **Was auf BEIDEN Plattformen gilt: `sync` je Ereignis ist der teuerste
+ *    Weg** — 693 ms unter Windows, 223 ms unter Linux. Haltbarkeit je Ereignis
+ *    ist echt teuer, überall.
+ * 3. **Was auf BEIDEN Plattformen gilt und die eigentliche Antwort ist: Puffer
+ *    plus EIN `sync` kostet 1–2 ms.** Das ist 100- bis 300-fach billiger als
+ *    `sync` je Zeile — und es ist das **Einzige**, was überhaupt haltbar ist.
+ *    Die richtige Behebung ist deshalb **Bündeln und am Turn-Ende syncen**, nicht
+ *    „ein offener Griff".
+ * 4. **Windows ist für Dateiarbeit rund dreimal teurer als Linux** (299/108,
+ *    693/223, 36/105) — die Vermutung, daß ein Wächterdienst beim Schließen
+ *    mitscannt, ist damit **plausibel gemacht**, aber nicht bewiesen.
+ *
+ * **Deshalb prüft dieses Gate KEINEN plattformabhängigen Faktor.** Die geprüfte
+ * Aussage ist die, die auf beiden gilt: `sync` je Zeile muß deutlich teurer sein
+ * als **ein** `sync` am Ende. Eine Prüfung auf „Faktor ≥ 2" zwischen
+ * `appendFile` und offenem Griff wäre unter Linux **rot**, obwohl nichts kaputt
+ * ist — genau die Sorte Prüfung, die abgeschaltet wird statt gelesen.
+ *
+ * **Warum die Kontrolle der Zeilenzahl dazugehört.** Eine Messung, die nicht
+ * nachsieht, ob etwas geschrieben wurde, meldet die Geschwindigkeit von nichts.
+ * Deshalb wird jede Art nachgezählt — und ein unvollständiger Lauf ist ein
+ * Befund, keine Zahl.
+ *
+ * @param {string} dir - ein Verzeichnis für die Wegwerfdateien
+ * @returns {Promise<{ok: boolean, text: string}>}
+ */
+export async function pruefeSchreibarten(dir) {
+  const ZEILE =
+    JSON.stringify({ type: 'assistant/message', seq: 1, data: { text: 'y'.repeat(200) } }) + '\n'
+  const N = 2000
+  const { appendFile, open, readFile, writeFile } = await import('node:fs/promises')
+  const { join } = await import('node:path')
+
+  const messen = async (name, koerper) => {
+    const pfad = join(dir, `${name}.jsonl`)
+    const dauern = []
+    for (let i = 0; i < 3; i += 1) {
+      const t = process.hrtime.bigint()
+      await koerper(pfad)
+      dauern.push(Number(process.hrtime.bigint() - t) / 1e6)
+    }
+    dauern.sort((a, b) => a - b)
+    // **Die Kontrolle steht in derselben Funktion wie die Messung.** Sonst steht
+    // sie irgendwann nicht mehr daneben — und genau so entstand der Befund
+    // `readSession: 0,00 ms` auf eine Datei, die es nicht gab.
+    const inhalt = await readFile(pfad, 'utf8')
+    return { ms: dauern[1], zeilen: inhalt.split('\n').filter((z) => z.length > 0).length }
+  }
+
+  const jeZeile = await messen('a-append-je-zeile', async (p) => {
+    // **Leeren, weil `appendFile` anhängt und nicht überschreibt.** Ohne diese
+    // Zeile zählt die Kontrolle nach drei Läufen 6000 statt 2000 Zeilen — der
+    // Befund `UNGÜLTIG: erwartet 2000 je Art` ist genau das gewesen, und die
+    // Messung wäre um den Faktor 3 zu langsam ausgefallen, ohne daß es auffiele.
+    await writeFile(p, '', 'utf8')
+    for (let i = 0; i < N; i += 1) await appendFile(p, ZEILE, 'utf8')
+  })
+  const einGriff = await messen('b-ein-griff', async (p) => {
+    const fh = await open(p, 'w')
+    try {
+      for (let i = 0; i < N; i += 1) await fh.write(ZEILE)
+    } finally {
+      await fh.close()
+    }
+  })
+  const syncJeZeile = await messen('c-sync-je-zeile', async (p) => {
+    const fh = await open(p, 'w')
+    try {
+      for (let i = 0; i < N; i += 1) {
+        await fh.write(ZEILE)
+        await fh.sync()
+      }
+    } finally {
+      await fh.close()
+    }
+  })
+  const einSync = await messen('d-ein-sync', async (p) => {
+    const fh = await open(p, 'w')
+    try {
+      await fh.write(ZEILE.repeat(N))
+      await fh.sync()
+    } finally {
+      await fh.close()
+    }
+  })
+
+  const vollstaendig = [jeZeile, einGriff, syncJeZeile, einSync].every((r) => r.zeilen === N)
+  const buendelnFaktor = syncJeZeile.ms / Math.max(einSync.ms, 0.05)
+  // **Die geprüfte Aussage ist plattformunabhängig.** Nicht
+  // `appendFile` gegen offenen Griff — das ist unter Linux 1,0 und wäre dort eine
+  // rote Prüfung ohne Befund. Geprüft wird: **ein** Sync am Ende ist deutlich
+  // billiger als ein Sync je Ereignis. Das gilt gemessen auf beiden Plattformen
+  // (Windows 693/2, Linux 223/1) und ist genau die Aussage, auf der die
+  // Empfehlung beruht.
+  const ok = vollstaendig && buendelnFaktor >= 10
+  return {
+    ok,
+    text:
+      `${ok ? 'ok  ' : 'ROT '} Schreibarten (${String(N)} Zeilen, ${process.platform}): ` +
+      `appendFile je Zeile ${jeZeile.ms.toFixed(0)} ms · ein Griff ${einGriff.ms.toFixed(0)} ms · ` +
+      `Sync je Zeile ${syncJeZeile.ms.toFixed(0)} ms · ein Sync am Ende ${einSync.ms.toFixed(0)} ms ` +
+      `(Gewinn ${buendelnFaktor.toFixed(0)}×, nötig 10×) · Zeilen ` +
+      `${[jeZeile, einGriff, syncJeZeile, einSync].map((r) => String(r.zeilen)).join('/')}` +
+      `${vollstaendig ? '' : ` — UNGÜLTIG: erwartet ${String(N)} je Art`}`,
+  }
+}
+
+/**
  * Die Teile dieses Gates.
  *
  * @returns {readonly (() => Promise<{ok: boolean, text: string}> )[]}
@@ -283,6 +421,19 @@ export function teile() {
   return [
     // Der Kern: beide Kennlinien und ihr Abstand.
     () => pruefeTrennschaerfe(),
+
+    // Die Schreibarten — trennt Öffnen/Schließen vom Schreiben und vom Sync.
+    async () => {
+      const { mkdtemp, rm } = await import('node:fs/promises')
+      const { tmpdir } = await import('node:os')
+      const { join } = await import('node:path')
+      const dir = await mkdtemp(join(tmpdir(), 'pmh-schreibarten-'))
+      try {
+        return await pruefeSchreibarten(dir)
+      } finally {
+        await rm(dir, { recursive: true, force: true })
+      }
+    },
 
     // **Die Auflösungsgrenze, echt gemessen.** Eine zu kurze kleine Messung darf
     // kein Verhältnis behaupten. Bei 100 Einträgen sind es 0,007 ms — die Grenze

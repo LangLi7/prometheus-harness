@@ -3,16 +3,24 @@
  *
  * ## Warum es einen Sammelläufer gibt
  *
- * Acht Ordner liegen in `benchmarks/`, und sieben davon sind noch leer — ihre
- * Messungen brauchen den **laufenden Agenten**. Ein Sammelläufer, der trotzdem
- * alle acht aufriefe, würde sieben Fehler melden und den einen echten Befund
- * darin begraben. Deshalb führt er **nur die lauffähigen** aus und **nennt die
- * übrigen mit ihrem Grund**.
+ * 9 Ordner liegen in `benchmarks/`, davon sind 8 Gates und 1 Werkzeugordner
+ * (`support`). Von den 8 Gates laufen 2, die übrigen 6 brauchen den **laufenden
+ * Agenten**. Ein Sammelläufer, der trotzdem alle 8 aufriefe, würde 6 Fehler
+ * melden und die 2 echten Befunde darin begraben. Deshalb führt er **nur die
+ * lauffähigen** aus und **nennt die übrigen mit ihrem Grund**.
  *
  * **Warum die leeren nicht stillschweigend fehlen.** Wer `bun run bench` aufruft
- * und sieben Zeilen sieht, hält das für Vollständigkeit. Eine fehlende Messung
- * muß als fehlend erscheinen — das ist dieselbe Regel wie bei übersprungenen
- * Tests.
+ * und nur die laufenden Zeilen sieht, hält das für Vollständigkeit. Eine fehlende
+ * Messung muß als fehlend erscheinen — das ist dieselbe Regel wie bei
+ * übersprungenen Tests.
+ *
+ * **Die Zahlen oben sind nachgezählt, nicht geschätzt — und sie sind einmal
+ * veraltet gewesen.** Als das Gate `messtechnik` dazukam, wurde `GATES` ergänzt,
+ * aber dieser Kopf stand weiter auf „Acht Ordner … sieben davon leer". Genau das
+ * findet niemand, der den Code liest; es fällt nur auf, wenn jemand die Ordner
+ * **zählt**. Deshalb prüft `benchmarks/support/tests/lauf.test.mjs` jetzt, daß
+ * `GATES` und die Ordner auf der Platte übereinstimmen **und** daß die hier
+ * genannten Zahlen stimmen. Ein Kommentar, der zählen soll, braucht einen Zähler.
  *
  * ## Aufruf
  *
