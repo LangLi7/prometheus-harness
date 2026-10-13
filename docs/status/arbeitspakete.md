@@ -485,6 +485,35 @@ damit sie nicht später als „vergessen" oder als „stillschweigend übernomme
 - **Keine** Behauptung „implementiert" ohne Nachweis: jeder `A`-Eintrag nennt eine Datei oder
   eine Messung; alles andere steht auf `geplant` oder `Konflikt`.
 
+---
+
+## P7 · t40 — Windows-Start (`bun run start`)
+
+**Phase: `Nachweis offen` (13.10.2026)** · Nachweis:
+[`windows-start-nachweis.md`](windows-start-nachweis.md)
+
+| # | Punkt | Stand |
+|---|---|---|
+| P7.1 | `bun install` (Windows nativ) | **erledigt** — exit 0 |
+| P7.2 | `bun run typecheck` (Windows nativ) | **erledigt** — exit 0, 8/8 Pakete |
+| P7.3 | `bun run build` (Vite/TS7) | **erledigt** — exit 0, `dist/` 221,78 kB, 1 s |
+| P7.4 | PATH-Befund: `bun.ps1` blockiert, `bun.cmd` inkompatibel, `.bun\bin\bun.exe` trägt | **erledigt** — dokumentiert |
+| P7.5 | `scripts/start.mjs` mit `process.execPath`, Go-Build, Logs, umgekehrtem Beenden | **erledigt** |
+| P7.6 | HMR-Abschaltung als Patch-Zeile (`disabled: true`) | **erledigt** — `hmr` ist nicht Pflicht |
+| P7.7 | **Host-Start unter Windows nativ** | **BLOCKIERT** — `connection (required): cannot get property "webRuntime" without inject` |
+| P7.8 | `bun run start` **mit Go-Diensten** | **offen** — hängt an P7.7 |
+| P7.9 | cmd-Nachweis | **offen** |
+| P7.10 | Ctrl+C und Waisenprozesse | **offen** |
+
+**Warum P7.7 blockiert ist und nicht bei uns liegt:** Der Pflicht-Eintrag `connection`
+wartet auf den Dienst `webRuntime`, den die Zeile `web-runtime` aus
+`@deepseek-ai/dsh-web-app` bereitstellen soll. Unter **Bun** zeigt er sich nicht; unter
+**WSL2** lief derselbe Host und lieferte **HTTP 200**. Hypothese (nicht gemessen):
+derselbe Laufzeit-Grenzbefund wie `node-addon-require-builtin` (`docs/risks.md` §6).
+
+**t40 wird deshalb NICHT als `completed` geführt.** Die vier offenen Punkte (P7.7–P7.10)
+stehen namentlich im Nachweis unter §6.
+
 ## Geändert
 
 | Datum | Änderung | Grund |
