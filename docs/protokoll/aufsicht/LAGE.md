@@ -2,7 +2,7 @@
 
 > **Was das ist.** Die Kurzfassung von [`befunde.md`](befunde.md) und [`protokoll.md`](protokoll.md):
 > was **jetzt** zu tun ist, was erledigt ist, was **nicht** geprüft werden konnte. Stand:
-> **2026-10-13, 15:13**. Die Einzelbelege stehen in `befunde.md` — hier steht nur, was eine
+> **2026-10-13, 15:18**. Die Einzelbelege stehen in `befunde.md` — hier steht nur, was eine
 > Entscheidung braucht.
 >
 > **Wer das schreibt.** Die **Aufsicht** (Wächter-Rolle), nicht der bauende Agent. Jede Zahl hier ist
@@ -139,6 +139,14 @@ bun  run hilfen\anbieter-rauchtest.mjs
 # Waisen aufspüren: Herkunft (Kommandozeile) entscheidet, das Alter siebt nur die
 # lebenden Kinder eines laufenden Tests aus. Ohne -Anwenden wird NICHTS beendet.
 pwsh -NoProfile -ExecutionPolicy Bypass -File hilfen\waisen-aufraeumen.ps1
+```
+
+**Sind meine offenen Befunde noch offen?** Ein Aufruf, zwölf Prüfungen — je Befund die eine Tatsache, auf
+der er steht. Alles lesend; meldet `BEHOBEN` und endet mit Rückgabewert **1**, sobald einer erledigt ist:
+
+```powershell
+cd C:\Users\Chang\prometheus-harness\docs\protokoll\aufsicht
+node werkzeuge\stand-abgleich.mjs
 ```
 
 **Ein Crate prüfen, ohne den fremden Baum anzufassen** (Vorbild: `native/flock`, Befund **B24**). Die

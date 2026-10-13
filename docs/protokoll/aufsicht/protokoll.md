@@ -2224,6 +2224,56 @@ wenig. **§0 ist jetzt eine Handlungsliste**, nach **Wirkung** sortiert: neun Pu
 **warum zuerst** und dem **Befehl**, der ihn nachweist. Der alte §0 steht als „Rückblick" darunter —
 **nichts gelöscht**, nur umsortiert.
 
+## 2026-10-13 15:08–15:16 — Vierzigster Takt: **ein Werkzeug, das meine offenen Befunde selbst nachmißt** (W42) — und zwei eigene Fehler darin
+
+**Die Überlegung, die diesen Takt ausgelöst hat.** Jeder meiner Befunde ist eine **Momentaufnahme**. Der
+bauende Agent arbeitet schnell und gleichzeitig: zwischen zwei Takten kann er drei Befunde erledigt haben,
+ohne daß es jemand merkt. Eine Liste, die man **glaubt**, ist wertlos — eine Liste, die man **nachmißt**,
+ist ein Protokoll. Also habe ich das Nachmessen automatisiert:
+[`werkzeuge/stand-abgleich.mjs`](werkzeuge/stand-abgleich.mjs), **zwölf Prüfungen in einem Aufruf**, je
+Befund die **eine** Tatsache, auf der er steht — alles lesend, kein Schreibzugriff, keine Geheimwerte.
+
+**Das Ergebnis der dritten Messung (die ersten beiden waren falsch, siehe unten):**
+
+```
+B28 offen  erwartet trust              gemessen trust        (erste Zeile für 127.0.0.1/32)
+B26 offen  erwartet identisch          gemessen identisch    (Längen 19/19/17/19)
+B30 offen  erwartet fehlt              gemessen fehlt        (keine DEEPSEEK_API_KEY-Zeile)
+B32 offen  erwartet 11                 gemessen 11           (Zweig dsh-custom: b150a551b8)
+B33 offen  erwartet kein Zaun          gemessen kein Zaun    (8 Quelldateien geprüft)
+B23 offen  kein $script:fehler         gemessen fehlt
+B13 offen  erwartet 3                  gemessen 3
+B29 offen  erwartet 11                 gemessen 11
+B31 offen  erwartet 6                  gemessen 6            (eigener Registry-Scan)
+B24 offen  cargo fehlt in WSL          gemessen fehlt
+B22 offen  0 Waisen                    gemessen 0
+Volumes    Bestandsaufnahme            19 verwaist
+```
+
+**Zwölf von zwölf unverändert offen, keiner behoben.** Die Handlungsliste in §0 gilt also unverändert —
+und das ist **gemessen**, nicht angenommen. Die Zahl der verwaisten Volumes ist von **18 auf 19**
+gestiegen (Bestandsaufnahme, kein Befund: ihr letzter Lauf hat eines dagelassen).
+
+**Zwei eigene Fehler in genau diesem Werkzeug, und sie sind lehrreicher als das Ergebnis.**
+
+1. Der erste Lauf meldete für **B31** „gemessen **0**" statt 6 — ich hätte einen **offenen** Befund als
+   **behoben** ausgegeben. Ursache: die Funktion las nur **stdout**, die sechs Warnungen gehen nach
+   **stderr**, und der Scan endet mit **exit 0**.
+2. **Der erste Reparaturversuch war unvollständig:** ich änderte nur den **Fehler**pfad
+   (`fehler.stdout + fehler.stderr`) — bei exit 0 blieb es bei stdout, die Messung war also
+   **unverändert falsch**. Erst der Wechsel auf `spawnSync`, das **beide** Ströme liefert, ergab 6.
+
+Gefunden habe ich beides **nicht** durch Nachdenken, sondern indem ich die Zahl gegen eine **direkte
+Messung** hielt (`bun run src/cli.ts list … 2>&1`) — dort standen die sechs Warnungen die ganze Zeit.
+**Wer eine Sonde repariert, muß danach erneut messen, nicht nur den Code ansehen.**
+
+**Und meine eigene Registerpflicht.** `docs/INDEX.md` Abschnitt 9 nennt meine Spur — dort stand noch
+„Befunde `B1`–`B19`", und **vier** meiner neuen Dateien fehlten. Ich habe **nur** die Zeilen zu **meiner**
+Spur berichtigt: `B1`–`B33` samt `V1`–`V6`, die LAGE-Zeile (sie zeigt jetzt die Handlungsliste), und vier
+neue Zeilen für `stand-abgleich.mjs`, `leck-pruefung.mjs`, `kennwoerter-drehen.mjs` und
+`waisen-aufraeumen.ps1`. **Die Abschnitte 1–8 des Registers habe ich nicht angefaßt** — es ist eine
+Projektdatei, und Hausregel H3 gibt mir `docs/protokoll/`; die Ausnahme ist eng und benannt.
+
 ---
 
 ## Offen / nächster Takt
