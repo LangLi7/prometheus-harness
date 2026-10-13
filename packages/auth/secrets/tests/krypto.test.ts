@@ -25,7 +25,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -328,7 +328,13 @@ describe('Die Reihenfolge der Quellen', () => {
       const pfad = join(ordner, HAUPTSSCHLUESSELDATEI)
       const ausDatei = erzeugeHauptschluesselText()
       const ausEnv = erzeugeHauptschluesselText()
-      writeFileSync(pfad, `${ausDatei}\n`, 'utf8')
+      // **Der Modus gehört hier hin.** Auf POSIX legt `writeFileSync` ohne `mode`
+      // eine Datei mit 0o644 an — gruppen- und weltlesbar. `pruefeDateirechte`
+      // weist sie dann zu Recht ab, und die Prüfung war auf Linux rot, während sie
+      // auf Windows grün war: NTFS kennt den Modus nicht, dort meldet jede Datei
+      // 0o666 und die Prüfung greift gar nicht erst. Das war kein Fehler im Code,
+      // sondern einer in dieser Vorlage — und CI hat ihn gefunden.
+      writeFileSync(pfad, `${ausDatei}\n`, { encoding: 'utf8', mode: 0o600 })
 
       const gefunden = holeHauptschluessel(
         [dateiQuelle(pfad, () => undefined), umgebungsQuelle({ PMH_MASTER_KEY: ausEnv })],
@@ -423,7 +429,15 @@ describe('Die Dateirechte', () => {
         // Schlüsseldatei ist ein Fehler und keine Warnung.
         writeFileSync(pfad, text, { mode: 0o644 })
         expect(() => pruefeDateirechte(pfad)).toThrow(KryptoFehler)
-        writeFileSync(pfad, text, { mode: 0o600 })
+        // **`chmodSync`, nicht noch einmal `writeFileSync` mit `mode`.** `mode`
+        // wirkt nur beim **Anlegen**. Die Datei steht an dieser Stelle schon mit
+        // 0o644 auf der Platte, der zweite Aufruf änderte also nichts — sie blieb
+        // weltlesbar, `pruefeDateirechte` warf weiterhin, und die Prüfung war auf
+        // Linux rot. Auf Windows läuft dieser Zweig nie, deshalb fiel es hier nie
+        // auf. Die zusätzliche Behauptung über den Modus stellt sicher, daß die
+        // Voraussetzung des nächsten Schritts wirklich eingetreten ist.
+        chmodSync(pfad, 0o600)
+        expect(statSync(pfad).mode & 0o777).toBe(0o600)
         expect(pruefeDateirechte(pfad)).toBeUndefined()
       }
     } finally {
@@ -435,7 +449,32 @@ describe('Die Dateirechte', () => {
     // **Eine Prüfung, die sich selbst überspringt, ist keine.** Deshalb steht
     // hier keine Behauptung über POSIX, sondern der Nachweis, daß dieser Zweig
     // hier nicht laufen kann. Auf Linux prüft ihn die CI.
-    expect(process.platform).toBe('win32')
-    expect(existsSync(tmpdir())).toBe(true)
+    //
+    // **Nachtrag: die CI hat ihn geprüft — und diese Zeile war rot.** Sie war
+    // selbst die Windows-Annahme, die sie beschreiben sollte: `toEqual('win32')`
+    // behauptet über die Maschine, statt über den Code. Auf Linux ist der
+    // POSIX-Zweig sehr wohl ausführbar, und dann muß hier das Gegenteil stehen
+    // und geprüft werden — sonst behauptet die Prüfung auf einer Plattform
+    // nichts und auf der anderen etwas Falsches.
+    const ordner = mkdtempSync(join(tmpdir(), 'pmh-zweig-'))
+    try {
+      const pfad = join(ordner, HAUPTSSCHLUESSELDATEI)
+      writeFileSync(pfad, erzeugeHauptschluesselText(), { mode: 0o600 })
+      const modus = statSync(pfad).mode & 0o777
+      if (process.platform === 'win32') {
+        // NTFS: kein echter Modus, der POSIX-Zweig kann hier nicht greifen.
+        expect(modus).toBe(0o666)
+      } else {
+        // POSIX: der Modus ist echt, also greift der Zweig — nachgewiesen daran,
+        // daß 0o600 ankommt und 0o644 abgelehnt wird.
+        expect(modus).toBe(0o600)
+        expect(pruefeDateirechte(pfad)).toBeUndefined()
+        chmodSync(pfad, 0o644)
+        expect(() => pruefeDateirechte(pfad)).toThrow(KryptoFehler)
+      }
+      expect(existsSync(tmpdir())).toBe(true)
+    } finally {
+      rmSync(ordner, { recursive: true, force: true })
+    }
   })
 })

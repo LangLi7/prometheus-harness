@@ -99,11 +99,16 @@ describe('Kette', () => {
   })
 
   test('Anzeigeformen sind nie absolute Pfade', () => {
+    // **Der Pfad muß auf DIESER Maschine absolut sein.** `C:\x` ist auf POSIX
+    // kein absoluter Pfad, sondern ein Name im Arbeitsverzeichnis — die Anzeige
+    // lautet dann `./C:\x`, und das ist richtig so. Die Prüfung war auf Linux rot,
+    // weil sie mit einer Windows-Form eine plattformunabhängige Regel prüfte.
+    const irgendwo = process.platform === 'win32' ? 'C:\\x' : '/x'
     expect(homeDisplay(resolve(defaultPmhHome()))).toBe(DEFAULT_PMH_HOME_DISPLAY)
     expect(homeDisplay(resolve('C:\\somewhere-else'))).toBe('$PMH_HOME')
     expect(agentsHomeDisplay(resolve(join(homedir(), '.agents')))).toBe('~/.agents')
     expect(agentsHomeDisplay(resolve('C:\\somewhere-else'))).toBe(`$${AGENTS_HOME_ENV}`)
-    expect(resolveHomeDetailed('C:\\x', empty).display).toBe('$PMH_HOME')
+    expect(resolveHomeDetailed(irgendwo, empty).display).toBe('$PMH_HOME')
   })
 })
 
@@ -147,17 +152,28 @@ describe('canonicalizeWatchPath', () => {
  * Warnung.
  */
 describe('Das eigene Home — ohne Rückfall auf DSH_HOME', () => {
+  /**
+   * Ein DSH-Home, wie es auf **dieser** Maschine aussieht.
+   *
+   * **Warum das nicht `C:\Users\jemand\.dsh` bleiben durfte.** Die Sperre greift
+   * auf den **Verzeichnisnamen** `.dsh`. Auf POSIX ist der Backslash kein Trenner,
+   * also ist `basename('C:\Users\jemand\.dsh')` die **ganze** Zeichenkette — und
+   * die heißt nicht `.dsh`. Die beiden Prüfungen, die das Werfen erwarten, waren
+   * damit auf Linux rot, obwohl die Funktion richtig arbeitet: `[.. /home/jemand/.dsh]`
+   * wirft. Der Fehler lag in der Vorlage, die eine Windows-Form benutzte, um eine
+   * plattformunabhängige Regel zu prüfen.
+   */
+  const DSH_HOME_FREMD = process.platform === 'win32' ? 'C:\\Users\\jemand\\.dsh' : '/home/jemand/.dsh'
+
   test('nimmt PMH_HOME, wenn es gesetzt ist', () => {
     const eigen = join(homedir(), 'eigenes-pmh')
-    expect(resolveEigenesHome(undefined, { PMH_HOME: eigen, DSH_HOME: 'C:\\Users\\jemand\\.dsh' })).toBe(
-      resolve(eigen),
-    )
+    expect(resolveEigenesHome(undefined, { PMH_HOME: eigen, DSH_HOME: DSH_HOME_FREMD })).toBe(resolve(eigen))
   })
 
   test('fällt auf ~/.pmh zurück und NICHT auf DSH_HOME', () => {
     // **Der gemessene Fall.** Ist nur `DSH_HOME` gesetzt, darf das Ergebnis
     // trotzdem nicht dorthin zeigen.
-    const ergebnis = resolveEigenesHome(undefined, { DSH_HOME: 'C:\\Users\\jemand\\.dsh' })
+    const ergebnis = resolveEigenesHome(undefined, { DSH_HOME: DSH_HOME_FREMD })
     expect(ergebnis).toBe(resolve(defaultPmhHome()))
     expect(ergebnis).not.toContain('.dsh')
   })
@@ -166,20 +182,19 @@ describe('Das eigene Home — ohne Rückfall auf DSH_HOME', () => {
     // **Eine Konvention, die man brechen kann, ist keine Grenze.** Auch wenn
     // jemand `PMH_HOME` ausdrücklich auf das DSH-Home setzt, wird nicht
     // geschrieben — der Lauf bricht ab.
-    expect(() => resolveEigenesHome(undefined, { PMH_HOME: 'C:\\Users\\jemand\\.dsh' })).toThrow(
-      /DeepSeek Harness/u,
-    )
+    expect(() => resolveEigenesHome(undefined, { PMH_HOME: DSH_HOME_FREMD })).toThrow(/DeepSeek Harness/u)
   })
 
   test('wirft auch bei einem ausdrücklich übergebenen DSH-Pfad', () => {
-    expect(() => resolveEigenesHome('C:\\Users\\jemand\\.dsh', {})).toThrow(/DeepSeek Harness/u)
+    expect(() => resolveEigenesHome(DSH_HOME_FREMD, {})).toThrow(/DeepSeek Harness/u)
   })
 
   test('ein Verzeichnis, das nur ähnlich heißt, geht durch', () => {
     // Die Sperre greift auf den **Verzeichnisnamen** `.dsh` und auf die
     // Gleichheit mit `DSH_HOME` — nicht auf eine Zeichenkette irgendwo im Pfad.
     // Sonst wäre `…/pmh-dsh-pruefung` verboten, obwohl es niemandem gehört.
-    expect(resolveEigenesHome('C:\\Users\\jemand\\pmh-dsh-pruefung', {})).toContain('pmh-dsh-pruefung')
+    const aehnlich = join(homedir(), 'pmh-dsh-pruefung')
+    expect(resolveEigenesHome(aehnlich, {})).toContain('pmh-dsh-pruefung')
   })
 
   test('und die alte Auflösung bleibt unverändert — sie hat ihren Zweck', () => {
@@ -187,6 +202,6 @@ describe('Das eigene Home — ohne Rückfall auf DSH_HOME', () => {
     // Für einen **Umzug** aus einem bestehenden DSH-Home ist das richtig; nur für
     // eigene **Dateien** ist es falsch. Beide Regeln stehen nebeneinander, statt
     // eine durch die andere zu ersetzen.
-    expect(resolvePmhHome(undefined, { DSH_HOME: 'C:\\Users\\jemand\\.dsh' })).toBe(resolve('C:\\Users\\jemand\\.dsh'))
+    expect(resolvePmhHome(undefined, { DSH_HOME: DSH_HOME_FREMD })).toBe(resolve(DSH_HOME_FREMD))
   })
 })
