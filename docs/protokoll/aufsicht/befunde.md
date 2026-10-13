@@ -902,7 +902,37 @@ sonst zwischen „läuft" und „läuft nicht" sauber trennt.
 
 ---
 
-## B16 — „API ausgefallen" ist **nicht belegt**: die Sonde prüfte geratene Pfade mit der falschen Methode — **H**
+## B16 — „API ausgefallen" ist **nicht belegt**: die Sonde prüfte geratene Pfade mit der falschen Methode — **H** (erledigt 15:14)
+
+### Nachtrag 13.10.2026, 15:20 — **ERLEDIGT**, und ein Teil **meiner** Aussage war die schwächere Messung
+
+Commit **`a0524f4`** (15:14:48) „Korrektur: API des Cores ist nicht ausgefallen — der Befund war nicht
+belegt", dazu `5deed53` (Git-Audit). Was er getan hat, und es ist **mehr** als verlangt:
+
+| Stelle | Was dort jetzt steht |
+|---|---|
+| `README.md` | **„API des Cores \| lebt — die frühere Zeile hier war falsch."** mit dem gemessenen `POST /api/goals/create` **mit** Anmeldung |
+| `docs/review/api-flaeche.md` | ein eigener Abschnitt **„Korrektur vom 13.10.2026 — dieser Befund ist so nicht haltbar"**, und darin der Satz: *„Er steht oben und bleibt stehen — eine Momentaufnahme wird nicht rückwirkend geändert. Aber er darf nicht ohne diesen Vermerk gelesen werden."* **Das ist Regel H6 dieser Aufsicht, von ihm angewendet** |
+| Fundstelle | *„Befund **B16** der Aufsicht (`docs/protokoll/aufsicht/befunde.md`), Werkzeug `…/werkzeuge/api-erreichbarkeit.mjs`"* — die Quelle ist genannt |
+| Begründung der Entscheidung | neu gefasst: *„Der eigene Endpunktweg bleibt richtig — aus einem **anderen** Grund als zuerst angenommen: die API der Vorlage ist ein **RPC-Kanal**, kein Weg für einfache HTTP-Endpunkte wie `GET /api/health`."* **Das ist die bessere Begründung**, und sie stimmt mit dem überein, was B16 empfohlen hatte |
+
+**Und ein Teil meiner eigenen Aussage fällt — durch seine Messung.** Ich hatte in B16 ausdrücklich offen
+gelassen: *„der WS-Pfad `/api/remote.mux` scheitert auf **beiden** Installationen schon beim Handschlag"*.
+Er hat mit Anmeldung nachgemessen und findet in `docs/review/api-flaeche.md` Zeile **122**:
+
+```
+| WS /api/remote.mux | HTTP/1.1 101 Switching Protocols |
+```
+
+**„101 Switching Protocols" ist ein erfolgreicher Handschlag.** Mein Vorbehalt war damit die
+**schwächere Messung** — vermutlich fehlte meinem Versuch das Anmelde-Cookie, genau der Grund, aus dem
+schon die 401er meiner ersten Sonde nichts über den Gateway aussagten. Ich habe es **nicht** erneut
+gemessen (dafür müßte ein Host laufen — Hausregel H5), und schreibe es deshalb als **seine** Messung,
+nicht als meine. **B16 ist damit vollständig erledigt, beide Hälften.**
+
+---
+
+
 
 **Die Behauptung.** `README.md` Zeile 55, die schwerwiegendste Zeile des Repos:
 
@@ -2743,6 +2773,7 @@ Dateilisten, Versionierung, Quelltext der Einstiege, die Abhängigkeitsaussagen 
 | 15:02 | Ich sah im Checkout `adapter.js` mit Datum **10-10** und schloß daraus, die heutigen Änderungen seien **nicht gebaut**. | **Falsch gezogen.** Ich hatte nur die **ersten drei** Artefaktdateien angesehen; die **neuesten** sind von **heute 10:45** (33 Dateien von heute) — es **wurde** gebaut. Der Befund steht danach auf dem, was er belegen kann: der Start der GUI um **09:39** entscheidet über die Wirkung, nicht der Build. | Ein Blick auf drei von 33 Dateien und daraus einen Schluß — dieselbe Familie wie meine früheren Zählfehler (12:28, 13:47). Aufgefallen ist es, weil ich die Artefaktzeit **gegen die Quellzeit** hielt und die Zahlen nicht zusammenpaßten. **Erst zählen, dann schließen** — zum vierten Mal in dieser Sitzung notiert, und diesmal habe ich es **innerhalb** der Runde bemerkt. |
 | 15:05 | Nach dem `go build` schrieb ich „**vorher waren es 5**" Einträge unter `services/pmh-attach` und hätte daraus geschlossen, **mein Bau** habe zwei Dateien in ihren Baum geschrieben. | **Die 5 war erfunden, nicht gemessen.** Nachgezählt: es sind **7** — **vorher und nachher** (3 geänderte Go-Dateien, 4 unverfolgte: README, zwei Tests, `unit.json`). `go.mod` unverändert, **keine** `go.sum` entstanden, das Modul ist abhängigkeitsfrei (74 B). | Ich hätte **mich selbst** eines Verstoßes gegen meine eigene Hausregel H2 beschuldigt — mit einer Zahl, die nie in einer Shell stand. Aufgefallen ist es, weil ich die 7 Einträge **aufgelistet** habe, statt der Zahl zu glauben. **Vierte Fassung derselben Ursache** (12:28, 13:47, 15:02, jetzt): erst zählen, dann schließen. |
 | 15:09 | Mein **neues** Werkzeug `stand-abgleich.mjs` meldete für **B31** „gemessen 0" statt 6 — ich hätte den Befund als **behoben** ausgegeben. | Ursache: `lauf()` las nur **stdout**; die sechs Warnungen des Registry-Scans gehen nach **stderr**, und der Scan endet mit exit 0. **Erster Reparaturversuch unvollständig:** ich änderte nur den **Fehler**pfad (`fehler.stdout + fehler.stderr`) — bei exit 0 blieb es bei stdout allein, die Messung war also **unverändert falsch**. Erst der Wechsel auf `spawnSync` (liefert beide Ströme) ergab 6. | **Zwei Behebungen an derselben Stelle, und die erste nicht nachgemessen.** Ein Wächter, der einen offenen Befund als erledigt meldet, ist schlimmer als keiner. Die Lehre ist nicht „stderr mitlesen", sondern: **wer eine Sonde repariert, mißt danach noch einmal** — die dritte Messung steht im Protokoll. |
+| 15:19 | Beim Einfügen des B16-Nachtrags habe ich als Anker die **Überschrift** `## B16 — …` benutzt und sie im Ersatztext **nicht** wiederholt. | Der Befundabschnitt stand danach **ohne Überschrift** — und mein eigenes Prüfwerkzeug hätte es gemeldet („Befundabschnitte in befunde.md vorhanden"). **Sofort** bemerkt und in derselben Minute wiederhergestellt, mit dem Zusatz „(erledigt 15:14)" in der Überschrift. | **Fünfte Fassung derselben Ursache** (12:29, 13:56, 14:32, 15:19) — ein Anker, der eine ganze Zeile oder Überschrift ist, ersetzt sie. Die Lehre hat **viermal nicht geholfen**; was hilft, ist die Handlung: nach **jeder** Änderung die Überschriftenliste ausgeben. **Und ein Trost:** die Prüfung dafür existiert bereits und läuft in jedem meiner Takte — diesmal habe ich es vor ihr bemerkt. |
 
 ---
 

@@ -2325,6 +2325,45 @@ Geprüft ist also alles, was **ohne Zustandsänderung** prüfbar ist: Dateiliste
 der Einstiege, Übereinstimmung von Behauptung und Code. **Nicht** geprüft: sein `exit 0`, die 524
 Pakete, die 2,8 s Typecheck, die vier übernommenen Kennwörter.
 
+## 2026-10-13 15:18–15:24 — Zweiundvierzigster Takt: **B16 ist erledigt** — und ein Teil **meiner** Aussage fällt durch seine Messung
+
+**Der Anlaß.** Im Standabgleich der offenen Befunde sah ich zwei neue Commits: `a0524f4` (15:14:48)
+„Korrektur: API des Cores ist nicht ausgefallen — **der Befund war nicht belegt**" und `5deed53`
+(Git-Audit). Das ist **mein B16** — der Befund, mit dem diese Spur begonnen hat.
+
+**Was er getan hat, und es ist mehr als verlangt:**
+
+1. Die **README-Zeile** ist berichtigt: *„API des Cores | **lebt — die frühere Zeile hier war falsch**"*,
+   mit dem gemessenen `POST /api/goals/create` **mit** Anmeldung.
+2. In `docs/review/api-flaeche.md` steht ein eigener Abschnitt **„Korrektur vom 13.10.2026 — dieser Befund
+   ist so nicht haltbar"** — und darin der Satz: *„Er steht oben und bleibt stehen — eine Momentaufnahme
+   wird nicht rückwirkend geändert. Aber er darf nicht ohne diesen Vermerk gelesen werden."*
+   **Das ist Hausregel H6 dieser Aufsicht, von ihm angewendet.**
+3. Er nennt die **Fundstelle**: *„Befund B16 der Aufsicht, Werkzeug `werkzeuge/api-erreichbarkeit.mjs`"*.
+4. Er erklärt den **Methodenfehler** so, wie ich ihn beschrieben hatte (geratene Pfade mit `GET` gegen
+   **eine** Route `/api`, aufgerufen als `POST /api/<namespace>/<methode>`; die 401 kam von der
+   Anmeldesperre) — und zieht daraus eine **bessere Begründung** für die eigene Entscheidung: *„Der eigene
+   Endpunktweg bleibt richtig — aus einem **anderen** Grund als zuerst angenommen: die API der Vorlage ist
+   ein **RPC-Kanal**, kein Weg für einfache HTTP-Endpunkte wie `GET /api/health`."*
+
+**Und ein Teil meiner eigenen Aussage fällt — durch seine Messung, nicht durch meine.** Ich hatte in B16
+offen gelassen, der WS-Pfad `/api/remote.mux` scheitere „auf **beiden** Installationen schon beim
+Handschlag". Er hat **mit Anmeldung** nachgemessen; in `docs/review/api-flaeche.md` Zeile **122** steht:
+
+```
+| WS /api/remote.mux | HTTP/1.1 101 Switching Protocols |
+```
+
+**101 Switching Protocols ist ein erfolgreicher Handschlag.** Mein Vorbehalt war damit die **schwächere
+Messung** — vermutlich fehlte meinem Versuch das Anmelde-Cookie, genau der Grund, aus dem schon die
+401er meiner ersten Sonde nichts über den Gateway aussagten. Ich habe es **nicht** erneut gemessen (dafür
+müßte ein Host laufen — H5) und führe es deshalb als **seine** Messung. **B16 ist vollständig erledigt,
+beide Hälften.**
+
+**Der Standabgleich im selben Takt:** zwölf offene Befunde geprüft, **alle unverändert offen** — die
+Handlungsliste in §0 gilt weiter. B16 stand dort nicht mehr (es war schon als entschieden geführt); es
+steht jetzt auch in §1 als **erledigt**.
+
 ---
 
 ## Offen / nächster Takt
