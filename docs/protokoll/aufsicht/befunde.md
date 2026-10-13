@@ -2609,6 +2609,70 @@ schaden können: `-o` schreibt nach `%TEMP%`, und die Gegenprobe zeigt **7** Ein
 `services/pmh-attach` (**vorher und nachher**), `go.mod` unverändert (Datum 13.10. 00:29:50), **keine**
 `go.sum`. Das Wegwerf-Binary ist gelöscht.
 
+## V7 — Die drei Installations-Einstiege sind **geschichtet und belegt** (Verifikation, kein Befund)
+
+**Anlass.** Sein neuer Beleg `docs/status/beleg-installation.md` (Commit `92cb00c`, 335 Zeilen) behauptet
+eine Installation „aus der Eingabeaufforderung" mit **exit 0** im **frischen Klon**. Ein solcher Beleg
+lebt von seinen **Voraussetzungen** — also habe ich zuerst gefragt: ist alles, was der Installer braucht,
+überhaupt **versioniert**? (Ein frischer Klon hat nur, was im Index steht.)
+
+| Prüfung | Ergebnis |
+|---|---|
+| 16 Dateien des Installationswegs (`install.cmd/.ps1/.sh`, `install.mjs`, `install-teile.mjs`, `migrate.mjs`, `typecheck.mjs`, `.gitattributes`, `.env.example`, `docker-compose.yml`, `package.json`, `bun.lock`, vier Init-Skripte) | **alle versioniert** ✓ (`tsconfig.json` fehlt — sie existiert auch nicht, das war mein Listeneintrag, nicht sein Fehler) |
+
+**Und was die drei Einstiege tun — gelesen, nicht geglaubt:**
+
+| Ebene | Befund |
+|---|---|
+| `install.cmd` | findet `pwsh`, sonst `powershell` (mit sichtbarem Abbruch, wenn beides fehlt), übersetzt `--ohne-stapel` → `-OhneStapel` (weil PowerShell sonst abbricht — **gemessen** und im Kommentar belegt), nutzt `-ExecutionPolicy Bypass` **nur für diesen einen Aufruf** und faßt die Sicherheitseinstellung des Rechners **nicht** an — mit genau dieser Begründung im Quelltext |
+| `install.ps1` | `Get-BunBefehl` — sucht Bun an den **richtigen** Orten, weil auf dem Zielrechner **drei** `bun`-Einträge im PATH liegen und **zwei defekt** sind (`npm\bun.cmd` fremdarchig, `npm\bun.ps1` von der Richtlinie blockiert) |
+| `install.sh` | **POSIX-`sh`** (Alpine hat kein `bash` — gemessen), erkennt **sieben** Paketverwalter (`apt`/`dnf`/`yum`/`apk`/`pacman`/`zypper`/`brew`), prüft die Rechte und **installiert `curl` und `git`** — und danach **Bun**, weil `curl` zu diesem Zeitpunkt schon da ist. **Diese Reihenfolge ist im Quelltext begründet** („Das ist der ganze Grund für die Reihenfolge dieses Skripts"), mit PATH-Korrektur nach der Bun-Installation (`~/.bun/bin`) und sichtbarem Abbruch, wenn Bun danach immer noch nicht aufrufbar ist. Am Ende `exec bun scripts/install.mjs "$@"` — `exec` wegen des Exit-Codes, `"$@"` damit `--ohne-stapel` unverändert ankommt |
+| `install.mjs` | installiert Bun **auf beiden Plattformen** selbst (Windows `irm bun.sh/install.ps1 \| iex`, Linux `curl -fsSL https://bun.sh/install \| bash`) — Zeilen 151–205 |
+
+**Urteil: die Schichtung ist richtig gebaut, und das Bemerkenswerte daran ist die Sorgfalt an den
+Rändern** — nicht der Hauptweg, sondern die Fälle: kein `bash` auf Alpine, drei defekte `bun`-Einträge im
+PATH, eine blockierte Ausführungsrichtlinie, ein `--ohne-stapel`, das PowerShell nicht versteht. Das sind
+die Stellen, an denen „Plug-and-Play" sonst still scheitert.
+
+## B34 — Die Überschrift des Installations-Belegs verspricht **mehr**, als der Lauf voraussetzt — **N**
+
+**Der Befund, in einem Satz.** Der Beleg beginnt mit *„**Windows** — aus der Eingabeaufforderung, **ohne
+Vorbedingung**"* — und seine eigene Schritt-1-Ausgabe lautet `ok bun · ok docker · ok git`. Für ein
+**frisches System** (nicht nur einen frischen Klon) stimmt das nur teilweise:
+
+| Voraussetzung | Windows | Linux |
+|---|---|---|
+| PowerShell | Windows-Bestandteil (sichtbarer Abbruch, wenn beschnitten) | — |
+| `curl`, `git` | nicht nötig für den Installer | **`install.sh` installiert beide** ✓ |
+| **Bun** | **`install.mjs` installiert es** ✓ | **`install.sh` und `install.mjs` installieren es** ✓ |
+| **Docker** | **Voraussetzung** — Docker Desktop, wird **nicht** installiert | **Voraussetzung** — offizielles Skript, braucht root, wird nicht ausgeführt |
+| **laufender Docker-Dienst** | **Voraussetzung** (Schritt 1 prüft ihn: `ok docker-Dienst`) | **Voraussetzung** |
+
+**Docker ist damit die eine echte Vorbedingung** — und es ist eine **begründete** Entscheidung, keine
+Nachlässigkeit: *„Der offizielle Weg ist Docker Desktop, ein Programm mit Oberfläche und eigener Lizenz.
+Es still zu installieren wäre eine Entscheidung über die Lizenz des Benutzers. Das Skript nennt den
+Befehl und bricht ab — sichtbar, statt heimlich."* (so steht es in `install.mjs`). **Der Beleg sagt das
+nirgends** — und wer auf einem nackten Rechner steht, hält den Installer für kaputt.
+
+**Der Beleg ist in einem Punkt ehrlicher als nötig und in einem anderen ungenau.** Ehrlich: Abschnitt
+„Die Abhängigkeiten — gemessen" prüft **minimale Container** (`ubuntu:24.04`, `alpine:3`,
+`debian:stable-slim`) und zeigt, daß dort `curl`, `git` und teils `bash` **fehlen** — genau deshalb ist
+`install.sh` in `sh` geschrieben und installiert `curl`/`git` selbst. **Ungenau:** in dieser Tabelle
+fehlt **Docker** — die eine Abhängigkeit, die der Installer **nicht** selbst mitbringt und die in jedem
+dieser Container ebenfalls fehlt.
+
+**Empfehlung, eine Zeile je Stelle:**
+
+1. In der Überschrift: *„… ohne Vorbedingung — **außer Docker mit laufendem Dienst**"* (oder: „Bun,
+   `curl` und `git` bringt das Skript selbst mit; Docker nicht, und das ist Absicht").
+2. In der Container-Tabelle eine Spalte **`docker`** ergänzen — dann ist die Liste vollständig und die
+   Aussage „Plug-and-Play" steht auf dem, was gemessen ist.
+
+**Was ich *nicht* getan habe:** ich habe den Installer **nicht ausgeführt**. Er schreibt `.env`, startet
+den Stapel und fährt Migrationen — gegen den **laufenden** Stapel des Bauenden wäre das ein Eingriff
+(Hausregel H5). Geprüft ist damit alles **gelesen und gemessen**, was ohne Zustandsänderung prüfbar ist:
+Dateilisten, Versionierung, Quelltext der Einstiege, die Abhängigkeitsaussagen — **nicht** sein exit 0.
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)

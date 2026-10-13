@@ -2274,6 +2274,57 @@ neue Zeilen für `stand-abgleich.mjs`, `leck-pruefung.mjs`, `kennwoerter-drehen.
 `waisen-aufraeumen.ps1`. **Die Abschnitte 1–8 des Registers habe ich nicht angefaßt** — es ist eine
 Projektdatei, und Hausregel H3 gibt mir `docs/protokoll/`; die Ausnahme ist eng und benannt.
 
+## 2026-10-13 15:14–15:24 — Einundvierzigster Takt: seinen **neuen Installations-Beleg** geprüft (V7) — und eine Unschärfe in der Überschrift (B34)
+
+**Der Anlaß.** Er hat um 15:11 einen **Beleg** vorgelegt: `docs/status/beleg-installation.md` (335 Zeilen,
+Commit `92cb00c`), „Plug-and-Play-Installation für Windows und Linux", gemessen im **frischen Klon**,
+**exit 0**. Genau das prüfe ich nach — und zwar zuerst seine **Voraussetzung**: ein frischer Klon hat nur,
+was im **Index** steht.
+
+**Ergebnis 1 — die Voraussetzung hält.** Alle **16** Dateien des Installationswegs (`install.cmd`,
+`install.ps1`, `install.sh`, `install.mjs`, `install-teile.mjs`, `migrate.mjs`, `typecheck.mjs`,
+`.gitattributes`, `.env.example`, `docker-compose.yml`, `package.json`, `bun.lock`, vier Init-Skripte)
+sind **versioniert** ✓. (`tsconfig.json` fehlt im Index — die Datei existiert auch nicht; das war mein
+Listeneintrag, nicht sein Fehler.)
+
+**Ergebnis 2 — die Schichtung ist sorgfältig, und zwar an den Rändern.** Gelesen, nicht geglaubt:
+
+* `install.cmd` findet `pwsh`, sonst `powershell` (mit sichtbarem Abbruch), **übersetzt**
+  `--ohne-stapel` → `-OhneStapel` (weil PowerShell sonst abbricht — gemessen und im Kommentar belegt),
+  und nutzt `-ExecutionPolicy Bypass` **nur für diesen einen Aufruf** — mit der ausdrücklichen Begründung,
+  daß die Sicherheitseinstellung eines fremden Rechners **nicht** angefaßt wird.
+* `install.ps1` sucht Bun über `Get-BunBefehl`, weil auf dem Zielrechner **drei** `bun`-Einträge im PATH
+  liegen und **zwei defekt** sind.
+* `install.sh` läuft in **POSIX-`sh`** (Alpine hat kein `bash` — gemessen), kennt **sieben**
+  Paketverwalter, prüft die Rechte und installiert `curl` und `git` — **danach Bun**, weil `curl` zu
+  diesem Zeitpunkt schon da ist. Diese Reihenfolge ist **im Quelltext begründet** („Das ist der ganze
+  Grund für die Reihenfolge dieses Skripts"), mit PATH-Korrektur auf `~/.bun/bin` und sichtbarem Abbruch,
+  wenn Bun danach noch nicht aufrufbar ist. Am Ende `exec bun scripts/install.mjs "$@"` — `exec` wegen
+  des Exit-Codes, `"$@"` damit `--ohne-stapel` unverändert ankommt.
+* `install.mjs` installiert Bun **auf beiden Plattformen** selbst (Windows `irm bun.sh/install.ps1 | iex`,
+  Linux `curl -fsSL https://bun.sh/install | bash`).
+
+**Meine Ausgangsvermutung war falsch, und ich schreibe sie hin:** ich hatte erwartet, `install.sh`
+installiere Bun **nicht** und die Überschrift „ohne Vorbedingung" sei damit grob falsch. Sie tut es — mit
+korrekter Reihenfolge. Das ist ein **Fairness**-Ergebnis, kein Befund.
+
+**Ergebnis 3 — B34, die eine Unschärfe.** Die Überschrift sagt *„Windows — aus der Eingabeaufforderung,
+**ohne Vorbedingung**"*, und die eigene Schritt-1-Ausgabe lautet `ok bun · ok docker · ok git`. Für ein
+**frisches System** (nicht nur einen frischen Klon) stimmt das nur teilweise: **Bun** wird nachinstalliert
+(beide Plattformen), `curl` und `git` von `install.sh` — **Docker von nichts**. Die eine echte
+Vorbedingung ist damit **Docker mit laufendem Dienst**. Es ist eine **begründete** Entscheidung
+(Docker Desktop still zu installieren wäre eine Entscheidung über die Lizenz des Benutzers — so steht es
+in `install.mjs`), aber der Beleg sagt es **nirgends**, und in seiner Tabelle „Die Abhängigkeiten —
+gemessen" (drei minimale Container) fehlt genau die Spalte `docker`, obwohl Docker dort ebenfalls fehlt.
+**Empfehlung: ein Halbsatz in der Überschrift und eine Spalte in der Tabelle.**
+
+**Und die Grenze, ausdrücklich.** Ich habe den Installer **nicht ausgeführt**: er schreibt `.env`, startet
+den Stapel und fährt Migrationen — gegen den **laufenden** Stapel des Bauenden wäre das ein Eingriff
+(Hausregel H5; ich habe in dieser Sitzung einmal parallel zu seinem Test gemessen und das bereut).
+Geprüft ist also alles, was **ohne Zustandsänderung** prüfbar ist: Dateilisten, Versionierung, Quelltext
+der Einstiege, Übereinstimmung von Behauptung und Code. **Nicht** geprüft: sein `exit 0`, die 524
+Pakete, die 2,8 s Typecheck, die vier übernommenen Kennwörter.
+
 ---
 
 ## Offen / nächster Takt
@@ -2315,6 +2366,8 @@ Projektdatei, und Hausregel H3 gibt mir `docs/protokoll/`; die Ausnahme ist eng 
 | **B32** Anpassungen am DSH: gebaut, aber nicht in Kraft | **offen — Information an den Betreiber** | Der Checkout `deepseek-harness` trägt **10 unversionierte Änderungen** von **heute 10:19–10:45** (Modellkatalog auf `deepseek-flash`/`deepseek-v4-pro`, **Crew-Plugin** + 90 Zeilen Tests, UI-Modellauswahl; 473 Einfügungen). Die GUI läuft als `node --import tsx/esm apps/cli/src/bin.ts web`, **Start 09:39** — `tsx` liest die Quellen **beim Start**, ein `lib/`-Build wirkt für diesen Weg **nicht**. **Keine der zehn Änderungen ist in dieser Sitzung wirksam** (auch `crew_*` nicht); wirksam würden sie **nur beim nächsten Start** — den herbeizuführen ist **mir** verboten (H1). Der Zweig `dsh-custom` zeichnet nur den Stand vom **12.10.** auf; im Projekt steht davon **nichts**. Empfehlung: auf `dsh-custom` committen (Zweig existiert) + eine Zeile je Anpassung im Projekt, mit „wirkt erst nach Neustart" |
 | **B33** Der neue Anhängepunkt hat keinen Zaun | **offen, latent — zwei kleine Schritte** | `services/pmh-attach` prüft **eingehend nichts**: keine Authentifizierung (alle `Bearer`-Stellen betreffen den **Upstream**, der Dienst ist dort Client), kein Host-/Origin-Zaun (`conn.go` prüft nur das Upgrade — Protokoll, keine Autorisierung). Der **Kern daneben** hat beides. Gefährlich ist die **Kombination** `--allow-wildcard` (bindet `0.0.0.0`) **ohne** Credential. **Entlastung, gemessen:** Standardbindung `127.0.0.1`, läuft **nicht**, abhängigkeitsfrei, `go vet` exit 0. Empfehlung: Zaun des Kerns übernehmen + Wildcard an ein Token binden |
 | **V6** `pmh-attach` kompiliert sauber | **verifiziert** | `go vet ./...` → exit 0; `go build -o %TEMP%\…` → exit 0 (10.086.400 B). **Ihr Baum unberührt:** 7 Einträge unter `services/pmh-attach` vorher **und** nachher, `go.mod` unverändert, **keine** `go.sum` — das Wegwerf-Binary ist gelöscht |
+| **B34** Die Überschrift des Installations-Belegs verspricht zu viel | **offen, ein Halbsatz** | Sie sagt „**ohne Vorbedingung**"; die eigene Ausgabe lautet `ok bun · ok docker · ok git`. Gemessen: Bun wird von `install.mjs` auf **beiden** Plattformen nachinstalliert (Windows `irm bun.sh/install.ps1 \| iex`, Linux `curl … \| bash`), `curl`/`git` von `install.sh`; **Docker von nichts**. Die eine echte Vorbedingung ist **Docker mit laufendem Dienst** — begründet (Lizenz-Entscheidung), aber im Beleg nicht genannt, und in seiner Container-Tabelle fehlt die Spalte |
+| **V7** Die drei Installations-Einstiege | **verifiziert** | 16 Dateien des Wegs **alle versioniert** (frischer Klon hat sie); `install.cmd` nutzt `-ExecutionPolicy Bypass` **nur für diesen Aufruf** und übersetzt `--ohne-stapel`; `install.ps1` findet Bun trotz **drei** PATH-Einträgen, von denen zwei defekt sind; `install.sh` läuft in **POSIX-`sh`**, kennt sieben Paketverwalter, installiert `curl`+`git`, **danach** Bun (Reihenfolge im Quelltext begründet), korrigiert den PATH und endet mit `exec bun scripts/install.mjs "$@"` |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |
