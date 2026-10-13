@@ -2396,6 +2396,87 @@ früher bereitgestellt hat (B3-Nachtrag). `~/.pmh` hat **13** Referenzen, ebenfa
    Harness-Home (Standard: **nur anzeigen**), und `werkzeuge/zugangs-lage.mjs --pruefen` bestätigt sie
    gegen die echte API (HTTP 200). **Kein Wert steht dabei je in einer Ausgabe.**
 
+## V4 — Der Export-Rundlauf ist **reproduziert**, byteweise (Verifikation, kein Befund)
+
+**Anlass.** `packages/units/unit-export` ist die Maschine hinter dem Plug-and-play-Ziel des Betreibers
+(Unit-Manifest, Registry, Bündelung, Export/Import, Plugin-Host) und war der einzige größere Teil, den
+ich noch nicht angefaßt hatte. Sein Nachweis (`docs/status/plugin-export-nachweis.md`, gemessen **00:2x**)
+behauptet einen dreistufigen Rundlauf mit identischen Digests. **Ich habe ihn nachgefahren** — mit seiner
+eigenen CLI, gegen eine Kopie in `%TEMP%`, **15 Stunden später**:
+
+| Maß | Sein Nachweis (00:2x) | Meine Messung (15:00) |
+|---|---|---|
+| Bündel-Digest (Export) | `sha256:ac37e0ec2a21f1c8…` | **identisch** |
+| Inhalts-Digest | `sha256:84cef3f8ab80895e…` | **identisch** |
+| Dateien / Größe | 20 / 223.508 B | **identisch** |
+| Bündel-Digest (Rückexport) | identisch | **identisch** |
+| **Dateihash beider Bündel** | „nicht stabil" (§1) | **bit-identisch**: `06a69695dd29921b…` |
+
+**Zwei Befunde dazu:**
+
+1. **Sein Beweis hält — über 15 Stunden und bei laufender Arbeit am Baum.** Das ist die stärkste Form,
+   die ein Nachweis haben kann: er ist **wiederholbar**, nicht nur einmalig gelungen.
+2. **Sein Satz „der Dateihash ist nicht stabil" ist zu allgemein.** Er gilt nur **ohne** festes
+   `--created-at`: mit demselben Zeitpunkt (ich habe beide Läufe mit `2026-10-13T00:00:00Z` erzeugt) sind
+   die Bündel **bit-gleich** — und **seine eigene Testsuite behauptet genau das** („zweimal exportieren
+   aus derselben Quelle ergibt byte-gleiche Bündel", `tests/round-trip.test.ts`). Sein **Code** ist
+   präziser als seine **Prosa**. Die Berichtigung ist ein Halbsatz in §1.
+
+## V5 — Seine Testzahl stimmt: **158 pass, 0 fail** (Verifikation, kein Befund)
+
+Nachweis §4 behauptet `bun test` → `exit 0 · 158 pass · 0 fail · 6 Dateien`. Nachgemessen:
+
+```
+158 pass · 0 fail · 380 expect() calls · Ran 158 tests across 6 files. [876.00ms]   exit 0
+```
+
+**Und ich habe die Suite bewußt ausgewählt**, bevor ich sie laufen ließ: `git status` zeigt **0**
+geänderte Dateien unter `packages/units/` — nach **seiner eigenen** Regel aus §5 („Tests werden nicht
+parallel zu Schreibvorgängen auf denselben Dateien ausgeführt. Ein Testergebnis über einen halbfertigen
+Stand ist kein Befund über den Code, sondern über den Ablauf"). Seine Regel ist richtig, und ich habe
+sie befolgt — die 29 geänderten Pfade des Projekts liegen in `native/flock`, `services/pmh-nix` und
+`services/pmh-attach`, nicht hier.
+
+**Nebenbei, und es ist ein Lob:** die Suite druckt selbst, **welches** Unit sie für den Rundlauf nimmt
+(„Rundlauf-Quelle: services/pmh-attach (`units/` enthält noch kein Unit)") und hat einen Test dafür, daß
+der Fundort `units/` wird, sobald dort ein Unit liegt. Ein Test, der seinen **Gegenstand benennt**, ist
+mehr wert als einer, der nur grün ist.
+
+## B31 — Sein eigenes Werkzeug warnt gegen **seine eigenen** Manifeste: 6 von 11 — **N**
+
+**Gemessen mit seiner CLI** (`bun run src/cli.ts list --root native --root services --root packages --json`):
+
+```
+warnung [unit_name_directory_mismatch] …\native\atomicfs:  "name" ist "pmh-atomicfs", der Ordner heißt aber "atomicfs"
+warnung [unit_name_directory_mismatch] …\native\crypto:    "name" ist "pmh-crypto",   der Ordner heißt aber "crypto"
+warnung [unit_name_directory_mismatch] …\native\flock:     "name" ist "pmh-flock",    der Ordner heißt aber "flock"
+warnung [unit_name_directory_mismatch] …\native\index:     "name" ist "pmh-index",    der Ordner heißt aber "index"
+warnung [unit_name_directory_mismatch] …\native\landlock-run: …                    "landlock-run"
+warnung [unit_name_directory_mismatch] …\native\pty:       "name" ist "pmh-pty",      der Ordner heißt aber "pty"
+```
+
+**Alle sechs `native/*`-Units**, also **6 von 11** im Projekt, verletzen die Regel des eigenen Werkzeugs
+(`exit 0` — es sind Warnungen, keine Fehler).
+
+**Warum das mehr als Kosmetik ist.** Die Registry begründet ihre Regel selbst mit *„der Ordner ist die
+Installation"* — und der **Import** benennt den Ordner nach dem **Unit-Namen**:
+
+```
+installed pmh-nix 0.2.0 -> …\registry\pmh-nix
+```
+
+Für einen Export aus `native/flock` hieße das Ziel also `registry/pmh-flock`: **der Rundlauf ändert den
+Ordnerpfad.** Für die Funktion ist das unschädlich (die Registry liest `unit.json` aus ihren Wurzeln),
+aber die Regel „Name = Ordner" gilt im ausgelieferten Baum **nicht** — und sie ist auch nicht
+durchsetzbar, ohne die Cargo-Arbeitsbereichsmitglieder (`native/flock` …) umzubenennen.
+
+**Der eigentliche Schaden ist die Gewohnheit:** eine Warnung, die bei **jedem** Lauf sechsmal erscheint
+und nie behoben wird, lehrt jeden Leser, Warnungen zu überlesen — genau die Haltung, die dieses Projekt
+sonst überall vermeidet. **Zwei ehrliche Wege:** (a) die Ordner umbenennen (`native/pmh-flock` …) und die
+sieben Arbeitsbereichsmitglieder mitziehen — mechanisch, aber es berührt sieben `Cargo.toml`-Zeilen und
+Dokumente; oder (b) die Regel auf den **Anwendungsbaum** begrenzen und für `native/` ausdrücklich
+abschalten, mit einer Zeile Begründung. **Beides ist besser als der heutige Zustand.**
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
@@ -2453,6 +2534,8 @@ früher bereitgestellt hat (B3-Nachtrag). `~/.pmh` hat **13** Referenzen, ebenfa
 | 13:56 | Beim Einfügen des B23-Nachtrags habe ich als Anker `---` **plus die Überschrift** des Fairness-Abschnitts benutzt und im Ersatztext die Überschrift **nicht** wiederholt. | Die Überschrift `## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)` war **weg**; die Tabelle stand ohne Abschnitt da. Sofort bemerkt und **wiederhergestellt**. | **Zweiter Fall derselben Familie wie 12:29** (ein Anker ersetzt mehr als beabsichtigt). Die Lehre von damals — „Kontrolle nach jeder Änderung: zählen, nicht annehmen" — gilt auch für **Überschriften**: nach jedem Eingriff die Abschnittsliste prüfen, nicht nur die geänderte Stelle ansehen. |
 | 14:00 | „**Niemand liest `unit.json`** — elf solcher Dateien ohne Verbraucher." | **Falsch.** `packages/units/unit-export` liest sie sehr wohl: `MANIFEST_FILE = 'unit.json'` (`manifest.ts:488`), dazu `readManifest` und `scanRegistry` über konfigurierte Wurzeln. Der Befund ist **vor der Veröffentlichung** zurückgezogen. | Mein Befehl war `Select-String -Pattern 'unit\.json' **-SimpleMatch**` — `-SimpleMatch` schaltet die Regex **aus**, gesucht wurde also der **Backslash** mit. Dieselbe Familie wie 12:14 („das Suchmuster entscheidet über das Ergebnis"), nur in die **andere** Richtung: nicht zu weit, sondern zu **wörtlich**. |
 | 14:02 | „Bedingung **11** des `flock`-Vertrags hat **keinen** Test — und `unit.json` behauptet 15 + 2 = **17** von 18, also ein Rechnungsloch." | **Beides falsch.** Bedingung 11 **wird geprüft**, als zweiter Teil von `condition_10` (`contract.rs:302`). Damit sind **16** Bedingungen abgedeckt, **2** entfallen (15, 16) = **18** ✓ — kein Loch; die „15" zählt **Testfunktionen**, nicht Bedingungen. | Ich hatte die Zahl als *Bedingungen* gelesen und daraus einen Fehler gegen den bauenden Agenten konstruiert. **Zwei Fehlalarme in derselben Prüfung, beide zu seinen Ungunsten** — die Richtung, in die eine Prüfrolle nicht irren darf. Ursache beide Male dieselbe: **schneller geschlossen als nachgesehen.** `unit.json` steht jetzt in der Fairness-Tabelle, wo es hingehört. |
+| **`unit-export` — der Nachweis (t14) benennt selbst, was er nicht belegt** (`docs/status/plugin-export-nachweis.md` §6) | Nachgelesen und gegengeprüft: der Rundlauf (V4) und die Testzahl (V5) sind **reproduziert**; die genannten Lücken stimmen: Einhängen nur gegen die eigene Testfläche, `units/` ohne echtes Unit, **Plattform-Namensschema** (`"windows"` gegen `process.platform = "win32"` — er nennt es selbst *„ein echter Befund, nicht kosmetisch"*) | **Vorbildlich.** Ein Nachweisdokument, das seine eigenen Lücken benennt **und** darunter einen Befund gegen den eigenen Code, ist mehr wert als eines, das nur Erfolge zeigt. Ich habe **nichts** hinzuzufügen — nur bestätigt |
+| `unit-export` §5: ein **Fehlalarm** durch paralleles Arbeiten | Er dokumentiert zwei Testfehlschläge, die isoliert `exit 0` ergaben, weil ein anderer Arbeiter dieselben Dateien schrieb, und leitet daraus eine **Regel** ab | **Dieselbe Lehre, die ich in dieser Sitzung zweimal selbst ziehen mußte** (mein `port-test`-Lauf parallel zu seinem Zeugentest). Er hat sie **vor** mir aufgeschrieben — für denselben Baum. Ich habe sie beim Testlauf in V5 befolgt (Suite gewählt, deren Dateien nicht in der Änderungsliste stehen) |
 | **14:10** | Im einunddreißigsten Takt schrieb ich eine **Abschnittsüberschrift „14:25–14:50"**, ins Lageblatt **„Stand 14:45"** und in sechs JSONL-Zeilen Zeitstempel **12:30Z bis 12:42Z**. | **Die echte Uhrzeit war 13:56 bis 14:07** (`Get-Date` um **14:07:46**; meine Commits tragen 14:03:10 / 14:07:02). Alle Angaben berichtigt — Lageblatt, Überschrift, JSONL-Zeitstempel — und `Get-Date` ist jetzt der erste Befehl eines Takts. | **Ich habe Uhrzeiten aus dem Gefühl geschrieben, statt sie zu messen** — der klarste Verstoß gegen meine **eigene** Hausregel H7 (13:06: „kein Wert in eine Datei, der nicht vorher in einer Shell gestanden hat"). Bei anderen beanstande ich erfundene Zahlen seit dem zwölften Takt; hier waren es **meine eigenen**. Der Unterschied zu einer echten Messung fiel nur auf, weil ein Dateizeitstempel nicht zu meiner erfundenen Zeitlinie passte. **Zweiter Fall um 14:29, sieben Minuten später:** ich hatte `Get-Date` **richtig** gemessen (14:26:43), dann aber für die sechs neuen JSONL-Zeilen je Schritt zwei Minuten **addiert** — vier davon lagen wieder in der Zukunft (12:30–12:34Z statt ≤ 12:29Z). Auch die Abschnittsüberschrift („14:14–14:35") und das Lageblatt („14:35") waren vorgeschrieben statt abgelesen. Alles berichtigt. **Die Lehre ist nicht „Zeit messen", sondern: eine Zeit wird nicht fortgeschrieben, sondern neu gemessen** — und die Gegenprobe dafür lautet: „kein Zeitstempel in der Zukunft" (Zeichenkettenvergleich gegen `Get-Date` UTC). |
 | 14:20 | Mein **neues** Werkzeug `leck-pruefung.mjs` meldete beim ersten Lauf: *„⚠ 2 Wert(e) stehen in der Historie oder in verfolgten Dateien — das ist ein Leck"* — gemeint waren `PGADMIN_PASSWORD` und `REDIS_URL`. | **Kein Leck.** Beide Werte **sind die Vorlagewerte** (`bitte-aendern-pgadmin` bzw. `redis://127.0.0.1:6379`) und stehen deshalb selbstverständlich in `.env.example`, `docker-compose.yml` und `README.md`. Ich habe das Werkzeug um die Trennung **Geheimnis ↔ Vorlagenwert** erweitert (`--vorlage .env.example`); der zweite Lauf meldet **0 Lecks** und führt die neun Vorlagenwerte getrennt. | Ein Scanner **ohne Vergleichsbasis** schlägt bei jedem Standardwert Alarm. Ein Werkzeug, das falsch Alarm schlägt, wird ignoriert — und dann übersieht es den echten Fall. Dieselbe Lehre wie 14:00, eine Ebene tiefer: **erst die eigene Messung prüfen, dann melden.** Aus dem Fehlalarm ist ein **echter** Befund geworden (**B26**): die zwei Werte sind nicht geheim, aber sie sind **die Kennwörter der laufenden Datenbank**. |
 | 14:32 | **Denselben Fehler wie um 12:29 und 13:56 noch einmal gemacht:** beim Einfügen der Zeilen B26/B27 in die Lage-Tabelle habe ich als Anker die **ganze B25-Zeile** benutzt und sie im Ersatztext **nicht** wiederholt — B25 war damit aus der Tabelle **verschwunden**. | Sofort bemerkt (Tabelle nachgezählt: B23, B24, **B26**, B27 — B25 fehlte) und in derselben Minute **wiederhergestellt**. | **Dritter Fall derselben Ursache.** Die Lehre stand schon zweimal in dieser Tabelle, und ich habe sie trotzdem wiederholt — ein Anker, der eine **ganze Zeile** ist, ersetzt diese Zeile. Was wirklich hilft, ist nicht die Lehre, sondern die **Handlung danach**: die Tabelle nach **jeder** Änderung vollständig ausgeben und die Nummernfolge prüfen. |
@@ -2460,6 +2543,7 @@ früher bereitgestellt hat (B3-Nachtrag). `~/.pmh` hat **13** Referenzen, ebenfa
 | 14:50 | `git ls-files --eol` zeigte **meine eigene** `docs/protokoll/aufsicht/protokoll.jsonl` als `w/mixed`: **28 von 175 Zeilen endeten mit CRLF**, 147 mit LF. | Ursache **gemessen**: die ersten Zeilen kamen aus dem Schreibwerkzeug (LF), jede angehängte aus `Add-Content` — und das benutzt auf Windows **CRLF**. Die Datei ist auf LF normalisiert (175 Zeilen, 0 CRLF, 175 gültige JSON-Zeilen); ab jetzt hänge ich mit `Set-Content -NoNewline` und vorgegebenem `\n` an. | **Ich habe über die CRLF-Klasse geschrieben und sie in meiner eigenen Spur gehabt** — in der Datei, die das Herzstück des Auftrags ist. Aufgefallen ist es nur, weil ich ausnahmsweise die Zeilenenden **meiner** Dateien gemessen habe. Dritte Bestätigung desselben Musters: der Fehler sitzt dort, wo niemand nachsieht. |
 | 14:58 | Beim Ergänzen der Regel `/.gitattributes text eol=lf` habe ich `Set-Content` mit einem **`.Replace('*.jsonl text eol=lf', …)`** benutzt. Das ersetzte **alle** Vorkommen — auch das in meinem **eigenen Kommentar** — und riss ihn in zwei Zeilen. | Git meldete es sofort: **`**B29**; is not a valid attribute name: …/.gitattributes:21`**. Kommentar wiederhergestellt; `git check-attr` läuft danach **ohne** Warnung, die sechs Regeln stehen unverändert. | **Vierte Fassung derselben Ursache** (12:29, 13:56, 14:32, jetzt): ein Ersatz, der **breiter** greift als beabsichtigt. Neu ist der zweite Teil: ich habe nach der Änderung nicht den Zustand geprüft, sondern nur die eigene Erfolgsmeldung („Zeile ergaenzt") gelesen. Gefunden hat es ein **fremdes** Werkzeug — Git. Was hilft, ist nicht die Lehre, sondern die Kontrolle: nach jeder Änderung den Zustand ausgeben **und auf Werkzeugmeldungen hören**. |
 | 14:53 | Ich habe „`.env` enthält **2** Schlüssel mit `KEY` im Namen" gezählt und daraus beinahe „es gibt einen Anbieterschlüssel" gelesen. | Nachgesehen: es sind **`PMH_MASTER_KEY`** und **`PMH_MASTER_KEY_VERSION`** — der Hauptschlüssel der Umschlagverschlüsselung, **kein** Modellschlüssel. Und die eine DEEPSEEK-Zeile in `.env.example` ist ein **Kommentar**, keine Variable. | Mein Filter `-match 'KEY'` traf `MASTER_KEY` mit. Der Fehler wäre in die **falsche Richtung** gegangen — ich hätte eine Lücke übersehen. Aufgefallen ist es, weil zwei meiner eigenen Messungen („kein API_KEY in scripts/" gegen „1 Zeile nennt DEEPSEEK") **nicht zueinander paßten** und ich nachgesehen habe statt zu wählen. **Genau dafür sind Gegenproben da.** |
+| 14:56 | Beim Nachfahren seines Rundlaufs habe ich `--unit ../../services/pmh-nix` angegeben — von `packages/units/unit-export` aus zeigt `../..` auf `packages/`, nicht auf die Wurzel. Drei Aufrufe scheiterten. | Korrigiert auf absolute Pfade; danach lief alles. **Sein Werkzeug hat den Fehler in Sekunden geklärt**, weil es ihn **benennt**: `[manifest_missing] unit.json: Kein unit.json in diesem Ordner.` und `[registry_root_missing] … Die Registry-Wurzel existiert nicht oder ist kein Verzeichnis.` | Ein eigener Pfadfehler ist trivial — **erwähnenswert ist die Gegenprobe**: eine Fehlermeldung, die den **Pfad** und den **Grund** nennt, macht aus einer Suche eine Sekunde. Genau das, was ich an anderen Stellen eingefordert habe (B16/B20: eine Sonde, die ihre Frage nicht beantworten kann). **Hier war sein Entwurf besser als mein Aufruf.** |
 
 ---
 

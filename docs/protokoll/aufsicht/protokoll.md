@@ -2079,6 +2079,60 @@ ich hätte eine **Lücke übersehen**. Aufgefallen ist es, weil zwei meiner eige
 („kein `API_KEY` in `scripts/`" gegen „1 Zeile nennt DEEPSEEK") **nicht zueinander paßten** und ich
 nachgesehen habe, statt mir eine auszusuchen. **Genau dafür sind Gegenproben da.**
 
+## 2026-10-13 14:54–15:00 — Siebenunddreißigster Takt: seinen **Export-Nachweis reproduziert** (V4/V5) — und sein eigenes Werkzeug warnt gegen seine eigenen Manifeste (B31)
+
+**Was ich angefaßt habe.** `packages/units/unit-export` ist die Maschine hinter dem Plug-and-play-Ziel
+des Betreibers (Unit-Manifest, Registry, Bündelung, Export/Import, Plugin-Host) und war der letzte
+größere Teil, den ich noch nicht geprüft hatte. Sein Nachweis
+(`docs/status/plugin-export-nachweis.md`, gemessen **00:2x**) behauptet einen dreistufigen Rundlauf.
+**Ich habe ihn mit seiner eigenen CLI nachgefahren** — gegen eine Kopie in `%TEMP%`, **15 Stunden
+später**:
+
+| Maß | Sein Nachweis (00:2x) | Meine Messung (15:00) |
+|---|---|---|
+| Bündel-Digest (Export) | `sha256:ac37e0ec…` | **identisch** |
+| Inhalts-Digest | `sha256:84cef3f8…` | **identisch** |
+| Dateien / Größe | 20 / 223.508 B | **identisch** |
+| Bündel-Digest (Rückexport) | identisch | **identisch** |
+| Dateihash beider Bündel | „nicht stabil" (§1) | **bit-identisch** `06a69695dd29921b…` |
+
+**Zwei Ergebnisse.** (1) **Sein Beweis hält** — über 15 Stunden und bei laufender Arbeit am Baum. Das
+ist die stärkste Form, die ein Nachweis haben kann: **wiederholbar**, nicht einmalig gelungen.
+(2) Sein Satz „der Dateihash ist nicht stabil" gilt nur **ohne** festes `--created-at`; mit demselben
+Zeitpunkt sind die Bündel bit-gleich — **und seine eigene Testsuite behauptet genau das** („zweimal
+exportieren aus derselben Quelle ergibt byte-gleiche Bündel"). Sein **Code** ist präziser als seine
+**Prosa**; die Berichtigung ist ein Halbsatz.
+
+**Und seine Testzahl stimmt exakt:** `bun test` → **158 pass · 0 fail · 380 Prüfaufrufe · 6 Dateien**,
+`exit 0`. Bevor ich die Suite startete, habe ich geprüft, daß unter `packages/units/` **0** Dateien
+geändert sind — nach **seiner eigenen** Regel aus §5: *„Ein Testergebnis über einen halbfertigen Stand
+ist kein Befund über den Code, sondern über den Ablauf."* Dieselbe Lehre, die ich in dieser Sitzung
+zweimal selbst ziehen mußte (mein `port-test`-Lauf parallel zu seinem Zeugentest) — **er hat sie vor mir
+aufgeschrieben, für denselben Baum.**
+
+**B31 — 6 von 11 seiner Units verletzen die Regel seines eigenen Werkzeugs.** Der Registry-Scan meldet
+sechsmal `[unit_name_directory_mismatch]` für alle `native/*` (`"name"` ist `pmh-flock`, der Ordner heißt
+`flock`), `exit 0`. Die Registry begründet die Regel mit *„der Ordner ist die Installation"* — und der
+**Import** leitet den Zielordner aus dem Unit-Namen ab (`installed pmh-nix 0.2.0 -> …\registry\pmh-nix`).
+Ein Rundlauf aus `native/flock` landet also in `registry/pmh-flock`: **der Pfad ändert sich.** Funktional
+unschädlich, aber die Regel gilt im ausgelieferten Baum nicht — und **der eigentliche Schaden ist die
+Gewohnheit:** sechs Warnungen bei jedem Lauf lehren jeden Leser, Warnungen zu überlesen. Zwei ehrliche
+Wege: Ordner umbenennen (sieben Arbeitsbereichsmitglieder mitziehen) oder die Regel auf den
+**Anwendungsbaum** begrenzen und für `native/` mit einer Zeile Begründung abschalten.
+
+**Was seinen Nachweis auszeichnet, und das gehört hierher:** Abschnitt **6** listet auf, was er **nicht**
+belegt — inklusive eines **Befunds gegen den eigenen Code** (`unit.json` sagt `"windows"`, der Host meldet
+`process.platform = "win32"`; er nennt es selbst *„ein echter Befund, nicht kosmetisch"*). Und Abschnitt
+**5** dokumentiert einen **Fehlalarm**, den paralleles Arbeiten erzeugt hat. Ein Nachweis, der seine
+eigenen Lücken und einen eigenen Mangel benennt, ist mehr wert als einer, der nur Erfolge zeigt.
+
+**Ein eigener Fehler, trivial — aber die Gegenprobe ist es nicht.** Ich gab `--unit ../../services/pmh-nix`
+an; von `packages/units/unit-export` aus zeigt `../..` auf `packages/`, nicht auf die Wurzel. Drei Aufrufe
+scheiterten — und **sein Werkzeug klärte es in Sekunden**, weil es **Pfad und Grund** nennt:
+`[manifest_missing] unit.json: Kein unit.json in diesem Ordner.` Genau das, was ich an anderen Stellen
+eingefordert habe (B16/B20: eine Sonde, deren Methode die Frage nicht beantworten kann). **Hier war sein
+Entwurf besser als mein Aufruf.**
+
 ---
 
 ## Offen / nächster Takt
@@ -2115,6 +2169,8 @@ nachgesehen habe, statt mir eine auszusuchen. **Genau dafür sind Gegenproben da
 | **B29** Die Arbeitskopie widerspricht der eigenen `.gitattributes` | **offen, klein — drei Befehle** | **11** Dateien mit `attr eol=lf` und `w/crlf` (drei `.md`, acht `.ts` in `packages/units/unit-export`), **3** gemischt, 13 `.ps1` unkritisch. **Der Index ist sauber** (1752 von 1773 LF) → ein CRLF kann nicht ins Repository, eine frische Auscheckung bekommt LF. **Latent:** `unit-export/src/cli.ts` trägt `#!/usr/bin/env bun` mit **CRLF im Shebang** und scheitert beim **direkten** Aufruf (WSL). Fix: `git add --renormalize .` und `git checkout -- .` |
 | **V3** Die CRLF-Klasse im JavaScript | **geschlossen — verifiziert** | Alle `split('\n')`-Stellen in `scripts/` einzeln beurteilt: `setzeWerte` trennt `\r` ausdrücklich ab und hängt es wieder an, `gesetzteNamen` nutzt ein Präfix-Muster, `leseEnv` `[^\r\n]*`, `containerUmgebung` `trim()`, die übrigen sind reine Ausgabe — und die **Tests** enthalten jetzt einen CRLF-Fall. Kein `.*$` mehr hinter einem `=` |
 | **B30** Eine frische Installation hat keinen Modellzugang | **offen — drei kleine Schritte** | `.env`/`.env.example` haben **22** Schlüssel, **keinen** für einen Anbieter (die zwei „KEY"-Treffer sind `PMH_MASTER_KEY`/`_VERSION`). Der `.env.example`-Kommentar verspricht Anbieter-Schlüssel **verschlüsselt in `user_secrets`** — nach **B14** liest aber **kein** Code `PMH_MASTER_KEY`. Der eigene Code liest den Schlüssel an **genau einer** Stelle (`providerFromEnv` → `env.DEEPSEEK_API_KEY`) und **wirft** ohne ihn. Der Installer erklärt `DATABASE_URL`/`REDIS_URL` samt 503, sagt zum Modell **nichts**. Empfehlung: leere dokumentierte Zeile in `.env.example`, zwei Zeilen in Schritt 7, und der belegte Speicher-Weg über `hilfen/zugang-bereitstellen.mjs` |
+| **B31** Sein eigenes Werkzeug warnt gegen seine eigenen Manifeste | **offen, klein — zwei Wege** | `bun run src/cli.ts list --root native --root services --root packages` meldet **sechsmal** `[unit_name_directory_mismatch]` (alle `native/*`: `"name"` ist `pmh-flock`, der Ordner heißt `flock`), `exit 0`. Die Registry begründet die Regel mit „der Ordner ist die Installation", und der **Import** leitet den Zielordner aus dem Unit-Namen ab (`…\registry\pmh-nix`) — ein Rundlauf aus `native/flock` landet also in `registry/pmh-flock`, der Pfad ändert sich. **Der Schaden ist die Gewohnheit:** sechs Warnungen je Lauf lehren überlesen. (a) Ordner umbenennen (sieben Arbeitsbereichsmitglieder mitziehen) oder (b) die Regel auf den Anwendungsbaum begrenzen |
+| **V4/V5** Nachweis von `unit-export` reproduziert | **bestätigt — und stärker als behauptet** | Rundlauf nachgefahren: Export-/Inhalts-Digest, 20 Dateien / 223'508 B und Rückexport **identisch** zum Dokument von 00:2x; mit festem `--created-at` sind die Bündel sogar **bit-gleich**, was §1 zu allgemein bestreitet und sein **eigener Test** behauptet. `bun test` → **158 pass · 0 fail · 380 Prüfaufrufe · 6 Dateien**, exit 0. Die Suite habe ich nach **seiner** §5-Regel gewählt (0 geänderte Dateien unter `packages/units/`) |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |
