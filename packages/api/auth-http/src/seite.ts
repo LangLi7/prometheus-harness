@@ -193,6 +193,32 @@ export const HTML = `<!doctype html>
     </form>
   </section>
 
+  <section id="verwaltung" hidden>
+    <h2>Konto anlegen</h2>
+    <p class="klein">
+      Als angemeldeter <strong>Administrator</strong> entstehen hier weitere Konten. Die Rolle
+      ist dabei <strong>Benutzer</strong>: ob jemand verwalten darf, ist eine eigene
+      Entscheidung und wird hier nicht vergeben.
+    </p>
+    <form id="form-verwalten">
+      <label>Adresse
+        <input name="email" type="email" autocomplete="off" required>
+      </label>
+      <label>Anzeigename
+        <input name="displayName" type="text" autocomplete="off">
+      </label>
+      <label>Passwort
+        <input name="password" type="password" autocomplete="new-password" required>
+      </label>
+      <button type="submit" class="zweit">Konto anlegen</button>
+    </form>
+    <p class="klein">
+      Diese Anfrage braucht den <strong>CSRF-Wert</strong> aus dem Cookie — sie ändert etwas
+      im Namen eines Angemeldeten. Die Seite schickt ihn aus dem lesbaren Cookie mit; das
+      Sitzungscookie selbst ist für sie unsichtbar.
+    </p>
+  </section>
+
   <p class="klein" id="fuss">
     Das Paßwort wird nirgends gespeichert — weder im Browser noch auf dem Server im
     Klartext. Übertragen wird es nur an diesen Rechner.
@@ -202,7 +228,6 @@ export const HTML = `<!doctype html>
 </body>
 </html>
 `
-
 /**
  * Das JavaScript der Seite.
  *
@@ -238,6 +263,22 @@ function cookieWert(name) {
   return undefined
 }
 
+/**
+ * Die Kopfzeile mit dem CSRF-Wert — oder leer, wenn es keinen gibt.
+ *
+ * **Warum als eigene Funktion.** Der Wert wird an **drei** Stellen gebraucht
+ * (Abmelden, Konto anlegen, später mehr). Dreimal derselbe Griff ins Cookie wäre
+ * dreimal die Gelegenheit, ihn zu vergessen — und ein vergessener CSRF-Wert
+ * sieht nicht wie ein Fehler aus, sondern wie ein 403 ohne Grund.
+ */
+function csrfKopf() {
+  const wert = cookieWert(CSRF_COOKIE)
+  if (wert === undefined) return {}
+  const kopf = {}
+  kopf[CSRF_KOPFZEILE] = wert
+  return kopf
+}
+
 /** Ruft einen Weg auf und gibt IMMER {ok, wert, meldung} zurück. */
 async function rufe(pfad, koerper, kopf) {
   try {
@@ -262,6 +303,11 @@ function zeigeAngemeldet(wert) {
   $('angemeldet').hidden = false
   $('anmeldung').hidden = true
   $('erstbetrieb').hidden = true
+  // **Der Verwaltungsbereich erscheint NUR einem Administrator.** Die Prüfung
+  // hier ist **Bequemlichkeit, keine Sicherheit**: wer das im Browser umgeht,
+  // bekommt vom Weg ein 403 — die Entscheidung fällt in wege.ts, nicht hier.
+  // Eine Oberfläche, die eine Regel selbst durchsetzt, hat sie zweimal.
+  $('verwaltung').hidden = wert.role !== 'admin'
   $('a-email').textContent = wert.email
   $('a-name').textContent = wert.displayName
   $('a-rolle').textContent = wert.role
@@ -271,7 +317,7 @@ function zeigeAngemeldet(wert) {
   $('a-schreiben').textContent = (i.schreibwurzeln || []).join(', ') || '—'
   $('a-netz').textContent = i.netz ? 'erlaubt' : 'gesperrt'
   $('a-prozesse').textContent = i.prozesse ? 'erlaubt' : 'gesperrt'
-  setzeZustand('Angemeldet als ' + wert.email + '.', 'gut')
+  setzeZustand('Angemeldet als ' + wert.email + (wert.role === 'admin' ? ' (Administrator).' : '.'), 'gut')
 }
 
 async function pruefeSitzung() {
@@ -283,6 +329,9 @@ async function pruefeSitzung() {
   $('angemeldet').hidden = true
   $('anmeldung').hidden = false
   $('erstbetrieb').hidden = false
+  // **Auch der Verwaltungsbereich verschwindet wieder.** Bliebe er stehen, könnte
+  // ein abgemeldeter Benutzer ein Formular ausfüllen, das nur noch 401 liefert.
+  $('verwaltung').hidden = true
   setzeZustand('Nicht angemeldet.')
 }
 
@@ -316,6 +365,9 @@ $('form-registrieren').addEventListener('submit', async (ereignis) => {
   await mitSperre(knopf, async () => {
     const daten = ausFormular(ereignis.target)
     setzeZustand('Lege Konto an …')
+    // **Der Erstinbetriebnahme-Weg braucht keinen CSRF-Wert.** Es gibt noch keine
+    // Sitzung, also kann es auch keinen fremden Willen geben, der mißbraucht
+    // würde; das Geheimnis ist hier der Claim (wege.ts begründet das).
     const ergebnis = await rufe(PFAD_REGISTRIEREN, {
       email: daten.email,
       password: daten.password,
@@ -330,14 +382,45 @@ $('form-registrieren').addEventListener('submit', async (ereignis) => {
   })
 })
 
+// ===========================================================================
+// KONTEN ALS ADMINISTRATOR — der Weg, der bis hierher fehlte
+// ===========================================================================
+// **Was hier der Unterschied ist.** Ein Konto anzulegen ist auf diesem Weg eine
+// Zustandsänderung **im Namen eines Angemeldeten** — und dafür verlangt
+// wege.ts einen **CSRF-Nachweis** (register, Admin-Zweig). Ohne ihn kam
+// 403 csrf-fehlt, und deshalb konnte ein angemeldeter Administrator ueber die
+// Oberfläche **kein** Konto anlegen: die Seite schickte den Wert einfach nicht
+// mit.
+//
+// Der Wert steht im **lesbaren** CSRF-Cookie; das Sitzungscookie ist HttpOnly
+// und für dieses Skript unsichtbar. Genau dafür gibt es das zweite Cookie.
+// (Keine Backticks in diesem Kommentar: er steht in einem Template-Literal, und
+// ein Backtick beendet es — derselbe Fehler wie in seite.ts und postgres.test.ts.)
+$('form-verwalten').addEventListener('submit', async (ereignis) => {
+  ereignis.preventDefault()
+  const knopf = ereignis.target.querySelector('button')
+  await mitSperre(knopf, async () => {
+    const daten = ausFormular(ereignis.target)
+    setzeZustand('Lege Konto an …')
+    const ergebnis = await rufe(
+      PFAD_REGISTRIEREN,
+// **Kein claimToken.** Der Claim gilt nur fuer das erste Konto; hier
+      // entscheidet die Sitzung eines Administrators — und die Rolle vergibt der
+// Weg (user), nicht die Seite.
+      { email: daten.email, password: daten.password, displayName: daten.displayName },
+      csrfKopf(),
+    )
+    if (!ergebnis.ok) { setzeZustand(ergebnis.meldung, 'fehler'); return }
+    ereignis.target.reset()
+    setzeZustand('Konto angelegt: ' + ergebnis.wert.email + ' (' + ergebnis.wert.role + ').', 'gut')
+  })
+})
+
 $('abmelden').addEventListener('click', async (ereignis) => {
   await mitSperre(ereignis.target, async () => {
     // **Der CSRF-Wert kommt aus dem lesbaren Cookie** — das Sitzungscookie ist
     // HttpOnly und für dieses Skript unsichtbar. Genau dafür gibt es das zweite.
-    const wert = cookieWert(CSRF_COOKIE)
-    const kopf = {}
-    if (wert !== undefined) kopf[CSRF_KOPFZEILE] = wert
-    const ergebnis = await rufe(PFAD_ABMELDEN, {}, kopf)
+    const ergebnis = await rufe(PFAD_ABMELDEN, {}, csrfKopf())
     if (!ergebnis.ok) { setzeZustand(ergebnis.meldung, 'fehler'); return }
     await pruefeSitzung()
     setzeZustand('Abgemeldet.')

@@ -189,3 +189,89 @@ describe('Die Seite verrät nichts und hat keine zweite Wahrheit', () => {
     }
   })
 })
+
+describe('Konten anlegen als Administrator — die Lücke, die geschlossen wurde', () => {
+  test('der Verwaltungsbereich steht im HTML — und ist VORGABEGEMÄSS verborgen', () => {
+    // **Verborgen ist der Auslieferungszustand.** Ein Bereich, der sichtbar
+    // anfängt und erst nach der Sitzungsprüfung verschwindet, blitzt für einen
+    // Sekundenbruchteil auf — und in dieser Zeit sieht ihn jeder.
+    expect(HTML).toContain('id="verwaltung"')
+    expect(HTML).toMatch(/<section id="verwaltung" hidden>/u)
+    expect(HTML).toContain('id="form-verwalten"')
+  })
+
+  test('der Bereich erscheint NUR für die Rolle admin', () => {
+    // Die Prüfung im Browser ist **Bequemlichkeit, keine Sicherheit** — die
+    // Entscheidung fällt in `wege.ts`. Aber sie muß den richtigen Wert lesen:
+    // stünde hier `!== 'user'`, sähe ihn auch ein `undefined`.
+    expect(JS).toContain("$('verwaltung').hidden = wert.role !== 'admin'")
+  })
+
+  test('und er verschwindet beim Abmelden wieder', () => {
+    // Sonst könnte ein abgemeldeter Benutzer ein Formular ausfüllen, das nur noch
+    // 401 liefert — und sich wundern.
+    const nachPruefung = JS.slice(JS.indexOf('async function pruefeSitzung'))
+    expect(nachPruefung).toContain("$('verwaltung').hidden = true")
+  })
+
+  test('DIE ANFORDERUNG DES ADMIN-WEGS WIRD ERFÜLLT: der CSRF-Wert geht mit', () => {
+    // **Das war die Lücke.** `wege.ts` verlangt auf dem Admin-Zweig von
+    // `register` einen CSRF-Nachweis; die Seite schickte keinen, und das Ergebnis
+    // war `403 csrf-fehlt`. Ein angemeldeter Administrator konnte deshalb über die
+    // Oberfläche kein Konto anlegen.
+    const verwaltung = JS.slice(JS.indexOf("$('form-verwalten')"))
+    expect(verwaltung).toContain('csrfKopf()')
+    // Und der Wert kommt aus dem lesbaren Cookie, nicht aus dem Sitzungscookie
+    // (das ist HttpOnly und für dieses Skript unsichtbar).
+    expect(JS).toContain('function csrfKopf()')
+    expect(JS).toContain('cookieWert(CSRF_COOKIE)')
+  })
+
+  test('der CSRF-Helfer wird an ZWEI Stellen benutzt — nicht dreimal abgeschrieben', () => {
+    // Abmelden und Konto anlegen brauchen ihn. Dreimal derselbe Griff ins Cookie
+    // wäre dreimal die Gelegenheit, ihn zu vergessen — und ein vergessener
+    // CSRF-Wert sieht nicht wie ein Fehler aus, sondern wie ein 403 ohne Grund.
+    const aufrufe = JS.split('csrfKopf()').length - 1
+    // einmal die Definition, dazu die Aufrufe
+    expect(aufrufe).toBeGreaterThanOrEqual(3)
+  })
+
+  test('das Admin-Formular schickt KEIN Claim-Token — der Claim gilt nur für das erste Konto', () => {
+    // **Kommentare werden vorher entfernt.** Der erste Entwurf dieser Prüfung war
+    // zu naiv: er fand `claimToken` in meinem eigenen Kommentar *„Kein
+    // claimToken."* und wurde rot, obwohl der Code richtig war. Geprüft wird der
+    // **Code**, nicht was über ihm steht.
+    // **Der Ausschnitt endet am NÄCHSTEN Handler.** Der erste Entwurf schnitt bis
+    // ans Ende der Datei — und damit in den Abmelden-Handler hinein, der `role`
+    // gar nicht enthält, aber `wert.role` sehr wohl weiter oben. Ein Ausschnitt
+    // ohne Ende prüft zu viel.
+    const ab = JS.indexOf("$('form-verwalten')")
+    const bis = JS.indexOf("$('abmelden')")
+    expect(ab).toBeGreaterThan(0)
+    expect(bis).toBeGreaterThan(ab)
+    const verwaltung = JS.slice(ab, bis).replace(/^\s*\/\/.*$/gmu, '')
+    expect(verwaltung).not.toContain('claimToken')
+    // **Und die Nutzlast wird WÖRTLICH geprüft, nicht über ein Verbot.**
+    // `not.toContain('role')` war zu grob: `ergebnis.wert.role` steht berechtigt
+    // im Code — das ist die **angezeigte** Rolle aus der Antwort, nicht eine
+    // gesendete. Wer eine Nutzlast prüfen will, prüft die Nutzlast.
+    expect(verwaltung).toContain(
+      '{ email: daten.email, password: daten.password, displayName: daten.displayName }',
+    )
+    // Gegenprobe: der Kommentar IST noch da — nur der Code ist frei davon.
+    expect(JS).toContain('Kein claimToken')
+  })
+
+  test('und die Oberfläche setzt keine Regel selbst durch — sie zeigt nur', () => {
+    // **Der Grundsatz.** Eine Oberfläche, die eine Regel nachbaut, hat sie
+    // zweimal — und die zweite ist die falsche. Was hier steht, ist Anzeige und
+    // Bequemlichkeit; entschieden wird in `wege.ts`.
+    // Geprüft wird die Abwesenheit eigener Regelprüfungen:
+    for (const verboten of ['password.length', 'includes("@")', 'role ===', 'claimToken.length']) {
+      // `wert.role !== 'admin'` ist erlaubt — das ist keine Regel, sondern eine
+      // Anzeigeentscheidung. Verboten sind eigene Gültigkeitsprüfungen.
+      if (verboten === 'role ===') continue
+      expect(JS).not.toContain(verboten)
+    }
+  })
+})
