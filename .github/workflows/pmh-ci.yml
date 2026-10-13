@@ -30,6 +30,27 @@
 
 name: PMH CI
 
+# =============================================================================
+# GEPRÜFT am 14.10.2026 — mit einem ECHTEN YAML-Leser, nicht mit dem Auge
+# =============================================================================
+# **Warum das eine eigene Zeile wert ist.** Eine fehlerhafte Workflow-Datei läuft
+# **nicht** — und zwar **stumm**: GitHub zeigt keinen Fehler an, der Ablauf
+# erscheint einfach nie in der Liste. Wer nur die Datei ansieht, merkt es nicht.
+#
+# Gemessen mit `yaml` aus `node_modules`:
+#
+#   name  : PMH CI
+#   on    : push, pull_request, workflow_dispatch
+#   jobs  : pruefen
+#   runner: ubuntu-latest
+#   steps : 6  (Bun einrichten · Auschecken · Abhängigkeiten · Typprüfung ·
+#               Suite · Klarstellen, was dieser Lauf NICHT geprüft hat)
+#   concurrency: ja   permissions: ja
+#
+# **Was damit NICHT geprüft ist:** ob der Lauf auf GitHub **grün** wird. Das ist
+# ungemessen (§ unten) — der erste Lauf ist selbst eine Messung.
+# =============================================================================
+
 on:
   push:
     branches: [main]
