@@ -66,11 +66,36 @@ coverage/
 
 # --- Kopierter Upstream-Inhalt (bewusst NICHT versioniert) ---
 #
-# `.github/` ist eine **Kopie** des Referenz-Forks (56 Dateien: 60 CI-Workflows,
+# `.github/` ist eine **Kopie** des Referenz-Forks (56 Dateien: 23 CI-Workflows,
 # Issue-Vorlagen, ein Review-Ownership-Werkzeug). Nach `docs/concept.md`
 # („Der Core wird benutzt, nicht besessen" / „Wir kopieren nicht 14.990 Dateien")
 # gehört fremder Inhalt nicht in unser Repository. Zusätzlich enthält die Kopie
-# Python-Code und Workflows, die auf unsere Sprachen und unser Layout nicht passen.
+# Python-Code und Workflows, die auf unsere Sprachen und unser Layout nicht passen
+# (gemessen: 17 von 23 brauchen `pnpm` — wir bauen mit Bun + tsgo).
 # Der Ordner bleibt auf der Platte (er ist nicht Teil dieser Aufgabe zu löschen),
 # wird aber nicht eingecheckt. Eigene CI entsteht neu und dann ausdrücklich.
-.github/
+#
+# ===========================================================================
+# NACHTRAG 14.10.2026 — `.github/` als GANZEN Ordner zu ignorieren war eine FALLE
+# ===========================================================================
+#
+# Der Betreiber hat die eigene CI freigegeben. Die alte Regel hätte sie **stumm**
+# verschluckt: eine Datei unter `.github/` wird nicht eingecheckt, und niemand
+# merkt es — die CI läuft einfach nie, und der Grund steht in keiner Meldung.
+#
+# **Eine Ausnahme in einem ignorierten Ordner ist nicht möglich.** Git steigt in
+# ein ignoriertes Verzeichnis gar nicht erst hinein; `!.github/workflows/pmh-ci.yml`
+# allein wirkt deshalb **nicht**. Es braucht die Kette:
+#
+#   1. `.github/*`            — alles DIREKT darunter ignorieren
+#   2. `!.github/workflows/`  — dieses Verzeichnis aber betreten lassen
+#   3. `.github/workflows/*`  — seinen Inhalt wieder ignorieren
+#   4. `!…/pmh-ci.yml`        — und genau unsere Datei erlauben
+#
+# Die Reihenfolge ist die Regel: die **letzte** passende Zeile gewinnt.
+# Nachgemessen mit `git check-ignore -v .github/workflows/pmh-ci.yml`.
+.github/*
+!.github/workflows/
+.github/workflows/*
+!.github/workflows/pmh-ci.yml
+

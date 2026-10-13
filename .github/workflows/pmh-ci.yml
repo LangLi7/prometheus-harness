@@ -1,0 +1,113 @@
+# =============================================================================
+# pmh-ci.yml — die EIGENE CI des Prometheus Harness
+# =============================================================================
+#
+# **Warum diese Datei eine eigene ist und nicht die geerbte.** Unter `.github/`
+# liegt auf der Platte eine **Kopie** der Workflows des Referenz-Forks (23 Stück).
+# Gemessen: **17 davon brauchen `pnpm`**, dazu `pytest`, `Makefile` und `vitest` —
+# unser Bauwerkzeug ist **Bun 1.4 + tsgo** (`bunfig.toml`: *„kein Bundler, kein
+# Build-Schritt"*). Die Kopie wäre hier **rot gelaufen**, und zwar in jedem Lauf.
+# `.gitignore` schließt sie deshalb aus — mit dieser **einen** Ausnahme.
+#
+# **Warum OHNE Datenbank.** Die Datenbank-Prüfungen brauchen PostgreSQL **mit
+# pgvector**, sonst bricht die Migration mit einem Hinweis ab (gemessen: in
+# `pmh_test` fehlte `vector`, und Migration 0006 scheiterte dort mit Anleitung).
+# Ein Dienst-Container ist ein **eigener** Entwurf: Image, Wartezeit auf
+# Bereitschaft, Zugangsdaten für die Prüfrolle, und die Erweiterungen je Datenbank.
+# Er gehört **später** — und aus einem Grund, der nicht Bequemlichkeit ist: die
+# Suite **flattert** noch (8 von 12 Läufen 2 rot, 2 von 12 **10 rot**;
+# `docs/status/suite-flatterigkeit.md`). Eine CI auf einer flatterigen Suite
+# erzeugt rote Kreuze, die niemand mehr liest — und dann liest man auch die
+# **echten** nicht mehr.
+#
+# **Was hier läuft — und was es ehrlich nicht sagt.** Typprüfung und Suite **ohne**
+# Datenbank. Die DB-Prüfungen **überspringen sich selbst** und sagen das
+# (`PMH_TEST_DATABASE_URL` nicht gesetzt → HINWEIS auf stderr). **Ein grüner Lauf
+# hier heißt also NICHT „alles geprüft"** — er heißt „alles geprüft, was ohne
+# Datenbank prüfbar ist". Deshalb steht am Ende ein Schritt, der das **ausspricht**.
+#
+# =============================================================================
+
+name: PMH CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Ein zweiter Lauf auf demselben Zweig macht den ersten überflüssig.
+concurrency:
+  group: pmh-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pruefen:
+    name: Typprüfung und Suite (Bun, ohne Datenbank)
+    # =======================================================================
+    # WARUM `ubuntu-latest` — und der Widerspruch, der dabeisteht
+    # =======================================================================
+    # Unter `.github/` liegt aus der Kopie eine **`AGENTS.md` des Upstreams**. Sie
+    # verlangt für Arbeit unter `.github` **Windows-Runner unter `pwsh`** und
+    # verweist auf `ci-master.yml`, Self-Hosted-Standbys und Dependabot-Rückfälle.
+    #
+    # **Das ist die CI-Regel des Forks, nicht unsere.** Sie beschreibt eine
+    # Baukette (`pnpm`, `vitest`, `pytest`, `Makefile`, fünf Plattformziele), die es
+    # hier nicht gibt — 17 der 23 geerbten Abläufe brauchen `pnpm`. Eine
+    # Windows-Pflicht zu übernehmen hieße, eine zweite Umgebung zu pflegen, ohne
+    # daß eine Zeile unseres Codes sie verlangt.
+    #
+    # **Und die ehrliche Lücke:** ob die Suite auf `ubuntu-latest` **grün** ist,
+    # weiß ich **nicht** — gemessen ist sie nur unter Windows nativ (Bun 1.4.0,
+    # 1224 pass / 2 fail, und die zwei roten sind bekannt: `atomic-write` mit
+    # `os error 5` in `TEMP` und `apps/cli` mit einem typert-loader-Fehler). Der
+    # erste CI-Lauf ist damit **selbst eine Messung** — und möglicherweise rot.
+    # Genau deshalb steht sie hier und nicht in einer Absichtserklärung.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # **Die Fassung steht hier, weil die Umgebung sie nicht garantiert.** Bun
+      # 1.4 ist gemessen und die Grundlage des Projekts; eine andere Fassung wäre
+      # eine andere Laufzeit mit anderen Lücken (`bunfig.toml` beschreibt zwei).
+      - name: Bun einrichten
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+
+      - name: Auschecken
+        uses: actions/checkout@v4
+
+      # **`--frozen-lockfile` und nicht `bun install`.** Ohne das schreibt der
+      # Lauf die `bun.lock` um, und ein Bau, der seine eigene Grundlage ändert,
+      # ist kein Bau — er ist eine Messung an etwas anderem.
+      - name: Abhängigkeiten (aus der Sperrdatei)
+        run: bun install --frozen-lockfile
+
+      - name: Typprüfung (tsgo, kein tsc)
+        run: bun scripts/typecheck.mjs
+
+      # **Kein `--timeout` und keine Filter.** Der Lauf soll das prüfen, was
+      # lokal auch läuft; ein CI-Lauf mit anderen Schaltern prüft eine andere
+      # Sache als die, an der man arbeitet.
+      - name: Suite
+        run: bun test
+
+      # =======================================================================
+      # Die Ehrlichkeit am Ende
+      # =======================================================================
+      # Ein grüner Lauf **ohne** Datenbank sieht aus wie „alles in Ordnung". Er
+      # ist es nicht: die Prüfungen des Speichers, der Migrationen und des
+      # Wissensspeichers **überspringen sich**, wenn `PMH_TEST_DATABASE_URL` fehlt.
+      # Dieser Schritt sagt das **in den Lauf hinein**, statt es in einer
+      # Dokumentation zu verstecken, die im CI-Fenster niemand liest.
+      - name: Klarstellen, was dieser Lauf NICHT geprüft hat
+        run: |
+          echo "::notice title=Ohne Datenbank::Dieser Lauf prüft Typprüfung und Suite OHNE PostgreSQL."
+          echo "Die Datenbank-Prüfungen haben sich SELBST ÜBERSPRUNGEN (kein PMH_TEST_DATABASE_URL)."
+          echo "Ein grüner Lauf heißt deshalb: alles geprüft, was OHNE Datenbank prüfbar ist."
+          echo "Der Dienst-Container mit pgvector folgt, sobald die Suite nicht mehr flattert:"
+          echo "  docs/status/suite-flatterigkeit.md"
