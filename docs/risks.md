@@ -33,7 +33,34 @@ Architektur), (c) Laufzeit auf Node bleiben lassen und TS 7 nur als Typecheck nu
 `pnpm run build` würde mit TS 7 brechen.
 
 **Warum es uns weniger trifft.** Wir schreiben diese Skripte nicht neu — mit Bun entfallen
-sie. Und der Typecheck läuft mit TS 7 fehlerfrei (12,7 s statt 129,7 s).
+sie.
+
+**Korrektur eines irreführenden Werts (13.10.2026, Befund des Betreibers).** Hier stand:
+*„der Typecheck läuft mit TS 7 fehlerfrei (12,7 s statt 129,7 s)"* — als Beleg, dass uns
+das Risiko weniger trifft. **Das war eine falsche Verknüpfung.** Der Wert stammt aus einem
+Lauf, in dem **fremder DSH-Code** mit TypeScript 7 geprüft wurde. TS 7 (`tsgo`) ist der
+native Compiler, der **in Go geschrieben** ist; die 12,7 s messen **den Compiler**, nicht
+unser Projekt und nicht unser Vorhaben. Der Vergleich 12,7 s gegen 129,7 s sagt: *der neue
+Compiler ist schneller als der alte.* Er sagt **nichts** über Prometheus.
+
+**Was für UNS gemessen ist** (dreimal, Windows nativ, Bun 1.4.0; Beleg:
+[Befund](../docs/status/messsonden/boot-schleife.ps1)):
+
+| Schritt | Messung (3 Läufe) |
+|---|---|
+| `bun install` | **0,1 s** · exit 0 · 526 installs, keine Änderung |
+| `tsgo --noEmit` über **17 eigene Pakete** | **2,1 s** · **0 rot** |
+| Start bis zum Token (`bun run apps/cli/src/main.ts`) | **1,1 s** |
+
+**Und der Punkt, der beim Booten zählt:** es gibt **keinen Build-Schritt**. Bun führt
+TypeScript direkt aus; `tsgo --noEmit` prüft und schreibt nichts. Die Schleife des eigenen
+Cores ist damit:
+
+```
+bun install          # statt pnpm install
+tsgo --noEmit        # Typecheck mit TS7 (Go-Compiler)
+bun run src/main.ts  # Start direkt, ohne Build-Schritt
+```
 
 **Restrisiko.** Falls wir doch Generatoren nachbauen (Kataloge, Dokumentationsgraphen),
 müssen sie gegen die **neue** API geschrieben werden: `typescript/ast` für Prädikate,
