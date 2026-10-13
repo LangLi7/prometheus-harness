@@ -51,7 +51,7 @@
 
 | Gefahr | Beleg |
 |---|---|
-| ~~**Dieses Protokoll ist nicht versioniert**~~ **erledigt am 13.10.2026, 13:18.** `docs/protokoll/**` ist mit Commit **`6926c0a`** versioniert (22 Dateien, nichts Fremdes). Der Commit liegt **lokal** — sein nächster Push nimmt ihn mit. Rücknahme mit einem Befehl: `git reset --soft HEAD~1` | Weil der Ordner jetzt **verfolgt** ist, nimmt ein `git add -A` künftige Einträge automatisch mit | `git ls-files 'docs/protokoll/*'` → 21 |
+| ~~**Dieses Protokoll ist nicht versioniert**~~ **erledigt und veröffentlicht.** `docs/protokoll/**` ist mit Commit **`6926c0a`** versioniert und durch den **zehnten Push** des bauenden Agenten (`origin/main` = `cd1b0ae`) **im Remote** — 21 Dateien. Mein zweiter Commit `ecae3b6` ist lokal und kommt mit seinem nächsten Push mit | Weil der Ordner jetzt **verfolgt** ist, nimmt ein `git add -A` künftige Einträge automatisch mit. Es war kein Push der Aufsicht nötig — seine Takt-Regel hat den Commit mitgenommen | `git ls-tree -r --name-only origin/main -- docs/protokoll` → 21 |
 | **`docker volume prune` löscht den Altbestand** | 18 verwaiste Volumes; `ab00fc2605…` enthält ein intaktes PostgreSQL-17-Cluster (64,8 MB, read-only geprüft). `compose down -v` trifft es **nicht**, `prune` **doch** |
 | `target/` belegt ~700 MB | Build-Artefakte von sechs Rust-Crates, die nichts aufruft; über `.gitignore` abgedeckt |
 | Zwei Recherchedokumente im Repo-Wurzelverzeichnis | 55 KB + 86 KB; das gleichartige `sprachwahl-entscheidung-2026.md` liegt korrekt unter `docs/research/` |
@@ -61,6 +61,7 @@
 
 ```powershell
 cd C:\Users\Chang\prometheus-harness\docs\protokoll\aufsicht
+node werkzeuge\protokoll-pruefung.mjs       # prüft die eigene Spur (Vollständigkeit, JSONL, Versionierung)
 node werkzeuge\takt-pruefung.mjs            # Lage: Konfiguration, Zugänge, Git, DB, Prozesse
 node werkzeuge\settings-vergleich.mjs "<live>" "<sicherung>"
 node werkzeuge\zugangs-lage.mjs --pruefen DEEPSEEK_API_KEY <home…>

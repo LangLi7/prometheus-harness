@@ -1440,6 +1440,128 @@ des Hosts, keine eigene" — genau die Analyse aus **B19**, von ihm selbst gefun
 
 ---
 
+## 2026-10-13 13:24–13:32 — Sechsundzwanzigster Takt: das Prüfwerkzeug fand einen Fehler **in meinem** Protokoll
+
+**Anlass.** Meine Zählregel **W30** meldete in diesem Takt „**22** B-Zeilen" statt 16. Ursache: sie
+zählte **jede** Zeile, die mit einem B-Label beginnt — also auch die Tabellen **in meinen eigenen
+Berichten**. Ein Instrument, das nicht sagt, **was** es gemessen hat, hat den falschen Wert geliefert.
+Genau der Fehler, den diese Rolle bei anderen sucht (B16, B18) — und ich hatte ihn selbst gebaut.
+
+**Konsequenz: die Regel wurde durch ein Werkzeug ersetzt.** `werkzeuge/protokoll-pruefung.mjs` prüft
+vier Dinge, die zusammen stimmen müssen:
+
+1. Die Offen-Tabelle nennt jede Befundnummer **genau einmal** und **aufsteigend**.
+2. Zu jeder Nummer gibt es einen **Abschnitt** in `befunde.md` — und umgekehrt.
+3. `protokoll.jsonl` ist **zeilenweise gültiges JSON** (append-only heißt: nie eine kaputte Zeile).
+4. Jede Datei der Spur ist **versioniert** — ein nicht versioniertes Protokoll ist nicht nachprüfbar.
+
+**Ergebnis des ersten Laufs — es fand sofort eine echte Lücke in meinem Protokoll:**
+
+```
+FEHLER  kein Abschnitt ohne Tabellenzeile — ohne Zeile: 2, 4, 5
+```
+
+Die Befunde **B2** (kein Schutz gegen ein erneutes Schrumpfen der Konfiguration), **B4**
+(Git-Credential-Helfer defekt) und **B5** (`PMH_TEST_DATABASE_URL` nur im Testkopf) standen seit dem
+zweiten Takt in `befunde.md` — und **fehlten in der Offen-Liste**, weil ich diese Liste später gebaut
+und nur die damals aktuellen Befunde aufgenommen hatte. Sie sind jetzt nachgetragen, mit Status:
+
+| Befund | Status heute |
+|---|---|
+| **B2** | **Hilfe bereit, Sache offen** — die Invarianten-Prüfung (10 Abschnitte / 12 Referenzen) läuft in **jedem** Takt; eine **automatische** Sicherung vor jedem Schreiben fehlt weiterhin |
+| **B4** | **latent, bewusst nicht angefasst** — Pushes sind belegt, die Empfehlung bleibt „nichts ändern" |
+| **B5** | **erledigt** — `.env.example` nennt den Namen (Zeile 124), der Test überspringt **laut** |
+
+**Zweiter Lauf nach der Korrektur:**
+
+```
+ok      Offen-Tabelle: 19 Befundzeilen (1, 2, 3, 4, 5, 6, 8, 9, 10 … 20)
+ok      jede Nummer genau einmal · aufsteigend sortiert
+ok      Befundabschnitte in befunde.md vorhanden · kein Abschnitt ohne Tabellenzeile
+ok      protokoll.jsonl: 130 Zeilen, 0 ungültig
+ok      Versionierung: 22/22 Dateien verfolgt
+ERGEBNIS: das Protokoll ist in sich stimmig.
+```
+
+**Commit `ecae3b6`** (`5 files changed, 247 insertions`), Bühne **vor** dem Commit geprüft: nur meine
+Dateien, nichts Fremdes.
+
+**Und ein eigener Fehler mitten in dieser Korrektur (H6).** Beim Einsortieren von B4/B5 habe ich sie
+zuerst **gelöscht statt verschoben** — derselbe Fehler wie in den Takten 18 und 23 (Anker ohne
+Wiederholung). Aufgefallen ist es **durch die Selbstprüfung**, nicht durch Nachdenken: der zweite Lauf
+meldete „aufsteigend sortiert: FEHLER", der dritte zeigte die fehlenden Zeilen. Das ist der Nutzen
+eines Werkzeugs gegenüber einer guten Absicht.
+
+---
+
+## 2026-10-13 13:32 — Das Protokoll ist **im Remote** (durch seinen zehnten Push)
+
+**Befehl und Ergebnis.**
+
+```powershell
+git fetch origin
+git rev-parse origin/main                                   # cd1b0ae
+git merge-base --is-ancestor 6926c0a origin/main            # → JA
+git ls-tree -r --name-only origin/main -- docs/protokoll    # → 21 Dateien
+```
+
+| Prüfung | Ergebnis |
+|---|---|
+| `origin/main` | **`cd1b0ae`** — sein **zehnter Push** („/api/ready prueft PostgreSQL und Redis") |
+| Mein erster Commit **`6926c0a`** | **ist in `origin/main` enthalten** → das Protokoll ist **veröffentlicht** (im privaten Repo) |
+| Meine Protokolldateien im Remote | **21** |
+| Mein zweiter Commit `ecae3b6` | noch **lokal** — sein nächster Push nimmt ihn mit |
+| Reihenfolge | `ecae3b6` ← `cd1b0ae` ← `d3f441d` ← **`6926c0a`** ← `58d25b6` |
+
+**Was das bedeutet.** Der offene Punkt „Protokoll nicht versioniert" ist **vollständig geschlossen** —
+und zwar ohne einen Push von mir: seine Takt-Regel (alle vier Stunden `git add -A`, Commit, **push**)
+hat meinen Commit mitgenommen. Genau so war es gedacht: ich versioniere **meine** Spur, er veröffentlicht
+nach **seiner** Regel.
+
+**Bestätigt nebenbei (B4):** `git fetch` meldete erneut `git: 'credential-gh' is not a git command` —
+der defekte Helfer besteht weiter, und der Vorgang **funktionierte trotzdem**. Das ist genau der
+Zustand, den B4 beschreibt: latent, nicht blockierend, Empfehlung „nichts ändern".
+
+---
+
+## 2026-10-13 13:26–13:34 — Siebenundzwanzigster Takt: das Wort „Kette" bedeutet zweierlei (B21)
+
+**Anlass.** Der Betreiber hat eine **bindende Reihenfolge** festgelegt; Schritt 1 ist die kleinste
+Kette *Adapter → Agent-Loop → Session*. Ich habe geprüft, ob die Arbeit dieser Reihenfolge folgt — und
+bin über eine **Wortkollision** gestolpert.
+
+**Befehl.**
+
+```powershell
+git log --oneline -3
+Select-String -Path docs\status\arbeitspakete.md -Pattern 'P8\.13'
+Select-String -Path docs\decisions\eigener-endpunktweg.md -Pattern 'Kette|Reihenfolge'
+Get-Content docs\decisions\eigener-endpunktweg.md | Select-Object -Skip 113 -First 26
+```
+
+**Ergebnis — beide Sätze sind für sich richtig, aber sie meinen Verschiedenes:**
+
+| Ort | Wortlaut | Gemeint |
+|---|---|---|
+| `README.md` §Reihenfolge Schritt 1 | „**Kleinste Kette** verdrahten — Adapter → Agent-Loop → Session" | die **Agenten**-Kette (Meilenstein des Betreibers) |
+| `eigener-endpunktweg.md` Z. 120–123 | „er **beweist die ganze Kette**: Plugin lädt → Route ist angemeldet → Antwort kommt mit 200" | die **Lade**-Kette (Host → Plugin → Route) |
+| `arbeitspakete.md` P8.13 | „**begonnen** … Adapter, Agent-Loop und Session sind **weiterhin nicht** angeschlossen" | wieder die **Agenten**-Kette |
+
+**Warum das zählt:** „beweist die ganze Kette" steht in einem **Entscheidungsdokument**. Ein Leser
+kann es auf den Meilenstein des Betreibers beziehen und ihn für erreicht halten — der Beleg, dass es
+anders gemeint ist, steht nur im **Register**. **Empfehlung:** ein eigenes Wort
+(„**Ladekette**"/„Plugin-Kette") und „Kette" für den Meilenstein reservieren — eine Zeile.
+
+**Anerkennung:** die Sache ist **ehrlich geführt** — das Register nennt die Kette „begonnen" und zählt
+die Lücken auf, und die Entscheidung begründet den Endpunkt-zuerst-Weg nachvollziehbar („Wenn **das**
+nicht läuft, läuft nichts anderes"). Beanstandet wird **ein Wort**, nicht die Arbeit.
+
+**Zweite Beobachtung:** `packages/api/readiness` **verbindet PostgreSQL und Redis** — inhaltlich
+Schritt-2-Territorium. Eine Sonde, die nur **meldet**, ob die Datenbank erreichbar ist, **baut** diesen
+Schritt nicht, sie beobachtet ihn. Kein Verstoß, aber die Grenze steht nirgends ausgesprochen.
+
+---
+
 ## Offen / nächster Takt
 
 | Punkt | Stand |
@@ -1463,6 +1585,7 @@ des Hosts, keine eigene" — genau die Analyse aus **B19**, von ihm selbst gefun
 | **B18** Launcher meldet Beendetes als laufend | **offen, klein** | `pmh-nix detect --json` ist ein Einmalaufruf, wird aber wie ein Dienst geführt: die Statuszeile sagt „**2 Prozesse laufen**", während einer läuft (Quelltextbefund, **kein** Lauf — H5) |
 | **B19** Registrierter Pfad umgeht auch den Zaun | **erledigt** | Commit `38aa3ff`: `verbindung.requestRejection({ headers })` — Zaun **und** Anmeldung; bei fehlendem Dienst **Fail-closed 503**. Die Umsetzung ist besser als die Empfehlung, und ich rechne sie mir **nicht** zu (seine Sonde lief 12:59, mein Befund kam 13:08) |
 | **B20** Zwei eigene Artefakte widersprechen sich | **offen, Design-Frage (verschärft)** | `/api/ready` mit **null Sonden** liefert **`bereit: true`** und **HTTP 200**; ihr **Test** hält das fest („nichts zu prüfen — und das ist bereit"), ihre **`.env.example`** sagt dagegen, der Endpunkt melde `ok`, „**statt ‚bereit' zu behaupten**". Die **neue README-Statuscode-Tabelle** (401/403/503) lässt genau diesen Fall aus. Drei Auswege: `bereit`/Status an `sonden.length > 0` binden (503) · drei Zustände statt Boolean (`null` = nicht geprüft) · nur den Wortlaut der Vorlage an den Code anpassen |
+| **B21** „Kette" bedeutet zweierlei | **offen, klein** | Die bindende Reihenfolge meint mit „Kleinste Kette" *Adapter → Agent-Loop → Session*; das Entscheidungsdokument nennt *Plugin → Route → Antwort* „**die ganze Kette**". Ein Leser kann den Meilenstein für erreicht halten. Empfehlung: eigenes Wort („Ladekette") · dazu: `readiness` verbindet PostgreSQL/Redis (Schritt-2-Territorium) — als **Sonde** legitim, aber die Grenze steht nirgends |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |
 | Veralteter Zugang in `postgres.test.ts` | **offen (W20)** — Zeile 16 und der `docker run`-Hinweis Zeile 55 kollidieren heute mit dem Compose-Container |
 | Die zwei Wurzel-Dokumente | **offen (Hinweis)** — 55 KB und 86 KB im Repo-Wurzelverzeichnis, während das gleichartige `docs/research/sprachwahl-entscheidung-2026.md` korrekt eingeordnet ist |

@@ -1527,6 +1527,46 @@ Hosts, keine eigene**" (mit der Begründung, dass eine zweite Meinung über gül
 auseinandergehen würde). Das ist genau die Analyse aus **B19** — und er hat sie selbst gefunden
 (seine Sonde lief vor meinem Befund).
 
+## B21 — Das Wort „Kette" bedeutet im Repository **zwei verschiedene Dinge** — **N**
+
+**Anlass.** Der Betreiber hat eine **bindende Reihenfolge** festgelegt (`README.md` §„Die Reihenfolge
+(bindend)"): Schritt 1 ist *„**Kleinste Kette** verdrahten — Adapter → Agent-Loop → Session"*. Ich habe
+geprüft, ob die Arbeit dieser Reihenfolge folgt — und bin über eine **Wortkollision** gestolpert.
+
+**Die beiden Bedeutungen, wörtlich belegt:**
+
+| Ort | Wortlaut | Gemeint ist |
+|---|---|---|
+| `README.md` §Reihenfolge, Schritt 1 | „**Kleinste Kette** verdrahten — Adapter → Agent-Loop → Session" | die **Agenten**-Kette (der Meilenstein des Betreibers) |
+| `docs/decisions/eigener-endpunktweg.md` Zeile 120–123 | „Der erste Endpunkt ist `GET /api/health` … und er **beweist die ganze Kette**: Plugin lädt → Route ist angemeldet → Antwort kommt mit 200. Wenn **das** nicht läuft, läuft nichts anderes." | die **Lade**-Kette (Host → Plugin → Route) |
+| `docs/status/arbeitspakete.md`, P8.13 | „Kette in der **Anwendung** … **begonnen** … Adapter, Agent-Loop und Session sind **weiterhin nicht** angeschlossen" | wieder die **Agenten**-Kette |
+
+**Warum das zählt, obwohl beide Sätze für sich richtig sind.** „Beweist die ganze Kette" steht in
+einem **Entscheidungsdokument**. Wer es liest — der Betreiber, oder eine spätere Sitzung — kann es auf
+**seine** Kette beziehen und den Meilenstein für erreicht halten. Der Beleg, dass es **nicht** so
+gemeint ist, steht nur im **Register** („Adapter, Agent-Loop und Session sind weiterhin nicht
+angeschlossen") und nicht dort, wo das starke Wort steht.
+
+**Empfehlung — eine Zeile, kein Umbau.** Im Entscheidungsdokument ein **eigenes Wort** benutzen, etwa
+*„Ladekette"* oder *„Plugin-Kette"*, und „Kette" für den Meilenstein des Betreibers reservieren. Dann
+sagt jedes Dokument dasselbe, ohne dass jemand die Bedeutungen auseinanderhalten muss.
+
+**Anerkennung, damit das Urteil nicht schief wird.** Die Sache selbst ist **ehrlich geführt**: das
+Register nennt die Kette ausdrücklich „begonnen" und zählt auf, was **fehlt**; die Entscheidung
+begründet den Endpunkt-zuerst-Weg nachvollziehbar („Wenn **das** nicht läuft, läuft nichts anderes");
+und die Zeile „eine Oberfläche ohne Route ist eine Hülle; eine Route ohne Oberfläche ist prüfbar"
+(Z. 136) ist eine klare Prioritätensetzung. Beanstandet wird **ein Wort**, nicht die Arbeit.
+
+### Zweite, kleinere Beobachtung derselben Prüfung
+
+`packages/api/readiness` **verbindet PostgreSQL und Redis** (Sonden für beide). Das berührt inhaltlich
+den **Schritt 2** der bindenden Reihenfolge („**Danach** Login, PostgreSQL und Redis ins Spiel
+bringen"). Eine Sonde, die nur **meldet**, ob die Datenbank erreichbar ist, baut diesen Schritt
+**nicht** — sie beobachtet ihn. Der Unterschied ist real, aber er steht **nirgends ausgesprochen**;
+eine Zeile in der Reihenfolge-Sektion („Bereitschaftssonden melden nur, sie bauen Schritt 2 nicht")
+würde die Grenze ziehen. **Einschätzung:** kein Verstoß gegen die Reihenfolge, aber ein Fall, in dem
+ein Leser sie für verletzt halten könnte.
+
 ---
 
 ## Was ich geprüft und **nicht** zu beanstanden gefunden habe (Fairness)
