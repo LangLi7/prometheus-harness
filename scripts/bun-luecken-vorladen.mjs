@@ -52,6 +52,33 @@ if (argvNoetig()) {
   ANGEWANDT.push('Subprozess-argv (Bun verschluckt den -- Trenner)')
 }
 
+// **`stderr` und nicht `stdout` — gemessen am 13.10.2026.**
+//
+// Hier stand `process.stdout.write`. Diese Datei läuft als **Vorladung bei jedem
+// `bun`-Prozeß** dieses Projekts, also schrieb **jeder** Kindprozeß zwei Zeilen
+// auf seine **Standardausgabe**. Wer die Ausgabe eines Kindes als **Daten** liest,
+// bekommt sie verfälscht:
+//
+// ```
+// $ bun kind.mjs   # gibt JSON aus
+// [pmh] Bun-Lücke ergänzt: PTC-Typentfernung (module.stripTypeScriptTypes fehlt)
+// [pmh] Bun-Lücke ergänzt: Subprozess-argv (Bun verschluckt den -- Trenner)
+// {"ergebnis":…}          <- wer hier JSON liest, scheitert
+// ```
+//
+// Gefunden hat es die eigene Meßsonde
+// (`docs/status/messsonden/ripgrep-haeufigkeit.mjs`): ihr `JSON.parse` brach ab mit
+// *„Unexpected identifier \"pmh\""*. Das war kein Fehler der Sonde, sondern einer
+// der Vorladung.
+//
+// **Was der Fund NICHT ist.** Er erklärt den sprunghaften `glob`-Ausfall **nicht**:
+// der Subprozess-Runner berichtet über einen **IPC-Kanal** (`"ipc"` in
+// `runner-launch-*.js`), nicht über stdout. Die Vermutung stand im Raum und ist
+// damit widerlegt — sie steht hier, damit sie nicht wieder aufkommt.
+//
+// **Warum nicht ganz schweigen.** Der Betreiber soll beim Start sehen, daß eine
+// Lücke ergänzt wurde; eine stille Reparatur wäre schlimmer als eine laute.
+// `stderr` ist der Ort für Diagnose, `stdout` der für Daten.
 for (const was of ANGEWANDT) {
-  process.stdout.write(`[pmh] Bun-Lücke ergänzt: ${was}\n`)
+  process.stderr.write(`[pmh] Bun-Lücke ergänzt: ${was}\n`)
 }
