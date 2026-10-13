@@ -40,7 +40,7 @@
  * **Was dieser Host bewusst nicht tut:** keine Plugin-Verwaltung, kein
  * Konfigurations-Dump, kein `pnpm`. Was fehlt, steht im README unter „Grenzen".
  *
- * @module @prometheus-harness/host/main
+ * @module @prometheus-harness/cli/main
  */
 
 import {
@@ -86,7 +86,7 @@ const PROFILE_ROOT_CONFIG = `# pmh profile root — leere Entry-Liste. Der Baum 
  * Umgebung. Keine Umgebungsvariable darf entscheiden, welcher Code läuft (dieselbe
  * Regel, die der Referenz-Harness für seine Binärpfad-Auflösung befolgt).
  *
- * `src/main.ts` → `apps/host` → `apps/host/package.json` ist der
+ * `src/main.ts` → `apps/cli` → `apps/cli/package.json` ist der
  * Installations-Anker, gegen den Profil-Bündel aufgelöst werden.
  */
 const HOST_PACKAGE_DIR = fileURLToPath(new URL('..', import.meta.url))

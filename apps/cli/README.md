@@ -1,4 +1,4 @@
-# apps/host — der eigene Anwendungs-Einstieg
+# apps/cli — der Anwendungs-Einstieg (Host)
 
 > **Was diese Datei ist:** Zweck, Start, Grenzen und die **gemessenen** Befunde dieses Hosts.
 > Die Entscheidung dahinter steht in
@@ -7,20 +7,24 @@
 
 ## Wozu
 
-Der kleine, eigens geschriebene Einstieg, der den Agent-Core startet und die Web-Oberfläche
-ausliefert. Er ist **keine Kopie** des Referenz-Hosts: die Kopie unter `apps/cli` bestand aus
-**1.043 byte-identischen Dateien** der Vorlage und widersprach damit `docs/concept.md`
-(„Der Core wird benutzt, nicht besessen"). Dieser Host besitzt **nur** den Einstieg; der Core
-ist eine **Abhängigkeit** auf der gepinnten Version `0.2.1-alpha.2`.
+Der eigene Einstieg, der den Agent-Core startet und die Oberfläche ausliefert. Er liegt an der
+Stelle, die `MAPPING.md` §3.5 für den Host vorsieht: **`apps/cli`**. Bis zum 13.10.2026 lagen
+hier **220 byte-identische Dateien** der Vorlage mit **129 unauflösbaren
+`workspace:*`-Verweisen** — sie haben jedes `bun install` und damit jeden Typecheck blockiert
+(Auflage **A1** in `docs/review/backend-review.md`). Sie wurden entfernt; dieser Host tritt an
+ihre Stelle.
 
-Umfang: eine Datei, `src/main.ts`. Was fehlt, steht unten unter „Grenzen" — ehrlich und
-vollständig, nicht beschönigt.
+Er ist **keine Kopie**: er benutzt den Core als **Abhängigkeit** auf der gepinnten Version
+`0.2.1-alpha.2` und ruft nur dessen dokumentierte Boot-Schnittstelle auf.
+
+Umfang: `src/main.ts`. Was fehlt, steht unten unter „Grenzen" — ehrlich und vollständig,
+nicht beschönigt.
 
 ## Start
 
 ```powershell
 $env:PMH_HOME = 'C:\Users\Chang\.pmh'      # Home der eigenen Installation
-bun run apps/host/src/main.ts web --port 5199 --no-open
+bun run apps/cli/src/main.ts web --port 5199 --no-open
 ```
 
 Der Core meldet beim Start seine Adresse **mit Token**:

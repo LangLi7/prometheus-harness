@@ -115,6 +115,7 @@ Der frühere Auftrag „je 18–46 Dateien an einen Arbeiter" ist damit ersetzt.
 | [status/git-audit.md](status/git-audit.md) | Jeder Push mit Nachweis: lokaler `HEAD` gegen `origin/main` über die API geprüft, samt der Entscheidung „privat" |
 | [status/2026-10-12.md](status/2026-10-12.md) | Der erste Snapshot: Harness läuft (HTTP 200), Repository erstmals versioniert, und die sechs offenen Lücken L1–L6 |
 | [status/arbeitspakete.md](status/arbeitspakete.md) | Das Register der Arbeitspakete mit eigener Todo-Liste je Paket, Phase und Nachweis — die Regel „abgehakt wird nur Belegtes" |
+| [status/newdawn0-recherche.md](status/newdawn0-recherche.md) | Außenrecherche zur Zoom-/Chunk-Technik: NewDawn0 hat dazu **nichts** (70 Repos geprüft), jede der acht Behauptungen einzeln eingestuft — plus die gemessene float32-Grenze als eigentlicher Befund |
 
 ## 8. Weitere Ablage
 

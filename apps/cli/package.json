@@ -1,9 +1,9 @@
 {
-  "name": "@prometheus-harness/host",
+  "name": "@prometheus-harness/cli",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Prometheus Harness — eigener kleiner Anwendungs-Einstieg. Startet den Upstream-Core (Cordis-Profil) und liefert die Web-Oberfläche aus. Keine Kopie des Referenz-Hosts.",
+  "description": "Prometheus Harness — Anwendungs-Einstieg (Host). Startet den Core über die Cordis-Profil-Komposition und liefert die Oberfläche aus. An der in MAPPING.md §3.5 geplanten Stelle apps/cli.",
   "scripts": {
     "start": "bun run src/main.ts",
     "typecheck": "tsgo --noEmit -p tsconfig.json"
