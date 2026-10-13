@@ -1,0 +1,7 @@
+Diese Datei hält den Ordner im Verlauf.
+
+Ein Gate-Ordner ohne Inhalt kann git nicht uebernehmen — leere Verzeichnisse
+existieren in einem Klon nicht. Der Kopf von benchmarks/lauf.mjs nennt aber
+'10 Ordner liegen in benchmarks/', und benchmarks/support/tests/lauf.test.mjs
+zaehlt sie gegen die Platte. Ohne diese Datei ist die Pruefung in JEDEM
+frischen Klon rot — also auch in CI — waehrend sie hier gruen ist.

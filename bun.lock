@@ -5,7 +5,7 @@
     "": {
       "name": "@prometheus-harness/root",
       "devDependencies": {
-        "@types/bun": "^1.3.4",
+        "@types/bun": "^1.4.3",
         "@typescript/native-preview": "^7.0.0-dev.20260707.2",
         "postgres": "^3.4.9",
       },
@@ -59,8 +59,48 @@
         "@prometheus-harness/session-format": "workspace:*",
       },
     },
+    "packages/api/auth-http": {
+      "name": "@prometheus-harness/auth-http",
+      "version": "0.1.0",
+    },
+    "packages/api/health": {
+      "name": "@prometheus-harness/health",
+      "version": "0.3.0",
+    },
+    "packages/api/readiness": {
+      "name": "@prometheus-harness/readiness",
+      "version": "0.1.0",
+    },
+    "packages/auth/apikey": {
+      "name": "@prometheus-harness/apikey",
+      "version": "0.1.0",
+    },
+    "packages/auth/auth": {
+      "name": "@prometheus-harness/auth",
+      "version": "0.1.0",
+    },
+    "packages/auth/claim": {
+      "name": "@prometheus-harness/claim",
+      "version": "0.1.0",
+    },
     "packages/auth/db-schema": {
       "name": "@prometheus-harness/db-schema",
+      "version": "0.1.0",
+    },
+    "packages/auth/permissions": {
+      "name": "@prometheus-harness/permissions",
+      "version": "0.1.0",
+    },
+    "packages/auth/reset": {
+      "name": "@prometheus-harness/reset",
+      "version": "0.1.0",
+    },
+    "packages/auth/secrets": {
+      "name": "@prometheus-harness/secrets",
+      "version": "0.1.0",
+    },
+    "packages/auth/store-postgres": {
+      "name": "@prometheus-harness/store-postgres",
       "version": "0.1.0",
     },
     "packages/core/agent-loop": {
@@ -87,8 +127,8 @@
       "name": "@prometheus-harness/llm",
       "version": "0.1.0",
     },
-    "packages/llm/llm-deepseek": {
-      "name": "@prometheus-harness/llm-deepseek",
+    "packages/llm/llm-http": {
+      "name": "@prometheus-harness/llm-http",
       "version": "0.1.0",
       "dependencies": {
         "@prometheus-harness/llm": "workspace:*",
@@ -824,25 +864,45 @@
 
     "@prometheus-harness/agent-tools": ["@prometheus-harness/agent-tools@workspace:packages/core/agent-tools"],
 
+    "@prometheus-harness/apikey": ["@prometheus-harness/apikey@workspace:packages/auth/apikey"],
+
     "@prometheus-harness/atomic-write": ["@prometheus-harness/atomic-write@workspace:packages/util/atomic-write"],
+
+    "@prometheus-harness/auth": ["@prometheus-harness/auth@workspace:packages/auth/auth"],
+
+    "@prometheus-harness/auth-http": ["@prometheus-harness/auth-http@workspace:packages/api/auth-http"],
+
+    "@prometheus-harness/claim": ["@prometheus-harness/claim@workspace:packages/auth/claim"],
 
     "@prometheus-harness/cli": ["@prometheus-harness/cli@workspace:apps/cli"],
 
     "@prometheus-harness/db-schema": ["@prometheus-harness/db-schema@workspace:packages/auth/db-schema"],
 
+    "@prometheus-harness/health": ["@prometheus-harness/health@workspace:packages/api/health"],
+
     "@prometheus-harness/home-paths": ["@prometheus-harness/home-paths@workspace:packages/util/home-paths"],
 
     "@prometheus-harness/llm": ["@prometheus-harness/llm@workspace:packages/llm/llm"],
 
-    "@prometheus-harness/llm-deepseek": ["@prometheus-harness/llm-deepseek@workspace:packages/llm/llm-deepseek"],
+    "@prometheus-harness/llm-http": ["@prometheus-harness/llm-http@workspace:packages/llm/llm-http"],
 
     "@prometheus-harness/llm-retry": ["@prometheus-harness/llm-retry@workspace:packages/llm/llm-retry"],
 
+    "@prometheus-harness/permissions": ["@prometheus-harness/permissions@workspace:packages/auth/permissions"],
+
+    "@prometheus-harness/readiness": ["@prometheus-harness/readiness@workspace:packages/api/readiness"],
+
+    "@prometheus-harness/reset": ["@prometheus-harness/reset@workspace:packages/auth/reset"],
+
     "@prometheus-harness/scope": ["@prometheus-harness/scope@workspace:packages/core/scope"],
+
+    "@prometheus-harness/secrets": ["@prometheus-harness/secrets@workspace:packages/auth/secrets"],
 
     "@prometheus-harness/session-format": ["@prometheus-harness/session-format@workspace:packages/agent/session-format"],
 
     "@prometheus-harness/session-persistence-jsonl": ["@prometheus-harness/session-persistence-jsonl@workspace:packages/agent/session-persistence-jsonl"],
+
+    "@prometheus-harness/store-postgres": ["@prometheus-harness/store-postgres@workspace:packages/auth/store-postgres"],
 
     "@prometheus-harness/token-meter": ["@prometheus-harness/token-meter@workspace:packages/llm/token-meter"],
 

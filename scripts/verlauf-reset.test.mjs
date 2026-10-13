@@ -95,7 +95,14 @@ describe('Der Lauf verändert nichts', () => {
     expect(lage.istRepo).toBe(true)
     expect(lage.zweig).toBe('main')
     expect(Number(lage.commits)).toBeGreaterThan(0)
-    expect(lage.fern).toContain('github.com')
+    // **Nicht `toContain('github.com')`.** Das stand hier und war falsch: in einem
+    // Klon über `file://` ist das Fern `file:///…`, und die Prüfung schlug fehl,
+    // obwohl das Skript recht hatte. Auf GitHub Actions wäre sie grün gewesen —
+    // eine Prüfung, die von der Herkunft des Klons abhängt, prüft den Klon und
+    // nicht das Skript. Verglichen wird deshalb mit dem **tatsächlichen** Fern.
+    const echtesFern = gitLesen('remote', ['get-url', 'origin'], hier)
+    expect(echtesFern).toBeDefined()
+    expect(lage.fern).toContain(echtesFern)
   })
 
   test('ohne Repository gibt es Exit 1 — und keinen Absturz', () => {
