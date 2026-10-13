@@ -39,7 +39,7 @@ function StarteHost([string[]]$extra) {
   if (-not $beendet) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
   Get-Process bun -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-1) } | Stop-Process -Force -ErrorAction SilentlyContinue
   Start-Sleep -Seconds 1
-  return @{ Lines = ($lines | Where-Object { $_ -match '^\[pmh\]' }); Exited = $beendet }
+  return @{ Lines = ($lines | Where-Object { $_ -match '^\[pmh\]' }); All = $lines; Exited = $beendet }
 }
 
 function BelegePort([int]$port) {
@@ -100,6 +100,58 @@ if ($h2 -eq $null) {
 
 if ($h -ne $null) { Stop-Process -Id $h.Id -Force -ErrorAction SilentlyContinue }
 Get-Process bun -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-5) } | Stop-Process -Force -ErrorAction SilentlyContinue
+
+Write-Host ""
+Write-Host "=== FALL 4: die genannte Adresse ist BENUTZBAR (nicht nur vorhanden) ==="
+# -----------------------------------------------------------------------------
+# **Warum dieser Fall nachtraeglich dazukam.** Die Faelle 1-3 pruefen, dass die
+# Adresse den *gewaehlten Port* nennt. Genau das tat sie — und der Aufruf
+# antwortete trotzdem mit **401**, weil das Anmeldetoken fehlte. Ein Test, der
+# die Adresse nur als Zeichenkette prueft, sieht das nicht. Hier wird die Adresse
+# deshalb **aufgerufen**.
+#
+# Der Host wird dafuer in einem eigenen Lauf gestartet, weil die Adresse erst mit
+# der Hostausgabe erscheint und der Zugriff auf den *laufenden* Host geschehen
+# muss.
+# -----------------------------------------------------------------------------
+$env:PATH = (Join-Path $env:USERPROFILE '.bun\bin') + ';' + $env:PATH
+$log4 = Join-Path $env:TEMP "pmh-tokenprobe.log"
+Remove-Item $log4, "$log4.err" -ErrorAction SilentlyContinue
+$p4 = Start-Process -FilePath $BUN -ArgumentList @('run', 'scripts/start.mjs', '--no-go', '--port', "$($TESTPORT + 10)") -WorkingDirectory $repo `
+  -RedirectStandardOutput $log4 -RedirectStandardError "$log4.err" -PassThru -NoNewWindow
+$gefunden = $null
+for ($i = 0; $i -lt 24; $i++) {
+  Start-Sleep -Milliseconds 500
+  $text = ''
+  foreach ($f in @($log4, "$log4.err")) { if (Test-Path $f) { $text += (Get-Content $f -Raw -ErrorAction SilentlyContinue) } }
+  $m = [regex]::Match($text, 'http://127\.0\.0\.1:\d+/\?token=[A-Za-z0-9_\-]+')
+  if ($m.Success) { $gefunden = $m.Value; break }
+}
+if ($gefunden -eq $null) {
+  Write-Host "  FEHLER: keine benutzbare Adresse in der Ausgabe — der Start nennt sie nicht"
+  $fehler++
+} else {
+  $token = ($gefunden -split 'token=')[1]
+  $ohne = ($gefunden -split '\?')[0]
+  Write-Host "  Adresse gefunden: $gefunden"
+  Write-Host "  Tokenlaenge: $($token.Length)"
+  try {
+    $mit = Invoke-WebRequest -Uri $gefunden -UseBasicParsing -TimeoutSec 6
+    Write-Host "  OK: mit Token -> $($mit.StatusCode), $($mit.RawContentLength) Zeichen"
+  } catch {
+    Write-Host "  FEHLER: mit Token -> $($_.Exception.Response.StatusCode.value__)"; $fehler++
+  }
+  try {
+    $null = Invoke-WebRequest -Uri $ohne -UseBasicParsing -TimeoutSec 6
+    Write-Host "  FEHLER: ohne Token -> 200 — die Oberflaeche ist ungeschuetzt!"; $fehler++
+  } catch {
+    $code = $_.Exception.Response.StatusCode.value__
+    if ($code -eq 401) { Write-Host "  OK: ohne Token -> 401 (geschuetzt)" }
+    else { Write-Host "  FEHLER: ohne Token -> $code (erwartet 401)"; $fehler++ }
+  }
+}
+if (-not $p4.HasExited) { Stop-Process -Id $p4.Id -Force -ErrorAction SilentlyContinue }
+Get-Process bun -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-2) } | Stop-Process -Force -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host ("=== Ergebnis: {0} Befund(e) ===" -f $fehler)

@@ -54,6 +54,7 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { choosePort, describePortChoice, portFromEnv } from './port-wahl.mjs'
+import { announceAuthUrl } from './token-adresse.mjs'
 
 /** Wurzel des Projekts, abgeleitet aus dem Modulpfad — nie aus dem Aufrufort. */
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -96,7 +97,10 @@ function log(name, chunk) {
 /**
  * Ein gestarteter Kindprozess mit Namen — die Einheit, die dieses Skript führt.
  *
- * @typedef {{ name: string, child: import('node:child_process').ChildProcess, kind: 'host'|'go' }} Managed
+ * `flush` ist gesetzt, wenn an der Ausgabe dieses Prozesses ein Beobachter hängt,
+ * der einen **Abschluß** braucht (siehe {@link module:scripts/token-adresse}).
+ *
+ * @typedef {{ name: string, child: import('node:child_process').ChildProcess, kind: 'host'|'go', flush?: () => void }} Managed
  */
 
 /** Alle laufenden Prozesse. Wird beim Beenden in umgekehrter Reihenfolge geleert. */
@@ -129,6 +133,9 @@ async function shutdown(code) {
 
   for (const entry of [...running].reverse()) {
     if (entry.child.exitCode !== null || entry.child.signalCode !== null) continue
+    // Was noch läuft, hat seine Ausgabe noch nicht abgeschlossen — der Abschluß
+    // wird nachgeholt, bevor beendet wird.
+    entry.flush?.()
     terminate(entry.child)
   }
 
@@ -187,7 +194,22 @@ function launch(name, command, args, options = {}) {
   })
   child.stdout?.on('data', (chunk) => log(name, chunk))
   child.stderr?.on('data', (chunk) => log(name, chunk))
+  // Der Beobachter sieht die **Stücke**, nicht die Zeilen — neben `log`, nicht
+  // darin. Eine Adresse kann über eine Stück-Grenze laufen, und genau dort ging
+  // sie in einer früheren Fassung verloren. Ein Beobachter, der die schon
+  // zerlegten Zeilen bekäme, könnte den Fall nicht mehr erkennen: nach dem
+  // Zerlegen ist nicht mehr feststellbar, ob ein Umbruch dastand oder nicht.
+  const beobachter = options.onOutput?.()
+  if (beobachter !== undefined) {
+    child.stdout?.on('data', (chunk) => beobachter.feed(chunk))
+    child.stderr?.on('data', (chunk) => beobachter.feed(chunk))
+  }
   child.on('exit', (code, signal) => {
+    // **Zuerst der Abschluß, dann die Meldung.** Der Host schreibt die Adresse
+    // als letzte Zeile **ohne** Umbruch (gemessen am 13.10.2026). Ohne diesen
+    // Aufruf bliebe sie im Puffer liegen und wartete auf einen Umbruch, der nie
+    // kommt — die Adresse wäre verloren, obwohl sie dastand.
+    beobachter?.flush()
     const how = signal === null ? `exit ${code}` : `Signal ${signal}`
     process.stdout.write(`${tag(name)} beendet (${how})\n`)
     // Ein Dienst, der von selbst endet, ist ein sichtbarer Fehler — Regel 3.
@@ -199,7 +221,7 @@ function launch(name, command, args, options = {}) {
   child.on('error', (error) => {
     process.stdout.write(`${tag(name)} FEHLER beim Start: ${error.message}\n`)
   })
-  const entry = { name, child, kind: options.kind ?? 'go' }
+  const entry = { name, child, kind: options.kind ?? 'go', flush: beobachter?.flush }
   running.push(entry)
   return entry
 }
@@ -338,7 +360,10 @@ async function main() {
         process.exit(1)
       }
 
-      process.stdout.write(`[pmh] Oberfläche: http://127.0.0.1:${port}/\n`)
+      process.stdout.write(
+        `[pmh] Oberfläche: http://127.0.0.1:${port}/  — ohne Token antwortet sie 401,\n` +
+          `[pmh] die benutzbare Adresse folgt unten, sobald der Host sie meldet.\n`,
+      )
 
       // **Warum der Launcher ein eigenes Home mitgibt — mit dem Befund, der es
       // erzwungen hat.** Der Profilpfad des Hosts ist der **Auflösungsanker**
@@ -360,6 +385,15 @@ async function main() {
       launch('host', BUN, [hostEntry, options.profile, '--port', String(port), '--home', options.home, '--no-open'], {
         cwd: ROOT,
         kind: 'host',
+        // **Warum der Host einen Beobachter bekommt.** Er gibt eine Adresse
+        // **mit** Token aus — und ohne dieses Token antwortet die Oberfläche mit
+        // **401** (gemessen am 13.10.2026). Wer die oben genannte Adresse
+        // abschreibt, landet auf einer Fehlerseite. Der Beobachter liefert die
+        // benutzbare Adresse nach.
+        onOutput: () => {
+          const beobachter = announceAuthUrl((text) => process.stdout.write(`${text}\n`))
+          return beobachter
+        },
       })
     } else {
       process.stdout.write('[pmh] WARNUNG: apps/cli/src/main.ts fehlt — kein Host gestartet\n')

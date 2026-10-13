@@ -1,101 +1,180 @@
 # Prometheus Harness
 
-Eine eigene Agent-Harness. Der DeepSeek Harness dient als **Vorlage und Core-Referenz**,
-nicht als Codebasis, die wir kopieren.
+Eine eigene Agent-Harness auf Basis des **DeepSeek Harness**. Der Core wird **benutzt
+und angepasst** — er ist die Codebasis, nicht nur eine Vorlage. Alles, was wir darüber
+bauen, sind **Units** (Plugins und Skills), die sich an- und abstecken lassen.
 
-> Dieses Verzeichnis enthält **Konzept und Planung**. Der lauffähige Referenz-Fork liegt
-> unter `C:\Users\Chang\harness\prometheus-harness` (Branch `pmh`, Core
-> `d743267388` = DeepSeek Harness 0.2.1-alpha.2) und bleibt als Vergleichsobjekt erhalten.
+**Sprachen:** TypeScript auf **Bun** (Kern und Host) · **Go** (Dienste) · **Rust**
+(systemnahe Kleinprogramme) · **kein Python**.
+
+> **Dieses Verzeichnis ist die Harness selbst** — Code, Schema, Stack und Nachweise.
+> Der unveränderte Upstream liegt unter `C:\Users\Chang\deepseek-harness` (Werkzeug und
+> Core-Referenz), der Referenz-Fork unter `C:\Users\Chang\harness\prometheus-harness`
+> (Core `d743267388` = DeepSeek Harness `0.2.1-alpha.2`, Branch `pmh`).
 
 ## In einem Satz
 
-Ein Agent-Core in TypeScript auf Bun, dessen Fähigkeiten als **Units** (Plugins und Skills)
-steckbar sind — alles andere (Sandbox, Werkzeuge, Dienste) liegt als eigener Prozess
+Ein Agent-Kern in TypeScript auf Bun, dessen Fähigkeiten als **Units** steckbar sind —
+alles andere (Sandbox, Werkzeuge, Dienste, Datenbanken) liegt als **eigener Prozess**
 dahinter, nicht im Core.
 
-## Dokumente
+## Starten
 
-| Datei | Inhalt | Art |
-|---|---|---|
-| [docs/project-profile.md](docs/project-profile.md) | **Überblick**: Was es ist, Sprachen, Infrastruktur, Vorbilder | Einstieg |
-| [docs/vision.md](docs/vision.md) | Das Zielbild, als **Notizen** | Nordstern |
-| [docs/design/realtime-collaboration.md](docs/design/realtime-collaboration.md) | Echtzeit-Bearbeitung, Multi-Agent + Multi-User | Notiz |
-| [docs/reference/reference-templates.md](docs/reference/reference-templates.md) | Die Vorlagen-Verzeichnisse | Notiz |
-| [docs/roadmap.md](docs/roadmap.md) | Der nächste Schritt | dünn gehalten |
-| [docs/concept.md](docs/concept.md) | Das Unit-Modell und die Regeln | Konzept |
-| [docs/stack.md](docs/stack.md) | Sprachaufteilung | Vorschlag |
-| [docs/reference/reference-dsh.md](docs/reference/reference-dsh.md) | Messungen am DeepSeek Harness | Belege |
-| [docs/risks.md](docs/risks.md) | Bekannte Risiken | Belege |
-| [docs/decisions/open-questions.md](docs/decisions/open-questions.md) | Offene Entscheidungen | Liste |
+```bash
+bun install                     # Abhängigkeiten (Bun, nicht pnpm)
+docker compose up -d            # PostgreSQL 17 + pgvector, Redis 7
+bun run start                   # Host starten, Adresse steht am Ende der Ausgabe
+```
+
+**Ist `3080` belegt, weicht der Start auf den nächsten freien Port aus und nennt ihn.**
+`--strict-port` bricht stattdessen ab, `--port <n>` wählt einen anderen Startpunkt,
+`PMH_PORT` setzt ihn über die Umgebung. Methodik:
+[startup-port-methodik.md](docs/design/startup-port-methodik.md).
+
+### Die Adresse braucht ein Token
+
+Die Oberfläche antwortet **ohne Token mit 401**. Der Start gibt deshalb die
+**benutzbare** Adresse aus — Zeile für Zeile so, wie sie erscheint:
+
+```
+[pmh] Oberfläche: http://127.0.0.1:3081/  — ohne Token antwortet sie 401,
+[pmh] die benutzbare Adresse folgt unten, sobald der Host sie meldet.
+[host] dsh web: http://127.0.0.1:3081/?token=TWyrTSWfD3BBmIGzLgc5Hjm2klR5eSFqaw1D0wzdhz8
+
+[pmh] Anmeldung nötig — diese Adresse öffnen (enthält den Token):
+[pmh]   http://127.0.0.1:3081/?token=TWyrTSWfD3BBmIGzLgc5Hjm2klR5eSFqaw1D0wzdhz8
+```
+
+Die letzte Zeile ist die, die in den Browser gehört. Nachgemessen am 13.10.2026:
+
+| Aufruf | Antwort |
+|---|---|
+| **mit** dem Token aus der Ausgabe | **200**, 35.664 Zeichen |
+| **ohne** Token | **401** |
+| mit **falschem** Token (43 Zeichen) | **401** |
+
+Der Host versucht **nicht**, selbst einen Browser zu öffnen — auf diesem Rechner
+scheitert er dabei sichtbar (`could not open the default browser because browser
+launcher exited with code null`). Ein Start, der einen Fehler meldet, obwohl alles
+läuft, wäre verwirrend; in einem Container gäbe es ohnehin keinen Browser.
+
+**Warum das nicht nur eine Zeile Kopieren ist.** Die Adresse ist ein Geheimnis: sie
+gewährt Zugang ohne weitere Anmeldung. Wer sie in ein Protokoll, ein Ticket oder
+einen Chat kopiert, gibt den Zugang mit. Der Start schreibt sie deshalb nur auf die
+Konsole — nicht in eine Datei, nicht in die Umgebung. Wer sie braucht, holt sie aus
+der laufenden Ausgabe.
+
+**Es gibt keinen Build-Schritt.** Bun führt TypeScript direkt aus; `tsgo --noEmit`
+prüft und schreibt nichts:
+
+```bash
+bun install                     #  0,1 s
+bun x tsgo --noEmit -p <paket>  #  2,1 s über 17 Pakete, 0 Fehler
+bun run start                   #  1,1 s bis zum Token
+```
 
 ## Stand
 
 **Phase: der Core läuft — ein eigener Agent läuft noch nicht.**
 
-Dieser Satz stand hier vorher als *„eigener Code läuft"* und war **falsch**. Am
-13.10.2026 nachgemessen:
+Beides ist wahr und der Unterschied ist wichtig: die Oberfläche des Cores wird
+ausgeliefert, aber **kein Paket unseres Kerns ist angeschlossen**. Nachgemessen am
+13.10.2026:
 
 | Nachweis | Ergebnis |
 |---|---|
-| **Host startet** | `bun run start` → Oberfläche **HTTP 200** (35.664 B); Start bis zum Token **1,1 s** |
-| **Port** | Standard **3080**; ist er belegt, wird der nächste freie genommen und **genannt** — [Methodik](docs/design/startup-port-methodik.md) |
-| **Boot-Schleife** | `bun install` **0,1 s** · `tsgo --noEmit` über **17 Pakete: 2,1 s, 0 rot** · Start **1,1 s**. **Kein Build-Schritt** — Bun führt TypeScript direkt aus, `tsgo` prüft nur |
-| **Anmeldung (Core)** | Token-Weiterleitung **303** + Cookie; `GET /` mit Cookie **200**, ohne Cookie **401** — greift |
+| **Host startet** | `bun run start` → Adresse mit Token; Aufruf **200**, 35.664 Zeichen; ohne Token **401**, mit falschem Token **401**; Start bis zur Adresse **1,1 s** |
+| **Anmeldung des Cores** | Token-Weiterleitung **303** + Cookie; `GET /` mit Cookie **200**, ohne Cookie **401** — greift |
 | **API** | **ausgefallen.** `/api/*` → **404** (18 Pfade geprüft), WS `/api/remote.mux` → **1008 Policy Violation**. Ursache: der `typert`-Stapel registriert sich nicht, das Gateway hängt daran — [Beleg](docs/review/api-flaeche.md) |
-| **Eigener Kern** | 17.733 Zeilen TypeScript in 14 Paketen, **262 + 108 Tests grün** — aber **nicht verdrahtet**: er läuft in Tests, nicht in der Anwendung |
-| **Datenbank** | PostgreSQL 17.11 mit pgvector 0.8.7 und Redis 7.4.9 als Stack in **einer** Datei (`docker-compose.yml`); Rechtemodell belegt wirksam |
-| **Go-Dienste** | `pmh-nix` 60 Tests · `pmh-attach` 63 Tests · `pmh-supervisor` **2 rot** (auch auf `HEAD` rot, nicht aus dieser Sitzung) |
+| **Eigener Kern** | **14 Pakete, 17.733 Zeilen TypeScript, 262 + 108 Tests grün** — aber **nicht verdrahtet**: er läuft in Tests, nicht in der Anwendung |
+| **Datenbank** | PostgreSQL **17.11** + pgvector **0.8.7**, Redis **7.4.9** — als Stack in **einer** Datei; Rechtemodell mit vier Rollen belegt wirksam |
+| **Stack** | `bun install` **0,1 s** · `tsgo --noEmit` **2,1 s / 17 Pakete / 0 rot** · Start **1,1 s** — kein Build-Schritt |
+| **Go-Dienste** | `pmh-nix` 60 Tests · `pmh-attach` 63 Tests · `pmh-supervisor` **2 rot** (auch auf `HEAD`) |
 | **Rust** | 6.569 Zeilen in 6 Crates — **nichts ruft sie auf**, kein Skript baut sie — [Beleg](docs/review/rust-bestand.md) |
 
-**Was daraus folgt.** Der nächste Schritt ist **nicht** die Oberfläche und
-**nicht** mehr Sicherheit — beide hätten nichts, woran sie hängen könnten. Der
-nächste Schritt ist, den eigenen Kern **zu verdrahten**: Adapter → Agent-Loop →
-Session. Erst danach gibt es etwas abzusichern und zu skalieren.
+### Was noch nicht gebaut ist — mit Zahlen
 
-### Frühere Nachweise, die weiterhin gelten
+| | dieses Projekt | Referenz (Upstream-Fork) |
+|---|---:|---:|
+| Quellcode (`packages/`, `services/`, `native/`, `apps/cli/src`) | **112 Dateien · 1,4 MB** | 5.205 Dateien · 49 MB |
+| Applikationspakete | **14** | 245 |
 
-| Nachweis | Ergebnis |
-|---|---|
-| **Plugin-Export** | Rundlauf-Digest `sha256:ac37e0ec…` **identisch** nach Rückexport |
-| **WSL2** | Standard-Umgebung; Go 1.27.2, Rust 1.99.0, Bun 1.4.3, Node v26.11.1 |
+**Unser Quellcode ist rund 46-mal kleiner als der Anwendungscode der Referenz.** Das
+ist kein Größen-, sondern ein Fortschrittsmaß — die Zerlegung steht in
+[groessenvergleich-zur-referenz.md](docs/review/groessenvergleich-zur-referenz.md).
 
-### Die drei kopierten Apps sind entfernt (Auflage A1)
+## Aufbau
 
-`apps/cli`, `apps/desktop` und `apps/desktop-host` waren **1.043 byte-identische Dateien**
-aus dem Upstream — unverändert, mit zusammen **158 unauflösbaren `workspace:*`-Verweisen**.
-Sie haben jedes `bun install` blockiert und damit **jeden** Typecheck. Sie wurden am
-13.10.2026 entfernt; an ihre Stelle tritt der eigene Einstieg unter **`apps/cli`** — genau
-die Stelle, die `MAPPING.md` §3.5 als Host vorsieht.
+```
+apps/cli            der Host: lädt das Profil, komponiert den Cordis-Baum, reicht die Oberfläche aus
+apps/web            die Oberfläche (unverändert aus der Vorlage) — Vorlage für unsere eigene
+packages/llm        LLM-Seam · llm-deepseek · llm-retry · token-meter
+packages/core       agent-tools · agent-loop
+packages/agent      session-format · session-persistence-jsonl
+packages/auth       auth (Argon2id, Sitzungen, CSRF) · db-schema (SQL-Migrationen)
+packages/units      unit-export (Plugin-Export mit belegtem Rundlauf)
+packages/util       atomic-write · home-paths · scope
+services/           pmh-attach · pmh-nix · pmh-supervisor (Go) · pmh-sandbox (Rust)
+native/             6 Rust-Crates (Sperren, PTY, atomares Schreiben, Landlock) — derzeit ungenutzt
+docker/             Stack-Einrichtung: Erweiterungen, Rollen, Rechte
+docs/               Konzept, Entscheidungen, Nachweise, Recherche
+```
 
-**Was `apps/` jetzt enthält:** `host` (eigener Einstieg, 4 Dateien) · `web` (17 Dateien,
-unverändert). **Was fehlt:** der Kern unter `packages/` — dort stehen 35 Dateien gegen
-**18.376** in der Vorlage (`docs/status/delta-non-web.md`).
+## Die Reihenfolge (bindend)
 
-**Lizenz:** Mit der Nutzung als Codebasis greift die **MIT-Lizenz** der Vorlage. Der
+Weisung des Betreibers, 13.10.2026 —
+[betreiber-weisung-2026-10-13.md](docs/decisions/betreiber-weisung-2026-10-13.md):
+
+1. **Kleinste Kette verdrahten** — Adapter → Agent-Loop → Session. *„Ohne laufenden
+   Kern gibt es nichts, was man absichern oder skalieren könnte."*
+2. **Danach** Login, PostgreSQL und Redis ins Spiel bringen — gebaut und getestet ist
+   beides, es hängt nur nichts daran.
+3. **Mandantentrennung** als eigene Entscheidung davor: Row-Level Security,
+   `workspace_members`, Redis-Namensräume, **pro Benutzer eine eigene Sandbox**.
+   **Nicht Ende-zu-Ende** — der Agent braucht den Klartext, sonst fallen Werkzeuge,
+   Subagenten und Verdichtung weg.
+4. **Offen:** Formatversion 4 der Sitzung, Compaction, Aufruf gegen den echten Anbieter,
+   `pmh-supervisor` starten.
+
+**Wie es weitergeht** — der eigene Endpunktweg als erste eigene Schnittstelle, weil die
+Vorlage keine erreichbare API hat: [eigener-endpunktweg.md](docs/decisions/eigener-endpunktweg.md).
+
+## Zielbild
+
+Assistent-Agent-Harness: Chat und Workspaces, Obsidian als Gedächtnis mit Graph-View,
+Werkzeug- und Modellverwaltung, Researcher- und Fine-Tune-Skills, Git-Anbindung,
+Vektor-Suche über PostgreSQL/pgvector, Netzwerkzugriff über einen Tunnel, und der
+Harness richtet seine Umgebung (WSL2, Docker/Podman) selbst ein. Die vollständige Liste
+mit Status je Punkt steht in
+[arbeitspakete.md](docs/status/arbeitspakete.md) (Abschnitt R).
+
+## Dokumente
+
+| Datei | Inhalt | Art |
+|---|---|---|
+| [docs/concept.md](docs/concept.md) | Das Unit-Modell und die vier Regeln | Konzept |
+| [docs/stack.md](docs/stack.md) | Sprachaufteilung und Sprachgrenzen | Vorschlag |
+| [docs/decisions/](docs/decisions/) | Getroffene und offene Entscheidungen | Entscheidungen |
+| [docs/review/](docs/review/) | Befunde: Rust-Bestand, API-Fläche, Stack, Größenvergleich | Belege |
+| [docs/status/](docs/status/) | Nachweise mit Befehl und Ergebnis, Register, Git-Audit | Belege |
+| [docs/research/](docs/research/) | Recherche: Auth-Standards, Sprachwahl | Vorlagen |
+| [docs/INDEX.md](docs/INDEX.md) | Verzeichnis aller Dokumente | Übersicht |
+
+## Regeln für die Arbeit hier
+
+1. **Der Core ist unantastbar.** Keine Änderung in fremden Dateien — wer eine Änderung
+   braucht, baut sie als Unit.
+2. **Kein Unit importiert Interna des Cores** — nur öffentliche Steckplätze (`ctx.*`,
+   Service-Interfaces). Nur so kostet ein Core-Sprung keine Unit-Arbeit.
+3. **Dienste starten mit der Harness**, und ein fehlgeschlagener Start ist ein
+   **sichtbarer** Fehler, kein stiller Ausfall.
+4. **Sprachgrenzen sind Dienstgrenzen** — jede andere Sprache ist ein Prozess.
+
+**Und die Regel, die hier am strengsten gilt:** abgehakt wird nur Belegtes. Jede Zahl in
+diesem Repository nennt den Befehl, mit dem sie gemessen wurde. Was nicht geprüft werden
+konnte, steht als Lücke da — nicht als erledigt.
+
+## Lizenz
+
+Der DeepSeek Harness dient als **Codebasis**; damit greift seine **MIT-Lizenz**. Der
 Copyright-Vermerk liegt in [LICENSE](LICENSE) — die Bedingung der Lizenz verlangt ihn.
-
-## Nächste Schritte
-
-**Die Reihenfolge ist bindend** (Weisung des Betreibers, 13.10.2026 —
-[docs/decisions/betreiber-weisung-2026-10-13.md](docs/decisions/betreiber-weisung-2026-10-13.md)):
-
-1. **Kleinste Kette verdrahten** — Adapter → Agent-Loop → Session. Ohne laufenden
-   Kern gibt es nichts abzusichern oder zu skalieren. Vorher die Entscheidung
-   **übernehmen oder portieren** des Vorlagen-Adapters.
-2. **Danach** Login, PostgreSQL und Redis ins Spiel bringen — gebaut und getestet
-   ist beides (108 + 36 Tests), es hängt nur nichts daran.
-3. **Mandantentrennung** als eigene Entscheidung davor: Postgres Row-Level
-   Security, `workspace_members`, Redis-Namensräume, **pro Benutzer eine eigene
-   Sandbox**. Nicht Ende-zu-Ende — der Agent braucht den Klartext.
-4. **Offen:** Formatversion 4 der Sitzung, Compaction, Aufruf gegen den echten
-   Anbieter, `pmh-supervisor` starten und seine zwei roten Tests klären.
-
-**Was nicht mehr gilt:** der frühere Satz *„Es läuft noch kein eigener Code"* — er war beim
-Schreiben korrekt und ist durch die Arbeit überholt. Ebenso die alte Formulierung „Vorlage,
-nicht Codebasis": Der Betreiber hat am 13.10.2026 klargestellt, dass der DeepSeek Harness
-**als Codebasis** dient und in **Go, Bun/TS 7 und Rust** angepasst wird.
-
-**Und was ebenfalls nicht mehr gilt:** *„Phase: eigener Code läuft."* Der Core läuft, der
-eigene Agent nicht — die Oberfläche wird ausgeliefert, aber ihre API ist ausgefallen und
-kein Paket unseres Kerns ist angeschlossen. Diese Datei nennt den Unterschied jetzt
-ausdrücklich, statt ihn zu verwischen.
