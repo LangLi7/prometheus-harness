@@ -1054,6 +1054,303 @@ export async function listeApiSchluessel(sql: SqlZugang, userId: string): Promis
   })
 }
 
+// ---------------------------------------------------------------------------
+// Der Wissensspeicher (D1)
+// ---------------------------------------------------------------------------
+
+/**
+ * Der Zugang zu `documents` und `chunks`.
+ *
+ * ## Die eine Regel, die diesen Speicher ausmacht: `user_id` ist immer dabei
+ *
+ * **Jede** Abfrage in dieser Datei trägt `user_id` in der WHERE-Klausel — auch
+ * die Suche. Der zusammengesetzte Fremdschlüssel aus Migration 0006 verhindert
+ * Übergriffe beim **Schreiben**; beim **Lesen** verhindert er **nichts**. Genau
+ * deshalb steht der Mandant hier in jeder Abfrage und nicht in der Verantwortung
+ * des Aufrufers: was nicht abgefragt werden kann, kann auch nicht vergessen
+ * werden.
+ *
+ * **Und deshalb nimmt keine Funktion dieser Datei eine Kennung ohne den
+ * Mandanten entgegen.** Wer ein Dokument lesen will, nennt **beides**.
+ *
+ * ## Was hier NICHT passiert
+ *
+ * **Kein Zerlegen und kein Einbetten.** Wie ein Text in Stücke geschnitten wird,
+ * ist eine eigene Entscheidung (Überlappung, Größe, Grenzen an Absätzen), und ein
+ * Modell wird hier nicht gerufen. Diese Datei **legt ab**, was ihr gegeben wird,
+ * und **sucht** darin.
+ *
+ * @param sql - der Datenbankzugang
+ * @returns der Speicher
+ */
+export function erzeugeWissensspeicher(sql: SqlZugang): Wissensspeicher {
+  return {
+    async legeDokumentAb(eintrag: NeuesDokument): Promise<string> {
+      // **`angelegt` und nicht `zeilen`.** Der erste Entwurf hieß `zeilen` — und
+      // damit wie die Modul-Hilfsfunktion, die er aufruft. Der Aufruf traf die
+      // eigene, noch nicht initialisierte Variable:
+      // `ReferenceError: Cannot access 'zeilen' before initialization`. Ein Name,
+      // der eine Funktion verdeckt, die man in derselben Zeile braucht.
+      const angelegt = await zeilen<{ id: string }>(
+        sql,
+        `INSERT INTO documents (id, user_id, workspace_id, kind, source_path, title, content_hash, bytes)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7)
+         RETURNING id`,
+        [
+          eintrag.userId,
+          eintrag.workspaceId ?? null,
+          eintrag.art,
+          eintrag.herkunft ?? null,
+          eintrag.titel,
+          eintrag.inhaltsHash ?? null,
+          eintrag.bytes ?? null,
+        ],
+      )
+      const neu = angelegt[0]?.id
+      if (neu === undefined) throw new Error('das Dokument wurde nicht angelegt')
+      return neu
+    },
+
+    async legeStueckeAb(userId: string, stuecke: readonly NeuesStueck[]): Promise<number> {
+      if (stuecke.length === 0) return 0
+      // **EIN `INSERT` mit mehreren Zeilen — und das ist der Punkt.**
+      //
+      // Der erste Entwurf schickte `BEGIN`, dann einen `INSERT` je Stück, dann
+      // `COMMIT` — und bekam vom Treiber:
+      //
+      //     UNSAFE_TRANSACTION: Only use sql.begin, sql.reserved or max: 1
+      //
+      // postgres.js **verbietet** ein von Hand gesetztes `BEGIN` auf einem Pool,
+      // und es hat recht: die drei Anweisungen könnten auf drei verschiedenen
+      // Verbindungen landen, und die Transaktion wäre keine. Ein einzelner
+      // `INSERT` mit mehreren `VALUES`-Zeilen ist dagegen **von sich aus** atomar
+      // — ganz ohne Transaktion.
+      //
+      // **Die Grenze, die dabeisteht:** PostgreSQL nimmt höchstens 65 535
+      // Parameter je Anweisung; hier sind es sechs je Stück, also rund 10 900
+      // Stücke in einem Aufruf. Wer mehr ablegen will, ruft mehrfach auf — dann
+      // ist der Aufruf die Einheit, nicht das Dokument.
+      const platzhalter: string[] = []
+      const werte: unknown[] = []
+      for (const [i, stueck] of stuecke.entries()) {
+        const b = i * 6
+        platzhalter.push(
+          `(gen_random_uuid(), $${String(b + 1)}, $${String(b + 2)}, $${String(b + 3)}, ` +
+            `$${String(b + 4)}, $${String(b + 5)}, $${String(b + 6)})`,
+        )
+        werte.push(
+          userId,
+          stueck.dokumentId,
+          stueck.ordnung,
+          stueck.inhaltVerschluesselt,
+          stueck.token ?? null,
+          // **Der Vektor ist hier immer `NULL`** — ein Stück entsteht ohne
+          // Einbettung und wird später eingebettet (`setzeEinbettung`). Das ist
+          // kein Mangel, sondern die Reihenfolge: erst der Text, dann das Modell.
+          null,
+        )
+      }
+      await ausfuehren(
+        sql,
+        `INSERT INTO chunks (id, user_id, document_id, ordinal, content_cipher, tokens, embedding)
+         VALUES ${platzhalter.join(', ')}`,
+        werte,
+      )
+      return stuecke.length
+    },
+
+    async findeDokument(userId: string, dokumentId: string): Promise<DokumentZeile | undefined> {
+      const gefunden = await zeilen<{
+        id: string
+        workspace_id: string | null
+        kind: string
+        source_path: string | null
+        title: string
+        content_hash: string | null
+        bytes: number | null
+        created_at: unknown
+      }>(
+        sql,
+        `SELECT id, workspace_id, kind, source_path, title, content_hash, bytes, created_at
+           FROM documents
+          WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL`,
+        [dokumentId, userId],
+      )
+      const z = gefunden[0]
+      if (z === undefined) return undefined
+      // **Die wahlfreien Felder werden nur gesetzt, wenn es sie gibt.**
+      // `exactOptionalPropertyTypes` läßt `workspaceId: undefined` nicht zu — und
+      // das ist richtig so: „gehört zu keinem Arbeitsbereich" und „das Feld wurde
+      // nicht mitgeschickt" sind zwei Aussagen. Derselbe Fall wie bei den
+      // API-Schlüsseln; er schlägt hier auf **zwei** Pakete durch, weil
+      // `api/auth-http` den Speicher mittypprüft.
+      return {
+        id: z.id,
+        art: z.kind,
+        titel: z.title,
+        erstelltAm: alsIso(z.created_at),
+        ...(z.workspace_id === null ? {} : { workspaceId: z.workspace_id }),
+        ...(z.source_path === null ? {} : { herkunft: z.source_path }),
+        ...(z.content_hash === null ? {} : { inhaltsHash: z.content_hash }),
+        ...(z.bytes === null ? {} : { bytes: z.bytes }),
+      }
+    },
+
+    async offeneStuecke(userId: string, grenze: number): Promise<readonly OffenesStueck[]> {
+      // **Die Nacharbeit.** `embedding IS NULL` heißt „noch nicht eingebettet";
+      // der Teilindex `chunks_offen_idx` ist genau für diese Abfrage da.
+      const gefunden = await zeilen<{ id: string; document_id: string; ordinal: number; content_cipher: unknown }>(
+        sql,
+        `SELECT id, document_id, ordinal, content_cipher
+           FROM chunks
+          WHERE user_id = $1 AND embedding IS NULL
+          ORDER BY document_id, ordinal
+          LIMIT $2`,
+        [userId, grenze],
+      )
+      return gefunden.map((z) => ({
+        id: z.id,
+        dokumentId: z.document_id,
+        ordnung: z.ordinal,
+        inhaltVerschluesselt: Buffer.isBuffer(z.content_cipher)
+          ? new Uint8Array(z.content_cipher)
+          : new Uint8Array(),
+      }))
+    },
+
+    async setzeEinbettung(
+      userId: string,
+      stueckId: string,
+      vektor: readonly number[],
+      modell: string,
+      at: Date,
+    ): Promise<boolean> {
+      if (vektor.length === 0) throw new Error('ein leerer Vektor ist keine Einbettung')
+      const getroffen = await zeilen<{ id: string }>(
+        sql,
+        `UPDATE chunks
+            SET embedding = $3::vector, embedding_model = $4, embedded_at = $5
+          WHERE id = $1 AND user_id = $2
+          RETURNING id`,
+        [stueckId, userId, vektorZuText(vektor), modell, at.toISOString()],
+      )
+      return getroffen.length === 1
+    },
+
+    async suche(userId: string, anfrage: SucheAnfrage): Promise<readonly Treffer[]> {
+      if (anfrage.vektor.length === 0) throw new Error('ein leerer Vektor kann nichts finden')
+      const grenze = anfrage.grenze ?? 10
+      // **Der Mandant steht in der WHERE-Klausel, nicht in der ORDER BY.** Er
+      // schränkt die Kandidaten ein, bevor sortiert wird — nachträglich zu filtern
+      // hieße, fremde Zeilen zu lesen und dann wegzuwerfen.
+      const gefunden = await zeilen<{
+        id: string
+        document_id: string
+        ordinal: number
+        aehnlichkeit: number
+      }>(
+        sql,
+        `SELECT c.id, c.document_id, c.ordinal,
+                1 - (c.embedding <=> $2::vector) AS aehnlichkeit
+           FROM chunks c
+          WHERE c.user_id = $1 AND c.embedding IS NOT NULL
+          ORDER BY c.embedding <=> $2::vector
+          LIMIT $3`,
+        [userId, vektorZuText(anfrage.vektor), grenze],
+      )
+      return gefunden.map((z) => ({
+        stueckId: z.id,
+        dokumentId: z.document_id,
+        ordnung: z.ordinal,
+        aehnlichkeit: z.aehnlichkeit,
+      }))
+    },
+  }
+}
+
+/**
+ * Wandelt Zahlen in die Textform, die pgvector versteht.
+ *
+ * **Warum Text und kein Array.** Der Treiber schickt ein JavaScript-Array als
+ * `numeric[]`; pgvector erwartet seine eigene Eingabeform `[1,2,3]`. Ein Cast
+ * `$1::vector` auf einem Array scheitert — gemessen wird das nicht hier, sondern
+ * in der Prüfung, die die Suche gegen die echte Datenbank fährt.
+ *
+ * **Kein `toFixed` und keine Rundung.** Was hereinkommt, geht hinaus; eine
+ * stillschweigende Rundung wäre eine Änderung am Vektor.
+ *
+ * @param vektor - die Zahlen
+ * @returns die Textform
+ */
+export function vektorZuText(vektor: readonly number[]): string {
+  return `[${vektor.map((x) => String(x)).join(',')}]`
+}
+
+/** Ein neues Dokument. */
+export interface NeuesDokument {
+  readonly userId: string
+  readonly workspaceId?: string
+  readonly art: string
+  readonly herkunft?: string
+  readonly titel: string
+  readonly inhaltsHash?: string
+  readonly bytes?: number
+}
+
+/** Ein neues Textstück. */
+export interface NeuesStueck {
+  readonly dokumentId: string
+  readonly ordnung: number
+  /** **Verschlüsselt.** Der Speicher sieht keinen Klartext — siehe `content_cipher`. */
+  readonly inhaltVerschluesselt: Uint8Array
+  readonly token?: number
+}
+
+/** Ein gelesenes Dokument. */
+export interface DokumentZeile {
+  readonly id: string
+  readonly workspaceId?: string
+  readonly art: string
+  readonly herkunft?: string
+  readonly titel: string
+  readonly inhaltsHash?: string
+  readonly bytes?: number
+  readonly erstelltAm: string
+}
+
+/** Ein Stück, das noch keine Einbettung hat. */
+export interface OffenesStueck {
+  readonly id: string
+  readonly dokumentId: string
+  readonly ordnung: number
+  readonly inhaltVerschluesselt: Uint8Array
+}
+
+/** Eine Suchanfrage. */
+export interface SucheAnfrage {
+  readonly vektor: readonly number[]
+  readonly grenze?: number
+}
+
+/** Ein Treffer. */
+export interface Treffer {
+  readonly stueckId: string
+  readonly dokumentId: string
+  readonly ordnung: number
+  /** Kosinus-Ähnlichkeit: `1 - Abstand`, also 1 = gleich, 0 = orthogonal. */
+  readonly aehnlichkeit: number
+}
+
+/** Der Wissensspeicher. */
+export interface Wissensspeicher {
+  legeDokumentAb(eintrag: NeuesDokument): Promise<string>
+  legeStueckeAb(userId: string, stuecke: readonly NeuesStueck[]): Promise<number>
+  findeDokument(userId: string, dokumentId: string): Promise<DokumentZeile | undefined>
+  offeneStuecke(userId: string, grenze: number): Promise<readonly OffenesStueck[]>
+  setzeEinbettung(userId: string, stueckId: string, vektor: readonly number[], modell: string, at: Date): Promise<boolean>
+  suche(userId: string, anfrage: SucheAnfrage): Promise<readonly Treffer[]>
+}
+
 /** Die drei Speicher, die der Regelkern braucht. */
 export interface AuthSpeicher {
   readonly benutzer: UserStore

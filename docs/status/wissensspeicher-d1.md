@@ -186,3 +186,80 @@ docker exec pmh-postgres psql -U pmh_admin -d pmh_test -tAc "CREATE EXTENSION IF
 Get-Content packages/auth/db-schema/tests/proben/wissensspeicher.sql -Raw |
   docker exec -i pmh-postgres psql -U pmh_admin -d pmh_test -v ON_ERROR_STOP=1
 ```
+
+---
+
+## 8. Nachtrag: der **Aufrufer** — und die gefilterte Vektorsuche, gemessen
+
+Bis hierher hatten `documents`/`chunks` **keinen Aufrufer**. Jetzt gibt es einen:
+`erzeugeWissensspeicher(sql)` in `packages/auth/store-postgres` — `legeDokumentAb`,
+`legeStueckeAb`, `findeDokument`, `offeneStuecke`, `setzeEinbettung`, `suche`.
+
+**Die eine Regel dieses Speichers: `user_id` steht in *jeder* Abfrage.** Auch in
+der Suche, auch beim Lesen eines einzelnen Dokuments. Der zusammengesetzte
+Fremdschlüssel verhindert Übergriffe beim **Schreiben**; beim **Lesen** verhindert
+er nichts. Deshalb nimmt **keine** Funktion hier eine Kennung ohne den Mandanten
+entgegen — was nicht abgefragt werden kann, kann auch nicht vergessen werden.
+
+**Geprüft** (`packages/auth/store-postgres/tests/wissen.test.ts`, **6 Prüfungen**):
+`findeDokument` mit fremdem Mandanten → `undefined`; `offeneStuecke` zeigt Fremden
+nichts; `setzeEinbettung` mit fremdem Mandanten → `false`; und der Kern: **der
+Filter hält**, obwohl die fremden Vektoren **näher** liegen.
+
+### Die Messung, die meine eigene Sorge umdreht
+
+In §5 stand zur gefilterten Vektorsuche: *„kann zu wenige Zeilen liefern —
+**ungemessen**"*. Jetzt gemessen, und das Ergebnis ist ein anderes als erwartet:
+
+```
+[pmh] gefilterte Vektorsuche: A hat 200 eingebettete Stücke, B hat 20 000 NÄHERE —
+      LIMIT 5 lieferte 5 Treffer. Index benutzt: NEIN (Seitendurchlauf)
+[pmh] Plan: Limit (cost=21.17..21.18 rows=5) -> Sort (cost=21.17..21.67 rows=200)
+```
+
+**Der Planer benutzt den Vektorindex gar nicht.** Bei einem Mandantenfilter liest
+er die **200 eigenen** Zeilen exakt und sortiert sie — 200 von 20 200 Zeilen sind so
+selektiv, daß der Seitendurchlauf billiger ist als der Index. Die Folge: **volle
+Trefferquote**, die Sorge greift hier nicht.
+
+**Und deshalb bleibt die HNSW-Frage offen — aber jetzt mit einem Grund.** Der
+Post-Filter-Effekt kann nur auftreten, wenn der Planer den Index **nimmt**, und das
+tut er, wenn **ein Mandant selbst** genug Zeilen hat. Dafür braucht es einen
+Mandanten mit **Zehntausenden eigener** Stücke — nicht mit vielen fremden. Was
+bleibt: bei einem sehr großen Mandanten ist die Frage wieder offen, und
+`hnsw.iterative_scan` (pgvector 0.8) die Antwort darauf. **Ungemessen, mit Grund.**
+
+### Und ein Befund zur Entscheidung, die offen ist
+
+Die Einbettung braucht ein Modell. Was auf dieser Maschine erreichbar ist, wurde
+gemessen:
+
+| Dienst | Wie erreichbar | Antwort |
+|---|---|---|
+| `freellmapi` `:3001` | offen auf 127.0.0.1 | **401** auf `/v1/models` **und** `/v1/embeddings` — die Route gibt es, sie verlangt einen Schlüssel |
+| `ollama` | **kein** veröffentlichter Port (`netstat` findet 11434 nicht) | nicht erreichbar |
+| `searxng` `:8081` | offen | 200 — aber das ist eine **Suche**, keine Einbettung |
+
+**Damit ist die Modellentscheidung keine Bequemlichkeit, sondern eine Sperre:** ohne
+Zugang zu einem Einbettungsdienst gibt es keine echten Vektoren. Der Speicher und
+die Suche sind fertig und geprüft — **was fehlt, ist der Schlüssel.**
+
+### Fünf eigene Fehler in diesem Schritt
+
+| Fehler | Wie er auffiel |
+|---|---|
+| **Namensbeschattung**: die lokale Variable hieß `zeilen` — genau wie die Modul-Hilfsfunktion, die sie aufruft | `ReferenceError: Cannot access 'zeilen' before initialization` in **jeder** Prüfung, die ein Dokument anlegt |
+| **`BEGIN` von Hand auf einem Pool** | `UNSAFE_TRANSACTION: Only use sql.begin, sql.reserved or max: 1` — postgres.js verbietet es zu Recht: die drei Anweisungen könnten auf drei Verbindungen landen. Jetzt **ein** `INSERT` mit mehreren `VALUES`-Zeilen, der von sich aus atomar ist |
+| **Ausgeartete Meßvektoren** — *zweimal*: mit einer **Konstante** gefüllte Vektoren zeigen für jeden Wert in **dieselbe Richtung**, der Kosinusabstand ist immer 0 | die Prüfung „ohne Filter ist der beste Treffer B's Stück" fiel um; jetzt **gerichtete** Vektoren (1 an genau einer Stelle) |
+| **Buns 5-Sekunden-Grenze** — 20 000 Zeilen einfügen, Index mitziehen, `ANALYZE` dauert länger | der Abbruch mitten im Einfügen erzeugte danach einen **Fremdschlüsselfehler**, weil `afterAll` die Mandanten wegräumte, während die Anweisung noch lief. Zeitlimit für **diese** Prüfung auf 30 s — nicht die Messung verkleinert |
+| `exactOptionalPropertyTypes` wieder: `workspaceId: undefined` ist nicht erlaubt | der Typlauf, und er schlug auf **zwei** Pakete durch, weil `api/auth-http` den Speicher mittypprüft |
+
+### Zahlen
+
+| Messung | Befehl | Wert |
+|---|---|---|
+| Wissensspeicher-Prüfungen | `bun test packages/auth/store-postgres/tests/wissen.test.ts` | **6 pass, 0 fail** (30 s Zeitlimit für die Meßprüfung) |
+| `store-postgres` ganz | `bun test packages/auth/store-postgres` | **69 pass, 0 fail** in 4 Dateien |
+| Typprüfung | `bun scripts/typecheck.mjs` | **25 Pakete grün, 0 rot** |
+| Voller Lauf | `bun test` | **1188 pass, 2 fail** in 49 Dateien — Zuwachs **+6**, die zwei roten sind die bekannten fremden |
+| Laufzeit der Meßprüfung | — | ~10 s (20 000 Zeilen + Index + `ANALYZE`) |
