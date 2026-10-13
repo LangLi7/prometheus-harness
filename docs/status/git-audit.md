@@ -514,3 +514,50 @@ fehlender Dienst ergibt **503** statt eines stillen Verschwindens.
 4. **Die Attrappe hält den Vertrag fest, nicht seine Erfüllung.** Ändert der Core
    die Bedeutung von `requestRejection`, bleiben unsere Prüfungen grün.
 5. **Nur Windows gemessen.**
+
+---
+
+### 2026-10-13 · `/api/ready` prüft die Abhängigkeiten (PostgreSQL, Redis)
+
+| Prüfung | Ergebnis |
+|---|---|
+| Auslöser | Der eigene Beleg nannte die Lücke selbst: *„`/api/ready` sagt, daß die Anwendung antwortet; ob PostgreSQL erreichbar ist, sagt es nicht."* |
+| Umfang | `packages/api/readiness/` (neu: `package.json`, `src/index.ts`, `tsconfig.json`, `tests/readiness.test.ts`), `packages/api/health/` (Sondenregister, `pruefe()`-Vertrag, `bereinigeGrund`, Fassung 0.3.0), `scripts/profile-patch.mjs`, `.env.example`, `README.md`, `docs/INDEX.md`, `docs/status/beleg-eigener-endpunkt.md` |
+| Art | **Codeänderung im Repo.** Kein `~/.dsh`-Zugriff |
+| Tests | `health` **72 pass** · `readiness` **40 pass** · Gesamt **762 pass · 0 fail** (26 Dateien) |
+| Typecheck | **18 grün · 0 rot** |
+| Im Host | gesund: `/api/ready` **200**, beide Sonden `ok` · Redis tot: **503** `eingeschraenkt` · `/api/health` bleibt **200** |
+
+**Der Befund.** `/api/ready` prüft jetzt PostgreSQL mit **drei** Fragen (Verbindung,
+Migrationen, Kern-Tabellen) und Redis mit `PING`/`PONG`. Die Sonden stehen in
+`packages/api/readiness`; `health` stellt nur den Vertrag
+`ctx.readyness.register(sonde)` bereit — sonst hinge der Endpunkt, dessen Aufgabe
+„Zustand melden" ist, selbst an dem Zustand, den er meldet (und Regel 2 wäre
+verletzt).
+
+**Der sechste eigene Fehler — und die Lücke, die ihn durchgelassen hat.**
+`apply` las den Dienst mit `ctx.get('readyness')` **innerhalb von `apply`**.
+`ctx.provide` macht einen Dienst aber erst **nach** dem Ende von `apply`
+auffindbar (gemessen). Im Host scheiterte das Paket vollständig:
+`pmh-readiness: Error: der Dienst "readyness" fehlt, obwohl inject ihn fordert`.
+
+Die eigentliche Lücke: alle 40 Prüfungen riefen `trageSondenEin` mit einem
+**selbstgebauten** Register auf — also an `apply` **vorbei**. Die Logik war
+geprüft, die **Einhängung** nicht. Jetzt gibt es drei Prüfungen gegen einen
+echten Cordis-Kontext.
+
+**Eine Lücke in der Startanleitung, gefunden und benannt.** Der Starter setzt
+`DATABASE_URL`/`REDIS_URL` **nicht**. Ohne sie meldet `/api/ready` `ok` mit
+**leerer** Sondenliste. Die README nennt die Variablen jetzt — aber der
+Zusammenhang zwischen `.env.example` und dem Start ist weiterhin **nicht**
+hergestellt: der Starter liest die Datei nicht.
+
+#### Offene Punkte
+
+1. **`credential-gh`** — zehnter Push, zehnte Warnung.
+2. **Kein Lauf führt den Ausfall regelmäßig herbei.** Die 503-Antwort ist
+   **einmal** von Hand gemessen.
+3. **Die Wiederverwendung (5 s) ist im Host nicht gemessen** — nur im Test.
+4. **Fremde, nicht committete Arbeit im Arbeitsbaum** — unverändert 27 + 8
+   Dateien.
+5. **Nur Windows gemessen.**
