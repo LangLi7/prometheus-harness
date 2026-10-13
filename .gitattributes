@@ -38,6 +38,17 @@
 # Ein `\r` in der ersten Zeile macht den Shebang unbrauchbar.
 *.sh    text eol=lf
 *.bash  text eol=lf
+# **Die Haken (Nachtrag 13.10.2026).** `.githooks/pre-commit` hat **keine** Endung,
+# fiel deshalb unter `text=auto` und bekam auf diesem Rechner **CRLF** — gemeldet
+# von Git selbst beim Einchecken:
+#
+#     warning: in the working copy of '.githooks/pre-commit', LF will be replaced by CRLF
+#
+# Auf Linux wäre der Haken damit unbrauchbar (`/bin/sh^M: bad interpreter` oder
+# `exec bun\r: not found`) — dieselbe Ursache, die oben schon einmal **jede**
+# Linux-Installation gekostet hat. Ein Haken, der auf Windows grün ist und auf Linux
+# scheitert, ist schlimmer als keiner: niemand sucht den Fehler dort.
+.githooks/**  text eol=lf
 # `configure`-artige Skripte ohne Endung sind ebenfalls POSIX.
 Makefile    text eol=lf
 Dockerfile  text eol=lf

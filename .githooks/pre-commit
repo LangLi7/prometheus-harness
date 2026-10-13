@@ -1,0 +1,25 @@
+#!/bin/sh
+# ============================================================================
+# .githooks/pre-commit — der gitleaks-Haken (E2)
+# ============================================================================
+#
+# Einhängen (einmal je Arbeitskopie, nicht je Klon-Zeitpunkt):
+#
+#     git config core.hooksPath .githooks
+#
+# **Warum diese Datei hier liegt und nicht in `.git/hooks/`.** `.git/` wird nicht
+# versioniert: ein Haken dort gilt nur auf diesem Rechner, für niemanden sonst, und
+# ist beim nächsten Klon verschwunden. Hier liegt er **im Repository** — und wird
+# erst durch die eine Konfigurationszeile scharf. Das ist Absicht: ein Haken, der
+# sich beim Klonen selbst einschaltet, überrascht Leute, die ihn nicht wollen.
+#
+# **Der Exit-Code ist der von `scripts/leck-haken.mjs`.** Ist gitleaks nicht
+# installiert, ist er **0** — und die Ausgabe sagt ausdrücklich, daß nichts geprüft
+# wurde. Ein Haken, der bei fehlendem Werkzeug jeden Commit blockiert, wird nach dem
+# dritten Mal mit `--no-verify` umgangen, und dann schützt er gar nichts.
+#
+# Aufruf von Hand (ohne Commit):
+#
+#     sh .githooks/pre-commit
+#     bun scripts/leck-haken.mjs pruefen
+exec bun scripts/leck-haken.mjs pruefen
