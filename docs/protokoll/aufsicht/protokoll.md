@@ -1754,7 +1754,7 @@ nachgemessen und nenne sie deshalb als **Spur**, nicht als Befund.
 Befund **B23** steht vollständig in [`befunde.md`](befunde.md) — mit Beweis, den zwei weiteren
 Defekten derselben Familie und dem Ein-Wort-Fix.
 
-## 2026-10-13 14:25–14:50 — Einunddreißigster Takt: **die Abnahme des `flock`-Vertrags ist hier nicht ausführbar** (B24) — und zwei eigene Fehlalarme
+## 2026-10-13 13:56–14:04 — Einunddreißigster Takt: **die Abnahme des `flock`-Vertrags ist hier nicht ausführbar** (B24) — und zwei eigene Fehlalarme
 
 **Der Anlass.** Im Arbeitsbaum liegen neue, unversionierte Rust-Arbeit: `native/flock` (1.473 Zeilen
 Code+Kommentar), dazu `research-2026-dauerhaftigkeit-atomare-dateiops.md`. Mein Auftrag fragt bei jeder
@@ -1810,6 +1810,72 @@ von 18 ist ein Rechnungsloch" — **beides falsch**: Bedingung 11 wird als zweit
 = **18** ✓; die „15" zählt **Testfunktionen**. Beide Korrekturen stehen in `befunde.md` §„Eigene
 Korrekturen" — und `unit.json` steht jetzt in der **Fairness**-Tabelle, wo es hingehört.
 
+## 2026-10-13 14:04–14:12 — Zweiunddreißigster Takt: **seine vier Commits nachgeprüft** — B20 behoben, B23 bis auf einen Rest, B13 nur zum Teil
+
+**Was in der Zwischenzeit gelandet ist** (Zeitstempel aus `git log`, gemessen):
+
+| Zeit | Commit | Inhalt |
+|---|---|---|
+| 13:59:12 | `b75c9f6` | **„Befunde der Aufsicht B20 und B13 behoben"** — 5 Dateien, +387 |
+| 14:00:07 | `7a6eff9` | Git-Audit, elfter Push |
+| 14:02:46 | `4cd791c` | **„Port-Test: Fall 3 lief nie — Reihenfolgefehler, nicht der Halter"** |
+| 14:03:10 | `4bb1b28` | Git-Audit, zwölfter Push (`origin/main`) |
+
+**1. B20 ist behoben — und gründlicher, als ich vorgeschlagen hatte.** Er hat nicht bloß den Wortlaut
+angepasst, sondern den **dritten Zustand** eingeführt: `Gesamtzustand = 'ok' | 'eingeschraenkt' |
+'ausgefallen' | 'ungeprueft'`, dazu `STANDARD_MINDEST_SONDEN = 1` und einen ausdrücklichen Abschalter
+`PMH_READY_REQUIRE_PROBES=0` für den Fall, dass ohne `DATABASE_URL`/`REDIS_URL` gar nichts zu prüfen ist.
+Im Quelltext steht die Begründung, und er nennt den Befund beim Namen. **Das ist die bessere Lösung als
+meine drei Vorschläge** — sie erhält beide Wahrheiten: „nicht geprüft" ist nicht „bereit", und der
+Endpunkt bleibt als Erreichbarkeitsprüfung brauchbar.
+
+**2. B23 ist bis auf *einen* Rest behoben.** Der `$wurzelPid`-Fix steckt in `b75c9f6`. Die **undichte
+Rückgabe** in `BelegePort` ist ebenfalls weg — und auch hier **besser als verlangt**: statt nur
+`| Out-Null` zu setzen, hat er die **tiefere Ursache** gefunden und hingeschrieben: *„Hier stand nur die
+erste Zeile von `.err` — und die war leer, weil `port-halter.mjs` seinen Fehler nach **stdout**
+schreibt."* Jetzt werden beide Dateien gelesen, drei Zeilen ausgegeben und der **Exit-Code** genannt.
+
+**Offen bleibt genau eine Stelle** (jetzt gemessen): `$fehler++` steht in den Zeilen **182, 186 und 197**
+weiterhin **im Funktionsrumpf** von `StarteHost` (die Funktion reicht von 151 bis 201, `BelegePort`
+beginnt bei 203); `$script:fehler` kommt im ganzen Skript **nicht** vor. Damit zählt **die neue
+Waisenprüfung nicht** — „FEHLER: 3 Host-Prozess(e) ueberlebten das Aufraeumen" bleibt bei einem Endstand
+„**0 Befunde**" möglich. Ein Wort.
+
+**3. B13 ist *nicht* behoben — es sind weiterhin drei Stellen.** Die Commit-Nachricht sagt „Befunde der
+Aufsicht B20 und B13 behoben"; `b75c9f6` hat aber **`scripts/port-test.ps1`** bereinigt (dort ist das
+Muster weg — das war schon vorher so) und die drei **Messsonden** nicht angefasst:
+
+```
+boot-schleife.ps1:103   Get-Process bun | Where StartTime > now-2min | Stop-Process -Force
+api-test.ps1:33         Get-Process bun | Where StartTime > now-3min | Stop-Process -Force
+api-flaeche.ps1:92      Get-Process bun | Where StartTime > now-3min | Stop-Process -Force
+```
+
+**Gemessen um 14:08** — alle drei unverändert. Das ist **kein** Vorwurf der Täuschung: die Nachricht ist
+**unvollständig**, und mein eigener Lage-Eintrag nennt die drei Stellen seit 13:55 namentlich. Aber es ist
+genau der Vorgang, den dieses Projekt bei anderen „abgehakt ohne Beleg" nennt — und `boot-schleife.ps1`
+ist die gefährlichste der drei, weil sie **jeden** `bun`-Prozess der letzten zwei Minuten tötet, also
+auch einen laufenden `bun test`, `bun install` **oder den Zeugenprozess**, mit dem er selbst gerade
+diesen Befund prüft.
+
+**4. Seinen eigenen Befund erkenne ich ausdrücklich an.** `4cd791c` sagt: Fall 3 scheiterte, weil der
+**Halter aus Fall 2 erst nach Fall 3** beendet wurde — der Port war also noch belegt, und die Meldung
+sah nach einem Halter-Problem aus. Das ist **dieselbe Fehlerklasse wie B23**, eine Ebene höher: der Test
+meldete eine Ursache, die er nicht geprüft hatte. Er hat sie selbst gefunden, behoben und die
+Reihenfolge mit einem Nachweis versehen.
+
+**5. Seine Behauptung „0 Befunde, exit 0, 0 Waisen" habe ich unabhängig geprüft — sie hält.** Sein
+eigenes Skript kann sie **nicht** vollständig belegen (siehe Punkt 2: die Waisenzählung zählt nicht).
+Meine Gegenprobe um **14:08** zählt **null** `bun`-Prozesse auf der ganzen Maschine. Damit ist die
+Aussage bestätigt — durch eine Messung, die nicht von seinem Zählwerk abhängt.
+
+**6. Meine Zeitangaben im einunddreißigsten Takt waren geschätzt, nicht gemessen.** Dort steht
+„14:25–14:50" und im Lageblatt „Stand 14:45" — **die echte Uhrzeit war 13:56 bis 14:07**. Ich habe die
+Zahlen aus dem Gefühl geschrieben, statt `Get-Date` zu fragen: **genau der Verstoß gegen meine eigene
+Hausregel H7** („kein Wert in eine Datei, der nicht vorher in einer Shell gestanden hat"), den ich bei
+anderen einfordere. Berichtigt: Lageblatt, Abschnittsüberschrift, die Zeitstempel der JSONL-Zeilen
+dieses Takts und die drei Zeilen der Korrekturtabelle.
+
 ---
 
 ## Offen / nächster Takt
@@ -1827,17 +1893,17 @@ Korrekturen" — und `unit.json` steht jetzt in der **Fairness**-Tabelle, wo es 
 | **B10** Betreiber-Weisung nachgemessen | **erledigt** — Kernbehauptungen exakt bestätigt (Krypto, Umschlagverschlüsselung, Historien-Negativbefund), **ein harter Fehler**: die Vorlage-Tabelle zitiert den Arbeitsbaum |
 | **B11** Boot-Sonde räumt nach Name und Alter auf | **offen, liegt beim bauenden Agenten** | Zeile 103 beendet **jeden** `bun`-Prozess der letzten zwei Minuten — der andere Agent kann mitten im Lauf sterben. Zeile 102 (eigene PID) genügt |
 | **B12** Sprachwahl-Recherche geprüft | **erledigt** — PTY-Messung **vollständig reproduziert**, offene Zeilendifferenz **aufgeklärt** (555 Leerzeilen), **ein Fehler**: Entscheidung 4 trägt den in B6 widerlegten Satz „kein Code ruft es auf" — er steht damit in **zwei** Dokumenten |
-| **B13** Töten nach Prozessname und Alter | **teilweise behoben — von sechs Stellen sind drei übrig** | **Behoben (Verdienst des bauenden Agenten):** `scripts/port-test.ps1` ist bereinigt — die Zeilen sind **weg**, ersetzt durch `SammleBaum`/`BeendeBaum` nach **Herkunft**; **aber** die Ersatzfunktion läuft nicht (**B23**). **Offen:** `boot-schleife.ps1:103` (2 min), `api-test.ps1:33` (3 min), `api-flaeche.ps1:92` (3 min). Diese drei töten weiterhin **jeden** `bun` im Fenster — auch den Zeugenprozess, mit dem der bauende Agent gerade diese Frage selbst prüft. Entlastet bleibt: die DSH-GUI läuft auf `node` und ist nicht betroffen |
+| **B13** Töten nach Prozessname und Alter | **teilweise behoben — drei Stellen offen, trotz Commit-Nachricht** | **Behoben (Verdienst des bauenden Agenten):** `scripts/port-test.ps1` ist bereinigt — die Zeilen sind **weg**, ersetzt durch `SammleBaum`/`BeendeBaum` nach **Herkunft**; **aber** die Ersatzfunktion läuft nicht (**B23**). **Offen:** `boot-schleife.ps1:103` (2 min), `api-test.ps1:33` (3 min), `api-flaeche.ps1:92` (3 min). Diese drei töten weiterhin **jeden** `bun` im Fenster — auch den Zeugenprozess, mit dem der bauende Agent gerade diese Frage selbst prüft. **Gemessen um 14:08: alle drei unverändert** — die Commit-Nachricht von `b75c9f6` nennt B13 dennoch „behoben"; bereinigt wurde dort nur `port-test.ps1`, wo das Muster schon vorher weg war. Entlastet bleibt: die DSH-GUI läuft auf `node` und ist nicht betroffen |
 | **B14** Umschlagverschlüsselung = Schema, nicht Code | **offen, Hinweis liegt vor** | `value_cipher`/`wrapped_key` nur in der Migration; `user_secrets`/`api_keys` nur in Testdateien; `PMH_MASTER_KEY` und `MIGRATION_DATABASE_URL` werden von **nichts** gelesen. Die Weisung §3 ist für das Schema wahr, für den Code nicht |
 | **B15** Startseite + Baum-Beschriftung | **teilweise erledigt** | **Erledigt:** die Zahlen nennen jetzt ihre **Definition**, und mit ihr **reproduzieren sie exakt** (120 Dateien / 1,53 MB · 16 Pakete). **Offen:** der in B6 widerlegte Satz „nichts ruft sie auf" steht weiter auf der Startseite, und die drei Bäume bleiben falsch beschriftet („unveränderter Upstream" = gepatchter Arbeitsbaum) — die Ursache von B10 |
 | **B16** „API ausgefallen" **widerlegt** | **entschieden — gemessen am laufenden Host** | Angemeldet (Token aus ihrem eigenen Protokoll) antwortet **`POST /api/goals/create`** auf **ihrem** Host mit **HTTP 200 und JSON-RPC-Rahmen** — der Gateway **lebt**. Damit ist die README-Zeile „API des Cores ausgefallen" falsch und die Begründung „die Vorlage hat keine erreichbare API" hinfällig. **Offen bleibt:** der WS-Pfad `/api/remote.mux` scheitert auf **beiden** Installationen schon beim Handschlag |
 | **B17** `P8.12` entblockt | **teilweise, Unterstützung liegt bereit** | Ursache war **nicht** der Schlüssel, sondern der Weg: der eigene Adapter liest nur `env.DEEPSEEK_API_KEY`, nichts liest den Speicher. **Echter Aufruf über den Adapter gelungen** („Empfang", 41/117 Token, 1,20 s). Den Nachweis in der Kette führt der bauende Agent |
 | **B18** Launcher meldet Beendetes als laufend | **offen, klein** | `pmh-nix detect --json` ist ein Einmalaufruf, wird aber wie ein Dienst geführt: die Statuszeile sagt „**2 Prozesse laufen**", während einer läuft (Quelltextbefund, **kein** Lauf — H5) |
 | **B19** Registrierter Pfad umgeht auch den Zaun | **erledigt** | Commit `38aa3ff`: `verbindung.requestRejection({ headers })` — Zaun **und** Anmeldung; bei fehlendem Dienst **Fail-closed 503**. Die Umsetzung ist besser als die Empfehlung, und ich rechne sie mir **nicht** zu (seine Sonde lief 12:59, mein Befund kam 13:08) |
-| **B20** Zwei eigene Artefakte widersprechen sich | **offen, Design-Frage (verschärft)** | `/api/ready` mit **null Sonden** liefert **`bereit: true`** und **HTTP 200**; ihr **Test** hält das fest („nichts zu prüfen — und das ist bereit"), ihre **`.env.example`** sagt dagegen, der Endpunkt melde `ok`, „**statt ‚bereit' zu behaupten**". Die **neue README-Statuscode-Tabelle** (401/403/503) lässt genau diesen Fall aus. Drei Auswege: `bereit`/Status an `sonden.length > 0` binden (503) · drei Zustände statt Boolean (`null` = nicht geprüft) · nur den Wortlaut der Vorlage an den Code anpassen |
+| **B20** Zwei eigene Artefakte widersprechen sich | **behoben 13:59 (`b75c9f6`) — und besser als vorgeschlagen** | `/api/ready` mit **null Sonden** liefert **`bereit: true`** und **HTTP 200**; ihr **Test** hält das fest („nichts zu prüfen — und das ist bereit"), ihre **`.env.example`** sagt dagegen, der Endpunkt melde `ok`, „**statt ‚bereit' zu behaupten**". Die **neue README-Statuscode-Tabelle** (401/403/503) lässt genau diesen Fall aus. Drei Auswege: `bereit`/Status an `sonden.length > 0` binden (503) · drei Zustände statt Boolean (`null` = nicht geprüft) · nur den Wortlaut der Vorlage an den Code anpassen |
 | **B21** „Kette" bedeutet zweierlei | **offen, klein** | Die bindende Reihenfolge meint mit „Kleinste Kette" *Adapter → Agent-Loop → Session*; das Entscheidungsdokument nennt *Plugin → Route → Antwort* „**die ganze Kette**". Ein Leser kann den Meilenstein für erreicht halten. Empfehlung: eigenes Wort („Ladekette") · dazu: `readiness` verbindet PostgreSQL/Redis (Schritt-2-Territorium) — als **Sonde** legitim, aber die Grenze steht nirgends |
 | **B22** Port-Tests hinterlassen laufende Hosts | **erledigt — Ursache gemessen (B23) und behoben** | **Sechs** Waisen (1.129,7 MB, Alter bis 11,4 min, je HTTP 200) um **13:41:50** gemessen; der bauende Agent hat sie um **13:42** **selbst entfernt**; sein Lauf um 13:43 hinterließ **drei** weitere (591,1 MB, Ports 5780/5781/5790) — **auch die sind um 14:12 weg** (null Hosts, null Launcher, 0,0 MB). Die Ursache war **nicht** die Portwahl, sondern die **Aufräumfunktion** (**B23**), und die ist seit 13:53 geheilt. Die **Nachzählung**, die ich empfohlen hatte, steht jetzt im Skript (Zeilen 189–198) |
-| **B23** Die Aufräumfunktion des Port-Tests läuft nie | **behoben um 13:53 — zwei Ein-Wort-Reste** | `function BeendeBaum([int]$pid)` → **`[int]$wurzelPid`**, und der Rumpf ist **konsistent** nachgezogen (Zeilen 101/102). Das war die gefährliche Hälfte: ein halber Fix hätte nicht **nichts** getan, sondern den **eigenen Prozessbaum** beendet. **Dazu ungefragt besser:** die Portprüfung prüft jetzt den **gewählten** Port, und die **Waisen werden nachgezählt** (189–198, mit Eltern-PID). **Offen (je ein Wort):** `$fehler++` in den Zeilen **182/186/197** steht **im Funktionsrumpf** und zählt nicht (`$script:fehler` kommt nirgends vor) — darunter die neue Waisenprüfung; und Zeile **218** gibt den Fehlertext **in die Pipeline**, weshalb der Schutz „dieser Test prueft nichts" nie greift |
+| **B23** Die Aufräumfunktion des Port-Tests läuft nie | **behoben — ein Ein-Wort-Rest** | `function BeendeBaum([int]$pid)` → **`[int]$wurzelPid`**, und der Rumpf ist **konsistent** nachgezogen (Zeilen 101/102). Das war die gefährliche Hälfte: ein halber Fix hätte nicht **nichts** getan, sondern den **eigenen Prozessbaum** beendet. **Dazu ungefragt besser:** die Portprüfung prüft jetzt den **gewählten** Port, und die **Waisen werden nachgezählt** (189–198, mit Eltern-PID). **Offen (je ein Wort):** `$fehler++` in den Zeilen **182/186/197** steht **im Funktionsrumpf** und zählt nicht (`$script:fehler` kommt nirgends vor) — darunter die neue Waisenprüfung; und Zeile **218** gibt den Fehlertext **in die Pipeline**, weshalb der Schutz „dieser Test prueft nichts" nie greift | **Nachgetragen 14:08:** die undichte Rückgabe in `BelegePort` ist **behoben** — und besser als verlangt: er fand die tiefere Ursache (`port-halter.mjs` schreibt seinen Fehler nach **stdout**, deshalb war `.err` leer) und gibt jetzt beide Dateien mit Exit-Code aus (Zeile 216–227). **Offen bleibt:** `$fehler++` in **182, 186, 197** steht weiter im Funktionsrumpf von `StarteHost` (151–201) → die neue Waisenprüfung zählt nicht |
 | **B24** Abnahme des `flock`-Vertrags nicht ausführbar | **offen — ein Befehl in WSL** | `cargo test -p pmh-flock` ist auf Windows **grün mit `running 0 tests`**: `#![cfg(unix)]` kompiliert die **15** Vertragstests weg. In WSL Ubuntu fehlen `cargo`/`rustc`. **Damit ist der Vertrag auf dieser Maschine nirgends geprüft** — „umgesetzt" bleibt Behauptung, bis ein POSIX-Host mit Rust da ist. Dazu: `target/debug/pmh-flock.exe` **existiert** (242.176 B), der Satz „unter Windows wird es nicht gebaut" ist falsch; das **Verhalten** selbst ist vorbildlich (`ERR_FLOCK_UNSUPPORTED_PLATFORM`, Exit 125) |
 | **B25** Startkommando der Unit `pmh-flock` tut nichts | **offen, latent** | `--hold-ms 0` → `sleep(0)` → Sperre sofort frei. `units/README.md` Zeile 63 nennt `entry` aber „**wie der Dienst gestartet wird**". Systemisch: **10 von 10** Dienst-Einträgen nennen einen **nackten Binärnamen**, **keiner** im `PATH`; mehrere sind Einmalaufrufe als `service` — **dieselbe Lücke wie B18**. Solange `pmh-supervisor` fehlt, führt niemand sie aus (gemessen: `entry.command` wird nur gelesen) |
 | **Warnung an den Betreiber** | **18 verwaiste Docker-Volumes**, darunter ein intaktes PG-17-Cluster (64,8 MB). `down -v` trifft es nicht, **`docker volume prune` löscht es** |

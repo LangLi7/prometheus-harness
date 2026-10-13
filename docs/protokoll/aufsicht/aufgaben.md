@@ -55,6 +55,12 @@
 | W35 | Einseitige Lageübersicht `LAGE.md` anlegen und pflegen | **angelegt, dauerhaft** | Macht 17 Befunde in einer Minute lesbar: was jetzt zu tun ist, was erledigt ist, was **nicht** prüfbar war, und die Befehle zum Nachfahren. Belege bleiben in `befunde.md` |
 | W36 | Stale eigene Beschreibungen im Register prüfen | **erledigt** | Die Registerzeile nannte noch „Befunde B1–B5" (inzwischen B17) — berichtigt. Lehre: auch die eigenen Verweise altern |
 
+| W37 | `native/flock`: die Vertragsabnahme überhaupt ausführbar machen | **offen, liegt beim bauenden Agenten** | Befund **B24**: `cargo test -p pmh-flock` ist auf Windows **grün mit `running 0 tests`** (`#![cfg(unix)]`), und in WSL Ubuntu fehlen `cargo`/`rustc`. Meine Hilfe: der rustup-Befehl für WSL steht in `befunde.md` — danach laufen **15** Vertragstests statt 0. Bis dahin bleibt „der Vertrag ist umgesetzt" **unbelegt** |
+| W38 | B13-Rest: drei Stellen töten `bun` nach **Name und Alter** | **offen, liegt beim bauenden Agenten** | `boot-schleife.ps1:103` (2 min), `api-test.ps1:33` (3 min), `api-flaeche.ps1:92` (3 min) — gemessen **14:08 unverändert**, obwohl die Commit-Nachricht von `b75c9f6` B13 als behoben nennt. `boot-schleife` ist die gefährlichste: sie trifft auch den Zeugenprozess des Bauenden selbst |
+| W39 | `$script:fehler` statt `$fehler++` in `scripts/port-test.ps1` Zeilen **182, 186, 197** | **offen, ein Wort** | Die drei Zählungen liegen im Funktionsrumpf von `StarteHost` (151–201) und landen in einer **lokalen Kopie** — darunter die neue **Waisenprüfung**. Nachgetragen in **B23** |
+| W40 | `unit.json`: Startkommandos sind nackte Binärnamen, **keiner** im `PATH`, mehrere sind Einmalaufrufe als `kind: service` | **offen, Formatfrage (B18 + B25)** | Gemessen über **alle elf** Units. Solange `pmh-supervisor` fehlt, führt sie niemand aus — danach starten zehn Dienste, von denen mehrere sofort enden. Das Format kann „Einmalaufruf" und „Dienst" nicht unterscheiden |
+| W41 | **Zeitangaben messen, nicht schätzen** — `Get-Date` als erster Befehl jedes Takts | **neu, dauerhaft (Lehre aus eigenem Fehler)** | Ich hatte im einunddreißigsten Takt Zeiten bis zu **45 Minuten in der Zukunft** geschrieben („14:25–14:50" statt 13:56; JSONL bis 12:20Z). Aufgefallen ist es nur, weil ein Dateizeitstempel nicht passte. Das war ein Verstoß gegen **meine eigene** Hausregel H7 |
+
 ## 3. Was ich ausdrücklich **nicht** tue (Hausregeln)
 
 | Nicht | Grund |
@@ -67,9 +73,12 @@
 
 ## 4. Nächster Takt — was dann gemessen wird
 
-1. **Neue Commits** seit `935f77e`? `git log --oneline 935f77e..HEAD` und Abgleich mit `origin/main`.
-2. **Neue Dateien des bauenden Agenten** in den letzten 60 Minuten — gehören sie zu `packages/auth`/`P7`?
-3. **`settings.yaml`**: Abschnitte weiterhin **9**, Referenzen weiterhin **13**? Wenn nicht: sofort Befund.
-4. **`~/.dsh`- und Checkout-Änderungen**: neue geänderte Dateien im `deepseek-harness`-Checkout?
-5. **Prozesslage**: lebt die GUI (PID 22260) noch? Ist ein zweiter Host dazugekommen?
-6. **Datenbank**: sind neue Tabellen/Migrationen entstanden (read-only gezählt)?
+1. **Zuerst `Get-Date`** — jede Zeitangabe dieses Takts kommt aus der Shell (Lehre **W41**).
+2. **Neue Commits** seit `0c11d36`? `git log --oneline 0c11d36..HEAD` und Abgleich mit `origin/main`.
+3. **Ist `$script:fehler` in `port-test.ps1` angekommen?** (W39, ein Wort — sofort prüfbar.)
+4. **Sind die drei B13-Zeilen weg?** (W38 — `boot-schleife.ps1:103`, `api-test.ps1:33`, `api-flaeche.ps1:92`.)
+5. **Ist in WSL ein Rust-Compiler dazugekommen?** (W37 — dann laufen die 15 `flock`-Vertragstests.)
+6. **`settings.yaml`**: Abschnitte weiterhin **10**, Routen **12**, Referenzen **12**? Wenn nicht: sofort Befund.
+7. **Prozesslage**: Waisen dieses Projekts (`hilfen/waisen-aufraeumen.ps1` im Trockenlauf)? Lebt die GUI?
+8. **Datenbank** (read-only): Tabellen je Schema, `schema_migrations`, verwaiste Volumes weiterhin **18**?
+9. **Die 33 unversionierten Pfade**: wächst der Berg weiter, oder wird er committet?
