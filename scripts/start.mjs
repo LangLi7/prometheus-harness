@@ -53,9 +53,22 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { choosePort, describePortChoice, portFromEnv } from './port-wahl.mjs'
 
 /** Wurzel des Projekts, abgeleitet aus dem Modulpfad — nie aus dem Aufrufort. */
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+
+/**
+ * Der Standardport — **derselbe, den die Vorlage benutzt**.
+ *
+ * **Warum 3080 und nicht 5199.** `3080` ist die Adresse, unter der die
+ * Referenz-Harness ihre Oberfläche ausliefert und die ein Benutzer deshalb schon
+ * kennt. Ein eigener Standard hieße: jede Anleitung, jedes Lesezeichen und jeder
+ * Beitrag über dieses Projekt nennt eine andere Adresse. **Ist der Port belegt,
+ * wird ausgewichen** — siehe {@link choosePort} —, aber der Standard bleibt
+ * derselbe.
+ */
+const DEFAULT_PORT = 3080
 
 /**
  * Die laufende Bun-Binärdatei.
@@ -244,28 +257,42 @@ async function buildAndStartGo(dir, name, args) {
  * |---|---|
  * | `--no-host` | den Core-Host **nicht** starten (nur Go-Dienste) |
  * | `--no-go` | die Go-Dienste **nicht** starten (nur den Host) |
- * | `--port <n>` | Port für den Host (Vorgabe 5199) |
+ * | `--port <n>` | **Startport** für den Host (Vorgabe 3080). Ist er belegt, wird der nächste freie genommen — siehe `port-wahl.mjs` |
+ * | `--strict-port` | **nicht** ausweichen: ist der Port belegt, bricht der Start ab |
  * | `--profile <n>` | Profil für den Host (Vorgabe `web`) |
  * | `--home <dir>` | eigenes Harness-Home (Vorgabe `.pmh-build/harness-home` im Repo) |
  *
+ * **Der Standard ist `3080`** — derselbe Port, auf dem auch die Vorlage ihre
+ * Oberfläche ausliefert. Damit gilt für unser Projekt dieselbe Adresse, die ein
+ * Benutzer schon kennt, und `PMH_PORT` überschreibt sie ohne Argument.
+ *
  * @param {readonly string[]} argv
- * @returns {{host: boolean, go: boolean, port: string, profile: string, home: string}}
+ * @returns {{host: boolean, go: boolean, port: number, strictPort: boolean, profile: string, home: string}}
  */
 function parseArgs(argv) {
   let host = true
   let go = true
-  let port = '5199'
+  let requested
+  let strictPort = false
   let profile = 'web'
   let home = join(ROOT, '.pmh-build', 'harness-home')
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--no-host') host = false
     else if (arg === '--no-go') go = false
-    else if (arg === '--port') { port = argv[i + 1] ?? port; i += 1 }
+    else if (arg === '--strict-port') strictPort = true
+    else if (arg === '--port') { requested = argv[i + 1]; i += 1 }
+    else if (arg.startsWith('--port=')) requested = arg.slice('--port='.length)
     else if (arg === '--profile') { profile = argv[i + 1] ?? profile; i += 1 }
     else if (arg === '--home') { home = argv[i + 1] ?? home; i += 1 }
   }
-  return { host, go, port, profile, home }
+  // **Reihenfolge: Argument schlägt Umgebungsvariable schlägt Standard.** Ein
+  // ausdrücklich genanntes Argument darf nie von einer Umgebungsvariable
+  // überstimmt werden — sonst startet der Host woanders, als der Aufrufer gesagt
+  // hat, und das ist die Art Überraschung, die niemand sucht.
+  const fromArg = requested === undefined ? undefined : portFromEnv(requested, DEFAULT_PORT)
+  const port = fromArg ?? portFromEnv(process.env.PMH_PORT, DEFAULT_PORT)
+  return { host, go, port, strictPort, profile, home }
 }
 
 /**
@@ -283,8 +310,36 @@ async function main() {
   if (options.host) {
     const hostEntry = join(ROOT, 'apps', 'cli', 'src', 'main.ts')
     if (existsSync(hostEntry)) {
-      process.stdout.write(`[pmh] Host: apps/cli (Profil "${options.profile}", Port ${options.port})\n`)
+      process.stdout.write(`[pmh] Host: apps/cli (Profil "${options.profile}")\n`)
       process.stdout.write(`[pmh] Harness-Home: ${options.home}\n`)
+
+      // **Die Portwahl — „binden statt fragen"** (siehe `port-wahl.mjs`).
+      //
+      // Warum das VOR dem Start geschieht und nicht der Host selbst entscheidet:
+      // der Host reicht `--port` an das Web-Bündel durch, das den Port **bindet**.
+      // Wäre der Port dort belegt, endete der Host mit einem Fehler — und der
+      // Launcher müsste raten, woran es lag. Hier ist die Frage eine Prüfung mit
+      // klarer Antwort.
+      //
+      // **Der Restwettlauf ist benannt und klein:** zwischen der Freigabe des
+      // Prüfports und der Bindung durch den Host liegen Mikrosekunden. Wird der
+      // Port in genau diesem Fenster genommen, scheitert der Host sichtbar — das
+      // ist der richtige Ausgang, kein stiller Fehlstart.
+      let port = options.port
+      try {
+        const choice = await choosePort(options.port, { span: options.strictPort ? 1 : 20 })
+        port = choice.port
+        process.stdout.write(`[pmh] ${describePortChoice(choice)}\n`)
+      } catch (cause) {
+        // **Mit `--strict-port` ist das der gewollte Ausgang**, ohne es ein
+        // echter Fehler: kein freier Port im Bereich. Der Start bricht **sichtbar**
+        // ab — mit dem Hinweis, wie man einen anderen wählt.
+        process.stdout.write(`[pmh] FEHLER: ${cause instanceof Error ? cause.message : String(cause)}\n`)
+        process.exit(1)
+      }
+
+      process.stdout.write(`[pmh] Oberfläche: http://127.0.0.1:${port}/\n`)
+
       // **Warum der Launcher ein eigenes Home mitgibt — mit dem Befund, der es
       // erzwungen hat.** Der Profilpfad des Hosts ist der **Auflösungsanker**
       // der Profil-Bündel. Steht im Harness-Home eine fremde Installation des
@@ -302,7 +357,7 @@ async function main() {
       // Die fremde Installation wird dabei **nicht** angetastet: sie gehört einer
       // anderen, laufenden Harness. Der Host bekommt sein eigenes Home — die
       // Korrektur liegt dort, wo sie hingehört.
-      launch('host', BUN, [hostEntry, options.profile, '--port', options.port, '--home', options.home, '--no-open'], {
+      launch('host', BUN, [hostEntry, options.profile, '--port', String(port), '--home', options.home, '--no-open'], {
         cwd: ROOT,
         kind: 'host',
       })
