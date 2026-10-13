@@ -2409,6 +2409,18 @@ dafür ist diese Rolle da. **Fairness:** der Vorschlag ist gut, der Nachweis sau
 `0` Testbenutzer und `0` Sitzungen), und er hat die Spannung **selbst** gesehen. Meine Leistung ist
 **eine Messung**, nicht der Fund.
 
+## V11 — Sein Benchmark-Gate ist **in Ordnung**: der Exit-Code kommt aus `ok`, nicht aus dem Text (Verifikation, kein Befund)
+
+**Anlaß.** Sein Commit `c4d8b63` behebt einen Befund der Fremdprüfung (CodeRabbit, Basis `782f89d`): die Aufwärmprüfung **berechnete** `ok` aus `Number.isFinite(faktor) && faktor > 1`, der Text begann aber **fest** mit `ok  ` — ein Befund hätte „ok" gemeldet, während der Exit-Code 1 war. Ich habe geprüft, ob der Fix trägt — und ob dieselbe Sorte Fehler **woanders** steht.
+
+**Gemessen — ohne einen Lauf** (ein Benchmark-Lauf würde seine eigenen Messungen mit Maschinenlast verfälschen, H5):
+
+1. **Der Exit-Code ist vom Text unabhängig.** `fuehreAus` (`benchmarks/support/messen.mjs:399–426`) zählt `!ergebnis.ok` und zählt zusätzlich jeden **geworfenen** Teil als Befund (`rot += 1`, mit dem Kommentar *„Ein Benchmark, der wirft, ist ein Befund und kein Absturz"*). Der Text war also **Anzeige**; der Fehler war einer der **Lesbarkeit**, keiner der Bewertung.
+2. **Der Fix ist konsistent.** In der Aufwärmprüfung (`messtechnik/lauf.mjs:332–339`) werden `ok` und Statuswort jetzt aus **derselben** Variablen gebildet.
+3. **Eine dritte Stelle hat noch zwei Ausdrücke** (`:350` gegen `:352`): `ok = stimmig && Number.isFinite(geprueft.median)`, Text = `` `${stimmig ? 'ok  ' : 'ROT '} …` ``. **Nachgerechnet**, die beiden Ausdrücke wörtlich gegen sechs Randfälle: **zwei** widersprechen (`stimmig = true` mit `median = NaN` bzw. `Infinity`). **Erreichbar ist keiner von beiden:** `statistik()` **wirft** bei nicht-endlichen Werten (*„ungültige Dauer … erwartet wird eine nicht-negative Zahl"*), und ohne endliche Werte ist `stimmig` bereits falsch — ein solcher Lauf zählt ohnehin als Befund. **Also kein Befund, sondern ein Aufräumhinweis: ein Wort.**
+4. **Das Meßwerkzeug prüft seinen eigenen Aufbau** — Auflösungsgrenze (100 Einträge dürfen **kein** Urteil ergeben), Aufwärmphase (Faktor > 1), Statistik gegen echte Zahlen (`min ≤ median ≤ p95 ≤ max`, 20 Läufe). Drei Prüfungen auf das Instrument selbst: die richtige Antwort auf die Fehlerklasse, die **V9** und **B35** gezeigt haben.
+
+**Grenze.** Ich habe **nichts** davon ausgeführt — **keine** Zahl in diesem Abschnitt ist eine eigene Laufzeitmessung.
 ## V3 — Die CRLF-Klasse im JavaScript ist **geschlossen** (Verifikation, kein Befund)
 
 **Anlass.** Derselbe Fehler ist bei ihm **dreimal** aufgetreten: `setzeWerte` (`e9013a5`), `leseEnv`
@@ -2896,6 +2908,19 @@ stellt sich an einer anderen Stelle: **49 Go- und 16 Rust-Dateien mit 20.379 Zei
 `packages`-Verzeichnis mit **0,9 MB** gegenüber — gebaut wird viel, verdrahtet ist wenig (siehe **B25**,
 **B31**, und die Rust-Crates ohne Aufrufer).
 
+### Nachtrag 13.10.2026, 16:52 — die Laufzeitachse ist **nicht** bloß unbelegt: es gibt **keine Vergleichsmessung**
+
+Gemessen (Suchlauf über `benchmarks/**/*.mjs`, Muster `deepseek-harness|referenz|Referenz|original|Vergleich gegen`): **ein** Treffer, und der ist ein **Dokumentenzitat** (`docs/dsh/original/testing.md`, in `session-open/lauf.mjs:28`) — **keine** Vergleichsmessung.
+
+**Was die Meßsammlung tatsächlich tut** (gelesen, **nicht** ausgeführt: H5, und ein Lauf würde seine eigenen Messungen mit Maschinenlast verfälschen): `benchmarks/lauf.mjs` ruft die Teile auf; `benchmarks/messtechnik/lauf.mjs` (362 Zeilen) prüft den **eigenen Meßaufbau** — Auflösungsgrenze, Aufwärmphase, Statistik an echten Zahlen; `benchmarks/session-open/lauf.mjs` (359 Zeilen) mißt **eigenen** Code (Sitzung schreiben, lesen, falten) samt Speicher. Das ist **gute Hygiene** — ein Meßwerkzeug, das sich selbst prüft —, aber es ist **kein** Vergleich zweier Harnesse.
+
+| Achse der Betreiberhypothese | Stand |
+|---|---|
+| **Größe** | gemessen (B35): gegen den laufenden DSH-Arbeitsbaum **+317 MB**; ohne das nicht ausgelieferte `target/` **~24 % kleiner** |
+| **Abhängigkeiten** | gemessen (B35): Quelle 8.642 MB `node_modules` gegen Ziel 792 MB — der Unterschied ist der **Paketmanager**, nicht die Leistung |
+| **Laufzeit** | **keine Vergleichsmessung vorhanden** — und ich darf keinen DSH-Host starten (**H1**) |
+
+**Die einzige ehrliche Antwort** ist eine Vergleichsmessung **mit demselben Meßaufbau auf beiden Seiten**; sein Aufbau ist dafür geeignet (er mißt Statistik **und** Speicher, nicht eine einzelne Zahl). Bis dahin bleibt die Hypothese in dieser Achse **offen** — nicht widerlegt und nicht belegt.
 ## B32-Nachtrag — ein **Entwicklungsserver läuft**, also ist mein „nicht geprüft" jetzt geprüft
 
 In **B32** steht: *„für die Oberflächen-Änderung gilt es nur, solange kein Entwicklungsserver
@@ -3210,6 +3235,7 @@ nach Hausregel **H4** keine Geheimwerte.
 | 16:30 | Beim Schreiben von Takt 47 habe ich eine **PowerShell-Hilfsfunktion** benutzt, die ihre Erfolgsmeldung **und** den neuen Text ausgab. PowerShell sammelt **beides** ein — die vier Meldungen landeten **in der Datei**, der ersten Zeile vorangestellt: `  ok      Takt 47   ok      B37-Zeile   ok      B29 11 -> 12   ok      B36 Nachtrag 16:20 -> 16:14 # Protokoll der Aufsicht — Chronologie`. | Sofort nach dem Schreiben **gemessen** — ich habe ausdrücklich nach den Meldungen **in** der Datei gesucht, nicht nur nach dem Ergebnis — und den vorangestellten Text mit einem gezielten `.Replace` entfernt. Danach: Zeile 1 = `# Protokoll der Aufsicht — Chronologie`, **2692** Zeilen, **0** CRLF, und `git diff` zeigt **nur** die beabsichtigten Änderungen. Die **drei** verbliebenen `  ok  `-Treffer sind **echt**: sie zitieren die Ausgabe der Bereitschaftsprobe (V2, Zeilen 1581–1583). | **Neue Ursache, neue Regel:** eine Funktion, die **meldet und zurückgibt**, schreibt in PowerShell beides in den Wert. Ab jetzt melde ich mit `Write-Host` oder die Funktion gibt **nur** den Wert zurück. Bemerkenswert ist, was geholfen hat: **dieselbe Routine wie immer** — den Zustand nach der Änderung ausgeben —, nur diesmal **vor** dem Commit statt danach. |
 | 16:33 | Mein **neues** Werkzeug [`hilfen/mandantentrennung-probe.sql`](hilfen/mandantentrennung-probe.sql) hätte das **Gegenteil** des eigenen Befunds behauptet: die erste Fassung rollte nach dem Prüfschritt „eigener Verweis gelingt" auf den Sicherungspunkt zurück und entfernte damit **die Zeile, die der Löschtest überhaupt prüft**. Die Ausgabe lautete `DELETE 1` statt eines Fehlers. | Aufgefallen beim **Ausführen** — die erwartete Fehlerzeile fehlte. Fassung korrigiert (`D2` bleibt stehen), Warnung in den Dateikopf (*„D2 darf nicht zurückgerollt werden"*), danach erneut ausgeführt: `D1` Fehler, `D2` `INSERT 0 1`, `D3` `not-null constraint`, `E` `0 \| 0`. | **Vierte Fassung derselben Ursache** (13:44 Anmeldung ohne Gegenprobe, 15:09 nur **stdout** gelesen, 16:14 den falschen **Weg** gemessen, jetzt eine Probe, die ihre eigene **Voraussetzung** entfernt). Immer dieselbe Frage: **kann diese Sonde die Frage überhaupt beantworten?** Neu ist, daß es **vor** der Veröffentlichung auffiel — weil ich das Werkzeug **ausgeführt** habe, statt es zu beschreiben. |
 | 16:35 | **B37** ging ohne Zeile in `LAGE.md` durch — gegen meine eigene Regel „beide Zeilen vor dem Commit" (16:11). Und **mein** Selbstprüfwerkzeug meldete trotzdem „das Protokoll ist in sich stimmig": es las `LAGE.md` **gar nicht**. | Beim Schreiben von B38 aufgefallen, weil ich **nachsah**, ob B37 dort steht — nicht, weil ein Werkzeug es gesagt hätte. Zeile nachgetragen und `werkzeuge/protokoll-pruefung.mjs` um **Regel 2b** erweitert: `LAGE.md` muß jede Befundnummer nennen, sonst Fehler; die sieben echten Ausnahmen (B4, B5, B21, V3, V8, V9, V10) stehen mit Grund im Werkzeug. | Der Werkzeugmangel ist der schwerere Teil: **eine Prüfung, die eine Datei nicht liest, meldet für sie „ok"** — dieselbe Familie wie 15:09 (nur eine Quelle gelesen). Meine Regel von 16:11 hätte gegriffen, wenn das Werkzeug sie gekannt hätte; jetzt kennt es sie. |
+| 16:50 | **Mein Protokoll wurde von einem fremden Prüfer gelesen — und er fand einen Fehler darin, den ich nicht gefunden hatte.** CodeRabbit (Basis `782f89d`) meldete *„`docs/protokoll/aufsicht/protokoll.md` Zeile 2619 — B37 und V10 in einer Tabellenzeile"*: die **verklebte Zeile** aus meinem Schreibvorgang, veröffentlicht durch seinen Sammel-Commit `e5c2d76`. | Er hat sie **gemeldet statt behoben** (Hausregel **H3**: `docs/protokoll/` ist mein Schreibbereich) — richtig, und genau die Hausregel, die ich selbst einfordere. Ich hatte die Klebung derselben Ursache um 16:44 repariert, aber nur die **B38**-Stelle gesehen. **Jetzt gemessen:** jede Befundnummer hat **genau eine** Tabellenzeile, `\|\|` steht nur in einem psql-Befehl (Zeile 111), und die vier Zeilen mit zwei Marken sind **echte Querverweise** (B22 nennt B23, B26 nennt B28 …). | **Zwei Lehren.** (1) Meine Prüfung war **zu eng**: sie suchte `\| \*\*B\d+\*\*` und hätte eine verklebte **V**-Zeile **nie** bemerkt → **neue Regel 6** im Prüfwerkzeug (Klebesignatur `\|\|` in Tabellenzeilen, jede Marke genau einmal). (2) Ein Fehler in **meiner** Verwaltung ist bis zu einem **fremden** Prüfer gekommen — die Richtung, in der ich am empfindlichsten sein muß. |
 
 ---
 

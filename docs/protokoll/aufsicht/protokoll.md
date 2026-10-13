@@ -2613,7 +2613,7 @@ brauchbar ist.**
 | **V6** `pmh-attach` kompiliert sauber | **verifiziert** | `go vet ./...` → exit 0; `go build -o %TEMP%\…` → exit 0 (10.086.400 B). **Ihr Baum unberührt:** 7 Einträge unter `services/pmh-attach` vorher **und** nachher, `go.mod` unverändert, **keine** `go.sum` — das Wegwerf-Binary ist gelöscht |
 | **B34** Die Überschrift des Installations-Belegs verspricht zu viel | **offen, ein Halbsatz** | Sie sagt „**ohne Vorbedingung**"; die eigene Ausgabe lautet `ok bun · ok docker · ok git`. Gemessen: Bun wird von `install.mjs` auf **beiden** Plattformen nachinstalliert (Windows `irm bun.sh/install.ps1 \| iex`, Linux `curl … \| bash`), `curl`/`git` von `install.sh`; **Docker von nichts**. Die eine echte Vorbedingung ist **Docker mit laufendem Dienst** — begründet (Lizenz-Entscheidung), aber im Beleg nicht genannt, und in seiner Container-Tabelle fehlt die Spalte |
 | **V7** Die drei Installations-Einstiege | **verifiziert** | 16 Dateien des Wegs **alle versioniert** (frischer Klon hat sie); `install.cmd` nutzt `-ExecutionPolicy Bypass` **nur für diesen Aufruf** und übersetzt `--ohne-stapel`; `install.ps1` findet Bun trotz **drei** PATH-Einträgen, von denen zwei defekt sind; `install.sh` läuft in **POSIX-`sh`**, kennt sieben Paketverwalter, installiert `curl`+`git`, **danach** Bun (Reihenfolge im Quelltext begründet), korrigiert den PATH und endet mit `exec bun scripts/install.mjs "$@"` |
-| **B35** Ist die neue Harness ressourceneffizienter? | **Auskunft — gemessen** | Drei Bäume: gegen die **Quelle** (9.029 MB, davon **8.642 MB** `node_modules` von pnpm) sieht das Ziel winzig aus — eine Illusion des **Paketmanagers**. Gegen den **laufenden DSH-Arbeitsbaum** (1.553 MB) ist das Ziel **1.870 MB, also +317 MB**, davon **697,6 MB Rust-`target/`**. Ohne dieses nicht ausgelieferte Bauverzeichnis: **1.172,8 MB → ~24 % kleiner** als DSH, bei **achtmal weniger eigenem Code** (60 `.ts`/23.374 Zeilen gegen 2.542/562.378). **Laufzeit: nichts belegt** — die GUI belegt 2.407,9 MB **mit dieser Sitzung**, ein frischer PMH-Host lag bei 184–198 MB. Eigentlicher Befund: **gebaut wird viel, verdrahtet ist wenig** |
+| **B35** Ist die neue Harness ressourceneffizienter? | **Auskunft — gemessen** | Drei Bäume: gegen die **Quelle** (9.029 MB, davon **8.642 MB** `node_modules` von pnpm) sieht das Ziel winzig aus — eine Illusion des **Paketmanagers**. Gegen den **laufenden DSH-Arbeitsbaum** (1.553 MB) ist das Ziel **1.870 MB, also +317 MB**, davon **697,6 MB Rust-`target/`**. Ohne dieses nicht ausgelieferte Bauverzeichnis: **1.172,8 MB → ~24 % kleiner** als DSH, bei **achtmal weniger eigenem Code** (60 `.ts`/23.374 Zeilen gegen 2.542/562.378). **Laufzeit: nichts belegt** — die GUI belegt 2.407,9 MB **mit dieser Sitzung**, ein frischer PMH-Host lag bei 184–198 MB. Eigentlicher Befund: **gebaut wird viel, verdrahtet ist wenig** | **Nachtrag 16:52:** es gibt **keine** Vergleichsmessung gegen die Vorlage (Suchlauf über `benchmarks/**/*.mjs`: **ein** Treffer, ein Dokumentenzitat) — die **Laufzeitachse bleibt offen**, und ich darf keinen DSH-Host starten (**H1**). Ein Vergleich müßte mit **seinem** Meßaufbau auf **beiden** Seiten laufen |
 | **V8** Sein Datenbank-Abgleich | **verifiziert** | `e64f17d` behauptet: der Kern hält in SQL nur einen **wegwerfbaren Suchindex** (SQLite), **keine** Migrationen, und *ihre* `sessions`-Tabelle hält **Anmeldungen** — Namenskonflikt. Nachgemessen: `session-query-sqlite/src/schema.ts:1/7` wörtlich bestätigt, drei Tabellen (`search_state`, `persisted_sessions`, `persisted_docs` als fts5); `information_schema.columns` von `pmh.sessions` zeigt `token_hash`, `csrf_hash`, `idle_expires_at`, `revoked_at` (Gespräche liegen in `chats`/`messages`); `SessionHeader` (`core/session/src/types.ts:61`) hat `cwd`/`parentSession`/`delegationDepth` und **kein** `userId`/`workspaceId`/`chatId`. **Zwei Ergänzungen:** eine **vierte** Tabelle `temp.live_docs`, und der Rücksetzer ist **bewacht** (README:23) — beides fehlt in seiner Zusammenfassung |
 | **B36** Teure Vorgabe des Sitzungsschreibers ohne Begründung | **offen, latent — ein Satz bis ein Wort** | `options.flushEvery ?? 1` an zwei Stellen (`index.ts:368`, `:518`) = ein Schreibvorgang **je Ereignis**. Sein Benchmark: 600–632 ms je 2000 Ereignisse gegen 9,4–12,0 ms gebündelt; **meine** Nachmessung: Faktor **184×** (Bun) / 206× (Node), Kette hilft nicht (1,03× / 0,99×). **Der Kern hat gar kein `flushEvery`** — er arbeitet mit `appendBatch(meta, events, …)`, also stapelweise per Vertrag. **Latent:** das Paket ist nicht verdrahtet (kein Profil-Eintrag, keine Referenz in `apps/cli`, keine Abhängigkeit). **Nachtrag 16:14 — kein `sync`:** im ganzen Paket **null** Treffer für `sync(`/`fsync`/`datasync` (Schreibpfad `appendFile`, `index.ts:308`); **der Kern synct an fünf Stellen** (`index.ts:611, 639, 666, 685, 697`), mit Verzeichnis-fsync und *„discard the crash tail"*. `flushEvery 1` kauft **Reihenfolge** und Rechtzeitigkeit, **keine Haltbarkeit** — die Entscheidung lautet jetzt: **wird Haltbarkeit zugesagt?** |
 | **B37** Der Eigentümer einer Sitzung wird nicht geschrieben | **offen, latent — Vorarbeit für RLS** | `conversation_sessions` **hat** `user_id uuid NOT NULL` und `workspace_id uuid` (Migration `0003`, Zeilen 135/136) und sagt selbst, warum: *„user_id und workspace_id sind unsere Zusätze. … hier steht nur der Kopf."* Aber **niemand schreibt** die Zeile: in `packages/**/*.ts` **7** Vorkommen (6 in Tests, 1 in der Kerntabellen-Liste `packages/api/readiness/src/index.ts:190`), **0** Treffer für ein `INSERT`. Der **JSONL-Kopf** auf der Platte hat **keinen** Eigentümer (0 Treffer für `ownerId\|userId\|workspaceId` in `session-persistence-jsonl/src`). Folge: mit der ersten geschriebenen Sitzung ist die Zuordnung **geraten**; die Bereitschaftsprüfung **verlangt** die Tabelle. Empfehlung: Kopfzeile in derselben Transaktion füllen, Prüfung „Sitzungsdatei ohne Kopfzeile", **erst danach** RLS |
@@ -2747,6 +2747,43 @@ führt eine Tabelle „Was die Aufsicht gemessen hat | Ergebnis" und setzt in de
 gewesen. **Damit ist B38 von der anderen Seite bestätigt und behoben, bevor eine Migration existierte** —
 genau der Fall, für den diese Rolle gedacht ist: nicht der Fund, sondern die **Messung zur rechten Zeit**.
 Ich streiche den Befund nicht; er bleibt als offen geführt, bis die Migration wirklich steht.
+
+---
+## 2026-10-13 16:46–16:58 — Neunundvierzigster Takt: **sein Benchmark-Gate geprüft** (V11), die Laufzeitachse eingeordnet (B35) — und ein Fehler von mir, den ein **fremder** Prüfer fand
+
+**Er arbeitet weiter, ohne neuen Commit:** 30 geänderte Pfade (23 geändert, 7 unverfolgt: `LICENSE`,
+zwei Recherchedokumente in der Wurzel, `services/pmh-attach/{README.md,unit.json,tests/*}`).
+
+**Standabgleich 16:46: 12 Prüfungen, 0 behoben, 11 unverändert offen, 1 abweichend** — **B29 wächst
+weiter: 11 → 12 → jetzt 13 Dateien** mit `attr eol=lf` und `w/crlf`. Einzeln nachgemessen: **B24 offen**
+(WSL weiterhin ohne `cargo`), **B13 offen** (3 Tötungszeilen), **B33 offen** (`Origin` nur in der
+Testdatei), **B37 offen** (kein Schreiber), **B28 unverändert** (`trust`).
+
+**V11 — sein Gate hält.** In `c4d8b63` hat er einen Befund der Fremdprüfung behoben (CodeRabbit: das
+Statuswort war **fest** `ok`, während `ok` berechnet wurde). Nachgemessen **ohne einen Lauf** — ein
+Benchmark-Lauf würde seine eigenen Messungen mit Maschinenlast verfälschen: der **Exit-Code** kommt aus
+`!ok`, und jeder **geworfene** Teil zählt als Befund (`messen.mjs:399–426`). Der Text war also
+**Anzeige**; sein Fix bildet `ok` und Statuswort aus **derselben** Variablen. **Eine dritte Stelle**
+(`:350` gegen `:352`) hat noch zwei Ausdrücke — sechs Randfälle nachgerechnet, **zwei** widersprechen,
+**aber keiner ist erreichbar**, weil `statistik()` bei nicht-endlichen Werten **wirft**. Also **kein
+Befund, ein Wort Aufräumen**. Das Werkzeug prüft außerdem seinen **eigenen Meßaufbau**
+(Auflösungsgrenze, Aufwärmphase, Statistik gegen echte Zahlen) — die richtige Antwort auf die
+Fehlerklasse aus V9.
+
+**B35 — die Laufzeitachse ist jetzt sauber eingeordnet.** Suchlauf über `benchmarks/**/*.mjs` nach einem
+Vergleich mit der Vorlage: **ein** Treffer, und das ist ein **Dokumentenzitat** — **keine**
+Vergleichsmessung. Seine Sammlung mißt den **eigenen Meßaufbau** und **eigenen** Code: gute Hygiene,
+aber **kein** Vergleich zweier Harnesse. Damit steht die Betreiberhypothese auf drei Achsen: **Größe**
+gemessen, **Abhängigkeiten** gemessen, **Laufzeit offen** — und ich darf keinen DSH-Host starten (**H1**).
+Die einzige ehrliche Antwort ist eine Vergleichsmessung mit **seinem** Aufbau auf **beiden** Seiten.
+
+**Ein Fehler von mir, von fremder Seite gefunden.** CodeRabbit meldete in seinem Commit-Text:
+*„`docs/protokoll/aufsicht/protokoll.md` Zeile 2619 — B37 und V10 in einer Tabellenzeile"* — die
+**verklebte Zeile** meines Schreibvorgangs, veröffentlicht durch seinen Sammel-Commit `e5c2d76`. Er hat
+sie **gemeldet statt behoben** (Hausregel **H3**, mein Schreibbereich) — richtig, und genau die Hausregel,
+die ich selbst einfordere. Meine Prüfung war **zu eng**: sie suchte `\| \*\*B\d+\*\*` und hätte eine
+verklebte **V**-Zeile **nie** bemerkt → **neue Regel 6** im Prüfwerkzeug. Nachgemessen ist der Bestand
+jetzt sauber: jede Nummer genau eine Tabellenzeile, `\|\|` nur in einem psql-Befehl.
 
 ---
 ## Registereintrag

@@ -78,6 +78,7 @@ if (start === -1) {
     V8: 'Verifikation (Datenbank-Abgleich) — im §2-Text erklärt',
     V9: 'Verifikation (Benchmark) — als Zahl in der B35-Zeile enthalten',
     V10: 'Verifikation (Paarungsprüfer) — in §1 bei B15/B16 geführt',
+    V11: 'Verifikation (Benchmark-Gate) — in der B35-Zeile mitgeführt',
   }
   const lage = lies(join(ORDNER, 'LAGE.md'))
   const alleNummern = [...new Set([...befunde.matchAll(/^## (B\d+|V\d+)/gm)].map((t) => t[1]))]
@@ -101,6 +102,23 @@ if (start === -1) {
     `LAGE.md nennt jede Befundnummer${ohneNennung.length > 0 ? ` — OHNE Nennung: ${ohneNennung.join(', ')}` : ` (Ausnahmen ausdrücklich: ${Object.keys(ausnahmen).join(', ')})`}`,
   )
 }
+
+/**
+ * 6. **Keine verklebte Tabellenzeile.**
+ *
+ * WARUM. Am 13.10.2026 hat ein Schreibvorgang von mir zwei Befundzeilen **ohne Trennzeichen**
+ * aneinandergehängt — die Signatur war `… RLS || **B38**`. Die eine Stelle fand mein eigener Blick
+ * beim Nachmessen, die zweite — in `protokoll.md` Zeile 2619, „B37 und V10 in einer Tabellenzeile" —
+ * ein **fremder** Prüfer (CodeRabbit, im Commit-Text des bauenden Agenten). **Regel 1 hätte sie nie
+ * gemeldet:** sie liest nur `**B…**` am Zeilenanfang und sieht eine verklebte **V**-Zeile gar nicht.
+ */
+const verklebt = protokoll.filter(
+  (zeile) => /^\| \*\*(B|V)\d+/.test(zeile) && zeile.includes('||'),
+)
+melde(
+  verklebt.length === 0,
+  `keine verklebte Tabellenzeile (doppeltes „|")${verklebt.length > 0 ? ` — ${verklebt.length} Zeile(n)` : ''}`,
+)
 
 /** 3. Die JSONL-Datei */
 const jsonlPfad = join(ORDNER, 'protokoll.jsonl')
