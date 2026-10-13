@@ -43,10 +43,24 @@ können egal wie … inkl passwort aber passwort sollte resettet werden können"
 | Was | Stand | Beleg |
 |---|---|---|
 | Passwort | **Argon2id** `m=19456, t=2, p=1` — ein Hash, aus dem sich nichts ableiten läßt | `packages/auth/auth/src/index.ts:118` |
+| Passwort, **Kosten auf dieser Maschine** | **Median 19,7 ms** (min 18,4 · max 21,2, 12 Läufe, nach 3 Aufwärmläufen). OWASP verlangt, die Parameter auf dem Zielsystem zu messen, Ziel < 1000 ms — **erfüllt, mit Faktor 50 Luft**. Speicher 19,0 MiB je Hash → bei 1,9 GiB Spitze ~100 gleichzeitige Anmeldungen | eigene Messung mit `Bun.password.hash`, 13.10.2026 |
+| Passwort, **Stand der Parameter** | **genau auf** dem OWASP-Minimum, nicht darüber | wörtlich: „Use [Argon2id] with a minimum configuration of 19 MiB of memory, an iteration count of 2, and 1 degree of parallelism" — [Password Storage CS](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) |
 | Sitzungs- und CSRF-Token | 32 Zufallsbytes (256 Bit) aus `crypto.getRandomValues`, gespeichert als **SHA-256** | `packages/auth/auth/src/index.ts:342,365` |
 | Anbieter-Schlüssel | **Umschlagverfahren** angelegt: `value_cipher`, `wrapped_key`, `master_key_version` | `packages/auth/db-schema/migrations/0001_identitaet.sql:143` |
 | API-Schlüssel | nur `key_id` (Klartext-Präfix) + `token_hash` (64 Hex) — **kein** Klartext | ebd.:89 |
 | Passwort-Reset | braucht **keinen** Datenschlüssel → kein Datenverlust beim Reset | weil Hash und Datenschlüssel getrennt sind |
+
+**Der Standard für die Speicherung von API-Schlüsseln, wörtlich — und er bestätigt den
+Bestand.** NIST SP 800-63B verlangt für diese Geheimnisklasse: *„All look-up secrets
+**SHALL** be stored in a hashed form using an approved hashing function."*
+([NIST SP 800-63B §5.1.1.2](https://pages.nist.gov/800-63-4/sp800-63b.html#lookupver)) Und
+OWASP ASVS 6.5.2 ergänzt die Bedingung, unter der ein **schneller** Hash genügt:
+*„A standard hash function can be used if the secret has 112 bits of entropy or more."*
+Ein langsamer Hash (Argon2) wäre hier **falsch** — er wirkt nur gegen das Erraten
+niederentropischer Passwörter und kostet bei jeder Anfrage.
+
+**Daraus folgt die Bedingung, die dieses Projekt noch nicht erfüllt:** die Entropie der
+API-Schlüssel muß **erzwungen** werden, nicht angenommen. Deshalb **B-K3** und **B-K4**.
 
 | ID | Schwere | Befund | Status | Beleg |
 |---|---|---|---|---|
