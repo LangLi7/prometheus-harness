@@ -4,66 +4,72 @@ Die Seite, die **vor** der Oberfläche steht: anmelden oder Konto anlegen. Sie s
 Wegen `/api/pmh/auth/*` unseres `auth-http`-Pakets und **erfindet nichts** — jede Meldung, die
 sie zeigt, kommt wörtlich vom Server.
 
+> **Seit 14.10.2026 liegt sie am Ursprung des Hosts.** Der Betreiber hat gefragt, ob die
+> Anmeldung nicht auf **demselben Port** liegen muß wie der Host — sie muß: unsere Kekse sind
+> `SameSite=Strict`, und ein solcher Keks kommt **nur** bei **derselben Herkunft** an. Auf einem
+> eigenen Port wäre die Anmeldung **still wirkungslos**. Ausgeliefert wird sie deshalb vom Host
+> selbst (`packages/api/auth-http/src/anmeldung.ts`, Weg `/anmeldung`); der Entwicklungsserver
+> ist nur noch ein Arbeitswerkzeug.
+
 ## Starten
 
 ```sh
 bun install                 # im Wurzelverzeichnis, falls noch nicht geschehen
 cd apps/login_web
-bun run dev                 # http://127.0.0.1:5180/
+bun run dev                 # http://127.0.0.1:5180/anmeldung/
 ```
 
 | Befehl | Wirkung |
 |---|---|
-| `bun run dev` | Entwicklungsserver auf **5180** |
-| `bun run build` | Bau nach `dist/` (gemessen: `dist/index.html` 0,81 kB, CSS 2,05 kB, JS 224,33 kB) |
-| `bun run test` | die Prüfungen des Weiterleiters (`tests/weiter.test.ts`) |
-| `bun run typecheck` | `tsgo --noEmit` |
+| `bun run dev` | Entwicklungsserver auf **5180**, Seite unter `/anmeldung/` |
+| `bun run build` | Bau nach `dist/` (gemessen: `index.html` 0,83 kB, CSS 2,05 kB, JS 224,35 kB) |
+| `bun run test` | die Prüfungen des Weiterleiters (`tests/weiter.test.ts`, 8/8) |
+| `bun run typecheck` | `tsgo --noEmit` nach **`tsconfig.base.json`** des Hauses |
+
+Die Seite liegt **unter demselben Pfad** wie beim Host (`base: '/anmeldung/'` in
+`vite.config.ts`). Ein Unterschied zwischen Entwicklung und Betrieb könnte sonst einen Fehler
+verdecken, den es nur im Betrieb gibt.
 
 ### Der Port ist gemessen, nicht geraten
 
-**5180.** `5173` und `5176` sind auf diesem Rechner **belegt** — auf `5176` lauscht ein
-**fremder** Vite-Server, der „Prometheus — Welt-Prototyp" ausliefert. Mir ist genau das
-passiert: mein erster Startversuch traf den fremden Server. Ein stiller Umzug auf einen freien
-Port wäre die falsche Antwort, denn dann messe ich später eine Seite, die nicht meine ist.
-Darum `strictPort: true`: ist der Port weg, bricht der Start **laut** ab.
-Über `PMH_LOGIN_PORT` umstellbar.
+**5180.** `5173` und `5176` sind auf diesem Rechner **belegt** — auf `5176` lauschte ein
+**fremder** Vite-Server, der „Prometheus — Welt-Prototyp" ausliefert. Mein erster Startversuch
+hat ihn getroffen. Ein stiller Umzug auf einen freien Port wäre die falsche Antwort, denn dann
+messe ich später eine Seite, die nicht meine ist. Darum `strictPort: true`: ist der Port weg,
+bricht der Start **laut** ab. Über `PMH_LOGIN_PORT` umstellbar.
 
-## Warum ein Proxy und keine zwei Adressen
+## Im Betrieb: der Host liefert die Seite
 
-Unsere Anmeldung setzt ihre Kekse mit **`SameSite=Strict`** (gemessen an `Set-Cookie`:
-`pmh_session; HttpOnly; SameSite=Strict` und `pmh_csrf; SameSite=Strict`). Ein solcher Keks
-wird **nur** bei Anfragen an **dieselbe Herkunft** mitgeschickt. Liefe die Seite auf `:5180`
-und die API auf `:3081`, wäre das eine andere Herkunft — der Keks käme nie an und die
-Anmeldung wäre **still wirkungslos**. Deshalb leitet `vite.config.ts` `/api` an den Host
-weiter (`PMH_AUTH_HOST`, Vorgabe `http://127.0.0.1:3081`). In Produktion steht dasselbe
-dahinter: die Seite wird vom Host selbst ausgeliefert.
-
-## Prüfen, ob es wirklich läuft
-
-`bun run build` beweist nur, daß TypeScript und der Bündler zufrieden sind — nicht, daß eine
-Seite ausgeliefert wird und die deutschen Meldungen unverändert durchkommen. Dafür gibt es eine
-eigene Sonde:
-
-```sh
-# Fenster 1
-cd apps/login_web && bun run dev
-# Fenster 2
-bun docs/status/anmeldeseite-proxy-sonde.mjs
-```
-
-Gemessen (14.10.2026, **11/11 bestanden, exit 0**):
-
-| Prüfung | Befund |
+| Weg | Was er tut |
 |---|---|
-| Seite erreichbar | HTTP 200 |
-| Seite trägt unsere Kennung | „Anmeldung — Prometheus Harness" |
-| Seite ist **nicht** die des Nachbarn | „Welt-Prototyp" kommt nicht vor |
-| `GET /api/pmh/auth/me` erreicht den Host | JSON |
-| … ohne Anmeldung | 401 `nicht-angemeldet` |
-| `POST /api/pmh/auth/login` mit falschem Kennwort | 401 `zugangsdaten-falsch` |
-| … Meldung | „Adresse oder Passwort ist falsch." |
-| … kein Keks bei Fehlschlag | `set-cookie: —` |
-| `POST /api/pmh/auth/register` ohne Claim-Token | 403 `claim-fehlt` |
+| `GET /anmeldung` und `/anmeldung/…` | die **gebaute** Seite (Präfixweg, damit `/anmeldung/assets/…` mitkommt) |
+| `GET /start` | die **Schnittstelle nach der Anmeldung** — serverseitig gerendert, ohne JavaScript |
+| `GET /pmh/anmelden` | die **eingebaute** Seite (`auth-http/src/seite.ts`) — Rückfall ohne Bauausgabe |
+
+**Ohne Bauausgabe** liefert `/anmeldung` eine **303** auf `/pmh/anmelden`. Kein 404, kein 503:
+die Anmeldung darf nicht daran scheitern, daß niemand `bun run build` gerufen hat — die
+eingebaute Seite ist geprüft (12 Prüfungen) und braucht keinen Bau. Beim Einbinden steht der
+Hinweis im Protokoll, damit die Ursache auffindbar bleibt.
+
+Der Bau wird gesucht unter `apps/login_web/dist` im Arbeitsverzeichnis; `PMH_ANMELDUNG_BAU`
+zeigt woandershin.
+
+> **Stand der Messung (14.10.2026):** die Wege sind über einen echten Socket **bewiesen**
+> (`packages/api/auth-http/tests/anmeldung.test.ts`, 23/23 mit Wegwerf-Datenbank), aber im
+> **laufenden** Host auf `127.0.0.1:3081` noch **404** — er läuft mit einem älteren Stand und
+> muß neu gebaut und gestartet werden. `/pmh/anmelden` ist dort **200**.
+
+## Wohin nach der Anmeldung
+
+**Nach `/start`** — die Schnittstelle. Sie zeigt, wer angemeldet ist (Name, Adresse, Rolle),
+und von dort geht es weiter. Ohne gültige Sitzung leitet sie auf die Anmeldeseite zurück; es
+gibt also keine Schleife, sondern einen Kreis, der sich schließt, sobald die Anmeldung gelingt.
+
+Das Ziel steht in **`src/weiter.ts`** an einer Stelle (`VORGABE_ZIEL`, Parameter `weiter`) —
+dort docken später die Einstellungen an („wir machen später eine Steuerung settings, was nach
+dem login passiert"). `?weiter=…` wird streng geprüft (**kein offener Weiterleiter**): nur
+relative Pfade dieser Seite. Abgelehnt werden fremde Herkünfte, `//host`, `/\host`, Rückstriche,
+Steuerzeichen und `javascript:…` — bei jedem abgelehnten Ziel gilt die Vorgabe.
 
 ## Der Vertrag (gemessen am lebenden Host)
 
@@ -77,33 +83,34 @@ Gemessen (14.10.2026, **11/11 bestanden, exit 0**):
 Fehler kommen **immer** als `{ok:false, error:{code, message}}`; Erfolg als
 `{ok:true, value:…}` (englischer Schlüssel — gemessen, nicht gewählt).
 
+## Prüfen, ob es wirklich läuft
+
+```sh
+# Fenster 1
+cd apps/login_web && bun run dev
+# Fenster 2
+bun docs/status/anmeldeseite-proxy-sonde.mjs
+```
+
+Gemessen (14.10.2026, **15/15 bestanden, exit 0**): Seite 200 mit eigener Kennung, „Welt-Prototyp"
+kommt **nicht** vor, **alle** Verweise der Seite liegen unter `/anmeldung/` und sind erreichbar,
+`GET /api/pmh/auth/me` → 401 `nicht-angemeldet`, Login mit falschem Kennwort → 401
+`zugangsdaten-falsch` mit dem wörtlichen Text *„Adresse oder Passwort ist falsch."*, kein Keks
+bei Fehlschlag, Registrierung ohne Claim → 403 `claim-fehlt`.
+
 ## Das Claim-Token
 
-Solange **kein Admin** im Bestand existiert, verlangt die Registrierung ein **Claim-Token**
-aus `claim.txt` im Harness-Home, und das erste so angelegte Konto wird **`admin`**. Das ist der
-Riegel davor, daß „wer den Port zuerst erreicht" das Adminkonto bekommt. Das Feld ist auf der
-Seite vorhanden, aber kein Ersatz für diesen Riegel: fehlt das Token, sagt der Server
-`claim-fehlt`.
-
-## Wohin nach der Anmeldung
-
-Steht in **`src/weiter.ts`** an einer Stelle (`VORGABE_ZIEL`, Parameter `weiter`) — dort docken
-später die Einstellungen an („wir machen später eine Steuerung settings, was nach dem login
-passiert"). Bis dahin leitet die Seite **nicht** von selbst weiter (`AUTOMATISCH_WEITER =
-false`): sie zeigt den Weg an und läßt ihn anklicken.
-
-`?weiter=…` wird streng geprüft (**kein offener Weiterleiter**): nur relative Pfade dieser
-Seite. Abgelehnt werden fremde Herkünfte, `//host`, `/\host`, Rückstriche, Steuerzeichen und
-`javascript:…` — bei jedem abgelehnten Ziel gilt die Vorgabe.
+Solange **kein Admin** im Bestand existiert, verlangt die Registrierung ein **Claim-Token** aus
+`claim.txt` im Harness-Home, und das erste so angelegte Konto wird **`admin`**. Das ist der
+Riegel davor, daß „wer den Port zuerst erreicht" das Adminkonto bekommt.
 
 ## Was hier **noch nicht** ist
 
-Ehrlich benannt, damit niemand es für erledigt hält:
-
-- **Keine Verbindung zur Token-Tür des Harness.** Die Oberfläche (`apps/web`) authentifiziert
-  sich heute über einen **Token** aus der Host-Konsole, nicht über ein Konto. Diese Seite baut
-  die zweite Tür; verbunden sind die beiden noch nicht.
-- **Kein Admin-Bereich.** Es gibt kein Konto-Verwalten, keine Rollenvergabe.
-- **Kein Anmelde-Protokoll in der Oberfläche.** Der Server schreibt `auth_events`
-  (`login-success`, `login-failed`, `logout`) — die Seite zeigt davon nichts.
-- **Kein Kennwort-Zurücksetzen**, keine Kennwortregeln außer der Länge (der Server prüft).
+- **Keine Verbindung zur Token-Tür des Harness.** Die Oberfläche authentifiziert sich über einen
+  **Token** aus der Host-Konsole, nicht über ein Konto. Diese Seite baut die Konto-Tür und sagt
+  das auf `/start` auch selbst. Ein Token, der dort ausgegeben würde, stünde in der Adreßzeile,
+  im Verlauf und im Zugriffsprotokoll — und er gilt für **alles**.
+- **Kein Browser-Nachweis.** Auf diesem Rechner ist **kein** Browser installiert; die Prüfungen
+  fahren HTTP über einen echten Socket, keinen Browser.
+- **Kein Admin-Bereich**, kein Kennwort-Zurücksetzen in der Oberfläche, kein Anmelde-Protokoll
+  (`auth_events` schreibt der Server, die Seite zeigt davon nichts).

@@ -36,6 +36,17 @@
 /** Die Adresse des Entwicklungsservers. */
 const BASIS = process.argv[2] ?? 'http://127.0.0.1:5180'
 
+/**
+ * Wo die Seite liegt.
+ *
+ * **Seit dem 14.10.2026 unter einem Präfix**: `base: '/anmeldung/'` in `vite.config.ts`, weil
+ * der **Host** sie im Betrieb unter genau diesem Pfad ausliefert
+ * (`packages/api/auth-http/src/anmeldung.ts`). Entwicklungsserver und Host haben damit
+ * **dieselbe Form** — ein Unterschied könnte sonst einen Fehler verdecken, den es nur im
+ * Betrieb gibt.
+ */
+const SEITEN_PFAD = '/anmeldung/'
+
 /** Kennung, die **nur** unsere Seite trägt. */
 const EIGENE_KENNUNG = 'Anmeldung — Prometheus Harness'
 
@@ -72,7 +83,7 @@ function pruefe(name, bestanden, befund) {
 }
 
 // ── 1. Ist das überhaupt unsere Seite? ──────────────────────────────────────────────
-const seite = await hole('/')
+const seite = await hole(SEITEN_PFAD)
 pruefe('Seite ist erreichbar (HTTP 200)', seite.status === 200, `HTTP ${seite.status}`)
 pruefe('Seite trägt unsere Kennung', seite.text.includes(EIGENE_KENNUNG), EIGENE_KENNUNG)
 pruefe(
@@ -80,6 +91,30 @@ pruefe(
   !seite.text.includes(FREMD_KENNUNG),
   seite.text.includes(FREMD_KENNUNG) ? `FREMD! enthielt „${FREMD_KENNUNG}"` : `„${FREMD_KENNUNG}" kommt nicht vor`,
 )
+
+// **Die Verweise der Seite auf ihre eigenen Dateien.** Seit `base: '/anmeldung/'` müssen sie
+// unter dem Präfix liegen — und **erreichbar** sein. Ein falsches Präfix wäre sonst eine Seite,
+// die aussieht wie eine Seite und im Browser leer bleibt: HTML lädt, Skript 404.
+//
+// **Alle Verweise, nicht der erste.** Der erste Entwurf nahm nur das erste `<script src=…>`
+// und wurde rot — im Entwicklungsbetrieb ist das Vites eigener Client (`/@vite/client`), nicht
+// das Bündel der Anwendung. Die Prüfung war damit über den Entwicklungsstand, nicht über die
+// Seite. Jetzt wird **jeder** Verweis angesehen; das gilt für beide Betriebsarten.
+const VERWEISE = [...seite.text.matchAll(/<(?:script|link)[^>]+(?:src|href)="([^"]+)"/gu)]
+  .map((treffer) => treffer[1])
+  .filter((wert) => wert !== undefined)
+
+pruefe('die Seite verweist auf eigene Dateien', VERWEISE.length > 0, `${VERWEISE.length} Verweis(e)`)
+const ausserhalb = VERWEISE.filter((wert) => !wert.startsWith(`${SEITEN_PFAD}`))
+pruefe(
+  'ALLE Verweise liegen unter dem Präfix des Hosts',
+  ausserhalb.length === 0,
+  ausserhalb.length === 0 ? `${VERWEISE.length} von ${VERWEISE.length}` : `außerhalb: ${ausserhalb.join(', ')}`,
+)
+for (const verweis of VERWEISE) {
+  const datei = await hole(verweis)
+  pruefe(`erreichbar: ${verweis}`, datei.status === 200, `HTTP ${datei.status}`)
+}
 
 // ── 2. Kommt die Weiterleitung /api → Host an? ──────────────────────────────────────
 // Ohne Anmeldung muß unser Server „nicht-angemeldet" sagen. Sagt Vite etwas (HTML-Fehlerseite),

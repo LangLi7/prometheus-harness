@@ -51,10 +51,22 @@ if (!bereit) {
   )
 }
 
-/** Führt `arbeit` in einer Transaktion aus und nimmt sie **immer** zurück. */
+/**
+ * Führt `arbeit` in einer Transaktion aus und nimmt sie **immer** zurück.
+ *
+ * **Warum die Typen vom Treiber kommen und nicht aus `Parameters<…>`.** Der erste Entwurf
+ * schrieb `Parameters<Parameters<typeof sql.begin>[0]>[0]` — und der Typlauf wurde rot:
+ * `begin` ist **überladen** (`begin`, `begin(options, …)`), und `Parameters` greift sich eine
+ * davon. Der Typ `postgres.TransactionSql` steht im Treiber selbst; ihn zu benutzen ist kürzer
+ * **und** richtig (`node_modules/postgres/types/index.d.ts:723`).
+ *
+ * @param sql - der Zugang
+ * @param arbeit - die Arbeit **innerhalb** der Transaktion
+ * @returns was `arbeit` zurückgibt, nach dem Rückwärtslauf
+ */
 async function inTransaktion<T>(
-  sql: ReturnType<typeof postgres>,
-  arbeit: (tx: Parameters<Parameters<typeof sql.begin>[0]>[0]) => Promise<T>,
+  sql: postgres.Sql,
+  arbeit: (tx: postgres.TransactionSql) => Promise<T>,
 ): Promise<T> {
   let ergebnis: T | undefined
   try {

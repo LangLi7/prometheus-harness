@@ -35,11 +35,16 @@ export const ZIEL_PARAMETER = 'weiter'
 /**
  * Das Ziel, wenn keines genannt ist.
  *
- * **Hier docken später die Einstellungen an.** Bis dahin: die Wurzel. Wer die Einstellung
- * einbaut, ersetzt diesen Wert durch das Gelesene — und muß ihn durch dieselbe Prüfung
- * schicken (`istRelativ`), denn eine Einstellung kann falsch sein.
+ * **Die Schnittstelle des Hosts**: `/start` (`packages/api/auth-http/src/anmeldung.ts`). Dort
+ * steht, wer angemeldet ist, und von dort geht es weiter. Ohne gültige Sitzung leitet `/start`
+ * auf die Anmeldeseite zurück — es gibt also keine Schleife, sondern einen Kreis, der sich
+ * schließt, sobald die Anmeldung gelingt.
+ *
+ * **Hier docken später die Einstellungen an.** Wer die Einstellung einbaut, ersetzt diesen Wert
+ * durch das Gelesene — und muß ihn durch dieselbe Prüfung schicken (`istRelativ`), denn eine
+ * Einstellung kann falsch sein.
  */
-export const VORGABE_ZIEL = '/'
+export const VORGABE_ZIEL = '/start'
 
 /**
  * Ist das Ziel ein **relativer Pfad dieser Seite**?

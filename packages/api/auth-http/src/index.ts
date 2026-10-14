@@ -76,6 +76,8 @@ import { PFAD_ABMELDEN, PFAD_ANMELDEN, PFAD_ICH, PFAD_REGISTRIEREN, type Umgebun
 // **Die Anmeldeseite** — HTML und JavaScript, ausgeliefert von unserem eigenen Weg.
 // Sie ist additiv: sie entscheidet keine Regel, sie zeigt die Antworten der Wege.
 import { PFAD_SEITE, PFAD_SEITE_API, PFAD_SEITE_JS, seitenWege } from './seite.ts'
+// **Die gebaute Anmeldeseite und die Schnittstelle danach** — am Ursprung des Hosts.
+import { anmeldungsWege, bauVerzeichnis, bauVorhanden, PFAD_ANMELDUNG, PFAD_START } from './anmeldung.ts'
 
 export { ABLAGEDATEI, claimAblageImHome } from './claim-ablage.ts'
 
@@ -118,6 +120,19 @@ export {
   wegRegistrieren,
   type Weg,
 } from './http.ts'
+
+export {
+  ANGABE_BAU,
+  PFAD_ANMELDUNG,
+  PFAD_START,
+  anmeldungsWege,
+  bauVerzeichnis,
+  bauVorhanden,
+  entschaerfe,
+  schnittstelleHtml,
+  wegBau,
+  wegStart,
+} from './anmeldung.ts'
 
 export const name = 'pmh-auth-http'
 
@@ -292,6 +307,25 @@ export function apply(ctx: Context): void {
 
   const umgebung = umgebungAus(macheSqlZugang(angaben.adresse), angaben, home)
 
+  // **Die gebaute Anmeldeseite an **diesem** Ursprung.** Der Betreiber hat gefragt, ob die
+  // Anmeldung nicht auf demselben Port liegen muß wie der Host — sie muß: unsere Kekse sind
+  // `SameSite=Strict`, und ein Keks kommt nur bei **derselben Herkunft** an. Auf einem eigenen
+  // Port wäre die Anmeldung **still wirkungslos**.
+  //
+  // Fehlt der Bau, leitet der Weg auf die eingebaute Seite um. Der Hinweis hier steht, damit
+  // die Ursache auffindbar bleibt — ein stiller Rückfall wäre nicht zu unterscheiden von einem
+  // gewollten Zustand.
+  const bau = bauVerzeichnis()
+  void bauVorhanden(bau).then((da) => {
+    if (!da) {
+      process.stderr.write(
+        `[pmh] ${name}: keine Bauausgabe der Anmeldeseite unter ${bau}.\n` +
+          `  ${PFAD_ANMELDUNG}/ leitet deshalb auf ${PFAD_SEITE} um (eingebaute Seite).\n` +
+          '  Bauen mit:  cd apps/login_web && bun run build\n',
+      )
+    }
+  })
+
   ctx.effect(() => {
     const wege: readonly WebRoute[] = [
       { kind: 'exact', path: PFAD_REGISTRIEREN, handler: wegRegistrieren(umgebung) },
@@ -301,12 +335,16 @@ export function apply(ctx: Context): void {
       // **Die Anmeldeseite kommt dazu, die vier Wege bleiben unberührt.** Sie ist
       // additiv: sie entscheidet nichts, sie zeigt nur, was die Wege antworten.
       ...seitenWege(),
+      // **Die gebaute Seite und die Schnittstelle danach** — gleicher Ursprung wie die vier
+      // Wege, damit der Sitzungskeks überhaupt mitkommt. `/start` liest die Sitzung über
+      // **dieselbe** Funktion wie `GET /api/pmh/auth/me`.
+      ...anmeldungsWege(umgebung, bau),
     ]
     const ab = wege.map((weg) => ctx.webServer.register(weg))
     return () => {
       for (const einer of ab.reverse()) einer()
     }
-  }, `${name} ${PFAD_REGISTRIEREN} ${PFAD_ANMELDEN} ${PFAD_ABMELDEN} ${PFAD_ICH} ${PFAD_SEITE} ${PFAD_SEITE_API} ${PFAD_SEITE_JS}`)
+  }, `${name} ${PFAD_REGISTRIEREN} ${PFAD_ANMELDEN} ${PFAD_ABMELDEN} ${PFAD_ICH} ${PFAD_SEITE} ${PFAD_SEITE_API} ${PFAD_SEITE_JS} ${PFAD_ANMELDUNG} ${PFAD_START}`)
 }
 
 export default apply

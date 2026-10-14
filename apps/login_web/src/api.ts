@@ -93,13 +93,22 @@ export function keksWert(name: string): string {
 async function ruf<T>(pfad: string, koerper?: unknown, kopf: Record<string, string> = {}): Promise<Ergebnis<T>> {
   let antwort: Response
   try {
-    antwort = await fetch(BASIS + pfad, {
+    /**
+     * **Der Rumpf wird bedingt gesetzt, nicht auf `undefined` gesetzt.**
+     *
+     * Das Haus schaltet `exactOptionalPropertyTypes` ein (`tsconfig.base.json`). Danach ist
+     * `{ body: undefined }` **nicht** dasselbe wie „kein `body`" — der Typlauf lehnt es ab, und
+     * zwar zu Recht: ein ausdrückliches `undefined` überschreibt einen Vorgabewert, ein
+     * fehlendes Feld läßt ihn stehen. Beim `GET` darf gar kein Rumpf entstehen.
+     */
+    const optionen: RequestInit = {
       method: koerper === undefined ? 'GET' : 'POST',
       // **Ohne das kommt kein Keks an.**
       credentials: 'include',
       headers: koerper === undefined ? kopf : { 'content-type': 'application/json', ...kopf },
-      body: koerper === undefined ? undefined : JSON.stringify(koerper),
-    })
+      ...(koerper === undefined ? {} : { body: JSON.stringify(koerper) }),
+    }
+    antwort = await fetch(BASIS + pfad, optionen)
   } catch (f) {
     return {
       ok: false,
