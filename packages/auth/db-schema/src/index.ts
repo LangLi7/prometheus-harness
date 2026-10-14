@@ -33,6 +33,7 @@ import m0004 from '../migrations/0004_mandantentrennung.sql' with { type: 'text'
 import m0005 from '../migrations/0005_benutzerprofile.sql' with { type: 'text' }
 import m0006 from '../migrations/0006_wissensspeicher.sql' with { type: 'text' }
 import m0007 from '../migrations/0007_obsidian.sql' with { type: 'text' }
+import m0008 from '../migrations/0008_sitzungsprotokoll.sql' with { type: 'text' }
 
 // ---------------------------------------------------------------------------
 // Migrationstyp
@@ -78,6 +79,14 @@ export const MIGRATIONS: readonly Migration[] = [
   // Vault-Pfad bekommt, ist offen und steht in
   // `docs/decisions/obsidian-gedaechtnis-oder-ansicht.md`.
   { version: 7, name: 'obsidian-vaults-notizen-etiketten-verweise', sql: m0007 },
+  // **Das Sitzungsprotokoll.** Der Kern speichert Sitzungen heute als Dateien
+  // (`session.v4.jsonl.zstd`, gemessen 88 Ordner im Bau-Home). Diese Migration
+  // macht die Datenbank faehig, das Protokoll aufzunehmen: die Spalten, die die
+  // Naht `ctx.sessionPersistence` braucht (Vererbungsschnitt, Schreibherrschaft),
+  // die Tabelle `session_events` — und **Row Level Security mit der LAUTEN Form**
+  // der Bedingung (ohne `missing_ok`), damit ein fehlender Mandant den Fehler
+  // `42704` wirft statt still null Zeilen zu liefern.
+  { version: 8, name: 'sitzungsprotokoll-und-schreibherrschaft', sql: m0008 },
 ]
 
 /** Die Fassung, die dieses Paket erzeugt — die höchste Migrationsnummer. */
