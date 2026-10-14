@@ -317,10 +317,68 @@ gemustert habe.
 ### Was ausdrücklich **nicht** gemessen ist
 
 * **Dauerlast** über Minuten und **viele** gleichzeitige Abbrüche.
-* Ob die Wiederaufnahme auch bei einem **Prozeßneustart** des Hosts gilt — hier wurde nur die
-  **Verbindung** getrennt, nicht der Host beendet.
+* ~~Ob die Wiederaufnahme auch bei einem **Prozeßneustart** des Hosts gilt~~ — **gemessen**, §14.
 * Ob `session/page` bei **sehr langen** Verläufen (viele Seiten) dieselbe Lückenlosigkeit hält;
   gemessen ist **eine** Seite mit 68 Einträgen.
+
+## 14. Neustart — der Verlauf überlebt das **Beenden des Hosts**
+
+Sonde: [`messsonden/strom-neustart-sonde.mjs`](messsonden/strom-neustart-sonde.mjs) · Exit **0**
+· zwei Läufe mit **identischen** Zahlen
+
+§13 hat die **Verbindung** getrennt, nicht den **Host**. Das ist der Fall des Betreibers:
+*die Anwendung wird beendet und wieder geöffnet.* „Beim Neustart Chatverlauf" heißt: ein
+**anderer Prozeß** muß die Sitzung wiederfinden.
+
+### Der Ablauf
+
+1. Host **A**, Sitzung anlegen, eine Runde laufen lassen.
+2. Über die Strecke folgen → **Cursor**, dann `session/page` rückwärts → alle `seq`.
+3. **Host A töten** — und **nachprüfen**, daß er nicht mehr antwortet.
+4. Host **B** starten: **gleiches Home, ANDERER Port**.
+5. Zum **selben** `sessionId` folgen und den Verlauf erneut holen.
+6. Vergleichen.
+
+**Der andere Port ist Absicht.** Fände Host B die Sitzung nur, weil derselbe Port oder
+derselbe Prozeß noch etwas im Speicher hält, wäre nichts bewiesen. So muß die Sitzung **aus
+dem Home** kommen.
+
+### Das Ergebnis — zweimal gleich
+
+```
+== Host A ==
+  cursor = 21   hasMore = false
+  Verlauf: 22 Einträge, Bereich 0 … 21
+
+== HOST A WIRD GETÖTET ==
+  Host A antwortet nicht mehr: ja
+
+== HOST B auf Port 3055 (gleiches Home, anderer Prozeß) ==
+  cursor = 21   hasMore = false
+  Verlauf: 22 Einträge, Bereich 0 … 21
+
+== Vergleich ==
+  VERLOREN gegenüber A: KEINE
+  neu dazugekommen:      0
+  Doppelungen in B:      0
+```
+
+**Der Verlauf überlebt das Beenden des Hosts — vollständig.** Dieselbe Sitzungskennung ist in
+einem **anderen Prozeß** wiederauffindbar, alle 22 Einträge sind da, keiner fehlt, keiner
+doppelt. **Damit ist „beim Neustart Chatverlauf" gemessen** — und nicht mehr nur behauptet.
+
+**Ein Wortfehler in meiner eigenen Ausgabe, festgehalten:** dort stand zuerst *„der Cursor
+wuchs von 21 auf 21"* — ein Widerspruch in sich. Zwischen den beiden Läufen lief nichts, also
+**bleibt** der Cursor gleich. Die Sonde sagt jetzt, was sie sieht, und unterscheidet die
+beiden Fälle.
+
+### Was weiterhin **nicht** gemessen ist
+
+* **Dauerlast** und viele gleichzeitige Clients.
+* Ob die Sitzung auch nach einem Neustart **beschreibbar** ist (nur **lesen** wurde gemessen —
+  es wurde nach dem Neustart kein weiterer Auftrag abgesetzt).
+* Ob die Wiederaufnahme bei einem Neustart **während** eines laufenden Auftrags gilt. Hier war
+  die Runde vor dem Töten **abgeschlossen**.
 
 ## 12. Bündelung — **eine** Strecke trägt **acht** Sitzungen
 
