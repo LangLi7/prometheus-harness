@@ -19,6 +19,9 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
 import {
   MIGRATIONS,
@@ -158,7 +161,29 @@ if (VERBINDUNG !== undefined && !VERBINDUNG.ok) {
   )
 }
 
-const run = adresseGesetzt(URL_FROM_ENV) && VERBINDUNG?.ok !== false ? describe : describe.skip
+/**
+ * Ist der Lauf gegen eine **Wegwerf-Datenbank ausdrücklich bestätigt**?
+ *
+ * **Warum das sein muß.** Am 15.10.2026 hat dieser Test die **Betriebsdatenbank** abgeräumt:
+ * eine übersteuerte `DATABASE_URL` hatte die Sicherung entwaffnet (siehe den langen Hinweis in
+ * `beforeAll`). Eine Sicherung, die man durch eine Umgebungsvariable umgehen kann, ist keine.
+ *
+ * Deshalb: **Zerstören verlangt eine Bestätigung.** Ohne `PMH_WEGWERF_BESTAETIGT=1` wird die
+ * Datei übersprungen und sagt das. Das ist der Unterschied zwischen einem Werkzeug und einer
+ * Falle: wer eine Datenbank abräumt, soll es **wollen**.
+ */
+const WEGWERF_BESTAETIGT = process.env.PMH_WEGWERF_BESTAETIGT === '1'
+
+if (!WEGWERF_BESTAETIGT) {
+  process.stderr.write(
+    'HINWEIS: die zerstörenden Schemaprüfungen sind übersprungen — sie LÖSCHEN ALLE TABELLEN.\n' +
+      '  Bestätigen mit:  $env:PMH_WEGWERF_BESTAETIGT = "1"\n' +
+      '  Und nur gegen eine Wegwerf-Datenbank: PMH_TEST_DATABASE_URL auf z. B. `pmh_wegwerf`.\n',
+  )
+}
+
+const run =
+  adresseGesetzt(URL_FROM_ENV) && VERBINDUNG?.ok !== false && WEGWERF_BESTAETIGT ? describe : describe.skip
 
 if (OHNE_ZUGANG !== undefined) {
   process.stderr.write(
@@ -199,19 +224,74 @@ beforeAll(async () => {
   // `_test` im Namen ist eine Konvention, die man bricht. `DATABASE_URL` ist
   // **dieselbe Angabe, die die Anwendung benutzt** — zeigt sie auf dieselbe
   // Datenbank, ist der Lauf ein Fehler und kein Testlauf.
+  //
+  // **AM 15.10.2026 HAT DIESE SICHERUNG VERSAGT — und die Betriebsdatenbank war weg.**
+  // Der Aufruf war:
+  //
+  //   $env:MIGRATION_DATABASE_URL = …/pmh_wegwerf     # für die Prüfungen dieses Schemas
+  //   $env:DATABASE_URL           = …/pmh_wegwerf     # <— übersteuert!
+  //   bun test packages/auth/db-schema/tests/postgres.test.ts
+  //
+  // `PMH_TEST_DATABASE_URL` kam aus `.env` und zeigte weiter auf **pmh**. Die Sicherung
+  // verglich `current_database()` (= `pmh`) mit `DATABASE_URL` **aus der Umgebung**
+  // (= `pmh_wegwerf`) — die Namen waren verschieden, die Sicherung ließ durch, und der Test
+  // hat `pmh` abgeräumt: alle Tabellen, `schema_migrations` eingeschlossen, dann alle neun
+  // Migrationen neu. Gemessen danach: jede Zeile in `messages` und `users` trug den
+  // Zeitstempel des Laufs (01:24:03), die alten Daten waren fort.
+  //
+  // **Zwei Lehren, beide hier eingebaut:**
+  //
+  //   1. Der Vergleich gilt **beiden** Angaben: der aus der Umgebung **und** der aus der
+  //      Datei `.env`. Die Datei ist die Konfiguration des Betreibers; eine Umgebungsvariable
+  //      einer einzelnen Sitzung darf sie nicht entwaffnen.
+  //   2. **Zerstören verlangt eine ausdrückliche Bestätigung.** Ohne
+  //      `PMH_WEGWERF_BESTAETIGT=1` wird dieser Test **übersprungen** und sagt das. Ein
+  //      Werkzeug, das beim bloßen Aufruf eine Datenbank abräumt, ist eine Falle — auch dann,
+  //      wenn eine Sicherung davorsteht, die man umgehen kann.
   const angabe = await sql.unsafe<{ db: string }[]>('SELECT current_database() AS db')
   const hier = angabe[0]?.db ?? '?'
-  const betrieb = process.env.DATABASE_URL
-  if (adresseGesetzt(betrieb)) {
-    const nameDerAnwendung = new URL(betrieb).pathname.replace(/^\//u, '')
-    if (nameDerAnwendung !== '' && nameDerAnwendung === hier) {
-      await sql.end({ timeout: 5 })
-      throw new Error(
-        `ABBRUCH: dieser Test LÖSCHT ALLE TABELLEN und zeigt auf „${hier}" — dieselbe Datenbank wie die ` +
-          `Anwendung (DATABASE_URL). Er ist für eine Wegwerf-Datenbank gedacht: ` +
-          `setze PMH_TEST_DATABASE_URL auf eine andere Datenbank (siehe docs/status/mandantentrennung.md §10).`,
-      )
+
+  /** Der Datenbankname aus einer Adresse, oder `''`. */
+  const nameAus = (adresse: string | undefined): string => {
+    if (!adresseGesetzt(adresse)) return ''
+    try {
+      return new URL(adresse).pathname.replace(/^\//u, '')
+    } catch {
+      return ''
     }
+  }
+
+  /**
+   * Der Datenbankname aus `DATABASE_URL` in der **Datei** `.env`.
+   *
+   * **Warum die Datei gelesen wird.** Eine Umgebungsvariable kann eine einzelne Sitzung
+   * setzen; die Datei ist die Angabe des Betreibers. Der Vergleich mit beiden macht die
+   * Sicherung unabhängig davon, was gerade in der Umgebung steht.
+   *
+   * @returns der Name, oder `''`, wenn die Datei nicht lesbar ist
+   */
+  const betriebAusDatei = (): string => {
+    try {
+      const wurzel = fileURLToPath(new URL('../../../../', import.meta.url))
+      const inhalt = readFileSync(join(wurzel, '.env'), 'utf8')
+      for (const zeile of inhalt.split(/\r?\n/u)) {
+        const treffer = /^\s*DATABASE_URL\s*=\s*(.+)$/u.exec(zeile)
+        if (treffer?.[1] !== undefined) return nameAus(treffer[1].trim())
+      }
+    } catch {
+      // Keine `.env` (etwa in einem Bau): dann gilt nur die Umgebung.
+    }
+    return ''
+  }
+
+  const betriebe = [nameAus(process.env.DATABASE_URL), betriebAusDatei()].filter((n) => n !== '')
+  if (betriebe.includes(hier)) {
+    await sql.end({ timeout: 5 })
+    throw new Error(
+      `ABBRUCH: dieser Test LÖSCHT ALLE TABELLEN und zeigt auf „${hier}" — dieselbe Datenbank wie die ` +
+        `Anwendung (DATABASE_URL). Er ist für eine Wegwerf-Datenbank gedacht: ` +
+        `setze PMH_TEST_DATABASE_URL auf eine andere Datenbank (siehe docs/status/mandantentrennung.md §10).`,
+    )
   }
 })
 
@@ -236,7 +316,7 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     `)
 
     const report = await migrate(target)
-    expect(report.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
+    expect(report.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
     expect(report.version).toBe(SCHEMA_VERSION)
     expect(report.fresh).toBe(true)
   })
@@ -290,6 +370,8 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
       'links',
       // **Neu mit Migration 0008.** Das Sitzungsprotokoll.
       'session_events',
+      // **Neu mit Migration 0009.** Die Quellordner: mehrere je Arbeitsbereich.
+      'workspace_folders',
       // **Kein `CREATE TABLE` in einer Migration.** Diese Tabelle legt der
       // Migrationsläufer selbst an — deshalb steht sie in `migrate.test.ts`
       // nicht in der Liste und hier doch.

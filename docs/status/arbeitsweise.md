@@ -547,3 +547,29 @@ Ursache behauptet wird, werden die Erklärungen **gegeneinander** geprüft — d
 Daß man gerade selbst etwas getan hat, macht es nicht zur Ursache; es macht es nur zur
 naheliegenden. **Und wenn der Beobachtende erreichbar ist: fragen.** Eine Frage kostet einen
 Satz. Eine falsche Ursache kostet den Glauben an alle anderen Messungen — auch an die richtigen.
+
+---
+
+## 33. Eine Sicherung, die die **Umgebung** fragt, ist keine Sicherung
+
+**Der Fall — der schwerste dieser Reihe.** Ein zerstörender Schematest hatte eine Sicherung: er
+verglich den Namen der Prüfdatenbank mit dem Namen aus `process.env.DATABASE_URL` und brach ab,
+wenn beide gleich waren. Für einen Lauf setzte ich `DATABASE_URL` auf meine Wegwerf-Datenbank um
+— und ließ `PMH_TEST_DATABASE_URL` aus `.env` auf die **Betriebsdatenbank** zeigen. Die Namen
+waren verschieden, die Sicherung ließ durch, und der Test hat die Betriebsdatenbank abgeräumt:
+alle Tabellen, `schema_migrations` eingeschlossen, danach alle neun Migrationen neu. Gemessen:
+jede Zeile trug den Zeitstempel des Laufs.
+
+**Die Regel.** Wo ein Werkzeug **zerstören** kann, wird die Erlaubnis **doppelt** geprüft:
+
+1. **Gegen die Konfiguration, nicht gegen die Sitzung.** Die Datei (`.env`) ist die Angabe des
+   Betreibers; eine Umgebungsvariable einer einzelnen Sitzung darf sie nicht entwaffnen. Der
+   Vergleich gilt **beiden**.
+2. **Zerstören verlangt eine ausdrückliche Bestätigung** (`PMH_WEGWERF_BESTAETIGT=1`). Ohne sie
+   wird **übersprungen** und das gemeldet. Wer eine Datenbank abräumt, soll es **wollen** — ein
+   Werkzeug, das es beim bloßen Aufruf tut, ist eine Falle.
+
+**Der Satz, der bleibt.** Ich hatte diese Gefahr **selbst vorher aufgeschrieben** („gleiche
+Betriebsdatenbank, verschiedene Zeichenketten — URL-vergleichende Sicherungen lassen durch") und
+bin hineingelaufen. Eine Gefahr, die in einer Notiz steht, ist **nicht** entschärft. Was zählt,
+ist der Riegel im Code — und ein Lauf, der ihn beweist.
