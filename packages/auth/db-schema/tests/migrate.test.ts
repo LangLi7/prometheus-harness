@@ -108,15 +108,15 @@ describe('Migrationsliste prüfen', () => {
     expect(() => assertWellFormed([{ version: 1, name: 'x', sql: '   ' }])).toThrow('kein SQL')
   })
 
-  test('die echten Migrationen sind wohlgeformt und heißen 1 bis 7', () => {
+  test('die echten Migrationen sind wohlgeformt und heißen 1 bis 8', () => {
     expect(() => assertWellFormed(MIGRATIONS)).not.toThrow()
     // **Die Liste steht hier ausgeschrieben, und das ist Absicht.** Eine Prüfung
     // gegen `MIGRATIONS.map(m => m.version)` wäre mit sich selbst verglichen und
     // damit leer. So fällt auf, wenn eine Migration **fehlt** (Lücke) oder
     // **doppelt** kommt — und der Name der Prüfung muß die Zahl mitführen, sonst
     // behauptet er etwas Falsches.
-    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7])
-    expect(SCHEMA_VERSION).toBe(7)
+    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
+    expect(SCHEMA_VERSION).toBe(8)
   })
 })
 
@@ -264,6 +264,9 @@ describe('Das echte Schema', () => {
       'tags',
       'note_tags',
       'links',
+      // **Neu mit Migration 0008.** Das Sitzungsprotokoll — die Ereignisse einer
+      // Sitzung, lückenlos über `(session_id, seq)` und je Mandant getrennt.
+      'session_events',
     ]) {
       expect({ table, created: created.has(table) }).toEqual({ table, created: true })
     }
@@ -280,6 +283,7 @@ describe('Das echte Schema', () => {
       'note_tags',
       'notes',
       'one_time_tokens',
+      'session_events',
       'sessions',
       'tags',
       'user_profiles',

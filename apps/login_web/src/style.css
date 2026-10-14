@@ -1,0 +1,178 @@
+/*
+ * `apps/login_web` — die Gestaltung der Anmeldeseite.
+ *
+ * ## Warum `color-scheme` hier doppelt steht
+ *
+ * In `index.html` **und** in `:root`. Der Grund ist gemessen: in einem dunklen Dialog
+ * zeichnete der Browser ein **helles** natives Auswahlfenster und nahm dazu die geerbte
+ * weiße Schriftfarbe — der Eintrag war weiß auf weiß (siehe
+ * `docs/status/spracheingabe.md` §7). `color-scheme` ist die Angabe, mit der der Browser
+ * **native** Bedienelemente im richtigen Schema zeichnet; sie gehört an das Wurzelelement.
+ *
+ * ## Warum keine Farben aus dem Harness-Theme
+ *
+ * Diese Seite steht **vor** dem Harness und hat dessen Stilblätter nicht. Sie bringt deshalb
+ * eine eigene, kleine Palette mit — hell und dunkel über `prefers-color-scheme`. Sobald sie
+ * aus dem Host ausgeliefert wird (anstelle des Tokens), kann sie die Variablen
+ * `--dsw-alias-*` benutzen; dann fällt diese Palette weg.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --grund: #f4f4f6;
+  --karte: #ffffff;
+  --schrift: #17171a;
+  --still: #5c5c66;
+  --rand: #d5d5dc;
+  --feld: #ffffff;
+  --akzent: #2f6feb;
+  --akzent-schrift: #ffffff;
+  --fehler: #b3261e;
+  --fehler-grund: #fdecea;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grund: #131316;
+    --karte: #1c1c21;
+    --schrift: #f2f2f5;
+    --still: #a2a2ad;
+    --rand: #34343c;
+    --feld: #26262d;
+    --akzent: #5b8cf7;
+    --akzent-schrift: #0d0d10;
+    --fehler: #ff9a92;
+    --fehler-grund: #33201e;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--grund);
+  color: var(--schrift);
+  font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.karte {
+  width: min(420px, 92vw);
+  padding: 28px;
+  border: 1px solid var(--rand);
+  border-radius: 14px;
+  background: var(--karte);
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.still {
+  color: var(--still);
+  margin: 0 0 18px;
+}
+
+.still code,
+.fuss code {
+  padding: 1px 5px;
+  border: 1px solid var(--rand);
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.feld {
+  display: grid;
+  gap: 5px;
+  margin: 0 0 14px;
+}
+
+.feld label {
+  font-size: 13px;
+  color: var(--still);
+}
+
+.feld input {
+  /* Ein eigener Grund und eine eigene Schriftfarbe: sonst malt der Browser im dunklen
+     Schema sein eigenes Feld, und die Farbe paßt nicht zum Rest. */
+  padding: 9px 11px;
+  border: 1px solid var(--rand);
+  border-radius: 8px;
+  background: var(--feld);
+  color: var(--schrift);
+  font: inherit;
+}
+
+.feld input:focus-visible {
+  outline: 2px solid var(--akzent);
+  outline-offset: 1px;
+}
+
+.feld small {
+  color: var(--still);
+  font-size: 12px;
+}
+
+.knoepfe {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.knopf {
+  padding: 9px 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--akzent);
+  color: var(--akzent-schrift);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.knopf.zweit {
+  background: transparent;
+  border-color: var(--rand);
+  color: var(--schrift);
+}
+
+.knopf:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.fehler {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--fehler-grund);
+  color: var(--fehler);
+}
+
+.fehler .code {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  opacity: 0.8;
+  margin-right: 6px;
+}
+
+.rolle {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border: 1px solid var(--rand);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--still);
+}
+
+.fuss {
+  margin: 18px 0 0;
+  color: var(--still);
+  font-size: 12px;
+}

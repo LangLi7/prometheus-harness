@@ -6,11 +6,12 @@
  * `zahlAus` ist rein: sie liest eine Zahl aus einer Datei und braucht kein Docker.
  * Sie wird hier mit **Wegwerf-Dateien** geprüft.
  *
- * **`fassungAus` ist NICHT geprüft** — sie ruft `docker exec psql`. Beide Zweige
- * (erreichbar / nicht erreichbar) ließen sich nur mit einem **Einschub** fahren, und
- * den gibt es noch nicht. Das steht hier, damit die Lücke nicht als Deckung
- * durchgeht: **der Nachweis für die Datenbankhälfte ist bislang der Lauf von Hand**
- * (gemessen: `pmh` 5, `pmh_test` 7, Exit 1) — nicht eine Prüfung.
+ * **`fassungAus` selbst ist weiterhin NICHT geprüft** — sie ruft `docker exec psql`.
+ * Geprüft ist der **BEFUND-Zweig** darunter: `fuehreAus` nimmt die Fassungsabfrage als
+ * **Einschub** entgegen, damit lassen sich alle Lagen fahren, ohne Docker zu brauchen
+ * (gleich / zurück / nicht erreichbar / halb erreichbar). Was **fehlt**, ist der Beweis,
+ * daß `fassungAus` gegen einen echten Container die Wahrheit liest — dafür steht weiterhin
+ * der Lauf von Hand (`bun scripts/schema-stand.mjs`).
  */
 
 import { describe, expect, test } from 'bun:test'
@@ -79,6 +80,17 @@ describe('zahlAus — die Zahl aus dem Quelltext', () => {
 })
 
 describe('Der BEFUND-Zweig — mit eingespeister Datenbankabfrage', () => {
+  /**
+   * Die Fassung, die der **Code** erreicht — **gelesen, nicht abgeschrieben**.
+   *
+   * Hier standen vorher feste Siebenen. Als Migration 0008 dazukam, wurden vier
+   * Prüfungen rot, obwohl das Skript richtig arbeitete: die Attrappe war älter als
+   * der Code. Eine abgeschriebene Zahl in einer Prüfung ist derselbe Fehler wie eine
+   * abgeschriebene Zahl im Skript — nur schwerer zu finden, weil sie **grün** bleibt,
+   * solange niemand die Quelle ändert.
+   */
+  const CODEFASSUNG = zahlAus(process.cwd(), QUELLEN.readiness, /ERWARTETE_SCHEMAFASSUNG = (\d+)/u)
+
   /** Fährt das Skript mit einer erfundenen Datenbanklage. */
   function mitLage(fassungen) {
     const aus = []
@@ -87,17 +99,23 @@ describe('Der BEFUND-Zweig — mit eingespeister Datenbankabfrage', () => {
     return { code, text: aus.join('') }
   }
 
+  test('die Attrappe kennt die echte Codefassung', () => {
+    // Gegenprobe gegen die eigene Bequemlichkeit: wäre die Zahl nicht lesbar,
+    // prüften alle Fälle unten gegen `undefined` und der Vergleich wäre leer.
+    expect(CODEFASSUNG).toBeGreaterThan(0)
+  })
+
   test('alle gleich: Exit 0', () => {
-    // Die echte Codefassung ist 7 — hier bekommen BEIDE Datenbanken 7.
-    const { code, text } = mitLage({ pmh: 7, pmh_test: 7 })
+    // Beide Datenbanken auf der Codefassung — das ist der gesunde Zustand.
+    const { code, text } = mitLage({ pmh: CODEFASSUNG, pmh_test: CODEFASSUNG })
     expect(code).toBe(0)
     expect(text).toContain('Alles gleich')
   })
 
   test('eine Datenbank zurück: Exit 1 und der Befund im Wortlaut', () => {
-    // **Der Fall, der wirklich eingetreten ist** (pmh 5 gegen Code 7). Der Zweig
-    // war bis jetzt nur durch einen Lauf von Hand belegt.
-    const { code, text } = mitLage({ pmh: 5, pmh_test: 7 })
+    // **Der Fall, der wirklich eingetreten ist** (Betriebsdatenbank 5 gegen Code 7).
+    // Der Zweig war bis jetzt nur durch einen Lauf von Hand belegt.
+    const { code, text } = mitLage({ pmh: CODEFASSUNG - 2, pmh_test: CODEFASSUNG })
     expect(code).toBe(1)
     expect(text).toContain('ZURUECK (2)')
     expect(text).toContain('BEFUND')
@@ -114,7 +132,7 @@ describe('Der BEFUND-Zweig — mit eingespeister Datenbankabfrage', () => {
   })
 
   test('eine erreichbar, eine nicht: keine Entwarnung', () => {
-    const { code, text } = mitLage({ pmh_test: 7 })
+    const { code, text } = mitLage({ pmh_test: CODEFASSUNG })
     expect(code).toBe(0)
     expect(text).toContain('nicht erreichbar')
     // und die erreichbare war gleich — der Bericht nennt beides
@@ -123,7 +141,7 @@ describe('Der BEFUND-Zweig — mit eingespeister Datenbankabfrage', () => {
 
   test('ohne Befehl: Exit 1', () => {
     const aus = []
-    expect(fuehreAus([], process.env, (t) => aus.push(t), () => 7)).toBe(1)
+    expect(fuehreAus([], process.env, (t) => aus.push(t), () => CODEFASSUNG)).toBe(1)
   })
 
   test('die zwei verglichenen Datenbanken sind die aus dem Auftrag', () => {

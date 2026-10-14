@@ -27,6 +27,22 @@
         "@deepseek-ai/dsh-home-paths": "0.2.1-alpha.2",
         "@deepseek-ai/dsh-web-app": "0.2.1-alpha.2",
         "@deepseek-ai/schemastery": "~3.18.5-alpha.1",
+        "sherpa-onnx-node": "1.13.8",
+      },
+    },
+    "apps/login_web": {
+      "name": "@prometheus-harness/login-web",
+      "version": "0.0.0",
+      "dependencies": {
+        "react": "^19.3.0",
+        "react-dom": "^19.3.0",
+      },
+      "devDependencies": {
+        "@types/react": "^19.3.0",
+        "@types/react-dom": "^19.3.0",
+        "@typescript/native-preview": "^7.0.0-dev.20260707.2",
+        "@vitejs/plugin-react": "^6.1.2",
+        "vite": "^8.3.4",
       },
     },
     "apps/web": {
@@ -71,6 +87,24 @@
     "packages/api/readiness": {
       "name": "@prometheus-harness/readiness",
       "version": "0.1.0",
+    },
+    "packages/api/speech-local-base": {
+      "name": "@prometheus-harness/speech-local-base",
+      "version": "0.1.0",
+    },
+    "packages/api/speech-nemo-de-local": {
+      "name": "@prometheus-harness/speech-nemo-de-local",
+      "version": "0.1.0",
+      "dependencies": {
+        "@prometheus-harness/speech-local-base": "workspace:*",
+      },
+    },
+    "packages/api/speech-whisper-local": {
+      "name": "@prometheus-harness/speech-whisper-local",
+      "version": "0.1.0",
+      "dependencies": {
+        "@prometheus-harness/speech-local-base": "workspace:*",
+      },
     },
     "packages/auth/apikey": {
       "name": "@prometheus-harness/apikey",
@@ -917,6 +951,8 @@
 
     "@prometheus-harness/llm-retry": ["@prometheus-harness/llm-retry@workspace:packages/llm/llm-retry"],
 
+    "@prometheus-harness/login-web": ["@prometheus-harness/login-web@workspace:apps/login_web"],
+
     "@prometheus-harness/permissions": ["@prometheus-harness/permissions@workspace:packages/auth/permissions"],
 
     "@prometheus-harness/readiness": ["@prometheus-harness/readiness@workspace:packages/api/readiness"],
@@ -930,6 +966,12 @@
     "@prometheus-harness/session-format": ["@prometheus-harness/session-format@workspace:packages/agent/session-format"],
 
     "@prometheus-harness/session-persistence-jsonl": ["@prometheus-harness/session-persistence-jsonl@workspace:packages/agent/session-persistence-jsonl"],
+
+    "@prometheus-harness/speech-local-base": ["@prometheus-harness/speech-local-base@workspace:packages/api/speech-local-base"],
+
+    "@prometheus-harness/speech-nemo-de-local": ["@prometheus-harness/speech-nemo-de-local@workspace:packages/api/speech-nemo-de-local"],
+
+    "@prometheus-harness/speech-whisper-local": ["@prometheus-harness/speech-whisper-local@workspace:packages/api/speech-whisper-local"],
 
     "@prometheus-harness/store-postgres": ["@prometheus-harness/store-postgres@workspace:packages/auth/store-postgres"],
 

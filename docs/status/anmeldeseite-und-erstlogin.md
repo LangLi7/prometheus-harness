@@ -167,3 +167,56 @@ $BUN = 'C:\Users\Chang\.bun\bin\bun.exe'
 Beide Dateien legen ihr **eigenes** Home an (`mkdtempSync`) — weder `~/.pmh` noch
 `~/.dsh` werden angefaßt. Die Claim-Datei der Prüfung entsteht in einem
 Wegwerf-Verzeichnis und wird danach gelöscht.
+
+---
+
+## 8. Die **zweite** Seite: `apps/login_web` (eigenständige Anwendung)
+
+> **Stand:** 14.10.2026 · **Gemessen:** Bau exit 0 · Weiterleiter **8/8** · Sonde
+> **11/11**, exit 0.
+
+**Warum es jetzt zwei Anmeldeseiten gibt — und warum das offen dasteht.** §1 beschreibt
+die Seite, die der **Host selbst ausliefert** (`packages/api/auth-http/src/seite.ts`); sie
+ist am echten Tor erreichbar und mit 12 Prüfungen belegt. Danach hat der Betreiber eine
+**eigene Anwendung** verlangt (`apps/login_web`, React + Vite), weil später eine
+**Einstellung** steuern soll, wohin es nach der Anmeldung weitergeht. Eine Tür mit zwei
+Seiten ist eine Doppelung. Sie ist hier benannt, nicht weggeredet:
+
+| | `auth-http/src/seite.ts` | `apps/login_web` |
+|---|---|---|
+| wer liefert aus | der Host, am echten Tor | ein Entwicklungsserver auf `:5180` |
+| belegt durch | 12 Prüfungen über einen echten Socket | 8 Prüfungen (Weiterleiter) + 11 Sondenprüfungen |
+| heute erreichbar | **ja**, ohne Harness-Token | **nein** — nicht am Host eingehängt |
+| Regeln | liegen in `wege.ts`, die Seite entscheidet nichts | ebenso: die Seite zeigt die Meldung des Servers **wörtlich** |
+
+**Der Proxy ist eine Bedingung, keine Bequemlichkeit.** Unsere Anmeldung setzt ihre Kekse
+mit `SameSite=Strict` (gemessen: `pmh_session; HttpOnly; SameSite=Strict`, `pmh_csrf;
+SameSite=Strict`). Ein solcher Keks kommt **nur** bei **derselben Herkunft** an. Liefe die
+Seite auf `:5180` und die API auf `:3081`, wäre die Anmeldung **still wirkungslos**.
+Deshalb leitet `vite.config.ts` `/api` an den Host weiter — dieselbe Herkunft, in
+Produktion über den Host selbst.
+
+**Der Port ist gemessen worden, nicht geraten.** `5173` und `5176` sind auf diesem Rechner
+belegt; auf `5176` lauschte ein **fremder** Vite-Server („Prometheus — Welt-Prototyp",
+PID 32288). Mein erster Startversuch hat ihn getroffen. Deshalb: **`5180`** und
+`strictPort: true` — ist der Port weg, bricht der Start **laut** ab, statt heimlich
+woanders zu lauschen, wo ich dann eine **fremde** Seite messen würde. Die Sonde prüft das
+als erste Bedingung mit **Gegenstück** (`docs/status/anmeldeseite-proxy-sonde.mjs`): unsere
+Kennung muß vorkommen, „Welt-Prototyp" darf **nicht** vorkommen.
+
+```powershell
+# Fenster 1
+cd apps\login_web; & 'C:\Users\Chang\.bun\bin\bun.exe' run dev
+# Fenster 2
+& 'C:\Users\Chang\.bun\bin\bun.exe' docs/status/anmeldeseite-proxy-sonde.mjs
+```
+
+**Was hier offen ist.** Kein Automatismus nach der Anmeldung (`AUTOMATISCH_WEITER =
+false`): die Seite **zeigt** den Weg und läßt ihn anklicken — die Einstellung gibt es noch
+nicht. Kein Browser-Nachweis (auf diesem Rechner ist **kein** Browser installiert; die
+Sonde fährt HTTP, keinen Browser). Nicht am Harness-Token beteiligt: die Oberfläche
+authentifiziert sich weiterhin über den Token aus der Host-Konsole, diese Seite baut die
+**Konto**-Tür. Und der Weiterleiter nimmt **nur relative Ziele** (`?weiter=…`): fremde
+Herkünfte, `//host`, `/\host`, Rückstriche und Steuerzeichen fallen auf die Vorgabe
+zurück — sonst wäre die Seite ein offener Weiterleiter, und der Betroffene hätte gerade
+sein Kennwort eingegeben.

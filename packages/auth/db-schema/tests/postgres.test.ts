@@ -236,12 +236,12 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     `)
 
     const report = await migrate(target)
-    expect(report.applied).toEqual([1, 2, 3, 4, 5, 6, 7])
+    expect(report.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8])
     expect(report.version).toBe(SCHEMA_VERSION)
     expect(report.fresh).toBe(true)
   })
 
-  test('legt alle achtzehn Tabellen an — im Schema `pmh`, nicht in `public`', async () => {
+  test('legt alle Tabellen im Schema `pmh` an — und keine in `public`', async () => {
     // **Warum `pmh` und nicht `public`.** Der Stack legt ein eigenes Schema an
     // (`docker/postgres-init/02-roles.sh`) und setzt den Suchpfad der Rollen auf
     // `pmh, public`. `public` ist in PostgreSQL der Ort, an dem jedes
@@ -252,12 +252,20 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     // **Der Test hat das gefunden, nicht die Doku:** er suchte zuerst in
     // `public` und schlug fehl. Genau so soll es sein — eine Annahme, die im
     // Test steht und nicht in der Wirklichkeit, ist ein Befund.
+    //
+    // **Warum hier keine Zahl im Namen steht.** In `migrate.test.ts` trägt der
+    // Name die Zahl, weil dort die Liste **ausgeschrieben** gegen den Quelltext
+    // geprüft wird. Hier steht die Zahl „achtzehn" noch im Namen, als längst
+    // zwanzig Tabellen da waren — Migration 0008 kam dazu, und der Name log
+    // weiter. Statt die Zahl zu pflegen, prüft diese Fassung die **Menge**:
+    // eine fehlende Tabelle fällt durch die Schleife, eine überzählige durch den
+    // Vergleich darunter. Ein Name ohne Zahl kann nicht veralten.
     const rows = await targetOf(sql).query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables
         WHERE table_schema = 'pmh' AND table_type = 'BASE TABLE' ORDER BY table_name`,
     )
     const tables = rows.map((row) => row.table_name)
-    for (const table of [
+    const erwartet = [
       'api_keys',
       'auth_events',
       'auth_sessions',
@@ -280,9 +288,19 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
       'tags',
       'note_tags',
       'links',
-    ]) {
+      // **Neu mit Migration 0008.** Das Sitzungsprotokoll.
+      'session_events',
+      // **Kein `CREATE TABLE` in einer Migration.** Diese Tabelle legt der
+      // Migrationsläufer selbst an — deshalb steht sie in `migrate.test.ts`
+      // nicht in der Liste und hier doch.
+      'schema_migrations',
+    ]
+    for (const table of erwartet) {
       expect(tables).toContain(table)
     }
+    // Und **keine** darüber hinaus. Am 14.10.2026 fehlten hier zwei: der Name
+    // sagte achtzehn, die Datenbank hatte zwanzig.
+    expect(tables).toEqual([...erwartet].sort())
   })
 
   test('das Schema `pmh` ist der Suchpfad der Rollen, `public` bleibt leer', async () => {
