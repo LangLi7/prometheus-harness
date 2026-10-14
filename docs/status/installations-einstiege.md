@@ -53,7 +53,46 @@ mit eigener Lizenz —, und auf Linux braucht das offizielle Skript **root**. De
 Installer **nennt** den Befehl für die jeweilige Plattform und **hält sichtbar
 an**, statt eine Entscheidung über die Lizenz des Benutzers zu treffen.
 
+## Der Ein-Zeilen-Weg ist vorbereitet (gemessen 14.10.2026)
+
+Sobald dieses Repository **öffentlich** ist, ist `curl … | sh` der kürzeste Weg.
+Vorbereitet ist er in `scripts/install.sh` — und dabei kam ein **stiller Fehler**
+heraus, der bis dahin niemandem aufgefallen war:
+
+```sh
+cd -- "$(dirname -- "$0")/.."        # die alte Zeile
+```
+
+Bei einem **Rohr** gibt es **keine Skriptdatei**: `$0` ist dann `sh`, `dirname` ist
+`.`, und der `cd` landet im **Elternverzeichnis des Aufruforts**. Das Skript hätte
+dort „installiert", wo nichts zu installieren ist — **ohne Fehlermeldung**.
+
+**Jetzt gilt:** erst **prüfen** (`istProjekt()` sieht nach `scripts/install.mjs`
+**und** `package.json`), dann **holen**. Übersteuerbar mit `PMH_REPO` und
+`PMH_VERZEICHNIS`, damit der Weg **ohne Netz** prüfbar ist.
+
+### Die Gegenprobe — im echten Rohr, nicht mit Pfad
+
+> **Eine erste Testfassung prüfte nichts und sah grün aus.** Sie rief
+> `sh <pfad>/install.sh` auf. Dann *ist* `$0` dieser Pfad, der Wächter findet
+> daneben das Projekt und wechselt — völlig richtig — hinein. Der Rohr-Fall wurde
+> **gar nicht berührt**. Erst `sh -s -- < argumente` mit **umgeleitetem Eingang**
+> stellt ihn her. Das steht hier, weil der Unterschied nicht sichtbar ist, wenn
+> man nur auf Exit-Codes sieht.
+
+| Fall (echtes Rohr: `sh -s -- --ohne-stapel < install.sh`) | Ergebnis |
+|---|---|
+| Zielordner existiert schon | **exit 1** · **0** Dateien im Ziel (nichts überschrieben) · Meldung „gibt es hier schon" |
+| leeres Verzeichnis | **geklont: JA** · **vollständig: JA** (`unser/scripts/install.mjs`) · „Geholt nach … die Installation läuft dort weiter." |
+
+**Ehrlich dazu:** im zweiten Fall kommt der Exit-Code **1** vom **inneren** Installer
+im geklonten Baum — dort scheitert in WSL **Bun** an seinem eigenen postinstall
+(*„Bun's postinstall script was not run"*). Bewiesen ist damit der **Weg** (prüfen →
+holen → übergeben), **nicht** die Installation darin. Das ist eine eigene
+Baustelle des Linux-Wegs und gehört in die Betriebsnachweise.
+
 ## Der Ablauf in sieben Schritten
+
 
 Der Installer meldet `[n/7]` und endet mit dem Startbefehl. Ohne Datenbank läuft er
 mit `--ohne-stapel`; die PostgreSQL-Prüfungen **überspringen sich dann und sagen
