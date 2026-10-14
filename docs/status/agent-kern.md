@@ -52,16 +52,24 @@ Befehl, nennt die Antwort **und** die Ereignisse, die er hinterläßt.
 | `/goal <Ziel>` | `Goal created · Status: active · Rounds: 0/256 · Activation: armed` | **`goal/change`** + `turn/start` `step/start` `request/header` | **0** |
 | `/plan` | `Plan mode on. Use /plan off to leave.` | **`plan/mode`** | **0** |
 | `/compact` | `Compacted 4 history items (~1154 tokens).` | **`compaction/start/summary/end`** | **0** |
-| `/permission` (ohne Argument) | `current preset workspace-write (available: read-only, workspace-write, danger-full-access)` | **keine** | **1** |
-| `/export`, `/feedback` | *nicht gefahren* | — | offen |
+| `/feedback <Text>` | `Feedback recorded for session …` | **`feedback/record`** | **0** |
+| `/feedback` (ohne Text) | **`error`**: `Feedback text is required. Usage: /feedback <text>` | keine | 1 (richtig) |
+| `/permission` (ohne Argument) | `current preset workspace-write (available: read-only, workspace-write, danger-full-access)` | keine | 1 (Abfrage) |
+| `/export` | `Session log download requested.` | keine | 1 |
+
+**Drei Zeilen mit Exit 1, und sie bedeuten Verschiedenes:**
+
+* **`/feedback` ohne Text ist ein `error` — und das ist richtig.** Der Befehl **weist einen
+  fehlenden Parameter ab**, statt still etwas zu tun. Ein `error` ist hier die **erwünschte**
+  Antwort; die Sonde meldet Exit 1, weil sie „hat nicht gewirkt" sagt, nicht „ist kaputt".
+* **`/permission` ohne Argument ist eine Abfrage** — keine Zustandsänderung ist richtig.
+* **`/export` wird angenommen** (`Session log download requested.`), aber der Kern
+  hinterläßt **keine Spur**: der Download entsteht beim **Client**. Ob er funktioniert, ist
+  auf diesem Weg **nicht meßbar** — das ist eine Grenze der Sonde, kein Befund.
 
 **`/goal` ist der aufschlußreichste Fall:** neben `goal/change` erscheinen `turn/start`,
 `step/start`, `request/header` und `request/context`. Das Ziel **treibt also wirklich eine
 Runde an** — `dsh-goal-round-driver` ist nicht bloß eingehängt, sondern tätig.
-
-**`/permission` ohne Argument ändert nichts — und das ist richtig:** es ist eine
-**Abfrage**. Die Sonde meldet trotzdem Exit 1, weil sie „Wirkung nicht belegt" sagt und
-nicht „Befehl kaputt". Der Unterschied steht im Text der Sonde.
 
 ## 4. Was offen ist — und zwar **benannt**, nicht stillschweigend
 
