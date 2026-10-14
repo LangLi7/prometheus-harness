@@ -300,8 +300,29 @@ function parseArgs(argv) {
   let strictPort = false
   let profile = 'web'
   let home = join(ROOT, '.pmh-build', 'harness-home')
+  const unbekannt = []
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
+    // **`--help` gibt es erst seit dem 14.10.2026 — und es war ein echter Defekt.**
+    // Vorher lief `--help` stillschweigend als „kein Schalter" durch, und der Host
+    // **startete**. Ein Schnellstart, der auf `--help` verweist, war damit nicht
+    // schreibbar, ohne zu lügen.
+    if (arg === '--help' || arg === '-h') {
+      process.stdout.write(
+        'Aufruf: bun run start [Schalter]\n\n' +
+          '  --no-host            nur die Go-Dienste, nicht den Core-Host\n' +
+          '  --no-go              nur den Host, nicht die Go-Dienste\n' +
+          '  --port <n>           Startport (Vorgabe 3080); ist er belegt, wird der naechste freie genommen\n' +
+          '  --port=<n>           dasselbe in einem Argument\n' +
+          '  --strict-port        nicht ausweichen: ist der Port belegt, bricht der Start ab\n' +
+          '  --profile <n>        Profil des Hosts (Vorgabe web)\n' +
+          '  --home <dir>         eigenes Harness-Home (Vorgabe .pmh-build/harness-home im Repo)\n' +
+          '  --help, -h           diese Uebersicht\n\n' +
+          'Umgebung: PMH_PORT (Startport), PMH_HOME (Harness-Home).\n' +
+          'Ein Schalter schlaegt die Umgebungsvariable, diese schlaegt den Standard.\n',
+      )
+      process.exit(0)
+    }
     if (arg === '--no-host') host = false
     else if (arg === '--no-go') go = false
     else if (arg === '--strict-port') strictPort = true
@@ -309,6 +330,17 @@ function parseArgs(argv) {
     else if (arg.startsWith('--port=')) requested = arg.slice('--port='.length)
     else if (arg === '--profile') { profile = argv[i + 1] ?? profile; i += 1 }
     else if (arg === '--home') { home = argv[i + 1] ?? home; i += 1 }
+    // **Unbekannte Schalter werden GEMELDET, nicht geschluckt.** Ein Tippfehler wie
+    // `--strickt-port` bedeutete vorher nur: keine Wirkung — der Starter startete
+    // etwas anderes, als der Aufrufer gemeint hatte, und sagte kein Wort dazu.
+    else unbekannt.push(arg)
+  }
+  if (unbekannt.length > 0) {
+    process.stderr.write(
+      `FEHLER: unbekannte(r) Schalter: ${unbekannt.join(', ')}\n` +
+        'Die vollstaendige Liste steht in `bun run start --help`.\n',
+    )
+    process.exit(2)
   }
   // **Reihenfolge: Argument schlägt Umgebungsvariable schlägt Standard.** Ein
   // ausdrücklich genanntes Argument darf nie von einer Umgebungsvariable
