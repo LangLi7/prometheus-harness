@@ -219,6 +219,75 @@ export function lesePluginWoerterbuecher(text) {
   return raus
 }
 
+/**
+ * **Die Selbstprüfung des Trichters.** In jedem Fach müssen `en` und `zh` **dieselbe**
+ * Schlüsselmenge tragen — es sind zwei Sprachen **desselben** Wörterbuchs.
+ *
+ * ## Warum das nötig war
+ *
+ * Ich hatte in Runde 70 gemeldet, `settings.locale` habe **1** Schlüssel, und das als
+ * **verdächtig** markiert. Nachgeprüft am 14.10.2026:
+ *
+ * ```
+ * en$1 (common):         41 Schlüssel
+ * zh$1 (common):         41 Schlüssel     <- gleich
+ * en  (settings.locale):  1 Schlüssel     language.title
+ * zh  (settings.locale):  1 Schlüssel     <- gleich
+ * ```
+ *
+ * **Der Verdacht war unbegründet** — das Fach trägt wirklich nur `language.title`.
+ * Und die Zahlen liefern die Prüfung gleich mit: **weichen `en` und `zh` ab, ist die
+ * Extraktion kaputt**, nicht das Wörterbuch. Das ist eine Gegenprobe, die ohne
+ * Zusatzaufwand mitläuft — und ein Wächter, dessen Gegenprobe nicht rot werden kann,
+ * mißt nichts.
+ *
+ * @param {string} text - Inhalt des Bündels
+ * @returns {Array<{fach: string, nurEn: number, nurZh: number}>} leere Liste = Paarung stimmt
+ */
+export function pruefeWoerterbuchPaarung(text) {
+  const hol = (variable) => {
+    const kopf = new RegExp(`const\\s+${variable.replace('$', '\\$')}\\s*=\\s*\\{`, 'u').exec(text)
+    if (kopf === null) return null
+    const ab = kopf.index + kopf[0].length
+    let tiefe = 1
+    let i = ab
+    for (; i < text.length && tiefe > 0; i++) {
+      const c = text[i]
+      if (c === '{') tiefe += 1
+      else if (c === '}') tiefe -= 1
+    }
+    const koerper = text.slice(ab, i - 1)
+    const raus = new Set()
+    let ebene = 0
+    for (const zeile of koerper.split('\n')) {
+      const vorher = ebene
+      for (const c of zeile) {
+        if (c === '{') ebene += 1
+        else if (c === '}') ebene -= 1
+      }
+      if (vorher !== 0) continue
+      const m = /^\s*(?:"([^"]+)"|'([^']+)'|([A-Za-z_$][\w$]*))\s*:/u.exec(zeile)
+      const n = m?.[1] ?? m?.[2] ?? m?.[3]
+      if (n !== undefined) raus.add(n)
+    }
+    return raus
+  }
+
+  const abweichungen = []
+  for (const [fach, enVar, zhVar] of [
+    ['common', 'en$1', 'zh$1'],
+    ['settings.locale', 'en', 'zh'],
+  ]) {
+    const en = hol(enVar)
+    const zh = hol(zhVar)
+    if (en === null || zh === null) continue
+    const nurEn = [...en].filter((k) => !zh.has(k)).length
+    const nurZh = [...zh].filter((k) => !en.has(k)).length
+    if (nurEn > 0 || nurZh > 0) abweichungen.push({ fach, nurEn, nurZh })
+  }
+  return abweichungen
+}
+
 function haupt() {
   const wurzel = process.cwd()
   const iPruefen = process.argv.indexOf('--pruefen')
@@ -267,8 +336,10 @@ function haupt() {
   // ---------------------------------------------------------------------------
   const buendelPfad = join(wurzel, KERN, 'dsh-client-locale', 'lib', 'client.js')
   let ausBuendel = {}
+  let buendelText = ''
   try {
-    ausBuendel = lesePluginWoerterbuecher(readFileSync(buendelPfad, 'utf8'))
+    buendelText = readFileSync(buendelPfad, 'utf8')
+    ausBuendel = lesePluginWoerterbuecher(buendelText)
   } catch {
     ausBuendel = {}
   }
@@ -294,6 +365,19 @@ function haupt() {
   console.log(`  Fächer insgesamt:       ${String(jeNamensraum.size)}  (die übrigen sind Behelfsnamen aus Paketnamen — Pakete ohne eigenes NS)`)
   console.log(`  davon aus dem BÜNDEL des Sprach-Plugins: ${String(buendelSchluessel)} Schlüssel in ${String(Object.keys(ausBuendel).length)} Fächern`)
   console.log(`    (${Object.keys(ausBuendel).join(', ')}) — sie stehen in KEINER locales.d.ts`)
+  // **Die Selbstprüfung**, die ohne Zusatzaufwand mitläuft: en und zh müssen je Fach
+  // dieselbe Schlüsselmenge tragen. Weichen sie ab, ist die Extraktion kaputt.
+  const abweichungen = pruefeWoerterbuchPaarung(buendelText)
+  if (abweichungen.length === 0) {
+    console.log('  Selbstprüfung: en und zh tragen in jedem Fach dieselbe Schlüsselmenge — grün')
+  } else {
+    console.log('  SELBSTPRÜFUNG ROT — die Extraktion ist zweifelhaft:')
+    for (const a of abweichungen) {
+      console.log(`    ${a.fach}: ${String(a.nurEn)} nur in en, ${String(a.nurZh)} nur in zh`)
+    }
+    console.log('    Ein Wörterbuch hat in beiden Sprachen dieselben Schlüssel. Eine Abweichung')
+    console.log('    heißt: der Trichter liest falsch. Seine Zahlen sind dann NICHT zu brauchen.')
+  }
   console.log('')
   console.log(`  **Die Zahl, auf die es ankommt, ist die der FÄCHER: ${String(jeNamensraum.size)}.** Ein Sprachpaket`)
   console.log('  liefert Wörterbücher je Namensraum; ein Paket ohne `NS` bildet einen eigenen.')
