@@ -392,6 +392,80 @@ export function wslLage(versionstext, listentext = '') {
   }
 }
 
+/**
+ * Was jedes Werkzeug **kostet**, wenn es fehlt — und ob es überhaupt Pflicht ist.
+ *
+ * ## Warum diese Tabelle existiert (Weisung des Betreibers, 14.10.2026)
+ *
+ * > *„Ziel ist es, plug and play zu machen, möglichst viel automatisch, und nicht
+ * > mehr Troubleshooting."*
+ *
+ * Ein Installer, der nur `FEHLT` schreibt, erzeugt genau die Fehlersuche, die
+ * vermieden werden soll: der Benutzer weiß nicht, ob er **weitermachen kann** oder
+ * ob gleich etwas **bricht**. Deshalb steht zu jedem Werkzeug die **Folge** dabei,
+ * und `pflicht` trennt die beiden Fälle:
+ *
+ *   * **Pflicht** — ohne das läuft nichts (Bun, git).
+ *   * **nicht Pflicht** — ohne das läuft der Host, aber ein **Teil** fehlt
+ *     (Docker: die Datenbank; Go: die Go-Dienste; WSL2: die Sandbox und das
+ *     Docker-Desktop-Backend auf Windows).
+ *
+ * **Und die Einordnung selbst ist eine Entscheidung des Betreibers**, nicht meine:
+ * WSL2 und Docker sind für Windows **Komfort, nicht Bedingung** — sie machen die
+ * Handhabung einfach. Steht ein Werkzeug als Pflicht in dieser Tabelle, obwohl es
+ * nur Komfort ist, blockiert der Installer ein lauffähiges System.
+ *
+ * ## Warum eine reine Tabelle und keine Prüfung
+ *
+ * Weil sie **prüfbar** sein soll: der Test hält fest, daß **jedes** geprüfte
+ * Werkzeug eine Folge nennt und daß die Einstufung vollständig ist. Eine Folge,
+ * die nur in einem `hinweis`-Text irgendwo steht, verliert beim nächsten Umbau
+ * niemand auf — diese Tabelle nicht.
+ */
+export const WERKZEUG_FOLGEN = {
+  bun: {
+    pflicht: true,
+    folge: 'ohne Bun startet weder der Host noch der Installer',
+    quelle: 'https://bun.sh',
+  },
+  git: {
+    pflicht: true,
+    folge: 'ohne git läßt sich das Projekt nicht holen und kein Verlauf gelesen',
+    quelle: 'https://git-scm.com',
+  },
+  docker: {
+    pflicht: false,
+    folge: 'ohne Docker fehlt die Datenbank — der Host startet, aber er kann sich nicht anmelden',
+    quelle: 'https://docs.docker.com/get-docker/',
+  },
+  go: {
+    pflicht: false,
+    folge: 'ohne Go werden die Go-Dienste übersprungen — der Host läuft trotzdem',
+    quelle: 'https://go.dev/dl/',
+  },
+  wsl2: {
+    pflicht: false,
+    folge: 'ohne WSL2 fehlen die Landlock-Sandbox und das Docker-Desktop-Backend — Komfort für Windows, keine Bedingung',
+    quelle: 'wsl --install   (Administrator; meist mit Neustart)',
+  },
+}
+
+/**
+ * Die Folge zu einem Werkzeug — oder ein ehrliches „unbekannt".
+ *
+ * @param name - der logische Name (`'bun'`, `'wsl2'`, …)
+ * @returns die Einstufung mit Folge und Quelle
+ */
+export function werkzeugFolge(name) {
+  const eintrag = WERKZEUG_FOLGEN[name]
+  if (eintrag === undefined) {
+    // **Kein stiller Durchlauf.** Ein geprüftes Werkzeug ohne Eintrag ist ein
+    // Fehler in dieser Tabelle, und er wird benannt statt verschwiegen.
+    return { pflicht: false, folge: `unbekannt — für "${name}" fehlt ein Eintrag in WERKZEUG_FOLGEN`, quelle: undefined }
+  }
+  return eintrag
+}
+
 export const BENOETIGTE_WERKZEUGE = ['bun', 'docker', 'git', 'go']
 
 /**
