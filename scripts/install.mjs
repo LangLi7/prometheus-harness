@@ -233,6 +233,26 @@ export async function pruefeWerkzeuge(deps = { laeuft, laufe, plattform: process
   const ergebnisse = []
   const bunDa = await istDa(werkzeugBefehl('bun'))
   ergebnisse.push({ name: 'bun', ok: bunDa, hinweis: bunDa ? undefined : 'https://bun.sh' })
+  // **WSL2 steht VOR Docker — in der Liste wie in der Sache.** Der eigene Test hat
+  // den Widerspruch gefunden: der Text sagt „WSL2 zuerst, weil Docker Desktop auf
+  // Windows den WSL2-Backend-Weg nimmt", die Liste führte aber Docker zuerst. Wer
+  // von oben nach unten liest, bekam damit den falschen Rat. `native/landlock-run`
+  // ist ein Landlock-Starter (Linux-Kernel) — auch deshalb kommt WSL2 zuerst.
+  // **Nicht still einschalten:** `wsl --install` braucht Administratorrechte und
+  // meist einen Neustart, dieselbe Zurückhaltung wie bei Docker Desktop. `wsl.exe`
+  // schreibt **UTF-16**, deshalb liest `wslLage()` die Ausgabe.
+  if (plattform === 'win32') {
+    const version = await hole(werkzeugBefehl('wsl'), ['--version'])
+    const liste = await hole(werkzeugBefehl('wsl'), ['-l', '-v'])
+    const wsl = wslLage(version.text, liste.text)
+    ergebnisse.push({
+      name: 'wsl2',
+      ok: wsl.bereit,
+      hinweis: wsl.bereit
+        ? undefined
+        : 'wsl --install   (Administrator; meist mit Neustart) — ohne WSL2 bleiben Sandbox und Go-Dienste außen vor',
+    })
+  }
   const dockerDa = await istDa(werkzeugBefehl('docker'), ['--version'])
   ergebnisse.push({
     name: 'docker',
@@ -269,18 +289,6 @@ export async function pruefeWerkzeuge(deps = { laeuft, laufe, plattform: process
   // `wslLage()` die Ausgabe (Falle als Prüfung festgehalten). **Nicht still
   // einschalten:** `wsl --install` braucht Administratorrechte und meist einen
   // Neustart — dieselbe Zurückhaltung wie bei Docker Desktop.
-  if (plattform === 'win32') {
-    const version = await hole(werkzeugBefehl('wsl'), ['--version'])
-    const liste = await hole(werkzeugBefehl('wsl'), ['-l', '-v'])
-    const wsl = wslLage(version.text, liste.text)
-    ergebnisse.push({
-      name: 'wsl2',
-      ok: wsl.bereit,
-      hinweis: wsl.bereit
-        ? undefined
-        : 'wsl --install   (Administrator; meist mit Neustart) — ohne WSL2 bleiben Sandbox und Go-Dienste außen vor',
-    })
-  }
   return { ergebnisse, dockerLaeuft, dockerDa }
 }
 
