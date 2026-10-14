@@ -210,11 +210,30 @@ async function stelleBunSicher() {
  *
  * @returns die Einzelergebnisse
  */
-async function pruefeWerkzeuge() {
+/**
+ * Prüft die Werkzeuge, die dieses Projekt braucht.
+ *
+ * **Warum die Abhängigkeiten eingespeist werden (seit 14.10.2026).** Bis hierher
+ * rief diese Funktion `laeuft`/`laufe` und `process.platform` direkt auf. Damit war
+ * sie **nicht prüfbar**: einen Rechner ohne Go gibt es hier nicht, und ein Test,
+ * der einen solchen braucht, ist keiner. Gemessen war die Folge, daß `install.mjs`
+ * von **keiner** Prüfdatei genannt wurde und die `FEHLT`-Zeilen für **Go** und
+ * **WSL2** nur **gelesen**, nie **ausgeführt** waren.
+ *
+ * Die Vorgaben sind **genau die bisherigen Funktionen** — der Aufruf in `main`
+ * bleibt deshalb unverändert, und das Verhalten ist dasselbe. Der Unterschied ist,
+ * daß ein Test jetzt `laeuft`/`laufe`/`plattform` **ersetzen** kann und damit
+ * jeden Fall herstellen: Go fehlt, WSL2 fehlt, alles da.
+ *
+ * @param deps - die Abhängigkeiten; Vorgabe ist das wirkliche Verhalten
+ * @returns die Einzelergebnisse
+ */
+export async function pruefeWerkzeuge(deps = { laeuft, laufe, plattform: process.platform }) {
+  const { laeuft: istDa, laufe: hole, plattform } = deps
   const ergebnisse = []
-  const bunDa = await laeuft(werkzeugBefehl('bun'))
+  const bunDa = await istDa(werkzeugBefehl('bun'))
   ergebnisse.push({ name: 'bun', ok: bunDa, hinweis: bunDa ? undefined : 'https://bun.sh' })
-  const dockerDa = await laeuft(werkzeugBefehl('docker'), ['--version'])
+  const dockerDa = await istDa(werkzeugBefehl('docker'), ['--version'])
   ergebnisse.push({
     name: 'docker',
     ok: dockerDa,
@@ -222,14 +241,14 @@ async function pruefeWerkzeuge() {
   })
   let dockerLaeuft = false
   if (dockerDa) {
-    dockerLaeuft = await laeuft(werkzeugBefehl('docker'), ['info'])
+    dockerLaeuft = await istDa(werkzeugBefehl('docker'), ['info'])
     ergebnisse.push({
       name: 'docker-Dienst',
       ok: dockerLaeuft,
       hinweis: dockerLaeuft ? undefined : 'installiert, aber nicht erreichbar',
     })
   }
-  const gitDa = await laeuft(werkzeugBefehl('git'))
+  const gitDa = await istDa(werkzeugBefehl('git'))
   ergebnisse.push({ name: 'git', ok: gitDa, hinweis: gitDa ? undefined : 'https://git-scm.com' })
   // **Go — geprüft seit dem 14.10.2026, und der Grund ist gemessen.** `start.mjs`
   // baut die Dienste unter `services/` mit `go build`. Fehlte Go, lief die
@@ -237,32 +256,22 @@ async function pruefeWerkzeuge() {
   // „[pmh-attach] FEHLER: 'go' nicht startbar" und „ÜBERSPRUNGEN — Build
   // fehlgeschlagen": Erfolg am Ende der Installation, Enttäuschung beim ersten
   // Start. Auf dem Entwicklerrechner fiel das nie auf, weil `go` dort im PATH
-  // liegt. Wie bei Docker gilt: **nennen, nicht still installieren** — die
-  // Adresse steht daneben, und der Hinweis sagt, was ohne Go passiert.
-  const goDa = await laeuft(werkzeugBefehl('go'), ['version'])
+  // liegt. Wie bei Docker gilt: **nennen, nicht still installieren.**
+  const goDa = await istDa(werkzeugBefehl('go'), ['version'])
   ergebnisse.push({
     name: 'go',
     ok: goDa,
     hinweis: goDa ? undefined : 'https://go.dev/dl/ — ohne Go werden die Go-Dienste übersprungen',
   })
-  // **WSL2 auf Windows — und zwar VOR Docker (gemessen 14.10.2026).** Zwei Gründe,
-  // beide aus diesem Baum: `native/landlock-run` ist ein **Landlock**-Starter, also
-  // eine Linux-Kernel-Eigenschaft — die Sandbox-Bausteine sind auf Windows nativ
-  // nicht lauffähig. Und Docker Desktop nimmt auf Windows ohnehin den
-  // WSL2-Backend-Weg: Docker zuerst zu installieren führt in den halben Zustand,
-  // den der WSL-Hinweistext weiter unten beschreibt („docker ist da und trotzdem
-  // unbrauchbar").
-  //
-  // **`wsl.exe` schreibt UTF-16** — deshalb liest `wslLage()` die Ausgabe, statt ein
-  // Muster darauf zu werfen; die Falle steht als Prüfung fest
-  // (`scripts/tests/wsl-lage.test.mjs`).
-  //
-  // **Nicht still einschalten.** `wsl --install` braucht Administratorrechte und
-  // verlangt oft einen Neustart — dieselbe Zurückhaltung wie bei Docker Desktop.
-  // Der Installer NENNT den Befehl und die Folge.
-  if (process.platform === 'win32') {
-    const version = await laufe(werkzeugBefehl('wsl'), ['--version'])
-    const liste = await laufe(werkzeugBefehl('wsl'), ['-l', '-v'])
+  // **WSL2 auf Windows — und zwar VOR Docker.** `native/landlock-run` ist ein
+  // **Landlock**-Starter, also eine Linux-Kernel-Eigenschaft; Docker Desktop nimmt
+  // auf Windows den WSL2-Backend-Weg. `wsl.exe` schreibt **UTF-16**, deshalb liest
+  // `wslLage()` die Ausgabe (Falle als Prüfung festgehalten). **Nicht still
+  // einschalten:** `wsl --install` braucht Administratorrechte und meist einen
+  // Neustart — dieselbe Zurückhaltung wie bei Docker Desktop.
+  if (plattform === 'win32') {
+    const version = await hole(werkzeugBefehl('wsl'), ['--version'])
+    const liste = await hole(werkzeugBefehl('wsl'), ['-l', '-v'])
     const wsl = wslLage(version.text, liste.text)
     ergebnisse.push({
       name: 'wsl2',
