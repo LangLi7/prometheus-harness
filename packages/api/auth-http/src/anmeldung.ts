@@ -50,15 +50,35 @@ import { readFile } from 'node:fs/promises'
 import { extname, resolve, sep } from 'node:path'
 import type { ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import { macheWeg, type Weg } from './http.ts'
+// **`sende` wird umbenannt hereingeholt.** Diese Datei hat ein **eigenes** `sende` für HTML
+// (es setzt die Kopfzeilen der Seite); `sende` aus `http.ts` schreibt eine JSON-Antwort.
+// Zwei Funktionen mit demselben Namen wären ein Namensstreit, den der Typlauf gewinnt.
+import { macheWeg, sende as sendeAntwort, type Weg } from './http.ts'
 import { PFAD_SEITE } from './seite.ts'
-import { cookieWert, sitzungsCookieName, werBinIch, type Umgebung } from './wege.ts'
+import { gut, cookieWert, sitzungsCookieName, werBinIch, type Umgebung } from './wege.ts'
+// **Die Sprachtabelle.** Dieselbe Tabelle benutzt die Seite im Browser (`apps/login_web`) —
+// eine Abschrift auf jeder Seite wäre eine zweite Wahrheit.
+import {
+  KEKS_SPRACHE,
+  SPRACHEN,
+  VORGABE_SPRACHE,
+  istSprache,
+  spracheAusKeks,
+  texteFuer,
+  type Texte,
+} from '@prometheus-harness/sprachen'
 
 /** Der Ort der gebauten Anmeldeseite — **am Ursprung des Hosts**, nicht auf einem eigenen Port. */
 export const PFAD_ANMELDUNG = '/anmeldung'
 
 /** Die Schnittstelle **nach** der Anmeldung. */
 export const PFAD_START = '/start'
+
+/** Die angebotenen Sprachen — die Seite im Browser holt sie hier. */
+export const PFAD_SPRACHEN = '/api/pmh/auth/sprachen'
+
+/** Der Name des Parameters, mit dem `/start` die Sprache wechselt (`?sprache=en`). */
+export const PARAMETER_SPRACHE = 'sprache'
 
 /**
  * Die Umgebungsangabe, mit der der Bau woanders liegen darf.
@@ -255,19 +275,36 @@ export function wegBau(bau: string): Weg {
  * ließe sich das nur mit einem echten Konto prüfen — und dann hinge die Sicherheitsprüfung an
  * einer Datenbank.
  *
+ * **Kein Skript auf dieser Seite.** Deshalb kommt die Richtlinie ohne `script-src` aus, und
+ * deshalb ist der Sprachumschalter aus **Links** gebaut: `?sprache=en` setzt den Keks und
+ * leitet zurück. Ein Auswahlfeld hätte JavaScript gebraucht.
+ *
  * @param konto - die gemessene Sitzung
+ * @param texte - die Texte der gewählten Sprache
+ * @param sprache - die Kennung der gewählten Sprache (für `lang` im HTML)
  * @returns die Seite
  */
-export function schnittstelleHtml(konto: { readonly email?: string; readonly displayName?: string; readonly role?: string }): string {
-  const name = entschaerfe(konto.displayName ?? konto.email ?? 'Konto')
+export function schnittstelleHtml(
+  konto: { readonly email?: string; readonly displayName?: string; readonly role?: string },
+  texte: Texte = texteFuer(VORGABE_SPRACHE),
+  sprache: string = VORGABE_SPRACHE,
+): string {
+  const name = entschaerfe(konto.displayName ?? konto.email ?? texte.rolleKonto)
   const adresse = entschaerfe(konto.email)
   const rolle = entschaerfe(konto.role)
+  // Die **angebotene** Sprache steht als Text da, die andere als Link. Der Name jeder Sprache
+  // kommt aus der Tabelle und ist damit ebenfalls entschärft.
+  const wahl = SPRACHEN.map((eine) =>
+    eine.id === sprache
+      ? `<strong>${entschaerfe(eine.label)}</strong>`
+      : `<a href="${PFAD_START}?${PARAMETER_SPRACHE}=${encodeURIComponent(eine.id)}">${entschaerfe(eine.label)}</a>`,
+  ).join(' · ')
   return `<!doctype html>
-<html lang="de">
+<html lang="${entschaerfe(sprache)}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Prometheus Harness — angemeldet</title>
+<title>${texte.startTitel}</title>
 <style>
   :root { color-scheme: light dark; }
   body { margin: 0; padding: 2rem 1rem; font: 16px/1.5 system-ui, sans-serif;
@@ -281,34 +318,29 @@ export function schnittstelleHtml(konto: { readonly email?: string; readonly dis
   li { margin: 0 0 .6rem; }
   a { color: inherit; }
   .hinweis { font-size: .9rem; opacity: .8; border-left: 3px solid currentColor; padding-left: .75rem; }
+  .sprache { font-size: .85rem; opacity: .8; margin: 0 0 1rem; }
   code { font-family: ui-monospace, monospace; font-size: .9em; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Angemeldet</h1>
-  <p class="rolle">${rolle === '' ? 'Konto' : rolle}</p>
+  <p class="sprache">${texte.spracheLabel}: ${wahl}</p>
+  <h1>${texte.startUeberschrift}</h1>
+  <p class="rolle">${rolle === '' ? texte.rolleKonto : rolle}</p>
   <div class="konto">
     <strong>${name}</strong><br>
     <span>${adresse}</span>
   </div>
 
-  <h2 style="font-size:1rem">Weiter</h2>
+  <h2 style="font-size:1rem">${texte.startWeiter}</h2>
   <ul>
-    <li><a href="/">Oberfläche des Harness</a> — verlangt <strong>zusätzlich</strong> den Token
-        aus der Konsole des Hosts (siehe Hinweis unten).</li>
-    <li><a href="${PFAD_ANMELDUNG}/">Anmeldeseite</a> — hier landen, wenn die Anmeldung abläuft.</li>
-    <li><a href="${PFAD_SEITE}">Eingebaute Anmeldeseite</a> — dieselben vier Wege, ohne Bauausgabe.</li>
-    <li><a href="/api/ready">Zustand des Harness</a> — <code>/api/ready</code>, ohne Anmeldung lesbar.</li>
+    <li><a href="/">${texte.startOberflaeche}</a> — ${texte.startOberflaecheHinweis}</li>
+    <li><a href="${PFAD_ANMELDUNG}/">${texte.startAnmeldeseite}</a> — ${texte.startAnmeldeseiteHinweis}</li>
+    <li><a href="${PFAD_SEITE}">${texte.startEingebaut}</a> — ${texte.startEingebautHinweis}</li>
+    <li><a href="/api/ready">${texte.startZustand}</a> — ${texte.startZustandHinweis}</li>
   </ul>
 
-  <p class="hinweis">
-    <strong>Zwei Türen, noch nicht verbunden.</strong> Diese Anmeldung ist die Konto-Tür:
-    sie sagt, <em>wer</em> du bist. Die Oberfläche verlangt die Token-Tür: sie sagt nur,
-    <em>daß</em> jemand den Rechner bedienen darf. Der Token steht in der Konsole des Hosts
-    und wechselt bei jedem Start. Deshalb steht er hier <strong>nicht</strong> — er gilt für
-    alles, und in einer Adreßzeile stünde er im Verlauf und im Zugriffsprotokoll.
-  </p>
+  <p class="hinweis"><strong>${texte.zweiTuerenTitel}</strong> ${texte.zweiTueren}</p>
 </main>
 </body>
 </html>
@@ -321,11 +353,32 @@ export function schnittstelleHtml(konto: { readonly email?: string; readonly dis
  * Ohne gültige Sitzung wird auf die Anmeldeseite umgeleitet — **303**, damit ein Neuladen
  * nicht den `GET` auf `/start` wiederholt, sondern der Adreßzeile folgt.
  *
+ * **Der Sprachwechsel geht über die Adresse**: `?sprache=en` setzt den Keks und leitet auf
+ * `/start` **ohne** Parameter zurück. So braucht der Umschalter kein Skript. Der Keks ist
+ * **nicht** `HttpOnly` — die Seite im Browser muß ihn lesen und setzen können, genau wie den
+ * CSRF-Keks. Er enthält auch nichts Geheimes: eine Sprache ist keine Berechtigung.
+ *
  * @param umg - die Umgebung (Sitzungsspeicher)
  * @returns der Weg
  */
 export function wegStart(umg: Umgebung): Weg {
   return async (req, res) => {
+    const adresse = new URL(req.url ?? '/', 'http://127.0.0.1')
+    const gewuenscht = adresse.searchParams.get(PARAMETER_SPRACHE)
+    const ausKeks = spracheAusKeks(req.headers.cookie)
+    const gilt = gewuenscht !== null && istSprache(gewuenscht) ? gewuenscht : ausKeks
+
+    if (gewuenscht !== null && istSprache(gewuenscht) && gewuenscht !== ausKeks) {
+      res.writeHead(303, {
+        location: PFAD_START,
+        'set-cookie': `${KEKS_SPRACHE}=${encodeURIComponent(gewuenscht)}; Path=/; SameSite=Strict`,
+        'cache-control': 'no-store',
+        'content-length': '0',
+      })
+      res.end()
+      return
+    }
+
     const geprueft = await werBinIch(umg, { token: cookieWert(req.headers.cookie, sitzungsCookieName(umg)) })
     if (geprueft.status !== 200 || geprueft.koerper === undefined) {
       leiteUm(res, `${PFAD_ANMELDUNG}/`)
@@ -340,12 +393,31 @@ export function wegStart(umg: Umgebung): Weg {
       ...(typeof wert.displayName === 'string' ? { displayName: wert.displayName } : {}),
       ...(typeof wert.role === 'string' ? { role: wert.role } : {}),
     }
-    sende(res, CSP_HUB, 'text/html; charset=utf-8', schnittstelleHtml(konto))
+    sende(res, CSP_HUB, 'text/html; charset=utf-8', schnittstelleHtml(konto, texteFuer(gilt), gilt))
   }
 }
 
 /**
- * Beide Wege, fertig für `ctx.webServer.register`.
+ * Der Weg, der die **angebotenen Sprachen** nennt.
+ *
+ * **Warum der Rechner das sagt und nicht die Seite.** Die Seite im Browser könnte die Liste
+ * mitbündeln — dann stünde sie aber an zwei Stellen, und eine neue Sprache müßte zweimal
+ * eingetragen werden. Hier ist der Rechner die Quelle: die Seite holt die Liste und fällt auf
+ * die mitgebündelte zurück, falls der Aufruf scheitert.
+ *
+ * @returns der Weg
+ */
+export function wegSprachen(): Weg {
+  return async (_req, res) => {
+    sendeAntwort(
+      res,
+      gut({ sprachen: SPRACHEN.map((sprache) => ({ id: sprache.id, label: sprache.label })), vorgabe: VORGABE_SPRACHE }),
+    )
+  }
+}
+
+/**
+ * Alle Wege dieses Moduls, fertig für `ctx.webServer.register`.
  *
  * **`prefix` für die Anmeldeseite**, weil sie ihre Bündel unter `/anmeldung/assets/…` lädt:
  * `prefix p` trifft `p` **und** `p/<beliebiges>` (gemessen am Kern,
@@ -359,5 +431,6 @@ export function anmeldungsWege(umg: Umgebung, bau: string): readonly WebRoute[] 
   return [
     { kind: 'prefix', path: PFAD_ANMELDUNG, handler: macheWeg('GET', wegBau(bau), 'anmeldung-bau') },
     { kind: 'exact', path: PFAD_START, handler: macheWeg('GET', wegStart(umg), 'anmeldung-start') },
+    { kind: 'exact', path: PFAD_SPRACHEN, handler: macheWeg('GET', wegSprachen(), 'anmeldung-sprachen') },
   ]
 }

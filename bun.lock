@@ -203,6 +203,10 @@
       "name": "@prometheus-harness/home-paths",
       "version": "0.0.0",
     },
+    "packages/util/sprachen": {
+      "name": "@prometheus-harness/sprachen",
+      "version": "0.0.0",
+    },
   },
   "packages": {
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.129.0", "", { "dependencies": { "json-schema-to-ts": "^3.1.1", "standardwebhooks": "^1.0.0" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-MH7LB20kNpGLUpPTe2OG5XvL/KhX8HUO9XyBaFjgFk6TLS4Xjt0VPIuMKywe7POKKPslX+QxSlVok9e+8kG5Nw=="],
@@ -972,6 +976,8 @@
     "@prometheus-harness/speech-nemo-de-local": ["@prometheus-harness/speech-nemo-de-local@workspace:packages/api/speech-nemo-de-local"],
 
     "@prometheus-harness/speech-whisper-local": ["@prometheus-harness/speech-whisper-local@workspace:packages/api/speech-whisper-local"],
+
+    "@prometheus-harness/sprachen": ["@prometheus-harness/sprachen@workspace:packages/util/sprachen"],
 
     "@prometheus-harness/store-postgres": ["@prometheus-harness/store-postgres@workspace:packages/auth/store-postgres"],
 

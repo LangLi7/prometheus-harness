@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/sprachen",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Die Sprachtabelle der Anmeldung: Deutsch und Englisch an einer Stelle, für die Seite im Browser und für die Seiten des Rechners.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test"
+  }
+}

@@ -5,17 +5,23 @@
  *
  * 1. Beim Laden fragt die Seite `/api/pmh/auth/me`. Ist man angemeldet, zeigt sie das Konto
  *    und den Weg weiter; sonst das Formular.
- * 2. Nach erfolgreicher Anmeldung leitet sie auf das Ziel aus `src/weiter.ts` weiter
- *    (Vorgabe oder `?weiter=…`, **nur relative Ziele**).
+ * 2. Nach erfolgreicher Anmeldung zeigt sie den Weg nach `/start` an (die Schnittstelle des
+ *    Rechners). **Automatisch** leitet sie nicht weiter — die Einstellung dafür gibt es noch
+ *    nicht (siehe `src/weiter.ts`).
  * 3. Beim Konto-Anlegen ist das **Claim-Token** das Feld, das heute zählt: solange **kein**
  *    Admin im Bestand ist, verlangt der Server es (gemessen: 403 `claim-fehlt`), und das erste
  *    so angelegte Konto wird `admin`.
  *
- * ## Was hier **nicht** passiert
+ * ## Die Sprache
  *
- * Keine eigene Fehlerdichtung. Die Meldungen des Servers sind deutsch und genau — sie werden
- * **wörtlich** angezeigt. Eine zweite Formulierung wäre eine zweite Wahrheit, und die Seite
- * weiß nicht, welcher Fall vorliegt (etwa `claim-anderer-rechner`).
+ * Die Texte kommen aus `@prometheus-harness/sprachen` — **demselben** Paket, aus dem der
+ * Rechner seine Seite `/start` baut. Keine Abschrift, also keine zweite Wahrheit. Der
+ * Umschalter schreibt den Keks `pmh_sprache`; dieselbe Wahl gilt danach auch für `/start`.
+ *
+ * **Die Meldungen des Rechners bleiben vorerst deutsch.** Sie kommen wörtlich vom Server
+ * (`zugangsdaten-falsch` → „Adresse oder Passwort ist falsch."), und der Server kennt heute
+ * keine Sprachwahl. Eine übersetzte Oberfläche mit deutschen Fehlermeldungen ist besser als
+ * geratene Übersetzungen — aber es ist eine offene Stelle, kein fertiger Zustand.
  *
  * @module @prometheus-harness/login-web/App
  */
@@ -24,7 +30,9 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ReactElement } from 'react'
 import { abmelden, anmelden, ich, registrieren } from './api.ts'
 import type { AuthFehler, Konto } from './api.ts'
-import { ermittleZiel, ZIEL_PARAMETER } from './weiter.ts'
+import { ermittleZiel } from './weiter.ts'
+import { SPRACHEN, gewaehlteSprache, ladeSprachliste, merkeSprache, texteFuer } from './sprache.ts'
+import type { Sprache, Texte } from './sprache.ts'
 
 /** Welches Formular sichtbar ist. */
 type Ansicht = 'anmelden' | 'registrieren'
@@ -71,6 +79,41 @@ function Feld(props: {
 }
 
 /**
+ * Der Umschalter für die Sprache.
+ *
+ * Die Liste kommt vom Rechner (`/api/pmh/auth/sprachen`), mit der mitgebündelten Liste als
+ * Rückfall — deshalb wird `liste` hereingereicht und nicht hier geholt.
+ *
+ * @param props - die angebotenen Sprachen, die gewählte und die Änderung
+ * @returns das Auswahlfeld
+ */
+function Sprachwahl(props: {
+  readonly liste: readonly Sprache[]
+  readonly gewaehlt: string
+  readonly label: string
+  readonly aendern: (id: string) => void
+}): ReactElement {
+  return (
+    <p className="sprachwahl">
+      <label htmlFor="sprache">{props.label}</label>{' '}
+      <select
+        id="sprache"
+        value={props.gewaehlt}
+        onChange={(e) => {
+          props.aendern(e.target.value)
+        }}
+      >
+        {props.liste.map((sprache) => (
+          <option key={sprache.id} value={sprache.id}>
+            {sprache.label}
+          </option>
+        ))}
+      </select>
+    </p>
+  )
+}
+
+/**
  * Die Anmeldeseite.
  *
  * @returns die Seite
@@ -82,11 +125,15 @@ export function App(): ReactElement {
   const [fehler, setFehler] = useState<AuthFehler | undefined>(undefined)
   const [laeuft, setLaeuft] = useState(false)
 
+  const [sprache, setSprache] = useState<string>(() => gewaehlteSprache())
+  const [liste, setListe] = useState<readonly Sprache[]>(SPRACHEN)
+
   const [email, setEmail] = useState('')
   const [passwort, setPasswort] = useState('')
   const [name, setName] = useState('')
   const [claim, setClaim] = useState('')
 
+  const texte: Texte = texteFuer(sprache)
   const ziel = ermittleZiel(window.location.search)
 
   /** Wer bin ich? Beim Laden und nach jeder Änderung. */
@@ -99,6 +146,24 @@ export function App(): ReactElement {
   useEffect(() => {
     void nachsehen()
   }, [nachsehen])
+
+  // Die angebotenen Sprachen holt der Rechner — er ist die Quelle, nicht die Seite.
+  useEffect(() => {
+    void ladeSprachliste().then((geholt) => {
+      setListe(geholt)
+    })
+  }, [])
+
+  // Der Fenstertitel gehört zur Sprache.
+  useEffect(() => {
+    document.title = texte.seitenTitel
+  }, [texte])
+
+  /** Wechselt die Sprache und merkt sie im Keks. */
+  const wechsleSprache = (id: string): void => {
+    setSprache(id)
+    merkeSprache(id)
+  }
 
   /** Führt eine Aktion aus und zeigt den Fehler des Servers **wörtlich**. */
   const mache = async (arbeit: () => Promise<{ ok: boolean; error?: AuthFehler }>): Promise<void> => {
@@ -149,8 +214,8 @@ export function App(): ReactElement {
   if (!geprueft) {
     return (
       <main className="karte">
-        <h1>Prometheus Harness</h1>
-        <p className="still">Einen Augenblick…</p>
+        <h1>{texte.titel}</h1>
+        <p className="still">{texte.laden}</p>
       </main>
     )
   }
@@ -159,18 +224,21 @@ export function App(): ReactElement {
   if (konto !== undefined) {
     return (
       <main className="karte">
-        <h1>Angemeldet</h1>
+        <Sprachwahl liste={liste} gewaehlt={sprache} label={texte.spracheLabel} aendern={wechsleSprache} />
+        <h1>{texte.angemeldet}</h1>
         <p>
-          <strong>{konto.displayName ?? konto.email ?? 'Konto'}</strong>
+          <strong>{konto.displayName ?? konto.email ?? texte.rolleKonto}</strong>
           {konto.role !== undefined && <span className="rolle"> {konto.role}</span>}
         </p>
-        <p className="still">Weiter zu <code>{ziel}</code></p>
+        <p className="still">
+          {texte.weiterZu} <code>{ziel}</code>
+        </p>
         <div className="knoepfe">
           <a className="knopf" href={ziel}>
-            Weiter
+            {texte.weiter}
           </a>
           <button type="button" className="knopf zweit" disabled={laeuft} onClick={() => void beimAbmelden()}>
-            Abmelden
+            {texte.abmelden}
           </button>
         </div>
         {fehler !== undefined && <p className="fehler">{fehler.message}</p>}
@@ -181,37 +249,29 @@ export function App(): ReactElement {
   // ---- Nicht angemeldet ----
   return (
     <main className="karte">
-      <h1>Prometheus Harness</h1>
-      <p className="still">
-        {ansicht === 'anmelden' ? 'Melde dich an.' : 'Lege das Konto an.'}
-      </p>
+      <Sprachwahl liste={liste} gewaehlt={sprache} label={texte.spracheLabel} aendern={wechsleSprache} />
+      <h1>{texte.titel}</h1>
+      <p className="still">{ansicht === 'anmelden' ? texte.bitteAnmelden : texte.bitteAnlegen}</p>
 
       <form onSubmit={(e) => void (ansicht === 'anmelden' ? beimAnmelden(e) : beimRegistrieren(e))}>
-        <Feld id="email" label="Adresse" typ="email" wert={email} aendern={setEmail} />
+        <Feld id="email" label={texte.feldAdresse} typ="email" wert={email} aendern={setEmail} />
         <Feld
           id="passwort"
-          label="Passwort"
+          label={texte.feldPasswort}
           typ="password"
           wert={passwort}
           aendern={setPasswort}
-          {...(ansicht === 'registrieren' ? { hinweis: 'Mindestens 8 Zeichen.' } : {})}
+          {...(ansicht === 'registrieren' ? { hinweis: texte.passwortHinweis } : {})}
         />
         {ansicht === 'registrieren' && (
           <>
-            <Feld id="name" label="Anzeigename (freiwillig)" typ="text" wert={name} aendern={setName} />
-            <Feld
-              id="claim"
-              label="Claim-Token"
-              typ="password"
-              wert={claim}
-              aendern={setClaim}
-              hinweis="Solange kein Admin existiert: der Wert aus claim.txt im Harness-Home. Das erste Konto wird damit Admin."
-            />
+            <Feld id="name" label={texte.feldName} typ="text" wert={name} aendern={setName} />
+            <Feld id="claim" label={texte.feldClaim} typ="password" wert={claim} aendern={setClaim} hinweis={texte.claimHinweis} />
           </>
         )}
         <div className="knoepfe">
           <button type="submit" className="knopf" disabled={laeuft}>
-            {ansicht === 'anmelden' ? 'Anmelden' : 'Konto anlegen'}
+            {ansicht === 'anmelden' ? texte.knopfAnmelden : texte.knopfKontoAnlegen}
           </button>
           <button
             type="button"
@@ -222,7 +282,7 @@ export function App(): ReactElement {
               setFehler(undefined)
             }}
           >
-            {ansicht === 'anmelden' ? 'Konto anlegen' : 'Zur Anmeldung'}
+            {ansicht === 'anmelden' ? texte.knopfKontoAnlegen : texte.knopfZurAnmeldung}
           </button>
         </div>
       </form>
@@ -233,10 +293,7 @@ export function App(): ReactElement {
         </p>
       )}
 
-      <p className="fuss">
-        Das Ziel nach der Anmeldung ist <code>?{ZIEL_PARAMETER}=…</code> — später aus den
-        Einstellungen.
-      </p>
+      <p className="fuss">{texte.fussZiel}</p>
     </main>
   )
 }

@@ -176,3 +176,37 @@ h1 {
   color: var(--still);
   font-size: 12px;
 }
+
+/*
+ * Der Umschalter für die Sprache.
+ *
+ * **Eigener Grund und eigene Schriftfarbe — auch für das `select` selbst.** Genau hier ist mir
+ * der Fehler weiß-auf-weiß schon einmal passiert: bei einem **nativen** Auswahlfeld zeichnet
+ * der Browser das aufgeklappte Fenster selbst und leitet dessen Farben vom **`select`-Element**
+ * ab (gemessen, siehe `docs/status/spracheingabe.md` §7). Deshalb steht `color-scheme` auf
+ * `:root`, und deshalb bekommt das Feld hier beides: Grund und Schrift.
+ */
+.sprachwahl {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--still);
+}
+
+.sprachwahl select {
+  padding: 4px 7px;
+  border: 1px solid var(--rand);
+  border-radius: 6px;
+  background: var(--feld);
+  color: var(--schrift);
+  font: inherit;
+}
+
+.sprachwahl select:focus-visible {
+  outline: 2px solid var(--akzent);
+  outline-offset: 1px;
+}
+

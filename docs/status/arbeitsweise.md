@@ -505,3 +505,29 @@ Gegenprobe gegen die eigene Bequemlichkeit gehört dazu: ist die gelesene Zahl �
 gelesen, aufgeschrieben — und beim Hinzufügen der Migration trotzdem viermal verletzt, weil die
 Zahl diesmal **in einer Prüfung** stand und nicht im Code. Eine Regel, die nur für den Code
 gilt, gilt nicht.
+
+---
+
+## 31. Ein Dokument ist für den Leser da: **knapp und deutsch**
+
+**Der Fall.** Ich habe die Dateien dieser Runde immer dichter geschrieben: lange Sätze, Tabellen
+in Tabellen, Blockzitate in Blockzitaten, und englische Fachwörter für Dinge, die auf deutsch
+einen Namen haben (Host, Route, Claim, Token). Der Betreiber hat es gelesen und gesagt:
+*„ich meinte den komische md"* — die Dateien sind **komisch**. Sie sollten **eng und deutsch**
+sein.
+
+**Die Regel.** Geschrieben wird, wie ein Mensch liest:
+
+1. **Kurze Sätze.** Eine Aussage je Absatz.
+2. **Deutsche Wörter, wo es deutsche gibt**: Rechner statt Host, Weg statt Route, Anspruch statt
+   Claim, Spur statt Audit-Trail. Fachwörter bleiben nur dort, wo sie **Namen** sind — ein
+   Befehl, ein Feldname, ein Kürzel im Quelltext.
+3. **Tabellen nur für Zahlen und Vergleiche**, nicht als Bauform für Prosa.
+4. **Die Zahl zuerst**, die Erklärung danach. Wer nur eine Zeile liest, soll die Zahl gelesen
+   haben.
+5. **Kein Selbstlob und keine Selbstanklage.** „Ich habe es gemessen" steht einmal, nicht in
+   jedem Absatz.
+
+**Die Gegenprobe.** Ein Dokument ist gut, wenn der Betreiber es **in einem Zug** lesen kann und
+danach weiß, was gebaut wurde, was gemessen ist und was fehlt. Mißt man sich an der Länge der
+Datei, hat man schon verloren — sie ist ein Mittel, kein Ergebnis.

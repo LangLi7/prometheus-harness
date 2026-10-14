@@ -123,7 +123,9 @@ export {
 
 export {
   ANGABE_BAU,
+  PARAMETER_SPRACHE,
   PFAD_ANMELDUNG,
+  PFAD_SPRACHEN,
   PFAD_START,
   anmeldungsWege,
   bauVerzeichnis,
@@ -131,6 +133,7 @@ export {
   entschaerfe,
   schnittstelleHtml,
   wegBau,
+  wegSprachen,
   wegStart,
 } from './anmeldung.ts'
 

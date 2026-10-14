@@ -42,11 +42,14 @@ import { join } from 'node:path'
 import postgres from 'postgres'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { Argon2PasswordHasher, MemoryRateLimiter } from '@prometheus-harness/auth'
+import { KEKS_SPRACHE, VORGABE_SPRACHE, SPRACHEN, texteFuer } from '@prometheus-harness/sprachen'
 import { erzeugeSpeicher, type SqlZugang } from '@prometheus-harness/store-postgres'
 import { claimAblageImHome } from '../src/claim-ablage.ts'
 import {
   ANGABE_BAU,
+  PARAMETER_SPRACHE,
   PFAD_ANMELDUNG,
+  PFAD_SPRACHEN,
   PFAD_START,
   anmeldungsWege,
   bauVerzeichnis,
@@ -316,8 +319,77 @@ describe('Die Schnittstelle `/start`', () => {
   // 500" zuläßt, behauptet nichts — der Fall steht unten mit einer echten Datenbank.
 })
 
-describe('Der Entschärfer für HTML', () => {
-  test('entschärft die fünf Zeichen, die zählen', () => {
+// ---------------------------------------------------------------------------
+// Die Sprache — die Liste, der Wechsel, die englische Seite
+// ---------------------------------------------------------------------------
+
+describe('Die angebotenen Sprachen', () => {
+  test('die Liste kommt vom Rechner — nicht aus der Seite', async () => {
+    const antwort = await fetch(`${basis}${PFAD_SPRACHEN}`)
+    expect(antwort.status).toBe(200)
+    const koerper = (await antwort.json()) as {
+      readonly ok?: boolean
+      readonly value?: { readonly sprachen?: readonly { readonly id: string }[]; readonly vorgabe?: string }
+    }
+    expect(koerper.ok).toBe(true)
+    expect(koerper.value?.vorgabe).toBe(VORGABE_SPRACHE)
+    expect(koerper.value?.sprachen?.map((s) => s.id)).toEqual(SPRACHEN.map((s) => s.id))
+  })
+
+  test('eine andere Methode wird abgewiesen', async () => {
+    const antwort = await fetch(`${basis}${PFAD_SPRACHEN}`, { method: 'POST' })
+    expect(antwort.status).toBe(405)
+  })
+})
+
+describe('Der Sprachwechsel auf `/start`', () => {
+  test('`?sprache=en` setzt den Keks und leitet auf `/start` zurück', async () => {
+    const antwort = await fetch(`${basis}${PFAD_START}?${PARAMETER_SPRACHE}=en`, { redirect: 'manual' })
+    expect(antwort.status).toBe(303)
+    expect(antwort.headers.get('location')).toBe(PFAD_START)
+    const keks = antwort.headers.get('set-cookie') ?? ''
+    expect(keks).toContain(`${KEKS_SPRACHE}=en`)
+    expect(keks).toContain('Path=/')
+    // **`SameSite=Strict` wie die anderen Kekse.** Der Keks verläßt den Ursprung nicht.
+    expect(keks).toContain('SameSite=Strict')
+  })
+
+  test('eine erfundene Sprache setzt NICHTS', async () => {
+    const antwort = await fetch(`${basis}${PFAD_START}?${PARAMETER_SPRACHE}=klingonisch`, { redirect: 'manual' })
+    expect(antwort.status).toBe(303)
+    // Ohne Sitzung geht es zur Anmeldeseite — und ein Keks mit einer erfundenen Sprache
+    // entsteht gar nicht erst.
+    expect(antwort.headers.get('location')).toBe(`${PFAD_ANMELDUNG}/`)
+    expect(antwort.headers.get('set-cookie')).toBeNull()
+  })
+})
+
+describe('Die Schnittstelle in beiden Sprachen', () => {
+  test('englische Texte werden wirklich benutzt', () => {
+    const html = schnittstelleHtml({ email: 'ada@example.org' }, texteFuer('en'), 'en')
+    expect(html).toContain('Signed in')
+    expect(html).toContain('lang="en"')
+    expect(html).not.toContain('>Angemeldet<')
+  })
+
+  test('der Umschalter ist aus LINKS gebaut — kein Skript auf der Seite', () => {
+    const html = schnittstelleHtml({ email: 'ada@example.org' }, texteFuer('de'), 'de')
+    expect(html).toContain(`${PFAD_START}?${PARAMETER_SPRACHE}=en`)
+    expect(html).not.toContain('<script')
+    // Die gewählte Sprache steht als Text da, nicht als Link auf sich selbst.
+    expect(html).toContain('<strong>Deutsch</strong>')
+  })
+
+  test('eine Sprachkennung mit HTML wird entschärft', () => {
+    // Die Kennung kommt aus dem Keks und damit vom Aufrufer — sie wird im `lang`-Attribut
+    // ausgegeben und darf dort nichts anrichten.
+    const html = schnittstelleHtml({ email: 'ada@example.org' }, texteFuer('de'), '<script>boese()</script>')
+    expect(html).not.toContain('<script>boese()')
+    expect(html).toContain('&lt;script&gt;')
+  })
+})
+
+describe('Der Entschärfer für HTML', () => {  test('entschärft die fünf Zeichen, die zählen', () => {
     expect(entschaerfe('<script>"x" & \'y\'</script>')).toBe('&lt;script&gt;&quot;x&quot; &amp; &#39;y&#39;&lt;/script&gt;')
   })
 
@@ -491,6 +563,17 @@ mitDatenbank('Mit einem echten Konto', () => {
     // ganze Kette (Datenbank → Sitzung → HTML) und ist dort **Text**, kein Tag.
     expect(html).toContain('&lt;img')
     expect(html).not.toContain('<img')
+  })
+
+  test('mit englischem Keks zeigt `/start` die englische Seite — mit echtem Konto', async () => {
+    const antwort = await fetch(`${einer.basis}${PFAD_START}`, {
+      headers: { cookie: `pmh_session=${token}; ${KEKS_SPRACHE}=en` },
+    })
+    expect(antwort.status).toBe(200)
+    const html = await antwort.text()
+    expect(html).toContain('Signed in')
+    expect(html).toContain(ADRESSE)
+    expect(html).not.toContain('>Angemeldet<')
   })
 
   test('ein erfundenes Token führt auch mit echter Datenbank zur Anmeldeseite', async () => {
