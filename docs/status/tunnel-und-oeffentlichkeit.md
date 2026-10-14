@@ -149,7 +149,21 @@ Was das heißt:
 **Die Konto-Anmeldung ändert daran nichts.** Sie ist die zweite Tür und gibt heute **keinen**
 Zugang zur Oberfläche. Genau das steht auf `/start`.
 
-**Wie man es selbst prüft:** ein Inkognito-Fenster (dort ist kein Keks) — `/` antwortet 401.
+**Wie man es selbst prüft:** ein Inkognito-Fenster oder ein **anderer Browser** (dort ist kein
+Keks) — `/` antwortet 401. Der Keks liegt **je Browser**, nicht je Rechner.
+
+**Korrektur zweier falscher Sätze (14.10.2026).** Hier stand zuerst: der Keks trage den Token
+**im Namen**, und jeder Neustart werfe alle Browser hinaus. **Beides war falsch**, und der Test,
+auf den ich es stützte, hat nichts geprüft: ich hatte den Keks selbst gebaut und `=1` als Wert
+geschickt — ein erfundener Wert wird immer abgewiesen. Im Quelltext nachgelesen
+(`dsh-client-connection/lib/index.js:394-414, 484-494`):
+
+- Der **Name** kommt von der Adresse (`cookieName(authority)`), nicht vom Token.
+- Der **Wert** ist **signiert** mit einem dauerhaften Geheimnis, das im Harness-Home liegt
+  („create its durable signing secret when this Harness home has none"). Der Keks gilt also
+  **auch nach einem Neustart** weiter, solange Adresse und Port gleich bleiben.
+
+Gemessen bleibt: ohne Keks 401, mit erfundenem Wert 401, mit gültigem Keks 200.
 
 ## 4. Was am DSH-Host selbst gemessen ist
 | Frage | Antwort (gemessen) |

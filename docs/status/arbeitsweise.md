@@ -531,3 +531,19 @@ sein.
 **Die Gegenprobe.** Ein Dokument ist gut, wenn der Betreiber es **in einem Zug** lesen kann und
 danach weiß, was gebaut wurde, was gemessen ist und was fehlt. Mißt man sich an der Länge der
 Datei, hat man schon verloren — sie ist ein Mittel, kein Ergebnis.
+
+---
+
+## 32. Ein Bild zeigt den **Zustand**, nicht die **Ursache**
+
+**Der Fall.** Der Betreiber schickte einen Bildschirmausschnitt: im Browser stand *„dsh web
+authentication required; reopen the URL printed by dsh web."* Ich hatte kurz zuvor den Host neu
+gestartet und schloß: **der Neustart** hat den Token gewechselt, der alte Keks ist tot, daher die
+Seite. Gemessen stimmte das sogar — ein Keks mit dem alten Token wird abgewiesen. Nur war es
+nicht sein Fall: er hatte **einen anderen Browser** benutzt, in dem es nie einen Keks gab.
+
+**Die Regel.** Aus einem Bild wird der **Zustand** abgelesen, nicht die Ursache. Bevor eine
+Ursache behauptet wird, werden die Erklärungen **gegeneinander** geprüft — die einfachste zuerst.
+Daß man gerade selbst etwas getan hat, macht es nicht zur Ursache; es macht es nur zur
+naheliegenden. **Und wenn der Beobachtende erreichbar ist: fragen.** Eine Frage kostet einen
+Satz. Eine falsche Ursache kostet den Glauben an alle anderen Messungen — auch an die richtigen.

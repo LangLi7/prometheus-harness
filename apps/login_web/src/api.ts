@@ -149,3 +149,14 @@ export function ich(): Promise<Ergebnis<Konto>> {
 export function abmelden(): Promise<Ergebnis<unknown>> {
   return ruf('/api/pmh/auth/logout', {}, { [CSRF_KOPF]: keksWert(CSRF_KEKS) })
 }
+
+/**
+ * Holt die Adresse der Oberfläche des Rechners.
+ *
+ * **Nur ein Administrator bekommt sie** (der Server antwortet sonst 403 `kein-admin`). Die
+ * Adresse trägt den Zugangsschlüssel, deshalb wird sie **nicht** angezeigt, sondern nur
+ * geöffnet.
+ */
+export function zugang(): Promise<Ergebnis<{ readonly url?: string }>> {
+  return ruf<{ readonly url?: string }>('/api/pmh/auth/zugang')
+}

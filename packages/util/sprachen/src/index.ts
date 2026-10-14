@@ -83,6 +83,10 @@ export interface Texte {
   readonly knopfAnmelden: string
   readonly knopfKontoAnlegen: string
   readonly knopfZurAnmeldung: string
+  /** Der Knopf, der die Oberfläche des Rechners öffnet — nur für Administratoren. */
+  readonly knopfZumHarness: string
+  /** Der Hinweis unter diesem Knopf. */
+  readonly zugangHinweis: string
   /** Fußnote: woher das Ziel nach der Anmeldung kommt. */
   readonly fussZiel: string
   /** Fenstertitel der Schnittstelle `/start`. */
@@ -126,6 +130,8 @@ const DE: Texte = {
   knopfAnmelden: 'Anmelden',
   knopfKontoAnlegen: 'Konto anlegen',
   knopfZurAnmeldung: 'Zur Anmeldung',
+  knopfZumHarness: 'Oberfläche öffnen',
+  zugangHinweis: 'Nur als Administrator. Der Zugangsschlüssel steht dabei einmal in der Adreßzeile.',
   fussZiel: 'Das Ziel nach der Anmeldung ist ?weiter=… — später aus den Einstellungen.',
   startTitel: 'Prometheus Harness — angemeldet',
   startUeberschrift: 'Angemeldet',
@@ -169,6 +175,8 @@ const EN: Texte = {
   knopfAnmelden: 'Sign in',
   knopfKontoAnlegen: 'Create account',
   knopfZurAnmeldung: 'Back to sign in',
+  knopfZumHarness: 'Open the interface',
+  zugangHinweis: 'Administrators only. The access key appears once in the address line.',
   fussZiel: 'The target after signing in is ?weiter=… — later from the settings.',
   startTitel: 'Prometheus Harness — signed in',
   startUeberschrift: 'Signed in',

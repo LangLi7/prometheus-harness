@@ -210,3 +210,19 @@ h1 {
   outline-offset: 1px;
 }
 
+/*
+ * Der Zugang zur Oberfläche des Rechners — nur für Administratoren.
+ */
+.zugang {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  margin: 0 0 16px;
+}
+
+.zugang small {
+  color: var(--still);
+  font-size: 12px;
+}
+
+

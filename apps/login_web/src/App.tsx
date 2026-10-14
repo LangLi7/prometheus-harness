@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { ReactElement } from 'react'
-import { abmelden, anmelden, ich, registrieren } from './api.ts'
+import { abmelden, anmelden, ich, registrieren, zugang } from './api.ts'
 import type { AuthFehler, Konto } from './api.ts'
 import { ermittleZiel } from './weiter.ts'
 import { SPRACHEN, gewaehlteSprache, ladeSprachliste, merkeSprache, texteFuer } from './sprache.ts'
@@ -211,6 +211,25 @@ export function App(): ReactElement {
     await nachsehen()
   }
 
+  /**
+   * Öffnet die Oberfläche des Rechners.
+   *
+   * Die Adresse kommt vom Server und trägt den Zugangsschlüssel. Sie wird **nicht** angezeigt,
+   * sondern nur geöffnet — sonst stünde der Schlüssel auf dem Bildschirm, wo ihn jeder sieht,
+   * der über die Schulter schaut.
+   */
+  const beimOeffnen = async (): Promise<void> => {
+    setLaeuft(true)
+    setFehler(undefined)
+    const a = await zugang()
+    setLaeuft(false)
+    if (a.ok) {
+      if (a.value?.url !== undefined) window.location.assign(a.value.url)
+      return
+    }
+    setFehler(a.error)
+  }
+
   if (!geprueft) {
     return (
       <main className="karte">
@@ -233,6 +252,18 @@ export function App(): ReactElement {
         <p className="still">
           {texte.weiterZu} <code>{ziel}</code>
         </p>
+
+        {/* **Nur für Administratoren.** Der Knopf öffnet die Oberfläche des Rechners; die
+            Adresse trägt den Zugangsschlüssel, und wer sie hat, kommt an alles. */}
+        {konto.role === 'admin' && (
+          <div className="zugang">
+            <button type="button" className="knopf" disabled={laeuft} onClick={() => void beimOeffnen()}>
+              {texte.knopfZumHarness}
+            </button>
+            <small>{texte.zugangHinweis}</small>
+          </div>
+        )}
+
         <div className="knoepfe">
           <a className="knopf" href={ziel}>
             {texte.weiter}

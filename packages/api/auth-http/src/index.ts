@@ -78,6 +78,9 @@ import { PFAD_ABMELDEN, PFAD_ANMELDEN, PFAD_ICH, PFAD_REGISTRIEREN, type Umgebun
 import { PFAD_SEITE, PFAD_SEITE_API, PFAD_SEITE_JS, seitenWege } from './seite.ts'
 // **Die gebaute Anmeldeseite und die Schnittstelle danach** — am Ursprung des Hosts.
 import { anmeldungsWege, bauVerzeichnis, bauVorhanden, PFAD_ANMELDUNG, PFAD_START } from './anmeldung.ts'
+// **Die Brücke zur Token-Tür**: aus der 401 des Kerns wird die Anmeldeseite, und ein
+// angemeldeter Administrator bekommt die Token-Adresse.
+import { PFAD_ZUGANG, sperreUmbiegen, verbindungAus, zugangsWege } from './zugang.ts'
 
 export { ABLAGEDATEI, claimAblageImHome } from './claim-ablage.ts'
 
@@ -136,6 +139,8 @@ export {
   wegSprachen,
   wegStart,
 } from './anmeldung.ts'
+
+export { PFAD_ZUGANG, eigeneAdresse, sperreUmbiegen, verbindungAus, wegZugang, zugangsWege } from './zugang.ts'
 
 export const name = 'pmh-auth-http'
 
@@ -342,12 +347,61 @@ export function apply(ctx: Context): void {
       // Wege, damit der Sitzungskeks überhaupt mitkommt. `/start` liest die Sitzung über
       // **dieselbe** Funktion wie `GET /api/pmh/auth/me`.
       ...anmeldungsWege(umgebung, bau),
+      // **Die Brücke zur Token-Tür** — nur ein Weg: die Adresse für einen Administrator.
+      ...zugangsWege(umgebung, ctx),
     ]
     const ab = wege.map((weg) => ctx.webServer.register(weg))
+
+    // **Die Sperre wird nachgeholt, bis sie greift.** Der Kern beantwortet `/` ohne Token mit
+    // einer 401-Textzeile; wir biegen genau diese Antwort auf die Anmeldeseite um — ohne eine
+    // Datei in `node_modules` zu ändern (siehe `zugang.ts`).
+    //
+    // **Warum in Abständen und nicht einmal.** Zwei Live-Versuche sind gescheitert, und der
+    // Grund war beide Male die **Zeit**, nicht der Zugriff: unser Paket lädt, bevor der
+    // Verbindungsdienst bereitsteht. Mit `ctx.inject` greift es zwar — aber der Rückruf läuft
+    // **mehrfach**, der erste Lauf kommt zu früh, und eine Warnung aus dem ersten Lauf stand
+    // im Protokoll, obwohl die Brücke arbeitete. Deshalb: nachsehen, nachholen, und erst
+    // warnen, wenn nach zehn Versuchen (rund zehn Sekunden) **nichts** greift.
+    let sperreZurueck: (() => void) | undefined
+    let versuche = 0
+    const wecker = setInterval(() => {
+      if (sperreZurueck !== undefined) {
+        clearInterval(wecker)
+        return
+      }
+      versuche += 1
+      sperreZurueck = sperreUmbiegen(ctx)
+      if (sperreZurueck !== undefined) {
+        // **Ein Satz, der sagt, daß es steht.** Ohne ihn ist im Protokoll nicht zu sehen, ob
+        // die Anmeldeseite an der Tür hängt oder nicht.
+        process.stderr.write(`[pmh] ${name}: die 401 des Kerns führt auf ${PFAD_ANMELDUNG}/ (Versuch ${String(versuche)})\n`)
+        clearInterval(wecker)
+        return
+      }
+      if (versuche >= 10) {
+        clearInterval(wecker)
+        // **Die Meldung nennt den Befund, nicht nur das Ergebnis.** Beim ersten Versuch stand
+        // hier nur „ließ sich nicht umbiegen" — und im Betrieb griff die Brücke trotzdem, weil
+        // ein anderer Aufruf sie gesetzt hatte. Wer das liest, soll sehen, **was** fehlte.
+        const dienst = verbindungAus(ctx)
+        const gefunden = dienst !== undefined
+        const methode = typeof dienst?.authorizeIndex === 'function'
+        process.stderr.write(
+          `[pmh] ${name}: die Sperre des Kerns ließ sich nicht umbiegen.\n` +
+            `  Dienst gefunden: ${gefunden ? 'ja' : 'nein'}, authorizeIndex: ${methode ? 'ja' : 'nein'}.\n` +
+            '  Erwartet wird `connection.authorizeIndex` (dsh-client-connection).\n',
+        )
+      }
+    }, 1_000)
+    // Der Wecker darf den Rechner nicht am Laufen halten.
+    wecker.unref?.()
+
     return () => {
+      clearInterval(wecker)
+      sperreZurueck?.()
       for (const einer of ab.reverse()) einer()
     }
-  }, `${name} ${PFAD_REGISTRIEREN} ${PFAD_ANMELDEN} ${PFAD_ABMELDEN} ${PFAD_ICH} ${PFAD_SEITE} ${PFAD_SEITE_API} ${PFAD_SEITE_JS} ${PFAD_ANMELDUNG} ${PFAD_START}`)
+  }, `${name} ${PFAD_REGISTRIEREN} ${PFAD_ANMELDEN} ${PFAD_ABMELDEN} ${PFAD_ICH} ${PFAD_SEITE} ${PFAD_SEITE_API} ${PFAD_SEITE_JS} ${PFAD_ANMELDUNG} ${PFAD_START} ${PFAD_ZUGANG}`)
 }
 
 export default apply
