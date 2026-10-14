@@ -86,6 +86,7 @@ import {
   setzeWerte,
   umgebungsHinweise,
   werkzeugBefehl,
+  wslLage,
 } from './install-teile.mjs'
 
 /** Wurzel des Projekts, abgeleitet aus dem Modulpfad. */
@@ -244,6 +245,33 @@ async function pruefeWerkzeuge() {
     ok: goDa,
     hinweis: goDa ? undefined : 'https://go.dev/dl/ — ohne Go werden die Go-Dienste übersprungen',
   })
+  // **WSL2 auf Windows — und zwar VOR Docker (gemessen 14.10.2026).** Zwei Gründe,
+  // beide aus diesem Baum: `native/landlock-run` ist ein **Landlock**-Starter, also
+  // eine Linux-Kernel-Eigenschaft — die Sandbox-Bausteine sind auf Windows nativ
+  // nicht lauffähig. Und Docker Desktop nimmt auf Windows ohnehin den
+  // WSL2-Backend-Weg: Docker zuerst zu installieren führt in den halben Zustand,
+  // den der WSL-Hinweistext weiter unten beschreibt („docker ist da und trotzdem
+  // unbrauchbar").
+  //
+  // **`wsl.exe` schreibt UTF-16** — deshalb liest `wslLage()` die Ausgabe, statt ein
+  // Muster darauf zu werfen; die Falle steht als Prüfung fest
+  // (`scripts/tests/wsl-lage.test.mjs`).
+  //
+  // **Nicht still einschalten.** `wsl --install` braucht Administratorrechte und
+  // verlangt oft einen Neustart — dieselbe Zurückhaltung wie bei Docker Desktop.
+  // Der Installer NENNT den Befehl und die Folge.
+  if (process.platform === 'win32') {
+    const version = await laufe(werkzeugBefehl('wsl'), ['--version'])
+    const liste = await laufe(werkzeugBefehl('wsl'), ['-l', '-v'])
+    const wsl = wslLage(version.text, liste.text)
+    ergebnisse.push({
+      name: 'wsl2',
+      ok: wsl.bereit,
+      hinweis: wsl.bereit
+        ? undefined
+        : 'wsl --install   (Administrator; meist mit Neustart) — ohne WSL2 bleiben Sandbox und Go-Dienste außen vor',
+    })
+  }
   return { ergebnisse, dockerLaeuft, dockerDa }
 }
 

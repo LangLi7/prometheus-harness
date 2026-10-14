@@ -329,6 +329,69 @@ export function fassePruefungenZusammen(ergebnisse) {
  * debian **vorhanden** (BusyBox bringt es mit). Es als Abhängigkeit zu führen
  * wäre eine Anforderung, die niemand erfüllen muß.
  */
+/**
+ * Liest den WSL-Zustand aus der Ausgabe von `wsl --version` / `wsl -l -v`.
+ *
+ * ## Die Falle, die hier eingebaut ist — gemessen am 14.10.2026
+ *
+ * **`wsl.exe` schreibt UTF-16.** Die erste Zeile kommt als
+ * `"W\0S\0L\0-\0V\0e\0r\0s\0i\0o\0n\0:\0 \02\0.\06\0.\03\0.\00\0"`.
+ * Gemessen: das Muster `/WSL-Version/` findet in der **Rohausgabe NICHTS**,
+ * nach dem Entfernen der Nullbytes findet es `2.6.3.0`.
+ *
+ * Eine Prüfung ohne diesen Schritt meldet also **„WSL2 fehlt"** auf einem
+ * Rechner, auf dem WSL2 läuft — oder sie meldet, je nach Formulierung, gar
+ * nichts und gilt als bestanden. Beides ist genau die Klasse Fehler, die
+ * dieses Projekt sonst jagt.
+ *
+ * **Warum eine reine Funktion.** Sie bekommt den Text und gibt ein Urteil
+ * zurück — kein Prozeßstart, keine Plattform. Damit ist sie **prüfbar**, und
+ * die UTF-16-Falle steht als Testfall fest, statt beim nächsten Umbau wieder
+ * aufzugehen.
+ *
+ * ## Warum WSL2 vor Docker kommt
+ *
+ * `native/landlock-run` ist ein **Landlock**-Starter — eine
+ * Linux-Kernel-Eigenschaft. Die Sandbox-Bausteine sind damit auf Windows nativ
+ * nicht lauffähig, und Docker Desktop nimmt auf Windows ohnehin den
+ * WSL2-Backend-Weg. Docker zuerst zu installieren führt in den halben Zustand,
+ * den der Hinweistext unten beschreibt.
+ *
+ * @param versionstext - die Ausgabe von `wsl --version` (darf UTF-16 sein)
+ * @param listentext - die Ausgabe von `wsl -l -v` (darf UTF-16 sein), optional
+ * @returns der Zustand: vorhanden, Hauptfassung, Distribution, laufend
+ */
+export function wslLage(versionstext, listentext = '') {
+  const sauber = (t) => String(t ?? '').replace(/\u0000/gu, '')
+  const version = sauber(versionstext)
+  const liste = sauber(listentext)
+
+  const wslFassung = /WSL-Version:\s*([0-9.]+)/iu.exec(version)?.[1]
+  // `Standardversion: 2` sagt, welche Fassung NEUE Distributionen bekommen —
+  // das ist die Angabe, die für „ist WSL2 eingerichtet" zählt.
+  const standard = /Standardversion:\s*([0-9]+)/iu.exec(version)?.[1]
+  const distribution = /Standarddistribution:\s*([^\r\n]+)/iu.exec(version)?.[1]?.trim()
+
+  // In `wsl -l -v` steht hinter dem Namen die Fassung; ein `*` markiert die
+  // Standarddistribution. Zeilen wie "  Ubuntu    Running   2".
+  const zeile = liste
+    .split('\n')
+    .map((z) => z.replace(/[*\s]+$/u, '').trim())
+    .find((z) => /\s(?:Running|Stopped|Installed|\S+)\s+[12]\s*$/iu.test(z))
+  const laufend = /\bRunning\b/iu.test(zeile ?? '')
+
+  return {
+    vorhanden: wslFassung !== undefined || standard !== undefined || distribution !== undefined,
+    wslFassung,
+    standard: standard === undefined ? undefined : Number(standard),
+    distribution,
+    laufend,
+    // **WSL2 eingerichtet** heißt: es gibt eine WSL-Fassung UND die
+    // Standardversion ist 2. Eine WSL ohne Distribution ist nicht eingerichtet.
+    bereit: wslFassung !== undefined && standard === '2' && distribution !== undefined,
+  }
+}
+
 export const BENOETIGTE_WERKZEUGE = ['bun', 'docker', 'git', 'go']
 
 /**
