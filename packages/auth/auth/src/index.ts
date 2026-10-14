@@ -553,39 +553,91 @@ export type PasswordCheck =
  * **Warum eine Obergrenze — und warum sie kein Widerspruch ist.** Ein Passwort
  * von einem Megabyte wäre ein kostenloser Hebel, um den Server mit
  * Argon2id-Berechnungen zu belasten: **jeder** Anmeldeversuch rechnet über die
- * ganze Länge. 128 Zeichen sind weit über jeder vernünftigen Passphrase
- * (`correct horse battery staple` hat 28) und nehmen dem Angreifer den Hebel.
- * NIST erlaubt ausdrücklich eine solche Grenze.
+ * **Die Untergrenze ist 8, nicht 16 (geändert 14.10.2026).** 8 ist die
+ * Untergrenze, die NIST SP 800-63B selbst nennt; 16 war **strenger als der
+ * Standard**. Wer auf 8 geht, muß aber die **zweite Hälfte** der NIST-Regel
+ * mitnehmen — den Abgleich gegen geleakte Paßwörter —, sonst ist es eine
+ * Lockerung ohne die Gegenmaßnahme, für die NIST sie erlaubt. Genau das war der
+ * Anlaß für {@link COMMON_PASSWORDS} in der erweiterten Fassung: **mit der
+ * Untergrenze 8 fallen `password`, `passwort` und `12345678` nicht mehr durch die
+ * Länge** — sie müssen von der Liste gefangen werden.
+ *
+ * **Die Obergrenze ist 1024, nicht 128 (geändert 14.10.2026).** Der Betreiber
+ * wollte „danach solange es will". Eine echte Unbegrenztheit wäre eine
+ * **Angriffsfläche**: jede Anmeldung rechnet Argon2id über die Eingabe. 1024
+ * Zeichen sind praktisch „solange es will" (eine Passphrase liegt bei 20–60) und
+ * trotzdem eine Schranke. `random_hex` in `native/crypto` begrenzt aus demselben
+ * Grund auf 4096 Byte.
  */
-export const PASSWORD_MIN_LENGTH = 16
-export const PASSWORD_MAX_LENGTH = 128
+export const PASSWORD_MIN_LENGTH = 8
+export const PASSWORD_MAX_LENGTH = 1024
 
 /**
  * Die häufigsten Passwörter, gegen die geprüft wird.
  *
- * **Der eigene Fehler, der hier behoben wurde (13.10.2026).** Die erste Fassung
- * enthielt `password`, `passwort`, `letmeinletmein` und ähnliche — **alle unter
- * 16 Zeichen**. Seit {@link PASSWORD_MIN_LENGTH} 16 beträgt, wird jede davon
- * schon von der Längenprüfung abgewiesen: die Liste war damit **unerreichbar**
- * und prüfte nichts. Aufgefallen ist es, weil der Test auf `reason: 'common'`
- * stattdessen `'too-short'` bekam.
+ * ## Zwei eigene Fehler, die hier schon passiert sind
  *
- * Diese Fassung enthält deshalb nur Einträge **ab 16 Zeichen** — die kurzen
- * fängt die Länge, die langen fängt die Liste. Und der Test prüft ausdrücklich,
- * dass **jeder** Eintrag die Längenprüfung besteht; sonst schleicht sich
- * derselbe Fehler wieder ein.
+ * **1. Die Liste war unerreichbar (13.10.2026).** Die erste Fassung enthielt
+ * `password`, `passwort`, `letmeinletmein` und ähnliche — **alle unter 16
+ * Zeichen**. Seit {@link PASSWORD_MIN_LENGTH} 16 betrug, wies die Längenprüfung
+ * jede davon ab, **bevor** die Liste überhaupt gefragt wurde: sie prüfte nichts.
+ * Aufgefallen ist es, weil der Test auf `reason: 'common'` stattdessen
+ * `'too-short'` bekam.
  *
- * **Was diese Liste ist und was nicht.** Sie ist ein **kleiner** Riegel gegen die
- * offensichtlichsten Fälle. Eine echte Liste hat Millionen Einträge und gehört
- * **nicht** in den Quelltext: sie ist selbst ein Artefakt, das gepflegt werden
- * muss, und ein veralteter Auszug erzeugt falsche Sicherheit.
+ * **2. Und dann drohte dasselbe von der anderen Seite (14.10.2026).** Mit der
+ * Untergrenze **8** fällt `password` (8 Zeichen) **nicht mehr** durch die Länge —
+ * die kurzen Klassiker wären also wieder **offen** gewesen, wenn die Liste sie
+ * nicht enthielte. Deshalb steht sie jetzt **an beiden Enden**: die kurzen fängt
+ * sie, die langen auch.
+ *
+ * **Alles ab 8 Zeichen.** Wer einen kürzeren Eintrag aufnimmt, baut Fehler 1
+ * wieder ein; der Test prüft ausdrücklich, daß **jeder** Eintrag die
+ * Längenprüfung besteht.
+ *
+ * ## Was diese Liste ist und was nicht
+ *
+ * Sie ist ein **kleiner** Riegel gegen die offensichtlichsten Fälle — ein
+ * **Anfang**, keine Breach-Liste. Eine echte Liste hat Millionen Einträge und
+ * gehört **nicht** in den Quelltext: sie ist selbst ein Artefakt, das gepflegt
+ * werden muß, und ein veralteter Auszug erzeugt falsche Sicherheit.
  *
  * **Was stattdessen gehört:** eine Prüfung gegen eine **Breach-Liste** über
  * k-Anonymität (HIBP Pwned Passwords, die ersten fünf Zeichen des SHA-1-Hashes) —
- * der Server sieht dabei nie das Passwort. Das ist ein eigener Schritt und steht
- * als offener Punkt im Bericht; diese Liste ist der bescheidene Anfang.
+ * der Server sieht dabei nie das Passwort. Das ist ein eigener Schritt mit einer
+ * **Netzabhängigkeit** und steht als offener Punkt im Bericht.
  */
 export const COMMON_PASSWORDS: readonly string[] = [
+  // Kurz — ab der Untergrenze 8. Diese fängt die Länge NICHT mehr.
+  'password',
+  'passwort',
+  'password1',
+  'passwort1',
+  '12345678',
+  '123456789',
+  '1234567890',
+  '11111111',
+  '00000000',
+  'aaaaaaaa',
+  'qwertyuiop',
+  'qwertzuiop',
+  'letmein1',
+  'iloveyou',
+  'sunshine',
+  'princess',
+  'football',
+  'baseball',
+  'superman',
+  'trustno1',
+  'welcome1',
+  'willkommen',
+  'hallo123',
+  'geheim123',
+  'schalke04',
+  'administrator',
+  'sommersonne',
+  'winter2026',
+  'sommer2026',
+  // Lang — ab 16. Diese fängt die Länge ebenfalls nicht.
   'passwordpassword',
   'passwortpasswort',
   '1234567890123456',
@@ -607,7 +659,7 @@ export const COMMON_PASSWORDS: readonly string[] = [
  *
  * | Regel | Warum |
  * |---|---|
- * | Länge 16–128 | siehe {@link PASSWORD_MIN_LENGTH}. **Geändert von 12 auf 16**, nachdem diese Regel an einem Fall gescheitert ist: mit 12 Zeichen bestrafte sie eine Passphrase wie `sonnenschein` (12 Buchstaben, eine Zeichenart) — also genau die Form, die NIST empfiehlt. Mit 16 ist die Länge allein ausreichend und die Zeichenarten-Regel entfällt darunter ganz |
+ * | Länge 8–1024 | siehe {@link PASSWORD_MIN_LENGTH}. **8 ist die NIST-Untergrenze** (vorher 16 — strenger als der Standard); **1024 als Obergrenze** (vorher 128), damit „solange es will" keine Angriffsfläche wird |
  * | nicht gleich der Adresse oder ihr ähnlich | ein Passwort, das aus dem Benutzernamen besteht, ist in jeder Wörterbuchliste |
  * | nicht in {@link COMMON_PASSWORDS} | die häufigsten Passwörter werden zuerst probiert |
  *
@@ -654,6 +706,18 @@ export function checkPassword(password: string, email = ''): PasswordCheck {
   }
   if (COMMON_PASSWORDS.includes(lowered)) {
     return { ok: false, reason: 'common', hint: 'Dieses Passwort steht in jeder Liste ganz oben.' }
+  }
+  // **Auch der Kern zählt.** `password123` ist nicht `password` — aber es wird
+  // genauso zuerst probiert. Deshalb wird zusätzlich der Rest **ohne Ziffern und
+  // Sonderzeichen am Ende** geprüft. Nur am Ende: `meinpassword` soll ein
+  // zulässiges Paßwort bleiben, `password1` nicht.
+  const kern = lowered.replace(/[^a-z]+$/u, '')
+  if (kern.length >= PASSWORD_MIN_LENGTH && COMMON_PASSWORDS.includes(kern)) {
+    return {
+      ok: false,
+      reason: 'common',
+      hint: 'Dieses Passwort steht in jeder Liste ganz oben — der Zusatz am Ende hilft nicht.',
+    }
   }
 
   return { ok: true }

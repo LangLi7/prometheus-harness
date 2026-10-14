@@ -410,10 +410,16 @@ describe('Passwort-Prüfung', () => {
   test('lehnt die häufigsten Passwörter ab', () => {
     const result = checkPassword('letmeinletmein123')
     expect(result.ok === false && result.reason).toBe('common')
-    // **Und die Liste muss überhaupt erreichbar sein.** Die erste Fassung
-    // enthielt nur Einträge unter 16 Zeichen — die Längenprüfung wies sie alle
-    // ab, und die Liste prüfte nichts. Dieser Test verhindert, dass derselbe
-    // Fehler zurückkommt.
+  })
+
+  test('die Liste ist ERREICHBAR — jeder Eintrag wird auch wirklich abgelehnt', () => {
+    // **Der Fehler, den dieser Test verhindert, ist zweimal passiert.** Erst
+    // enthielt die Liste nur Einträge unter 16 Zeichen — die Längenprüfung wies
+    // sie alle ab, bevor die Liste gefragt wurde. Dann wurde die Untergrenze auf
+    // 8 gesenkt: damit fielen die kurzen Klassiker (`password`, `12345678`)
+    // NICHT mehr durch die Länge, und eine Liste ohne sie hätte sie durchgelassen.
+    // Geprüft wird deshalb für **jeden** Eintrag, daß er mit `reason: 'common'`
+    // abgelehnt wird — nicht mit `too-short`, nicht mit `ok`.
     for (const common of COMMON_PASSWORDS) {
       const verdict = checkPassword(common)
       expect({ entry: common, reason: verdict.ok === false ? verdict.reason : 'ok' }).toEqual({
@@ -423,11 +429,20 @@ describe('Passwort-Prüfung', () => {
     }
   })
 
+  test('der Zusatz am Ende rettet ein Listenpaßwort nicht', () => {
+    // `password123` ist nicht `password` — aber es wird genauso zuerst probiert.
+    expect(checkPassword('password123').ok).toBe(false)
+    expect(checkPassword('passwort2026!').ok).toBe(false)
+    // Nur AM ENDE wird abgeschnitten: ein gutes Paßwort, das ein Listenwort
+    // enthält, bleibt zulässig.
+    expect(checkPassword('meinpassword').ok).toBe(true)
+  })
+
   test('straft Passphrasen NICHT — Länge genügt', () => {
     // Der eigene Fehler, der zu dieser Regel geführt hat: mit 12 Zeichen und
     // einer Zeichenarten-Regel wäre sonnenschein abgelehnt worden — also genau
     // die Form, die NIST empfiehlt. Länge ist der Hebel, nicht Sonderzeichen.
-    expect(checkPassword('sonnenschein').ok).toBe(false)          // 12 Zeichen: zu kurz
+    expect(checkPassword('sonnenschein').ok).toBe(true)           // 12 Zeichen: erlaubt
     expect(checkPassword('sonnenscheinundregen').ok).toBe(true)   // 20 Buchstaben: willkommen
     expect(checkPassword('korrekt pferd batterie klammer').ok).toBe(true)
   })
@@ -439,10 +454,13 @@ describe('Passwort-Prüfung', () => {
     expect(countCharacterKinds('')).toBe(0)
   })
 
-  test('die Mindestlänge ist 16 und steht als Konstante', () => {
-    expect(PASSWORD_MIN_LENGTH).toBe(16)
-    expect(checkPassword('a'.repeat(15)).ok).toBe(false)
-    expect(checkPassword('a'.repeat(16)).ok).toBe(true)
+  test('die Grenzen stehen als Konstanten — 8 unten, 1024 oben', () => {
+    expect(PASSWORD_MIN_LENGTH).toBe(8)
+    expect(PASSWORD_MAX_LENGTH).toBe(1024)
+    expect(checkPassword('kurz1!').ok).toBe(false)                  // 6 Zeichen: zu kurz
+    expect(checkPassword('f7#Lm2pQ').ok).toBe(true)                 // genau 8: erlaubt
+    expect(checkPassword('x'.repeat(PASSWORD_MAX_LENGTH)).ok).toBe(true)
+    expect(checkPassword('x'.repeat(PASSWORD_MAX_LENGTH + 1)).ok).toBe(false)
   })
 })
 
