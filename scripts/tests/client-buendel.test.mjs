@@ -127,9 +127,20 @@ exports.inject = ["locale"];
     expect(fehler.some((f) => f.includes('kaputt'))).toBe(true)
   })
 
-  test('die erwarteten Zahlen sind die der gemessenen Quelle', () => {
-    expect(erwartet.namensraeume).toBe(56)
-    expect(erwartet.texte).toBe(2374)
+  test('die erwarteten Zahlen kommen aus der Quelle und schrumpfen nicht', () => {
+    // **Keine festen Zahlen mehr.** Hier stand `toBe(56)` und `toBe(2374)` — richtig, solange
+    // das Sprachpaket so groß war, und falsch, sobald mit `voice-input` ein Fach dazukam
+    // (14.10.2026: 57 Fächer, 2483 Texte). Eine Zusage über eine **wachsende Menge** gehört an
+    // die Quelle und an eine **Untergrenze**, nicht an einen Wert von gestern.
+    const quelle = JSON.parse(readFileSync('docs/status/sprachquelle.json', 'utf8'))
+    const faecher = Object.keys(quelle.faecher).length
+    const texte = Object.values(quelle.faecher).reduce((s, f) => s + Object.keys(f.englisch).length, 0)
+    expect(erwartet.namensraeume).toBe(faecher)
+    expect(erwartet.texte).toBe(texte)
+    // Untergrenze: der Bestand vom 14.10.2026. Ein Rückfall darunter heißt: die Extraktion ist
+    // kaputt, nicht das Paket.
+    expect(erwartet.namensraeume).toBeGreaterThanOrEqual(57)
+    expect(erwartet.texte).toBeGreaterThanOrEqual(2483)
   })
 })
 

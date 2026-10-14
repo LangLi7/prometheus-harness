@@ -68,12 +68,42 @@ export const inject: readonly string[] = []
 /**
  * Die Stilregel.
  *
- * **Warum `option` und `optgroup`.** Beide werden im aufgeklappten Fenster gezeichnet.
+ * ## Zwei Teile, weil zwei Mechanismen im Spiel sind — gemessen und benannt
  *
- * **Warum nicht `select` selbst.** Der geschlossene Kasten soll durchsichtig bleiben — so
- * steht er in der Oberfläche des Kerns, und so sieht er richtig aus.
+ * **1. Der Kasten selbst braucht einen undurchsichtigen Grund.** Der Betreiber hat zweimal
+ * dasselbe gemeldet (`Model download source`, dann `Recognition language`), obwohl die
+ * Eintragsregel schon ausgeliefert war. Der Grund: Chromium leitet das Farbpaar des
+ * **aufgeklappten** Fensters vom **`select`-Element** ab. Steht dort `background: 0 0`
+ * (so stylt das Sprachpaket, und so stylt auch `dsh-client-ui-cordis`), dann malt der Browser
+ * seinen **hellen** Vorgabegrund und nimmt die **geerbte** Schriftfarbe der dunklen Seite.
+ * Eine Regel für `option` allein erreicht diesen Weg nicht.
+ *
+ * **2. Die Einträge bekommen ihr eigenes Paar** — für Browser, die `option` gestalten. Beides
+ * zusammen deckt die beiden Wege ab; welchen ein Browser geht, ist nicht vorhersagbar.
+ *
+ * ## Warum die Regel auf die Spracheingabe **begrenzt** ist
+ *
+ * `[class*="sourceChoice"]` trifft die gehashten Klassennamen des CSS-Moduls
+ * (gemessen: `ddpbLW_preferences select, ddpbLW_sourceChoice select`). Ein **globales**
+ * `select { … }` würde **jeden** Auswahlkasten der Oberfläche umfärben — auch die in
+ * Werkzeugleisten, wo `transparent` Absicht ist. Auf diesem Rechner ist **kein Browser**
+ * installiert; eine so breite Änderung könnte ich nicht nachsehen. Deshalb: eng am gemeldeten
+ * Fehler, und der Kern-Fall (`ui-cordis`) steht als **offener Punkt** im Bericht.
+ *
+ * ## Warum `!important`
+ *
+ * Die Regel des Pakets ist `.ddpbLW_sourceChoice select` — **gleiche** Spezifität wie
+ * `[class*="sourceChoice"] select`. Welche zuletzt kommt, hinge an der Ladereihenfolge der
+ * Plugins. `!important` macht das Ergebnis von der Reihenfolge unabhängig — und nur darauf
+ * kommt es hier an. Es steht **nur** auf `background-color`, nicht auf der Schriftfarbe.
  */
 export const REGEL = `
+[class*="sourceChoice"] select,
+[class*="preferences"] select,
+[class*="deviceField"] select {
+  background-color: var(--dsw-alias-bg-l1, Canvas) !important;
+}
+
 select option,
 select optgroup {
   background-color: var(--dsw-alias-bg-layer-2, Canvas);

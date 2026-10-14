@@ -212,6 +212,12 @@ async function haupt() {
     ['sidebarFiles', 'noWorkspace'],
     ['chat', 'stats.dialog.title'],
     ['conversation', 'error.sessionInUse'],
+    // **Das Fach der Spracheingabe** (aus dem Sprachbündel der Vorlage, 14.10.2026). Es steht
+    // hier, damit die deutsche Fassung nicht nur „im Paket liegt", sondern durch die **echte**
+    // Laufzeit abgefragt wird.
+    ['voice-input', 'language'],
+    ['voice-input', 'sourceMirror'],
+    ['voice-input', 'preparation.ready'],
   ]
   let uebersetzt = 0
   for (const [ns, schluessel] of proben) {
@@ -251,8 +257,15 @@ async function haupt() {
     for (const f of fehler) console.log(`   ${f}`)
     process.exit(1)
   }
-  console.log('BEFUND: Der ECHTE LocaleRuntime nimmt die Anmeldung an, führt 56 Wörterbücher und')
-  console.log('liefert nach `setLocale("de")` deutschen Text. Gegenprobe: die Laufzeit prüft selbst.')
+  // **Die Zahl kommt aus der Messung, nicht aus dem Text.** Hier stand „führt 56 Wörterbücher"
+  // — festgeschrieben, und mit dem Fach `voice-input` am 14.10.2026 falsch geworden. Jetzt wird
+  // die Quelle gelesen und die Zahl genannt, die dort steht.
+  const quelle = JSON.parse(readFileSync('docs/status/sprachquelle.json', 'utf8'))
+  const faecher = Object.keys(quelle.faecher).length
+  const texte = Object.values(quelle.faecher).reduce((s, f) => s + Object.keys(f.englisch).length, 0)
+  console.log(`BEFUND: Der ECHTE LocaleRuntime nimmt die Anmeldung an, führt ${String(faecher)} Wörterbücher`)
+  console.log(`mit ${String(texte)} Texten und liefert nach \`setLocale("de")\` deutschen Text.`)
+  console.log('Gegenprobe: die Laufzeit prüft selbst.')
   console.log('GRENZE: gemessen ist die Laufzeitklasse mit einem mitgeschriebenen Cordis-Kontext —')
   console.log('NICHT gemessen ist, was ein Browser anzeigt (dafür braucht es eine Anzeige).')
   process.exit(0)

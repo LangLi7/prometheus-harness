@@ -162,7 +162,16 @@ describe('Sprachprüfer', () => {
     expect(fehler.some((f) => f.includes('englischer Wert ist leer'))).toBe(true)
   })
 
-  test('die Quelle führt 56 Laufzeit-Namensräume', () => {
-    expect(Object.keys(quelle.faecher).length).toBe(56)
+  test('die Quelle führt die Laufzeit-Namensräume — Untergrenze statt festem Wert', () => {
+    // Hier stand `toBe(56)`. Mit dem Sprachbündel der Vorlage kam am 14.10.2026 das Fach
+    // `voice-input` dazu (57 Fächer, 2483 Texte) — und der Test wurde rot, obwohl nichts
+    // kaputt war. Eine Menge, die **wächst**, wird gegen eine **Untergrenze** geprüft.
+    expect(Object.keys(quelle.faecher).length).toBeGreaterThanOrEqual(57)
+    // Die vier unabhängigen Gegenproben bleiben dagegen **exakt**: sie sind der eigentliche
+    // Beweis, daß die Extraktion stimmt.
+    expect(Object.keys(quelle.faecher.chat.englisch).length).toBe(190)
+    expect(Object.keys(quelle.faecher.conversation.englisch).length).toBe(371)
+    expect(Object.keys(quelle.faecher.cordis.englisch).length).toBe(51)
+    expect(Object.keys(quelle.faecher.deliverables.englisch).length).toBe(60)
   })
 })

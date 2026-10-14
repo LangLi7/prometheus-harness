@@ -388,3 +388,30 @@ sie den Fehler **konstruktiv** ausschließt statt ihn kosmetisch zu treffen, (2)
 das **Gebaute** richten (wird es ausgeführt? nennt es die richtigen Größen?), und (3)
 ausdrücklich hinschreiben, **was nicht gemessen ist**. Ein „sieht jetzt gut aus" ohne
 Bildschirm wäre genau die Behauptung, die diese Datei verhindern soll.
+
+**Der Nachtrag — der Fix war unvollständig, und die Annahme war der Grund.** Der erste Versuch
+setzte die Farben auf die **Einträge** (`option`). Der Betreiber meldete dasselbe Bild ein
+zweites Mal. Gemessen: Chromium leitet das Farbpaar des aufgeklappten Fensters vom
+**`select`-Element** ab; steht dort `background: 0 0`, malt der Browser seinen hellen
+Grund und nimmt die geerbte Schriftfarbe. Erst **beide** Teile zusammen decken die Wege ab.
+*Ein Mechanismus, den man nicht messen kann, wird nicht angenommen — er wird abgedeckt.*
+
+---
+
+## 26. Eine Menge, die **wächst**, wird gegen eine **Untergrenze** geprüft — nicht gegen einen Wert
+
+**Der Fall — zweimal in derselben Stunde.** Als das Sprachbündel der Vorlage das Fach
+`voice-input` mitbrachte, wurde der Bestand von 56 auf **57** Fächer und von 2374 auf **2483**
+Texte größer. Zwei Prüfungen wurden daraufhin **rot**, obwohl nichts kaputt war:
+
+| Datei | Zusicherung | Warum sie rot wurde |
+|---|---|---|
+| `scripts/tests/client-buendel.test.mjs` | `toBe(56)` / `toBe(2374)` | der Bestand wuchs |
+| `scripts/tests/sprachpruefer.test.mjs` | `toBe(56)` | derselbe Grund |
+
+**Die Regel.** Wo eine Zahl aus einer **wachsenden Quelle** kommt, wird geprüft: (1) stimmt sie
+mit der **Quelle** überein, (2) liegt sie über einer **Untergrenze**, die den Bestand
+festhält — und die **exakten** Zahlen bleiben dort, wo sie **unabhängige Gegenproben** sind
+(`chat` 190, `conversation` 371, `cordis` 51, `deliverables` 60). Wer eine gewachsene Menge auf
+einen festen Wert nagelt, baut einen Wecker, der beim nächsten Zuwachs klingelt — und der
+Wecker wird dann abgeschaltet statt gelesen.

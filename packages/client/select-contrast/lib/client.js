@@ -62,6 +62,12 @@ window.__ModuleLoader__.load({
 		var name = "select-contrast";
 		var inject = [];
 		var REGEL = `
+		[class*="sourceChoice"] select,
+		[class*="preferences"] select,
+		[class*="deviceField"] select {
+		  background-color: var(--dsw-alias-bg-l1, Canvas) !important;
+		}
+
 		select option,
 		select optgroup {
 		  background-color: var(--dsw-alias-bg-layer-2, Canvas);

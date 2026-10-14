@@ -22,7 +22,7 @@
  * @module scripts/sprachaufteilung
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const QUELLE = 'docs/status/sprachquelle.json'
@@ -98,10 +98,19 @@ function haupt() {
   }
 
   // ---- Vereinigen oder nachsehen ----
-  const teileInhalt = aufteilung.map((a) => {
-    if (!existsSync(a.ziel)) return undefined
-    return JSON.parse(readFileSync(a.ziel, 'utf8'))
-  })
+  //
+  // **Alle gelieferten Teile zählen, nicht nur die aus der Aufteilung.** Gemessen am
+  // 14.10.2026: mit dem Sprachbündel der Vorlage kam ein **neues Fach** dazu (`voice-input`,
+  // 109 Texte). Der erste Entwurf las nur die Dateien, die in `aufteilung.json` stehen — das
+  // neue Fach hätte keinen Platz gehabt, und die Vereinigung hätte 109 Schlüssel als „fehlend"
+  // gemeldet, obwohl die Übersetzung fertig war. Jetzt zählt jede `teil-*.json` im Ordner.
+  const teilDateien = existsSync(ORDNER)
+    ? readdirSync(ORDNER)
+        .filter((n) => /^teil-.*\.json$/u.test(n))
+        .sort()
+    : []
+  const teileInhalt = teilDateien.map((n) => JSON.parse(readFileSync(join(ORDNER, n), 'utf8')))
+  const ausserhalbDerAufteilung = teilDateien.filter((n) => !aufteilung.some((a) => a.ziel.endsWith(n)))
 
   // Vorhandene Übersetzungen werden **übernommen**, nicht weggeworfen. Der erste Entwurf
   // übernahm nur `common` — und hätte damit den bereits richtigen Text von
@@ -147,10 +156,19 @@ function haupt() {
 
   console.log(`== übersetzt: ${String(uebersetzt)} von ${String(Object.keys(faecher).reduce((s, n) => s + Object.keys(faecher[n].englisch).length, 0))}`)
   console.log(`   davon aus Teilen: ${String(ausTeilen)}   aus der alten Datei: ${String(ausAlt)}`)
-  for (const a of aufteilung) {
-    const da = teileInhalt[a.teil - 1] !== undefined
-    const anzahl = da ? Object.keys(teileInhalt[a.teil - 1] ?? {}).reduce((s, ns) => s + Object.keys(teileInhalt[a.teil - 1]?.[ns] ?? {}).length, 0) : 0
-    console.log(`   Teil ${String(a.teil).padStart(2)}: ${da ? `${String(anzahl).padStart(4)} Texte` : 'FEHLT'}   ${a.namensraeume.join(', ')}`)
+  // **Der Bericht zeigt, was in den GELIEFERTEN Dateien steht — nicht, was die Aufteilung
+  // vorhätte.** Gemessen am 14.10.2026: als mit `voice-input` ein Fach dazukam, rechnete dieser
+  // Bericht die Aufteilung **neu** (jetzt 10 Teile) und schrieb die neuen Fächergruppen neben
+  // die alten Dateinamen — „Teil 6 … settings.models, voice-input", während in `teil-6.json`
+  // in Wahrheit `settings.models, settings.account, deliverables` stehen. Die Vereinigung war
+  // richtig, der Bericht war falsch. Jetzt werden die Dateien gelesen und ihre Fächer genannt.
+  console.log('== Gelieferte Teile ==')
+  for (const [i, name] of teilDateien.entries()) {
+    const inhalt = teileInhalt[i] ?? {}
+    const namen = Object.keys(inhalt)
+    const anzahl = namen.reduce((s, ns) => s + Object.keys(inhalt[ns] ?? {}).length, 0)
+    const nachzuegler = ausserhalbDerAufteilung.includes(name) ? '   (nach der Aufteilung)' : ''
+    console.log(`   ${name.padEnd(18)} ${String(anzahl).padStart(4)} Texte   ${namen.join(', ')}${nachzuegler}`)
   }
   console.log('')
   if (fehlend.length > 0) {

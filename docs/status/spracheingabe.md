@@ -199,3 +199,79 @@ beiden Themes lesbar sein **muß**, aber das Urteil darüber gehört an den Bild
 **Offen, und das ist eine Meldung an den Kern:** die eigentliche Korrektur gehört in
 `client-ui-voice-input` selbst — dort sollte die Regel für `option`/`optgroup` stehen (oder das
 Paket sollte `color-scheme` berücksichtigen). Unser Plugin ist die Brücke, bis das dort steht.
+
+### 7a. Derselbe Fehler ein zweites Mal — mein erster Fix war unvollständig
+
+Der Betreiber schickte einen **zweiten** Ausschnitt (`Recognition language`, dasselbe Feld wie
+vorher): die Einträge weiterhin weiß auf weiß. Der erste Fix griff also nicht — und der Grund
+ist ein **Mechanismus**, den ich nicht gemessen, sondern angenommen hatte:
+
+> Chromium leitet das Farbpaar des **aufgeklappten** Fensters vom **`select`-Element** ab — nicht
+> (nur) von den `option`-Elementen.
+
+Steht dort `background: 0 0` — so stylt das Sprachpaket, und **genau so stylt auch der Kern
+selbst** (`dsh-client-ui-cordis`: `.Nqubda_versionPicker select { background: 0 0 }`) — dann
+malt der Browser seinen **hellen** Vorgabegrund und nimmt die **geerbte** Schriftfarbe der
+dunklen Seite. Eine Regel für `option` allein erreicht diesen Weg nicht.
+
+**Die Berichtigung.** Die Regel hat jetzt **zwei** Teile, weil es **zwei** Wege gibt:
+
+```css
+/* 1. Der Kasten selbst braucht einen undurchsichtigen Grund. */
+[class*="sourceChoice"] select,
+[class*="preferences"] select,
+[class*="deviceField"] select {
+  background-color: var(--dsw-alias-bg-l1, Canvas) !important;
+}
+/* 2. Die Einträge bekommen ihr eigenes Paar. */
+select option, select optgroup {
+  background-color: var(--dsw-alias-bg-layer-2, Canvas);
+  color: var(--dsw-alias-label-primary, CanvasText);
+}
+```
+
+**Warum begrenzt und nicht global.** `[class*="sourceChoice"]` trifft die gehashten
+CSS-Modul-Namen (gemessen: `ddpbLW_preferences select, ddpbLW_sourceChoice select`). Ein
+globales `select { … }` würde **jeden** Auswahlkasten umfärben — auch die in Werkzeugleisten,
+wo `transparent` Absicht ist — und auf diesem Rechner ist **kein Browser**, um das nachzusehen.
+Der Kern-Fall (`ui-cordis`) steht deshalb als **offener Punkt** da, nicht als stiller Rest.
+
+**Warum `!important`.** Die Paketregel `.ddpbLW_sourceChoice select` hat **gleiche** Spezifität
+wie `[class*="sourceChoice"] select`; welche zuletzt kommt, hinge an der Ladereihenfolge.
+`!important` macht das Ergebnis davon unabhängig — und nur darauf kommt es hier an. Es steht
+**nur** auf `background-color`.
+
+**Gemessen** (Exit 0): Startliste 69 Einträge; das ausgelieferte Kontrast-Bündel (HTTP 200,
+3 152 Zeichen) enthält `sourceChoice`, `!important`, beide Theme-Variablen und die
+Eintragsregel. **Nicht gemessen:** das Aussehen — kein Browser auf diesem Rechner.
+
+## 8. Deutsch: Oberfläche **ja**, Erkennung **nein** — beides gemessen
+
+**Die Oberfläche ist jetzt deutsch.** Das Sprachbündel der Vorlage liefert für sein Fach
+`voice-input` **109 Texte** (nur `en` und `zh`). Sie sind übersetzt
+(`docs/status/uebersetzung/teil-voice.json`), und das deutsche Paket führt damit
+**57 Fächer mit 2483 Texten** — vorher 56 / 2374. Der Weg dahin war eine eigene Lücke im
+Werkzeug: `sprachaufteilung.mjs` las nur die Teile aus `aufteilung.json` und hätte das neue
+Fach als „fehlend" gemeldet; jetzt zählt jede `teil-*.json`, und der **Bericht** nennt, was in
+den gelieferten Dateien **steht** (vorher rechnete er die Aufteilung neu und schrieb falsche
+Fächergruppen neben die Dateinamen).
+
+Gegenprobe an der **echten** Laufzeit (`sprachpaket-laufzeit-sonde.mjs`, Exit 0): **10 von 10**
+Proben stimmen, darunter drei aus dem neuen Fach — `voice-input · language` →
+*„Erkennungssprache"*, `sourceMirror` → *„HF-Mirror (Spiegel für China)"*, `preparation.ready`
+→ *„Lokale Spracherkennung ist bereit."*
+
+**Die Erkennung kann kein Deutsch — und sagt es.** Gemessen am lebenden Host:
+
+```
+language="en"  → ok, Transkript
+language="de"  → {"ok":false,"error":{"code":"speech/transcription-failed",
+                  "message":"Speech provider sensevoice-local does not support language: de"}}
+language="auto" → ok, Transkript
+```
+
+Das Modell (SenseVoiceSmall) kennt **auto, zh, en, yue, ja, ko** — Deutsch ist nicht dabei. Der
+Dienst **weist es ausdrücklich ab**, statt still Unsinn zu liefern. Wer deutsche Sprache
+erkennen will, braucht einen **anderen Anbieter**: die Naht `ctx.speechToText` ist genau dafür
+da (ein Anbieter nach Namen), und ein Whisper-Anbieter wäre der nächste Schritt. **Nicht**
+gelöst durch: `auto` — das rät bei deutschen Aufnahmen.
