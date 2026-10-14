@@ -12,7 +12,34 @@ import { describe, expect, it } from 'bun:test'
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { sammle, siehtDeutschAus, zuwachs } from '../sprachwaechter.mjs'
+import { NICHT_BENUTZERNAH, sammle, siehtDeutschAus, trenne, zuwachs } from '../sprachwaechter.mjs'
+
+describe('Der Umfang: was zählt als Benutzerausgabe?', () => {
+  it('Meßsonden und fremde Momentaufnahmen werden abgetrennt', () => {
+    const { benutzernah, uebersprungen, zahlUebersprungen } = trenne({
+      'scripts/install.mjs': 5,
+      'docs/status/messsonden/strom-sonde.mjs': 15,
+      'snapshots/web/src/rotation.ts': 3,
+      'services/pmh-nix/api/api.go': 20,
+    })
+    expect(Object.keys(benutzernah).sort()).toEqual(['scripts/install.mjs', 'services/pmh-nix/api/api.go'])
+    expect(zahlUebersprungen).toBe(18)
+    expect(Object.keys(uebersprungen).length).toBe(2)
+  })
+
+  it('die Gegenprobe: ein BENUTZERNAHER Pfad darf NICHT übersprungen werden', () => {
+    // Ohne diesen Fall könnte die Liste jeden Pfad schlucken und der Wächter wäre blind.
+    const { benutzernah } = trenne({ 'scripts/install.mjs': 5, 'packages/api/health/src/index.ts': 7 })
+    expect(Object.keys(benutzernah).length).toBe(2)
+  })
+
+  it('die übersprungenen Pfade sind benannt und nicht bloß ein Muster', () => {
+    expect(NICHT_BENUTZERNAH).toContain('docs/status/messsonden/')
+    expect(NICHT_BENUTZERNAH).toContain('snapshots/')
+    // `scripts/` steht NICHT darin: dort liegen die Ausgaben für den Betreiber.
+    expect(NICHT_BENUTZERNAH).not.toContain('scripts/')
+  })
+})
 
 describe('Deutsch erkennen', () => {
   it('Umlaute und ß genügen', () => {

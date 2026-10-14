@@ -187,14 +187,60 @@ export function zuwachs(heute, basis) {
   return raus.sort((a, b) => b.dazu - a.dazu)
 }
 
+/**
+ * Pfade, die **nicht benutzernah** sind — und deshalb nicht in die Sprachbasis gehören.
+ *
+ * **Die Entscheidung, mit ihrem Grund (14.10.2026).** Der Wächter war rot: **607** Literale in
+ * **100** Dateien gegen eine Basis von **419** in **79**. Die Zunahme kam **nicht** aus
+ * Benutzerausgaben, sondern fast vollständig aus **eigenen Meßsonden**
+ * (`docs/status/messsonden/strom-*.mjs`, `sprach*.mjs`) — Werkzeugen, deren deutscher Text
+ * **beabsichtigt** ist: ihre Ausgabe liest niemand außer mir, und sie steht in deutschen
+ * Statusberichten.
+ *
+ * Ein Wächter, der bei jeder Runde rot wird, weil das **Melden** selbst wächst, wird
+ * abgeschaltet statt gelesen. Deshalb zählen die Meßwerkzeuge nicht mehr mit — **aber die
+ * übersprungene Zahl wird weiterhin ausgegeben**, damit nichts verschwiegen wird.
+ *
+ * * `docs/status/messsonden/` — eigene Meßwerkzeuge (interne Ausgabe).
+ * * `snapshots/` — **fremde** Momentaufnahmen, nicht unsere Arbeit (Arbeitsweise Regel 14).
+ */
+export const NICHT_BENUTZERNAH = ['docs/status/messsonden/', 'snapshots/']
+
+/**
+ * Trennt die Funde in benutzernah und übersprungen.
+ *
+ * @param {Record<string, number>} alle
+ * @returns {{benutzernah: Record<string, number>, uebersprungen: Record<string, number>, zahlUebersprungen: number}}
+ */
+export function trenne(alle) {
+  const benutzernah = {}
+  const uebersprungen = {}
+  let zahlUebersprungen = 0
+  for (const [datei, zahl] of Object.entries(alle)) {
+    if (NICHT_BENUTZERNAH.some((p) => datei.startsWith(p))) {
+      uebersprungen[datei] = zahl
+      zahlUebersprungen += zahl
+    } else {
+      benutzernah[datei] = zahl
+    }
+  }
+  return { benutzernah, uebersprungen, zahlUebersprungen }
+}
+
 function haupt() {
   const wurzel = process.cwd()
   const neuSchreiben = process.argv.includes('--basis')
-  const heute = sammle(wurzel)
+  const { benutzernah: heute, uebersprungen, zahlUebersprungen } = trenne(sammle(wurzel))
   const basisPfad = join(wurzel, BASIS_DATEI)
 
   const summe = Object.values(heute).reduce((s, n) => s + n, 0)
   console.log(`Deutsche Ausgaben gefunden: ${String(summe)} Literale in ${String(Object.keys(heute).length)} Dateien`)
+  if (zahlUebersprungen > 0) {
+    console.log(
+      `Übersprungen (nicht benutzernah): ${String(zahlUebersprungen)} Literale in ${String(Object.keys(uebersprungen).length)} Dateien —`,
+    )
+    console.log(`   ${NICHT_BENUTZERNAH.join(', ')}`)
+  }
 
   if (neuSchreiben) {
     writeFileSync(basisPfad, `${JSON.stringify(heute, null, 2)}\n`, 'utf8')
