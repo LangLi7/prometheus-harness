@@ -415,3 +415,93 @@ festhält — und die **exakten** Zahlen bleiben dort, wo sie **unabhängige Geg
 (`chat` 190, `conversation` 371, `cordis` 51, `deliverables` 60). Wer eine gewachsene Menge auf
 einen festen Wert nagelt, baut einen Wecker, der beim nächsten Zuwachs klingelt — und der
 Wecker wird dann abgeschaltet statt gelesen.
+
+---
+
+## 27. Bei einer Adresse wird nicht die **Erreichbarkeit** gemessen, sondern die **Identität**
+
+**Der Fall.** Ich wollte die neue Anmeldeseite prüfen und startete ihren Entwicklungsserver auf
+Port `5176`. Der Start scheiterte: *„Port 5176 is already in use."* Die Messung ergab, daß dort
+ein **fremder** Vite-Server lief und eine Seite mit dem Titel **„Prometheus — Welt-Prototyp"**
+auslieferte (PID 32288). Hätte ich den Port **still** wechseln lassen (`strictPort: false` — die
+Voreinstellung), wäre der Start gelungen und ich hätte eine **fremde Seite** gemessen und für
+meine gehalten. Die Prüfung wäre **grün** gewesen.
+
+**Die Regel.** Bei allem, was über eine Adresse kommt (Port, Host, Datei, Datenbank, Gerät),
+wird **zuerst die Identität** festgestellt: kommt wirklich **mein** Gegenstand? Und das gehört
+als **erste Bedingung** in die Sonde — mit **Gegenstück**: die eigene Kennung **muß** vorkommen,
+die des fremden Gegenstands **darf nicht** vorkommen
+(`docs/status/anmeldeseite-proxy-sonde.mjs`). Zusätzlich: `strictPort: true`, damit ein belegter
+Port **laut** abbricht statt heimlich auszuweichen.
+
+---
+
+## 28. Das **Arbeitsverzeichnis** entscheidet mit, welche Umgebung gilt — dieselbe Prüfdatei ist grün und rot
+
+**Der Fall.** `packages/auth/db-schema/tests/postgres.test.ts` verhält sich zweimal
+**verschieden**, ohne daß sich an der Datei etwas ändert:
+
+| Aufruf | Ergebnis |
+|---|---|
+| `bun test tests/postgres.test.ts` **im Paketverzeichnis** | **0 pass · 16 skip · 0 fail** (exit 0) |
+| `bun test packages/auth/db-schema/tests/postgres.test.ts` **aus der Wurzel** | läuft und **bricht ab** (Riegel, exit 1) |
+
+**Ursache:** Bun lädt `.env` aus dem **Arbeitsverzeichnis**. Im Paket gibt es keine, aus der
+Wurzel gibt es sie — und darin zeigt `PMH_TEST_DATABASE_URL` auf die Betriebsdatenbank.
+
+**Die Regel.** „Einzeln ist es grün" ist **kein** Nachweis für den Gesamtlauf und umgekehrt. Wer
+eine Prüfdatei einzeln fährt, nennt das **Verzeichnis** mit — und prüft, ob die
+Umgebungsvariablen, die sie liest, überhaupt gesetzt sind (hier: `DATABASE_URL`,
+`MIGRATION_DATABASE_URL`, `PMH_TEST_DATABASE_URL`). Ein **Skip** ist kein **Pass**: „16 skip"
+sieht in der Summe grün aus und hat nichts geprüft.
+
+---
+
+## 29. Ein Werkzeugname im Skript ist keine Zusicherung, daß das Werkzeug **läuft**
+
+**Der Fall.** `"test": "bun test"` ist die Haus-Konvention — in der Wurzel und in fünf
+bestehenden Paketen. Auf dieser Maschine ist sie **kaputt**:
+
+```
+$ bun run test
+Die Version von C:\Users\Chang\AppData\Roaming\npm\node_modules\bun\bin\bun.exe ist mit der
+ausgeführten Windows-Version nicht kompatibel.
+```
+
+Im `PATH` steht `AppData\Roaming\npm` **vor** `.bun\bin`; ein Skript, das `bun` aufruft, trifft
+den npm-Shim, und der zeigt auf eine Bun-Kopie, die hier **nicht startet**. Die lauffähige ist
+**1.4.0** unter `C:\Users\Chang\.bun\bin\bun.exe`. Betroffen ist **jedes** Paket — nicht mein
+neues.
+
+**Die Regel.** Bevor ein Ergebnis auf ein Skript gestützt wird, wird das **Werkzeug** gemessen:
+welche Fassung, aus welchem Pfad, startet sie überhaupt? Und wo eine Kette über den `PATH`
+läuft, wird die **ausführbare Datei** genannt statt ihres Namens. Ein Aufruf, der am Shim
+scheitert, ist **kein** Testergebnis — er ist ein Werkzeugbefund.
+
+---
+
+## 30. Regel 26 gilt auch für **Prüfungen** — eine Zahl im Namen, die niemand prüft, lügt
+
+**Der Fall — meine eigene Regel, verletzt, in anderem Gewand.** Migration 0008 fügte eine
+Tabelle und eine Fassung hinzu (7 → 8). Vier Prüfdateien trugen die Zahl **abgeschrieben** und
+wurden rot — richtigerweise. Aber zwei Stellen waren **schlimmer** als rot:
+
+1. Ein Testname lautete *„legt alle **achtzehn** Tabellen an"*. Er prüfte die Tabellen einzeln
+   mit `toContain` und **bestand** — während die Datenbank längst **zwanzig** Tabellen hatte.
+   Der Name log, die Prüfung war grün.
+2. In `scripts/schema-stand.test.mjs` stand viermal die feste `7` in einer Attrappe. Die
+   Attrappe war älter als der Code — vier Prüfungen rot, obwohl das geprüfte Skript richtig
+   arbeitete.
+
+**Die Regel.** Auch in **Prüfungen** gilt: was aus einer wachsenden Quelle kommt, wird
+**gelesen** (`const CODEFASSUNG = zahlAus(process.cwd(), QUELLEN.readiness, …)`), nicht
+abgeschrieben. Wo die Zahl im **Namen** steht, muß sie **geprüft** werden — oder sie fällt aus
+dem Namen weg und wird durch einen **Mengenvergleich** ersetzt (`expect(tables).toEqual([...erwartet].sort())`):
+eine fehlende Tabelle fängt die Schleife, eine **überzählige** nur der Vergleich. Und die
+Gegenprobe gegen die eigene Bequemlichkeit gehört dazu: ist die gelesene Zahl überhaupt
+**lesbar**? Sonst prüfen alle Fälle gegen `undefined`, und der Vergleich ist leer.
+
+**Der Satz, der bleibt.** Regel 26 stand seit dem selben Tag in dieser Datei. Ich habe sie
+gelesen, aufgeschrieben — und beim Hinzufügen der Migration trotzdem viermal verletzt, weil die
+Zahl diesmal **in einer Prüfung** stand und nicht im Code. Eine Regel, die nur für den Code
+gilt, gilt nicht.
