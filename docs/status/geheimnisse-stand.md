@@ -72,16 +72,45 @@ ausgegeben** — auch nicht gekürzt.
 
 ## 4. Was für C2 und C3 **nicht** belegt ist
 
-Beide Pakete sind gebaut, verdrahtet und haben eigene Prüfungen. **Aber:**
+Beide Pakete sind gebaut, verdrahtet und haben eigene Prüfungen. **Aber sie sind nicht über
+den Host erreichbar.** Gemessen am 14.10.2026 — **alle** `/api/pmh/…`-Wege des ganzen Baums:
 
-| Frage | Befund |
-|---|---|
-| Nennen die **HTTP**-Tests des Hosts `reset`/`apikey`? | **0 Treffer** in `packages/api/auth-http/tests/erstlogin.test.ts` und `postgres.test.ts` |
-| Welche Wege bietet `auth-http` an? | **unschlüssig gemessen** — mein Muster fand nur `/api/pmh` und greift damit nicht. **Die Frage ist offen, nicht beantwortet.** |
+```
+/api/pmh/auth/register
+/api/pmh/auth/login
+/api/pmh/auth/logout
+/api/pmh/auth/me
+/api/pmh/auth/seite          (die Anmeldeseite)
+```
+
+**Fünf Wege. Kein Weg für einen Paßwort-Reset. Kein Weg für einen API-Schlüssel.**
+
+`packages/api/auth-http/src/index.ts` importiert genau fünf Handler:
+`wegRegistrieren`, `wegAnmelden`, `wegAbmelden`, `wegIch`, `seitenWege`.
+
+**Die Erstinbetriebnahme ist enthalten — aber nicht als eigener Weg.** Die Claim-Ablage ist
+eingebunden (`index.ts:254`, `claimAblageImHome(home)`) und wird **innerhalb** der
+Registrierung geprüft (`wege.ts:303`, `pruefeClaim(...)`). Ein eigener Claim-Weg existiert
+nicht und wird auch nicht gebraucht.
+
+### Was daraus folgt — und was daraus **nicht** folgt
+
+**Nicht**, daß C2 und C3 unfertig sind: sie sind als Paket gebaut, geprüft und über
+Skripte (`scripts/apischluessel.mjs`, `scripts/reset.test.mjs`) benutzbar. Für einen
+**Betreiber** ist das ein gangbarer Weg.
+
+**Wohl aber**, daß der Satz in [grenzen-und-offenes.md](grenzen-und-offenes.md) Zeile 19
+falsch war: dort stand, der Anmeldebereich habe „Anmeldeseite, Erstinbetriebnahme,
+API-Schlüsseln und Paßwort-Reset". Zwei von vier stimmen. Der Satz ist dort richtiggestellt.
+
+**Und es bleibt offen**, ob ein Benutzer diese beiden Vorgänge **ohne Skript** auslösen
+können soll. Das ist eine **Entscheidung** — kein Versehen: ein Paßwort-Reset über HTTP
+braucht einen Zustellweg (Mail) oder ein Einmal-Token-Ausgabeverfahren, und ein
+API-Schlüssel über HTTP braucht eine Rechteprüfung im selben Bereich. Beides ist **nicht
+gebaut** und **nicht entschieden**.
 
 **„Gebaut und geprüft" im Paket ist nicht „über den Host erreichbar".** Das ist derselbe
 Unterschied wie zwischen *komponiert* und *wirkt* in der [Agent-Kern-Karte](agent-kern.md).
-Nachweis dafür wäre ein Aufruf über die API — **gemessen ist er nicht.**
 
 ## 5. Reproduktion
 
