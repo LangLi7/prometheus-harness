@@ -136,13 +136,18 @@ appear here once it is worth photographing.
 <a id="known-limitations"></a>
 ## Known Limitations
 
-Named, measured, and not talked up. The full list, including five earlier claims
+Named, measured, and not talked up. The full list, including eight earlier claims
 of this project that measurement has since disproved, is in
 [grenzen-und-offenes.md](docs/status/grenzen-und-offenes.md).
 
-- **The interface is a shell** — 5 files, and no chat and no file tree.
+- **The interface is a shell** — 8 files under `apps/web/src`, and neither a chat
+  nor a file tree. (Counted 14.10.2026; this line said *5* before.)
 - **Sessions persist to JSONL**, not to PostgreSQL.
-- **Compaction is absent** — `token-meter` counts tokens, it does not shorten.
+- **Compaction is composed and active; its behaviour is unproven** — the default
+  preset activates `dsh-compaction-basic`, `dsh-command-compact` and
+  `dsh-compaction-tool-result-pruner`. Until 14.10.2026 this line claimed
+  *"Compaction is absent"*; measurement disproved it
+  ([plugin-inventur.md](docs/status/plugin-inventur.md)).
 - **The knowledge store has no indexer** — schema and probes exist, embeddings and
   a file watcher do not.
 - **Database checks run against the operational database** and ten of them fail.

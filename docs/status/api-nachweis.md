@@ -55,7 +55,32 @@ Cookie: <aus GET /?token=…>
   "payload": { "args": { "request": { … } } } }
 ```
 
-**Drei Eigenschaften, die man kennen muß:**
+### Die Form hängt am Descriptor: **mit** und **ohne** `request`
+
+`args:{request:{…}}` gilt **nur** für Methoden, die einen Request-Parameter haben.
+Der Descriptor sagt es; raten ist der Fehler:
+
+```js
+// node_modules/@deepseek-ai/<paket>/lib/typert.remote-client.js
+invocation: { kind: 'direct' },
+parameters: [ … ]          // leer  ->  args: {}
+                           // gefüllt -> args: { request: { … } }
+```
+
+**Gemessen am 14.10.2026 an einer parameterlosen Methode:**
+
+```js
+// pluginInventory/list — parameters: []
+{ type: 'client-request', rpcId: 'inv-1',
+  method: 'pluginInventory/list',
+  payload: { args: {} } }              // KEIN request-Mantel
+```
+
+Wer den `request`-Mantel auf eine parameterlose Methode überträgt, bekommt einen
+**Codec-Fehler** und hält den Kern für kaputt. Genau das ist mir passiert — siehe
+[plugin-inventur.md](plugin-inventur.md), Widerruf 1.
+
+**Fünf Eigenschaften, die man kennen muß:**
 
 1. **Der Server antwortet immer mit HTTP 200** — auch bei Fehlern. Die Ursache steht im
    **Objekt**: `{"ok":false,"error":{"code":…,"message":…,"details":{…}}}`. Wer den Statuscode
@@ -65,6 +90,39 @@ Cookie: <aus GET /?token=…>
 3. **`payload.args.request`** ist die Nutzlast; die Felder stehen im Descriptor des Endpunkts.
    Nachschlagen statt raten:
    `node_modules/@deepseek-ai/dsh-api-session-controller/lib/types/types.d.ts`
+4. **Die Antwort hat ZWEI Hüllen — die Nutzlast liegt unter `result.value`.**
+   Der äußere Umschlag ist ein `ServerResponse`, das Ergebnis steckt **im** `result`.
+   Die Form steht im Kern, nicht in meiner Vermutung:
+   `node_modules/@deepseek-ai/dsh-client-connection/lib/types/rpc.d.ts`
+
+   ```ts
+   interface ClientRequest  { type: 'client-request';  rpcId: RpcId; payload: P }
+   interface ServerResponse { type: 'server-response'; rpcId: RpcId; result: ConnectionRpcResult<unknown> }
+
+   type ConnectionRpcResult<T> =
+     { ok: true;  value: T } |
+     { ok: false; error: { code: string; message: string; details: object } }
+   ```
+
+   Als JSON:
+
+   ```json
+   { "type": "server-response", "rpcId": "inv-1",
+     "result": { "ok": true, "value": { … die eigentliche Nutzlast … } } }
+   ```
+
+   Die Kurzschreibweise `{"ok":true,"value":…}` in Abschnitt 1 beschreibt nur den
+   **inneren** Teil. Meine erste Inventur-Sonde suchte die Nutzlast unter `value` — eine
+   Ebene zu hoch — und sah eine **leere, aber vollständige** Antwort. Am 14.10.2026
+   berichtigt. (Beim Berichtigen hatte ich zuerst `type: "client-response"` geschrieben —
+   **geraten**, und falsch: der Kern nennt es `server-response`. Ein Suchlauf über die
+   installierten Pakete nach `client-response` ergab **null** Treffer, der nach
+   `server-response` den Vertrag.)
+5. **Ein abweichender Statuscode bedeutet etwas anderes als ein `ok:false`.** `401` heißt
+   „kein oder falsches Cookie" (die Anmeldung fehlt), `404` heißt „falscher Pfad". Beides
+   kommt **vor** der Nutzlastprüfung. Wer `Invoke-WebRequest` benutzt, sieht diese Codes
+   **nicht** — es wirft bei Nicht-2xx, und die Sonde meldet dann fälschlich „keine Antwort".
+   Gemessen: `curl.exe -w "%{http_code}"` zeigt den Code, `Invoke-WebRequest` nicht.
 
 ## 3. Die Nutzlasten, die funktionieren
 
@@ -84,7 +142,20 @@ Cookie: <aus GET /?token=…>
 // session/page              (Typ SessionPageRequest)
 { address: SessionAddress; throughSeq: number; beforeSeq?: number; maxMessages?: number; … }
   -> { records: readonly SessionHistoryRecord[]; hasMore: boolean }
+
+// pluginInventory/list      (parameters: [] — KEIN request-Mantel)
+{}
+  -> { entries: readonly PluginInventoryEntry[];        // entryId, moduleName, enabled, fiberPhase
+       agentPresets?: readonly AgentPresetPluginGroup[]; // je Preset die flache Zusammensetzung
+       managementAvailable?: boolean }
 ```
+
+**`pluginInventory/list` ist der billigste Weg, den Host zu befragen** — eine lesende
+Methode ohne Parameter. Sie beantwortet „welche Plugins sind geladen, aktiviert und
+lebendig" und damit die Frage, welche Kernpakete **wirklich** laufen. Gemessen am
+14.10.2026: **191** Einträge, **163** `active`, **0** `failed`. Fertige Sonde:
+[`messsonden/plugin-inventur.mjs`](messsonden/plugin-inventur.mjs) ·
+Auswertung: [plugin-inventur.md](plugin-inventur.md).
 
 **`session/page` braucht `throughSeq`** — eine Zahl aus dem Eröffnungsrahmen eines
 `session/follow`-Stroms (WebSocket). **Wer die Antwort einfacher lesen will, liest die Datei**
@@ -114,6 +185,12 @@ Beispiel:
 * **Ob die Werkzeuge des Harness funktionieren.** Ein Selbsttest-Bericht eines Agenten meldet
   `pwsh`, `glob`, `grep`, `web_fetch` und Schreiben in den Arbeitsbereich als **kaputt**. Das
   ist **nicht** nachgefahren — dieser Nachweis betrifft nur den **Prompt-Weg**.
+  **Teilweise eingeengt am 14.10.2026:** die **Zusammensetzung** der Werkzeuge ist belegt —
+  `pluginInventory/list` zeigt für das Standard-Preset `dsh-tool-pwsh`, `dsh-tool-fs`,
+  `dsh-tool-fs-search`, `dsh-tool-jobs`, `dsh-tool-todo`, `dsh-tool-web` und
+  `dsh-tool-skill` als `enabled=true, phase=active`, und der Loader meldet **0** gescheiterte
+  Einträge ([plugin-inventur.md](plugin-inventur.md)). **Nicht** belegt ist damit die
+  **Funktion** je Werkzeug — aktiv heißt eingehängt, nicht fehlerfrei.
 * **Ob eine Antwort über den Verlauf lesbar ist**, ohne die Datei zu lesen (`session/page`
   braucht `throughSeq` aus einem `session/follow`-Strom).
 * **Die zwei fehlenden Pakete** `@deepseek-ai/dsh-subagent-claude-code` und

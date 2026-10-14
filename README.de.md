@@ -141,13 +141,18 @@ hier hinein, sobald sie fotografierenswert ist.
 <a id="known-limitations"></a>
 ## Bekannte Grenzen
 
-Benannt, gemessen und nicht schöngeredet. Die vollständige Liste, samt fünf
+Benannt, gemessen und nicht schöngeredet. Die vollständige Liste, samt acht
 früherer Aussagen dieses Projekts, die die Messung inzwischen widerlegt hat, steht
 in [grenzen-und-offenes.md](docs/status/grenzen-und-offenes.md).
 
-- **Die Oberfläche ist ein Gerüst** — 5 Dateien, kein Chat und kein Dateibaum.
+- **Die Oberfläche ist ein Gerüst** — 8 Dateien unter `apps/web/src`, kein Chat
+  und kein Dateibaum. (Gezählt am 14.10.2026; hier stand bis dahin *5*.)
 - **Sitzungen liegen als JSONL**, nicht in PostgreSQL.
-- **Verdichtung fehlt** — `token-meter` zählt Token, es kürzt nicht.
+- **Verdichtung ist komponiert und aktiv, ihr Verhalten unbelegt** — das
+  Standard-Preset aktiviert `dsh-compaction-basic`, `dsh-command-compact` und
+  `dsh-compaction-tool-result-pruner`. Hier stand bis zum 14.10.2026
+  *„Verdichtung fehlt"*; die Messung hat das widerlegt
+  ([plugin-inventur.md](docs/status/plugin-inventur.md)).
 - **Der Wissensspeicher hat keinen Indexer** — Schema und Proben gibt es,
   Einbettungen und Dateiwächter nicht.
 - **Die Datenbankprüfungen laufen gegen die Betriebsdatenbank**, zehn scheitern.

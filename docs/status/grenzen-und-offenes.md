@@ -7,7 +7,9 @@
 
 ## Was sich geändert hat (14.10.2026)
 
-Vier Sätze aus dem README waren zum Zeitpunkt dieses Nachtrags **nicht mehr wahr**.
+Fünf Sätze aus dem README waren zum Zeitpunkt dieses Nachtrags **nicht mehr wahr**.
+(Hier stand **„Vier"** — die eigene Tabelle darunter hatte **fünf** Zeilen. Der
+Zähler widersprach dem Inhalt im selben Dokument; berichtigt am 14.10.2026.)
 Sie werden hier nicht gelöscht, sondern richtiggestellt — wer die Geschichte
 entfernt, lernt nichts.
 
@@ -19,10 +21,39 @@ entfernt, lernt nichts.
 | „the Rust inventory is unused — nothing invokes them" | **Widerlegt.** `packages/util/atomic-write` startet `pmh-atomicfs` als Prozeß; `native/crypto` liefert `random_hex` aus `/dev/urandom` bzw. `BCryptGenRandom`. |
 | „826 tests pass and 18 packages type-check clean" | **Zu klein.** Gemessen auf Linux: **1189 pass · 87 skip · 0 fail** über 55 Dateien; **25 Pakete** typprüfen grün. Belegt: [ci-nachweis.md](ci-nachweis.md). |
 
+## Was die Plugin-Inventur am 14.10.2026 widerlegt hat
+
+Die folgenden Sätze standen **in diesem Dokument** oder im README — also in der
+Sektion, deren Aufgabe es ist, veraltete Aussagen richtigzustellen. Eine
+Ehrlichkeits-Sektion schützt nicht vor veralteten Zahlen; nur eine **wiederholte
+Messung** tut das. Vollständig: [plugin-inventur.md](plugin-inventur.md).
+
+| Frühere Aussage | Heute gemessen |
+|---|---|
+| „Verdichtung fehlt" | **Falsch.** `dsh-compaction-basic`, `dsh-command-compact` und `dsh-compaction-tool-result-pruner` sind im Standard-Preset `enabled=true`, `phase=active`. |
+| „`apps/web/src` hat 5 Dateien" | **Falsch.** Es sind **8**. |
+| „Vier Sätze aus dem README" | **Falsch.** Die eigene Tabelle hatte **fünf** Zeilen. |
+| „die Inventur-API ist einer von sechs kaputten Codecs" (nur mündlich geführt, nie in einem Dokument) | **Falsch, mein Fehler.** Die Methode ist `parameters: []` — parameterlos; ich hatte den `{request:{…}}`-Mantel von `session/create` übertragen. |
+
+**Der Meßweg, der das entschied:** `pluginInventory/list` über die Kern-API,
+Sonde [`messsonden/plugin-inventur.mjs`](messsonden/plugin-inventur.mjs). **191**
+Einträge im Loader, **163** aktiv, **0** gescheitert, **4** Agent-Presets.
+
+**Und ein Befund, der Arbeit spart:** es gibt **zwei** Zusammensetzungen — den
+Host-Loader und die Zeilen je Agent-Preset. Ein Werkzeug darf hostweit
+`enabled=false` sein und in der Preset-Zeile `active` — das ist der **Normalfall**.
+„`enabled=false` im Loader" ist **kein** Lückenbefund.
+
 ## Was offen ist
 
-**Die eigene Oberfläche ist ein Gerüst.** `apps/web/src` hat 5 Dateien und **6**
-sichtbare Zeichenketten. Es gibt **keinen** Chat und **keinen** Dateibaum. Die
+**Die eigene Oberfläche ist ein Gerüst.** `apps/web/src` hat **8** Dateien; an fest
+verdrahteten, vom Benutzer wahrnehmbaren Zeichenketten stehen dort **7**:
+`◆ CHANNELS`, `projekt: `, `✕`, `PROMETHEUS` und `prometheus` (sichtbar) sowie die
+beiden `aria-label` `Insel schließen` und `Kanäle öffnen`. Alles andere kommt aus
+`groups`. Es gibt **keinen** Chat und **keinen** Dateibaum.
+(Hier stand **„5 Dateien und 6 Zeichenketten"** — beide Zahlen waren veraltet,
+nachgezählt am 14.10.2026.)
+Die
 künftige Oberfläche ist damit auch für die Übersetzung **unbekannt** — 63
 Verzeichnisse unter `packages/client/` enthalten **0 Dateien**.
 
@@ -31,7 +62,13 @@ für Anmeldung und Wissensspeicher; ein `session-persistence-postgres` gibt es
 nicht. Der Sitzungsformat-Stand v1 gegen die Vorlage v4 ist **nicht neu gemessen**
 — die Aussage stammt aus einem früheren Bericht.
 
-**Verdichtung fehlt.** `token-meter` **zählt** Token, es **kürzt** nicht.
+**Verdichtung ist komponiert und aktiv — ihr Verhalten ist unbelegt.** Hier stand
+„**Verdichtung fehlt**"; das war am 14.10.2026 **falsch**. Gemessen über
+`pluginInventory/list`: das Standard-Preset aktiviert `dsh-compaction-basic`,
+`dsh-command-compact` und `dsh-compaction-tool-result-pruner`, alle mit
+Lebensphase `active`. Belegt: [plugin-inventur.md](plugin-inventur.md). Offen ist
+etwas **anderes** als behauptet: keine Messung zeigt bisher, daß die Verdichtung in
+einer **langen** Sitzung wirklich auslöst.
 
 **Der Wissensspeicher hat kein Schema-Problem mehr, aber keinen Indexer.**
 Migration 0006 (Dokumente, Stücke, `vector(768)`, HNSW) und 0007 (Obsidian:
