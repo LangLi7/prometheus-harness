@@ -102,6 +102,39 @@ Datenbanken vorhanden ist. Führende Erklärung, **nicht** belegt: die
 Migrationsprüfung fährt die Kette auf einer frischen Datenbank, in der die
 Erweiterung nicht vererbt wird.
 
+**Eine Prüfung flatterte einmal — und ist nicht wiedergekommen.** Gemessen am 14.10.2026 in
+`bun test scripts`:
+
+| Läufe | Ergebnis |
+|---|---|
+| **1** von 6 | `272 pass · 3 fail` |
+| **5** von 6 | `273 pass · 2 fail` |
+
+Die zwei beständigen Fehlschläge sind die bekannten Datenbankprüfungen
+(`apischluessel.test.mjs`, `reset.test.mjs`). **Der dritte trat genau einmal auf, danach in
+sechs Läufen nicht wieder** — und Bun meldete ihn als **`(unnamed)`**, also **ohne Namen**.
+Er ist damit **nicht nachträglich zu benennen**.
+
+Drei Läufe mit dem **JUnit-Bericht** (der Datei **und** Test nennt) zeigen **nur** die zwei
+bekannten Fehlschläge:
+
+```
+bun test scripts --reporter=junit --reporter-outfile=.pmh-j.xml
+  scripts\apischluessel.test.mjs  ->  1
+  scripts\reset.test.mjs          ->  1
+```
+
+**Das ist ein Verdacht, kein Befund** — eine einzelne Abweichung ohne zweiten Lauf ist so
+wenig ein Ergebnis wie eine einzelne Zahl ohne zweiten Lauf (Arbeitsweise, Regel 1). Er steht
+hier, damit er nicht in Vergessenheit gerät: **wer ihn findet, hat eine flatterhafte
+Prüfung**, und die ist schlimmer als eine rote.
+
+**Ein eigener Verfahrensfehler gehört daneben.** Der betreffende Lauf meldete `3 fail` — und
+ich habe **trotzdem festgeschrieben**, weil ich die Zeile nur überflogen hatte. Der
+festgeschriebene Stand ist grün (die zwei bekannten Fehlschläge), aber das war **Glück**,
+nicht Sorgfalt. Seitdem gilt: **die Zusammenfassung wird gelesen, bevor committet wird** —
+nicht danach.
+
 **Der Geheimnis-Haken prüft nichts.** Er ist inzwischen verdrahtet und ruft das
 richtige Bun, aber `gitleaks` fehlt — der Haken sagt das und blockiert nicht. Ein
 **größerer** Wertetest (`leck-pruefung.mjs`) hat ergeben: **9 von 10** echten
