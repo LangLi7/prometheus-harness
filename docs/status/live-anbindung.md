@@ -375,10 +375,67 @@ beiden Fälle.
 ### Was weiterhin **nicht** gemessen ist
 
 * **Dauerlast** und viele gleichzeitige Clients.
-* Ob die Sitzung auch nach einem Neustart **beschreibbar** ist (nur **lesen** wurde gemessen —
-  es wurde nach dem Neustart kein weiterer Auftrag abgesetzt).
+* ~~Ob die Sitzung auch nach einem Neustart **beschreibbar** ist~~ — **gemessen**, §15.
 * Ob die Wiederaufnahme bei einem Neustart **während** eines laufenden Auftrags gilt. Hier war
   die Runde vor dem Töten **abgeschlossen**.
+
+## 15. Nach dem Neustart **weiterarbeiten** — die Sitzung ist schreibbar
+
+Sonde: [`messsonden/strom-neustart-sonde.mjs`](messsonden/strom-neustart-sonde.mjs) · Exit **0**
+· zwei Läufe mit **identischen** Zahlen
+
+§14 hat nach dem Neustart nur **gelesen**. Der Betreiber öffnet die Anwendung aber, um
+**weiterzuarbeiten**. Also: nach dem Neustart einen neuen Auftrag in **dieselbe** Sitzung.
+
+### Das Ergebnis — zweimal gleich
+
+```
+== Host A ==
+  cursor = 21, 22 Einträge, Bereich 0 … 21
+
+== HOST A WIRD GETÖTET ==   antwortet nicht mehr: ja
+
+== Host B (anderer PORT, anderer Prozess, GLEICHES Home) ==
+  cursor = 21, 22 Einträge, Bereich 0 … 21
+  VERLOREN gegenüber A: KEINE        Doppelungen: 0
+
+== 5. SCHREIBEN in dieselbe Sitzung, nach dem Neustart ==
+  Auftrag angenommen: ja
+
+== 6. Der Verlauf nach dem Schreiben ==
+  cursor:   21 -> 33
+  Einträge: 22 -> 34
+  Bereich:  0 … 33
+  alte Einträge verloren: KEINE
+  neu dazugekommen:       12
+  Doppelungen:            0
+```
+
+**Die Sitzung ist nach dem Neustart weiterschreibbar.** Der neue Auftrag wurde angenommen und
+ausgeführt, **12 Einträge** kamen dazu, die **22 alten sind alle noch da**, und es gibt **keine
+Doppelung**. Damit ist *„nach dem Neustart weiterarbeiten"* **gemessen** — nicht nur *„den
+Verlauf ansehen"*.
+
+### Die ganze Kette, in einem Lauf belegt
+
+| Schritt | Ergebnis |
+|---|---|
+| Sitzung anlegen, Runde laufen lassen | 22 Einträge, `cursor` 21 |
+| **Host töten** | antwortet nicht mehr |
+| **Neuer Prozeß**, gleiches Home, **anderer Port** | findet dieselbe Sitzungskennung |
+| Verlauf lesen | 22 Einträge, **kein** Verlust, **keine** Doppelung |
+| **Neuen Auftrag absetzen** | angenommen und ausgeführt |
+| Verlauf danach | 34 Einträge, 12 neu, 22 alt **erhalten** |
+
+**Das ist die Anforderung des Betreibers, vollständig:** *„damit der Benutzer beim Neustart
+Chatverlauf bekommt"* — und **weiterarbeiten** kann.
+
+### Was weiterhin **nicht** gemessen ist
+
+* **Dauerlast** und viele gleichzeitige Clients auf derselben Sitzung.
+* Ob ein Neustart **während** eines laufenden Auftrags sauber aufgefangen wird; hier war die
+  Runde vor dem Töten **abgeschlossen**.
+* Ob **zwei** Hosts gleichzeitig dieselbe Sitzung beschreiben dürfen — nicht versucht.
 
 ## 12. Bündelung — **eine** Strecke trägt **acht** Sitzungen
 

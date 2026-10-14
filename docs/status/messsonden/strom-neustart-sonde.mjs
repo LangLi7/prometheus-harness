@@ -319,6 +319,78 @@ async function haupt() {
       if (dublettenB > 0) console.log(`    - ${String(dublettenB)} Doppelungen in B`)
       process.exitCode = 1
     }
+
+    // ---------------------------------------------------------------------------
+    // 5. SCHREIBEN nach dem Neustart — die letzte Lücke
+    // ---------------------------------------------------------------------------
+    // Bis hierher wurde nur **gelesen**. Der Betreiber öffnet die Anwendung aber, um
+    // **weiterzuarbeiten**. Also: einen neuen Auftrag in dieselbe Sitzung geben und
+    // nachsehen, ob sie weiterläuft — **ohne** den alten Verlauf zu beschädigen.
+    console.log('')
+    console.log('== 5. SCHREIBEN in dieselbe Sitzung, nach dem Neustart ==')
+    const vorSchreiben = vorB.cursor
+    const p = await B.ruf('session/prompt', {
+      request: {
+        requestId: `neu-schreiben-${String(Date.now())}`,
+        sessionId: sid,
+        mode: 'queue',
+        content: [{ type: 'text', text: 'Antworte mit genau einem Wort: WEITER' }],
+      },
+    })
+    console.log(`  Auftrag angenommen: ${p.ok === true ? 'ja' : JSON.stringify(p.fehler)}`)
+    if (p.ok !== true) {
+      console.log('  BEFUND: der Auftrag wurde ABGELEHNT — die Sitzung ist nach dem Neustart')
+      console.log('  NICHT beschreibbar. „Weiterarbeiten" ist damit nicht belegt.')
+      process.exitCode = 1
+      return
+    }
+
+    // Auf die neue Runde warten — großzügig, damit sie sicher geschrieben ist.
+    await new Promise((f) => setTimeout(f, 14_000))
+    const nachSchreiben = await verlaufHolen(gestartet.start.port, B.cookie, sid)
+    if (nachSchreiben === null) {
+      console.log('  BEFUND: nach dem Schreiben kein Eröffnungsrahmen — unklar.')
+      process.exitCode = 1
+      return
+    }
+    const bereichC = await verlaufBlättern(B.ruf, sid, nachSchreiben.cursor)
+    const seqC = bereichC.alle ?? []
+    const mengeC = new Set(seqC)
+    const alteWeg = seqA.filter((x) => !mengeC.has(x))
+    const neuDazu = seqC.filter((x) => !new Set(seqA).has(x))
+    const dublettenC = seqC.length - mengeC.size
+
+    console.log('')
+    console.log('== 6. Der Verlauf nach dem Schreiben ==')
+    console.log(`  cursor: ${String(vorB.cursor)} -> ${String(nachSchreiben.cursor)}`)
+    console.log(`  Einträge: ${String(seqB.length)} -> ${String(seqC.length)}`)
+    console.log(`  Bereich: ${String(Math.min(...seqC, 0))} … ${String(Math.max(...seqC, 0))}`)
+    console.log(`  alte Einträge verloren: ${alteWeg.length === 0 ? 'KEINE' : alteWeg.slice(0, 10).join(', ')}`)
+    console.log(`  neu dazugekommen:       ${String(neuDazu.length)}`)
+    console.log(`  Doppelungen:            ${String(dublettenC)}`)
+
+    console.log('')
+    console.log('== BEFUND (Schreiben nach dem Neustart) ==')
+    if (nachSchreiben.cursor <= vorSchreiben) {
+      console.log(`  Der Cursor wuchs NICHT (${String(vorSchreiben)} -> ${String(nachSchreiben.cursor)}).`)
+      console.log('  Also hat der Auftrag nichts geschrieben — die Sitzung ist nach dem Neustart')
+      console.log('  möglicherweise nur LESBAR. Das ist ein Befund, kein Erfolg.')
+      process.exitCode = 1
+    } else if (alteWeg.length === 0 && dublettenC === 0 && neuDazu.length > 0) {
+      console.log('  Die Sitzung ist nach dem Neustart WEITERSCHREIBBAR:')
+      console.log(`    - neuer Auftrag angenommen und ausgeführt (cursor ${String(vorSchreiben)} -> ${String(nachSchreiben.cursor)})`)
+      console.log(`    - ${String(neuDazu.length)} neue Einträge`)
+      console.log(`    - die ${String(seqA.length)} alten Einträge sind ALLE noch da`)
+      console.log('    - KEINE Doppelung')
+      console.log('  Damit ist „nach dem Neustart weiterarbeiten" GEMESSEN.')
+      process.exitCode = 0
+    } else {
+      console.log('  Nicht belegt:')
+      if (alteWeg.length > 0) console.log(`    - ${String(alteWeg.length)} alte Einträge sind WEG`)
+      if (dublettenC > 0) console.log(`    - ${String(dublettenC)} Doppelungen`)
+      if (neuDazu.length === 0) console.log('    - kein neuer Eintrag')
+      process.exitCode = 1
+    }
   } finally {
     a.kind.kill()
     b?.kill()
