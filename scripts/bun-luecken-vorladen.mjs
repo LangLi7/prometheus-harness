@@ -37,6 +37,10 @@ import {
   ergaenzungNoetig as argvNoetig,
   richteEin as argvEin,
 } from './subprozess-argv-ergaenzung.mjs'
+import {
+  ergaenzungNoetig as metadatenNoetig,
+  richteEin as metadatenEin,
+} from './plugin-metadaten-aufloeser.mjs'
 
 const lies = (pfad) => readFileSync(pfad, 'utf8')
 
@@ -50,6 +54,18 @@ if (ptcNoetig()) {
 if (argvNoetig()) {
   argvEin(plugin, lies)
   ANGEWANDT.push('Subprozess-argv (Bun verschluckt den -- Trenner)')
+}
+if (metadatenNoetig()) {
+  // **Diagnose-Schalter, gemessen am 14.10.2026.** Beim Einbau dieser Ergänzung startete der
+  // Host nicht mehr (167 × „failed to import"). Um zu entscheiden, ob **diese** Ergänzung die
+  // Ursache ist, muß sie sich abschalten lassen: `PMH_OHNE_METADATEN_FIX=1`. Der Schalter ist
+  // **kein** stiller Ausweg — er steht im Startbericht, wenn er greift.
+  if (process.env.PMH_OHNE_METADATEN_FIX === '1') {
+    process.stderr.write('[pmh] ACHTUNG: Paket-Metadaten-Ergänzung ist ABGESCHALTET (PMH_OHNE_METADATEN_FIX=1)\n')
+  } else {
+    metadatenEin(plugin, lies)
+    ANGEWANDT.push('Paket-Metadaten (Bun hat keinen Node-Modulauflöser)')
+  }
 }
 
 // **`stderr` und nicht `stdout` — gemessen am 13.10.2026.**
