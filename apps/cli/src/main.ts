@@ -477,7 +477,20 @@ async function main(): Promise<void> {
   })
 
   const loader = ctx.get('loader')
-  process.stderr.write(`${BIN}: Core läuft (Profil "${profileName}", Loader ${loader === undefined ? 'fehlt' : 'aktiv'})\n`)
+  // **Maschinenlesbare Zeile — NICHT uebersetzen.** Zwei Sonden erkennen sie:
+  // `docs/status/messsonden/windows-host-check.ps1` und
+  // `docs/status/messsonden/windows-host-eigenes-home.ps1`. Aendert sich der Text,
+  // finden sie **nichts** und melden trotzdem Erfolg — ein stummer Ausfall.
+  //
+  // Deshalb ist die Kennung **englisch und stabil**: frueher stand hier der Satz
+  // „Core laeuft", also ein deutscher Satz als Maschinenschnittstelle. Ein
+  // oeffentliches Repository mit deutscher Maschinenausgabe ist ein Mischmasch,
+  // den niemand erwartet.
+  //
+  // Wer die Zeile aendert, aendert **beide Sonden im selben Schritt**.
+  process.stderr.write(
+    `${BIN}: core running (profile "${profileName}", loader ${loader === undefined ? 'missing' : 'active'})\n`,
+  )
 
   // Lebensdauer liegt bei den Plugins — der Webserver hält den Prozess offen.
   // Ein Abbruchsignal entsorgt den Baum sauber, statt den Prozess hart zu töten.

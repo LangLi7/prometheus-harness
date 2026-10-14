@@ -44,7 +44,7 @@ $all = @()
 foreach ($f in @($log, $err)) { if (Test-Path $f) { $all += Get-Content $f } }
 $disables = ($all | Where-Object { $_ -match 'disabling profile plugin row' }).Count
 Write-Host "deaktivierte Profil-Eintraege: $disables"
-$all | Where-Object { $_ -match 'did not activate|Core läuft' } | Select-Object -First 3 | ForEach-Object {
+$all | Where-Object { $_ -match 'did not activate|core running' } | Select-Object -First 3 | ForEach-Object {
   Write-Host "  $($_.Substring(0, [Math]::Min(150, $_.Length)))"
 }
 

@@ -32,7 +32,7 @@ Write-Host "ausgabe-Zeilen: $($all.Count)"
 
 # Die entscheidenden Zeilen: Version, Deaktivierung, Pflicht-Einträge
 $interesting = $all | Where-Object {
-  $_ -match 'disabling profile plugin row|Core läuft|startup failed|did not activate|dsh web:|warnung|warning|Error:'
+  $_ -match 'disabling profile plugin row|core running|startup failed|did not activate|dsh web:|warnung|warning|Error:'
 }
 Write-Host "=== wesentliche Zeilen (gekürzt auf 200 Zeichen) ==="
 $interesting | Select-Object -First 25 | ForEach-Object {

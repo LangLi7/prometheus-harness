@@ -97,7 +97,9 @@ Prüfungen im selben Schritt mitziehen** — sonst wird eine Übersetzung zur ro
 
 Dazu **vier Verbraucher auf deutschen Teilzeichenketten**
 (`port-test.ps1:213,237,250,251,252,279`, `windows-host-check.ps1:35`,
-`windows-host-eigenes-home.ps1:47`) — u.a. auf `Core läuft` aus
+`windows-host-eigenes-home.ps1:47`) — u.a. auf `core running` aus (bis 14.10.2026 stand dort der deutsche Satz „Core läuft" —
+**als Maschinenschnittstelle**; er ist auf eine englische, stabile Kennung
+umgestellt, weil die Maschinenausgabe nicht deutsch sein soll)
 `apps/cli/src/main.ts:480`. Auch sie brechen **stumm**, nicht laut.
 
 **3. `readme-paarung.mjs` koppelt `README.md` ↔ `README.de.md` strukturell**
