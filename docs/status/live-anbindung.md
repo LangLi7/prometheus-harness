@@ -215,7 +215,7 @@ Gemessen, jede Zeile mit ihrem Fundort:
 | **Anbieter → Harness** (Tokenstrom) | **SSE** | `dsh-llm-deepseek/lib/index.js:2204` — der Adapter schickt `"accept": "text/event-stream"` |
 | **Harness → Client**, Sitzung live | **WebSocket** `/api/remote.mux` | **gemessen**: Aufwertung 3 ms, 26 ungerufene Rahmen (§7a) |
 | **Harness → Client**, einzelne Aufrufe | **HTTP** `POST /api/<voller/pfad>` | gemessen ([api-nachweis.md](api-nachweis.md)) |
-| **Harness → Client**, genaue Wege mit **strömenden** Körpern | **Fetch-Wege** | `dsh-client-connection/lib/types/rpc.d.ts`: `ConnectionFetchRoute` mit `requestBody: 'buffered' \| 'streaming'` und `fetch(request) → Promise<Response>`; `HostConnectionFetch` = *„Host registry for exact Fetch routes that cannot use JSON Remote invocation"*. **Erklärt, nicht gemessen** |
+| **Harness → Client**, genaue Wege mit **strömenden** Körpern | **Fetch-Wege** | Der Griff ist `ctx.connection.fetch.register(weg)` (`HostConnectionService.fetch`, `dsh-client-connection/lib/index.js:634`). **Kein Verbraucher** — siehe §8a. **Es gibt nichts zu messen: die Registratur ist leer** |
 | **Harness → Client**, HMR | **SSE** (`new EventSource(EVENTS_ROUTE)`) | `dsh-client-hmr/lib/client.js:64`; der Kern **kann** SSE |
 | **Kompression** | SSE bleibt **unkomprimiert** | `dsh-host-webserver/lib/index.js:187` nimmt `text/event-stream` vom gzip **aus** |
 
@@ -238,6 +238,62 @@ Vorliebe.**
 ## 9. Was dieses Blatt weiterhin offen läßt
 
 * Der Strom unter **Last** (viele Sitzungen gleichzeitig, viele Rahmen je Sekunde).
-* Die **Fetch-Wege** als zweiter Träger — erklärt, **nicht gefahren**. Das ist der
-  eigentliche Ersatz, falls ein Netz WebSocket blockiert.
 * Die **HMR-SSE-Strecke** im Zustand `dsh-hmr = enabled=false`.
+
+### 9a. Der „zweite Träger" existiert **nicht** — die Registratur ist leer
+
+Ich hatte in §8 geschrieben, die Fetch-Wege seien „erklärt, nicht gemessen". **Das war zu
+milde.** Gemessen ist mehr:
+
+```
+Suche nach registerFetchRoute im ganzen installierten Baum:
+  dsh-client-connection/lib/index.js:636   return { register: (route) => this.registerFetchRoute(owner, route) }
+  dsh-client-connection/lib/index.js:681   registerFetchRoute(owner, route) { … }
+  dsh-client-connection/lib/types/rpc-host.d.ts:48   private registerFetchRoute
+
+Suche nach FetchRoute|fetchRoute|registerFetch in UNSEREM Baum:
+  KEIN Treffer
+```
+
+**Es gibt genau einen Aufrufer — den Dienst selbst.** Der Griff ist
+`ctx.connection.fetch.register(weg)`, ein **scoped accessor** auf `HostConnectionService`:
+
+```js
+/** Exact Fetch-route registry scoped to the Context reading this service. */
+get fetch() {
+  const owner = this.ctx
+  return { register: (route) => this.registerFetchRoute(owner, route) }
+}
+```
+
+**Niemand meldet einen Weg an** — kein Kernpaket, und wir schon gar nicht. Damit ist:
+
+* Der Fetch-Träger ein **angebotener, unbenutzter Erweiterungspunkt**. Die Beschreibung im
+  Vertrag sagt es selbst: *„Host registry for exact Fetch routes **that cannot use** JSON
+  Remote invocation"* — er ist für den Fall gebaut, in dem jemand einen braucht.
+* **„Der Ersatz, falls ein Netz WebSocket blockiert" gibt es heute nicht.** Er wäre zu
+  **bauen**: eine Funktion, die einen Weg anmeldet, mit `requestBody: 'buffered'` oder
+  `'streaming'` und einem `fetch(request) → Promise<Response>`.
+* Die Zeile in §8 ist damit **richtiggestellt**: nicht „erklärt, nicht gemessen", sondern
+  **„die Registratur ist leer — es gibt nichts zu messen"**.
+
+**Das ist keine Kleinigkeit für den Betrieb:** wenn ein Netz WebSocket blockiert, fällt der
+einzige gemessene Live-Weg aus, und es gibt **keinen** zweiten. Wer das ändern will, muß ihn
+**schreiben** — der Kern gibt den Ort dafür vor.
+
+**Nebenbefund:** der Webserver nimmt SSE von der Kompression aus (§8) — er ist auf einen
+**strömenden** Träger **vorbereitet**, aber es läuft keiner.
+
+## 10. Zwei Fehltreffer meiner eigenen Suche — und die Regel daraus
+
+In zwei aufeinanderfolgenden Runden hat mein Suchmuster **etwas gefunden, das es nicht war**:
+
+| Muster | Traf auch | Wirklichkeit |
+|---|---|---|
+| `text/event-stream\|EventSource` | `SessionEventSource` | kein SSE — erst die Suche nach dem **wörtlichen** Medientyp fand die drei echten Stellen |
+| `fetchRoutes\|registerFetch\|…` | `registerFetchProvider` | das ist der **Web-Abruf-Anbieter** für das Werkzeug `web_fetch`, **kein** Fetch-Weg |
+
+**Die Regel:** über **minifizierte** Bündel wird nach **exakten Bezeichnern** gesucht, nicht
+nach Teilzeichenketten. Ein Teiltreffer in einem 100-kB-Bündel ist kein Befund — er ist ein
+Zufall mit Bedeutung. Beide Male hat der Fehltreffer **eine ganze Zeile meiner Tabelle**
+falsch gemacht.

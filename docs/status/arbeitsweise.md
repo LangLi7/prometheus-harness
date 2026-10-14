@@ -190,3 +190,29 @@ nur, weil der Lauf danach „HINWEIS: naechster Port nicht erkannt" meldete.
 
 **Die Regel.** Ein `HINWEIS`/`skip` wird **gelesen**, nicht überblättert. Und: eine Zahl im
 Bericht ist nur so gut wie die Frage, die sie beantwortet.
+
+---
+
+## 16. In Bündeln nach **exakten** Bezeichnern suchen, nie nach Teilzeichenketten
+
+**Der Fall — zweimal in zwei Runden, und beide Male hat es eine Tabellenzeile falsch gemacht.**
+
+| Muster | Traf auch | Wirklichkeit |
+|---|---|---|
+| `text/event-stream\|EventSource` | `Session**EventSource**` | **kein** SSE. Erst die Suche nach dem **wörtlichen** Medientyp `text/event-stream` fand die drei echten Stellen |
+| `fetchRoutes\|registerFetch\|…` | `registerFetch**Provider**` | das ist der **Web-Abruf-Anbieter** für das Werkzeug `web_fetch` — **kein** Fetch-Weg |
+
+Beim zweiten Fall stand danach in meiner Tabelle, die Fetch-Wege seien „erklärt, nicht
+gemessen". Die Wahrheit war stärker: **die Registratur ist leer**, es gibt nichts zu messen.
+Der Fehltreffer hatte einen **unbenutzten Erweiterungspunkt** wie einen **betriebenen Träger**
+aussehen lassen.
+
+**Warum das in Bündeln besonders zuschlägt.** Ein Paket liegt als **minifizierte** Datei vor,
+oft 100 kB und mehr. Bezeichner werden dort zu kurzen Namen, Kommentare verschwinden — und
+ähnliche **lange** Namen bleiben stehen. Über 257 Pakete wird aus einer Teilzeichenkette
+schnell ein Treffer an einer Stelle, die mit der Frage nichts zu tun hat.
+
+**Die Regel.** Nach dem **vollen** Bezeichner suchen (`registerFetchRoute`), nicht nach dem
+Anfang (`registerFetch`). Und die **Gegenprobe** gehört dazu: wer den Anbieter findet, sucht
+den **Verbraucher** — findet er keinen, ist die Registratur leer, und das ist eine Aussage
+über den **Betrieb**, nicht über die **Möglichkeit**.
