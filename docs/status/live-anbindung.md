@@ -237,8 +237,75 @@ Vorliebe.**
 
 ## 9. Was dieses Blatt weiterhin offen läßt
 
-* Der Strom unter **Last** (viele Sitzungen gleichzeitig, viele Rahmen je Sekunde).
+* Der Strom unter **Dauerlast** über **Minuten** (gemessen ist ein Lauf über ~6 s, §12).
 * ~~Die **HMR-SSE-Strecke** im Zustand `dsh-hmr = enabled=false`~~ — **gemessen**, §11.
+
+## 12. Bündelung — **eine** Strecke trägt **acht** Sitzungen
+
+Sonde: [`messsonden/strom-last-sonde.mjs`](messsonden/strom-last-sonde.mjs) · Exit **0**
+
+§8 behauptet, Sitzungsströme seien **multiplex** — *„eine Strecke für alle Ströme"*. Das war
+bis hierher eine **Behauptung aus dem Protokoll**. Jetzt gemessen: **eine** WebSocket-Strecke,
+N Sitzungen, je ein `open` mit eigener `streamId`, danach in **allen** ein Auftrag.
+
+### Vier Sitzungen
+
+```
+4 von 4 Strömen trugen einen Eröffnungsrahmen
+4 Aufträge abgesetzt in 38 ms
+
+strom-1  26 ungerufen, 26 Ereignisse   erster nach 12 ms   größte Lücke  610 ms
+strom-2  26 ungerufen, 26 Ereignisse   erster nach 26 ms   größte Lücke  674 ms
+strom-3  26 ungerufen, 26 Ereignisse   erster nach 31 ms   größte Lücke  810 ms
+strom-4  26 ungerufen, 26 Ereignisse   erster nach 37 ms   größte Lücke  632 ms
+                                              = 104 Rahmen auf EINER Strecke
+```
+
+**Jeder Strom bekam genau 26 Ereignisse** — dieselbe Zahl wie im Einzellauf (§7a). Keine
+Verluste, keine Doppelungen, keine zweite Verbindung.
+
+### Acht Sitzungen
+
+```
+strom-1  25 Ereignisse   erster nach 13 ms   größte Lücke 2245 ms   turn/end da
+strom-2  26              28 ms               750 ms                turn/end da
+strom-3  26              35 ms              1311 ms                turn/end da
+strom-4  26              41 ms               746 ms                turn/end da
+strom-5  26              51 ms               782 ms                turn/end da
+strom-6  26              65 ms               913 ms                turn/end da
+strom-7  26              93 ms               719 ms                turn/end da
+strom-8  26             100 ms              1481 ms                turn/end da
+                                              = 207 Rahmen auf EINER Strecke
+
+Runden zu Ende: 8 von 8
+```
+
+### Der Fall, der eine zweite Prüfung erzwang
+
+Im **ersten** Acht-Lauf hatte `strom-2` nur **18** Ereignisse, während alle anderen 25–26
+hatten. **Zwei Deutungen sind möglich:** ein **Verlust** auf der Strecke — oder ein **kürzerer
+Lauf**. Ohne Prüfung wäre jede Deutung eine Behauptung gewesen.
+
+Also prüft die Sonde jetzt, ob je Strom ein **`turn/end`** ankam. Im zweiten Lauf: **8 von 8**
+mit `turn/end` und 25–26 Ereignissen.
+
+**Ehrlich benannt:** für den **ersten** Lauf ist das **nicht** nachgeprüft — die Prüfung gab es
+damals noch nicht. Die 18 ist damit **wahrscheinlich** ein offener Lauf und **nicht** ein
+Verlust, aber **belegt ist das nicht.** Wer Gewißheit will, fährt den Lauf mit der Prüfung
+erneut — sie ist jetzt eingebaut.
+
+### Was daraus folgt — und was nicht
+
+| Gemessen | Nicht gemessen |
+|---|---|
+| Eine Strecke trägt **4 und 8** Ströme gleichzeitig | Dauerlast über **Minuten** |
+| Jeder Strom liefert **ohne Abfrage** | Verhalten bei **Verbindungsabbruch** und Wiederaufsetzen |
+| Die Zeit bis zum ersten Rahmen wächst mit N (12 → 100 ms) | Ob diese Zunahme **linear** bleibt |
+| Die größte Lücke je Strom liegt bei **610–2245 ms** | Wieviel davon **Modellzeit** ist und wieviel Transport — das ist **nicht** getrennt gemessen |
+
+**Der letzte Punkt gehört betont:** die „größte Lücke" ist **keine** Transportkennzahl. Sie
+enthält die **Wartezeit auf das Modell**. Was die Strecke selbst kostet, sagen diese Zahlen
+**nicht**.
 
 ## 11. Die SSE-Strecke — bedient, und **ohne Anmeldung**
 
