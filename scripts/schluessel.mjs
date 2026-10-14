@@ -34,18 +34,55 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { resolveEigenesHome } from '../packages/util/home-paths/src/index.ts'
-import { HAUPTSSCHLUESSELDATEI, erzeugeHauptschluesselText, pruefeDateirechte } from '../packages/auth/secrets/src/index.ts'
+import {
+  DOCKER_SECRET_PFAD,
+  HAUPTSSCHLUESSELDATEI,
+  erzeugeHauptschluesselText,
+  holeHauptschluessel,
+  pruefeDateirechte,
+  standardQuellen,
+} from '../packages/auth/secrets/src/index.ts'
 
 /**
- * Erzeugt den Hauptschlüssel.
+ * Erzeugt den Hauptschlüssel — oder **übernimmt** ihn in die Datei.
  *
- * @param optionen - Ausgabe, Home und Vorhandensein, austauschbar für Prüfungen
+ * ## Der Fallstrick, der hier stand — gemessen am 14.10.2026
+ *
+ * Die Sicherung lautete: *„Es liegt schon ein Hauptschlüssel"*, geprüft mit
+ * `existsSync(pfad)`. Sie schützte nur, wenn die **Datei** schon da war.
+ *
+ * **Der wirksame Schlüssel kann aber aus einer ANDEREN Quelle kommen** — bei uns aus
+ * `PMH_MASTER_KEY` in `.env`, weil die Datei **fehlt**. Gemessen:
+ *
+ * ```
+ * 1. datei          keiner      (.pmh-build/harness-home/master.key FEHLT)
+ * 2. docker-secret  keiner
+ * 3. umgebung       HAT einen
+ * ```
+ *
+ * In diesem Zustand lief das Skript **ohne Warnung** durch, legte einen **neuen**
+ * Schlüssel an — und **jeder `wrapped_key`, der mit dem Umgebungsschlüssel verschlüsselt
+ * wurde, wäre unlesbar geworden.** Die Warnung, die es gab, sagt sogar „Die Stufe
+ * ‚Umgebungsvariable' wird nicht mehr gebraucht" — was **genau hier falsch** ist: sie ist
+ * die Quelle, die den Bestand verschlüsselt hat.
+ *
+ * ## Was jetzt gilt
+ *
+ * | Aufruf | Was geschieht |
+ * |---|---|
+ * | ohne Schalter, wirksamer Schlüssel liegt woanders | **Abbruch mit Begründung** — es wird **nichts** geschrieben |
+ * | `--uebernehmen` | der **vorhandene** Schlüssel wird in die Datei geschrieben. **Verlustfrei**: derselbe Schlüssel, nur eine stärkere Quelle |
+ * | `--neu` | ein **neuer** Schlüssel. Macht Bestand unlesbar — deshalb ausdrücklich |
+ *
+ * @param optionen - Ausgabe, Home, Umgebung und Schalter, austauschbar für Prüfungen
  * @returns der Exit-Code
  */
 export function erzeuge(optionen = {}) {
   const schreibe = optionen.schreibe ?? ((t) => process.stdout.write(t))
   const home = optionen.home ?? resolveEigenesHome()
+  const umgebung = optionen.umgebung ?? process.env
   const neu = optionen.neu ?? process.argv.includes('--neu')
+  const uebernehmen = optionen.uebernehmen ?? process.argv.includes('--uebernehmen')
   const pfad = join(home, HAUPTSSCHLUESSELDATEI)
 
   if (existsSync(pfad) && !neu) {
@@ -61,6 +98,97 @@ export function erzeuge(optionen = {}) {
         '  `rotiere` in @prometheus-harness/secrets — sie faßt nur `wrapped_key` an.\n',
     )
     return 1
+  }
+
+  // ---------------------------------------------------------------------------
+  // **Der wirksame Schlüssel — nicht nur die Datei.**
+  // ---------------------------------------------------------------------------
+  // Die Reihenfolge kommt aus `standardQuellen`: dieselbe Kette, die der Betrieb
+  // benutzt. Damit kann dieser Aufruf nicht anders urteilen als der Betrieb.
+  const quellen = standardQuellen(umgebung, home, DOCKER_SECRET_PFAD)
+  let wirksam = null
+  let wirksamerFehler = null
+  for (const q of quellen) {
+    try {
+      if (q.versuche() !== undefined) {
+        wirksam = q
+        break
+      }
+    } catch (fehler) {
+      // Eine Quelle MIT Schlüssel, der unbrauchbar ist. Das darf nicht zur nächsten
+      // führen — sonst verdeckt ein Abbruch eine kaputte Konfiguration.
+      wirksamerFehler = fehler instanceof Error ? fehler.message : String(fehler)
+      break
+    }
+  }
+
+  if (wirksamerFehler !== null) {
+    schreibe(
+      `ABBRUCH: eine Quelle hat einen Hauptschlüssel, aber er ist unbrauchbar.\n\n  ${wirksamerFehler}\n\n` +
+        '  Es wird NICHTS geschrieben. Erst die Konfiguration berichtigen.\n',
+    )
+    return 1
+  }
+
+  const liegtInDatei = wirksam !== null && wirksam.art === 'datei'
+
+  if (!neu && !uebernehmen && wirksam !== null && !liegtInDatei) {
+    // **Der Fall, der Bestand zerstört hätte.** Es gibt einen wirksamen Schlüssel,
+    // er liegt aber NICHT in der Zieldatei. Ein neuer Schlüssel wäre ein anderer.
+    schreibe(
+      'ABBRUCH: es gibt schon einen wirksamen Hauptschlüssel — nur nicht in der Datei.\n' +
+        '\n' +
+        `  Wirkende Quelle: ${wirksam.art}\n` +
+        `    ${wirksam.name}\n` +
+        `  Zieldatei:       ${pfad}  (fehlt)\n` +
+        '\n' +
+        '  Ein NEUER Schlüssel an dieser Stelle macht JEDE bereits verschlüsselte Zeile\n' +
+        '  unlesbar — und dieser Aufruf wäre nicht als Ursache zu erkennen.\n' +
+        '\n' +
+        '  Verlustfrei geht es so:  bun scripts/schluessel.mjs --uebernehmen\n' +
+        '    -> derselbe Schlüssel wird in die Datei geschrieben, nur aus einer\n' +
+        '       stärkeren Quelle. Bestehende Umschläge bleiben lesbar.\n' +
+        '\n' +
+        '  Wenn wirklich ein NEUER Schlüssel gewollt ist:  --neu\n',
+    )
+    return 1
+  }
+
+  if (uebernehmen && !neu) {
+    if (wirksam === null) {
+      schreibe(
+        'ABBRUCH: --uebernehmen, aber es gibt KEINEN wirksamen Hauptschlüssel.\n' +
+          '  Es gibt nichts zu übernehmen. Für einen neuen:  bun scripts/schluessel.mjs\n',
+      )
+      return 1
+    }
+    if (liegtInDatei) {
+      schreibe(`Es liegt schon in der Datei: ${pfad}\nNichts zu tun.\n`)
+      return 0
+    }
+    // **Den vorhandenen Schlüssel holen und kanonisch schreiben.** Nicht den Text der
+    // Umgebungsvariablen übernehmen: er könnte anders kodiert sein (hex statt base64url).
+    // Geschrieben wird die Form, die `erzeugeHauptschluesselText` erzeugt — damit die
+    // Datei dieselbe Kodierung trägt wie eine frisch erzeugte.
+    const geholt = holeHauptschluessel(quellen, Number((umgebung.PMH_MASTER_KEY_VERSION ?? '1').trim()))
+    const text = Buffer.from(geholt.schluessel).toString('base64url')
+    mkdirSync(home, { recursive: true })
+    writeFileSync(pfad, `${text}\n`, { encoding: 'utf8', mode: 0o600 })
+    const hinweis = pruefeDateirechte(pfad)
+    schreibe(
+      'Hauptschlüssel ÜBERNOMMEN — derselbe, nur aus einer stärkeren Quelle.\n' +
+        '\n' +
+        `  Von:   ${wirksam.art}  (${wirksam.name})\n` +
+        `  Nach:  ${pfad}\n` +
+        `  Fassung: ${String(geholt.version)}\n` +
+        '\n' +
+        'Bestehende Umschläge bleiben lesbar: es ist DERSELBE Schlüssel.\n' +
+        'Die Datei gewinnt jetzt (Stufe 1 vor Stufe 3). Erst wenn ein Lauf belegt, daß\n' +
+        'nichts mehr über die Umgebungsvariable läuft, darf sie entfernt werden.\n' +
+        '\n' +
+        (hinweis === undefined ? '' : `HINWEIS: ${hinweis}\n`),
+    )
+    return 0
   }
 
   const text = erzeugeHauptschluesselText()
