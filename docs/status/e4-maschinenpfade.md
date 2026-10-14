@@ -177,10 +177,16 @@ Gegenprobe, sondern eine zweite Meinung — sie muß selbst belegt sein.*
 
 | Größe | Zahl |
 |---|---|
-| Funde im ganzen Baum | **342** in **103** Dateien (304 Windows, 30 POSIX, 8 WSL) |
+| Funde im ganzen Baum | **347** in **103** Dateien (304 Windows, 30 POSIX, 8 WSL) |
 | davon **ausführbare** Dateien (`.mjs/.ts/.js/.sh/.ps1`) | **33** |
 | davon Prosa/Beleg (`.md/.json/.yml`) | **70** |
 | Cache-Reste nach der Korrektur | **0** |
+
+**Die 347 waren 342, bevor ich diesen Nachtrag schrieb.** Die Differenz von **5** sind
+die Pfadmuster, die ich oben zitiert habe — die Funde in *diesem* Dokument stiegen von
+**11** auf **16**, genau um diese 5. Die Prüfung findet ihren eigenen Bericht, und
+zwar **sofort**: eine Zahl in einem Dokument dieser Art ist schon veraltet, wenn sie
+geschrieben wird. Deshalb steht sie hier mit ihrer eigenen Ursache.
 
 Die Trennung ist der Punkt: **Belege dürfen und müssen den Meßrechner nennen** —
 `groesse-und-ressourcen.md` sagt in Zeile 7, auf welchem Rechner die Zahlen gemessen
