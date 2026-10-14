@@ -98,6 +98,42 @@ nicht nur am Rand einer Runde.
 `{ kind: 'session', sessionId }`) und bekam `wire field "request" failed boundary validation`.
 Die Union ist unterscheidend; die Marke ist **Pflicht**.
 
+### 4a. Der Unteragenten-Strom — **gemessen**, nicht mehr nur gelesen
+
+Sonde: [`messsonden/strom-subagent-sonde.mjs`](messsonden/strom-subagent-sonde.mjs) · Exit **0**
+· zwei Läufe mit gleichem Ergebnis.
+
+Ablauf: eine Wurzelsitzung, ein Auftrag, der das Werkzeug `subagent` ruft — und dann wird dem
+**Kind** über die Strecke gefolgt.
+
+```
+Wurzelsitzung: session-995d853b-…
+Unteragent:    632eb66e-…   origin=subagent   Tiefe 1   Eltern=session-995d853b-…
+
+session/follow { kind:'subagent', parentSessionId, childSessionId, mode:'continuable' }
+  -> SCHNAPPSCHUSS, erster Versuch
+     {"type":"item","value":{"type":"snapshot","header":{…,"parentSession":"session-995d853b-…",
+      "origin":"subagent",…}}}
+  -> throughSeq aus dem Rahmen: 14   (beide Läufe)
+  -> session/page über die UNTERAGENTEN-Adresse: 15 Einträge, hasMore=false
+```
+
+**Der Unteragent hat seinen eigenen Strom und seinen eigenen Verlauf.** Ein Client kann ihn
+also **live** mitlesen und nach einem Neustart **seinen** Verlauf nachladen — mit derselben
+Mechanik wie bei einer Wurzelsitzung, nur mit `kind:'subagent'`.
+
+**Die Gegenprobe, die den Wert bestimmt.** Meine Schleife bricht beim **ersten** Erfolg ab —
+sie belegt damit nur, daß `continuable` geht, **nicht**, daß die anderen scheitern. Also
+wurde ein für diesen Lauf **falscher** Wert probiert:
+
+```
+mode='continuable' -> SCHNAPPSCHUSS
+mode='one-shot'    -> ABGEWIESEN: "subagent mode does not match the supplied address"
+```
+
+**Der Host prüft `mode` also.** Die Adresse ist eine **geprüfte Aussage**, kein schmückendes
+Feld: wer den falschen Laufmodus angibt, bekommt eine Abweisung statt eines fremden Stroms.
+
 ## 5. Was auf **unserer** Seite fehlt
 
 | Was | Zustand |
@@ -134,9 +170,17 @@ Aufwertung wurde abgelehnt.
 
 * **Nicht**, daß unsere Oberfläche live ist — sie ist es nicht.
 * **Nicht**, daß der Strom unter **Last** trägt (viele Sitzungen, viele Rahmen). Gemessen
-  ist **eine** Sitzung mit **einem** Rahmen.
-* **Nicht**, daß ein **Unteragenten**-Strom schon einmal gelaufen ist. Der Adresstyp ist
-  gelesen, der Weg ist **nicht gefahren**.
+  sind **zwei** Sitzungen mit je **einem** Rahmen, je Lauf.
 * **Nicht**, daß es für **WebSocket** einen Ersatz gibt, falls ein Netz ihn blockiert:
   `dsh-client-connection` kennt einen zweiten Weg (`HostConnectionFetch`), **gemessen ist
   er nicht**.
+* **Nicht**, daß der Strom **von selbst** neue Ereignisse schickt. Immer gemessen wurde der
+  **Eröffnungsrahmen** — also die Antwort auf eine Anforderung. Daß danach **unaufgefordert**
+  weitere `item`-Rahmen kommen, ist **nicht** nachgewiesen: für diesen Nachweis müßte ein
+  Auftrag **während** des offenen Stroms laufen.
+* ~~Nicht, daß ein Unteragenten-Strom gelaufen ist~~ — **das ist jetzt gemessen** (§4a).
+
+**Der offene Punkt, der aus dieser Liste bleibt und am nächsten liegt:** der Strom wurde
+bisher nur **geöffnet und befragt**, nie **im Lauf** beobachtet. Genau das ist aber der
+Nutzen — „neue Ereignisse kommen ohne Abfragen". Ein Lauf mit offenem Strom ist die nächste
+Messung.
