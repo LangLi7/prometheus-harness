@@ -42,6 +42,55 @@ Die Ereigniszählung über alle Protokolle unter `.pmh-build/harness-home/sessio
 `dsh-goal` und `dsh-goal-round-driver` komponiert und `active` sind. Genau der Fall, den
 die Karte sichtbar machen soll.
 
+## 2.1 Die Korrektur — meine erste Karte war **aus dem Gedächtnis gebaut**
+
+Die Tabelle in §2 hat **13 Zeilen, die ich mir selbst ausgedacht habe**. Das Standard-Preset
+hat **26 aktive Zeilen**. Ich habe also meine *Erinnerung* an „Agent-Kern" kartiert, nicht
+die **gemessene** Zusammensetzung — und damit genau das getan, was Regel 3 der
+[Arbeitsweise](arbeitsweise.md) verbietet.
+
+Die Kreuzung aus **gemessener Zusammensetzung** (`pluginInventur`) und **Ereigniszählung**
+fördert sofort zutage, was meine Liste verschwieg. Die Zuordnung Zeile → Werkzeugname steht
+**ausgeschrieben** in der Sonde, nicht geraten.
+
+**Von 16 Werkzeug-Zeilen des Presets wurden 7 NIE aufgerufen:**
+
+| Zeile | zugeordnete Werkzeuge | Urteil |
+|---|---|---|
+| `dsh-tool-pwsh` | `pwsh` (33×) | belegt |
+| `dsh-tool-fs` | `read` (27×), `write` (9×) | belegt |
+| `dsh-tool-fs-search` | `glob` (14×), `grep` (9×) | belegt |
+| `dsh-tool-jobs` | `job_list` (3×), `job_output` (4×) | belegt |
+| `dsh-tool-schedule` | `schedule_list` (2×) | belegt |
+| `dsh-tool-todo` | `todo_write` (1×) | belegt |
+| `dsh-tool-web` | `web_search` (3×), `web_fetch` (2×) | belegt — **`web_fetch` 2× fehlerhaft** |
+| `dsh-tool-subagent` (2 Zeilen) | `subagent` (2×), `send_message` (2×) | belegt |
+| **`dsh-tool-skill`** | `skill` | **NIE AUFGERUFEN** |
+| **`dsh-tool-goal`** | `goal_*` | **NIE AUFGERUFEN** — das Ziel kam über `/goal`, nicht über das Werkzeug |
+| **`dsh-tool-ask-user`** | `ask_user_question` | **NIE AUFGERUFEN** |
+| **`dsh-tool-present`** | `present` | **NIE AUFGERUFEN** |
+| **`dsh-tool-subagent-control`** | `interrupt_agent`, `list_agents` | **NIE AUFGERUFEN** |
+| **`dsh-tool-subagent-control/list-agents`** | `list_agents` | **NIE AUFGERUFEN** |
+| **`dsh-tool-workflow`** | `workflow` | **NIE AUFGERUFEN** |
+
+**Und drei aktive Zeilen ohne jede Spur — kein Ereignis, kein Werkzeugaufruf:**
+
+* `@deepseek-ai/dsh-persona`
+* `@deepseek-ai/dsh-skill-filesystem`
+* `@deepseek-ai/dsh-workflow-ptc`
+
+**Die Folge für das Urteil.** Der Agent-Kern ist **nicht** „abgeschlossen". Er ist
+**belegt für 14 Werkzeuge und 6 Befehle** — und **offen für sieben Werkzeug-Zeilen, die nie
+gerufen wurden**, plus drei Zeilen ohne Spur. Daß ein Werkzeug **nie gerufen** wurde, ist
+**kein** Defekt: es heißt, daß niemand es gebraucht hat. Es heißt aber auch, daß **nichts**
+über es bekannt ist — und „nie gerufen" ist von „kaputt" nicht zu unterscheiden, solange
+niemand es ruft.
+
+**Eine Gegenprobe, die etwas fand:** `working_directory` wurde **2×** gerufen, hat aber
+**keine Zeile im Standard-Preset**. Das Werkzeug kommt also von **außerhalb** dieser
+Zusammensetzung — der Host stellt es bereit. Auch das steht in keiner meiner erfundenen
+13 Zeilen.
+
 ## 3. Die sechs Befehle — einzeln gefahren
 
 Sonde: [`messsonden/befehl-sonde.mjs`](messsonden/befehl-sonde.mjs). Sie fährt **einen**
