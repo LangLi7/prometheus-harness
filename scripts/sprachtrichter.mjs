@@ -46,7 +46,7 @@
  * @module scripts/sprachtrichter
  */
 
-import { readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 const KERN = 'node_modules/@deepseek-ai'
@@ -155,9 +155,13 @@ export function paketAus(pfad) {
 
 function haupt() {
   const wurzel = process.cwd()
+  const iPruefen = process.argv.indexOf('--pruefen')
+  const pruefen = iPruefen >= 0 ? (process.argv[iPruefen + 1] ?? null) : null
   const dateien = findeSprachdateien(join(wurzel, KERN))
 
   const jePaket = new Map()
+  const jeNamensraum = new Map()
+  const echteNs = new Set()
   const alleSchluessel = new Set()
   const namensraeume = new Map()
   const formen = { objekt: 0, union: 0, keine: 0 }
@@ -170,9 +174,19 @@ function haupt() {
     }
     const { namespace, schluessel, form } = leseSchluessel(text)
     formen[form] += 1
-    if (namespace !== undefined) namensraeume.set(namespace, paketAus(relative(wurzel, d)))
-    if (schluessel.length === 0) continue
     const paket = paketAus(relative(wurzel, d))
+    if (namespace !== undefined) {
+      namensraeume.set(namespace, paket)
+      echteNs.add(namespace)
+    }
+    if (schluessel.length === 0) continue
+    // **Die Maßlatte wird JE NAMENSRAUM geführt**, nicht je Paket — denn ein Sprachpaket
+    // liefert Wörterbücher je Namensraum, nicht je Paket. Pakete ohne `NS` bekommen ihren
+    // Paketnamen als Behelfsnamen; das wird im Bericht sichtbar, weil der Name dann so heißt.
+    const ns = namespace ?? paket
+    const bisherNs = jeNamensraum.get(ns) ?? new Set()
+    for (const s of schluessel) bisherNs.add(s)
+    jeNamensraum.set(ns, bisherNs)
     const bisher = jePaket.get(paket) ?? { dateien: 0, schluessel: new Set() }
     bisher.dateien += 1
     for (const s of schluessel) {
@@ -188,7 +202,14 @@ function haupt() {
   console.log(`  davon Form B (Union):   ${String(formen.union)}`)
   console.log(`  ohne erkennbare Schlüssel: ${String(formen.keine)}`)
   console.log(`  Pakete mit Schlüsseln:  ${String(jePaket.size)}`)
-  console.log(`  Namensräume (NS):       ${String(namensraeume.size)}`)
+  console.log(`  Namensräume echt (NS):  ${String(echteNs.size)}`)
+  console.log(`  Fächer insgesamt:       ${String(jeNamensraum.size)}  (die übrigen sind Behelfsnamen aus Paketnamen — Pakete ohne eigenes NS)`)
+  console.log('')
+  console.log(`  **Die Zahl, auf die es ankommt, ist die der FÄCHER: ${String(jeNamensraum.size)}.** Ein Sprachpaket`)
+  console.log('  liefert Wörterbücher je Namensraum; ein Paket ohne `NS` bildet einen eigenen.')
+  console.log('  Und: gleichlautende Schlüssel in verschiedenen Fächern zählen je Fach — deshalb')
+  console.log(`  ist die Summe der Fächer (${String([...jeNamensraum.values()].reduce((s, set) => s + set.size, 0))}) größer als die Zahl`)
+  console.log(`  VERSCHIEDENER Schlüssel (${String(alleSchluessel.size)}). Beide Zahlen stehen hier, weil beide stimmen.`)
   console.log('')
   console.log('== Je Paket (die größten zuerst) ==')
   const sortiert = [...jePaket.entries()].sort((a, b) => b[1].schluessel.size - a[1].schluessel.size)
@@ -208,6 +229,95 @@ function haupt() {
   console.log('')
   console.log('  UNTERGRENZE: verschachtelte Wörterbücher zählen als EIN Schlüssel. Die')
   console.log('  wirkliche Zahl kann höher sein.')
+
+  // ---------------------------------------------------------------------------
+  // `--umfang` schreibt den gemessenen Umfang als JSON — die Vergleichsmaßlatte
+  // für `--pruefen`. **Gemessenes wird festgehalten, nicht erinnert.**
+  // ---------------------------------------------------------------------------
+  if (pruefen === null && process.argv.includes('--umfang')) {
+    const ziel = 'docs/status/sprachumfang.json'
+    const inhalt = {
+      gemessenAm: new Date().toISOString(),
+      sprachdateien: dateien.length,
+      formen,
+      namensraeume: Object.fromEntries(
+        [...jeNamensraum.entries()].sort().map(([ns, s]) => [ns, [...s].sort()]),
+      ),
+    }
+    writeFileSync(join(wurzel, ziel), `${JSON.stringify(inhalt, null, 2)}\n`, 'utf8')
+    console.log('')
+    console.log(`Umfang geschrieben: ${ziel}`)
+    console.log(`  Namensräume: ${String(jeNamensraum.size)}   Schlüssel: ${String([...alleSchluessel].length)}`)
+    process.exitCode = 0
+    return
+  }
+
+  // ---------------------------------------------------------------------------
+  // `--pruefen <datei>` vergleicht ein Sprachpaket gegen den Umfang.
+  // ---------------------------------------------------------------------------
+  if (pruefen !== null) {
+    let paket
+    try {
+      paket = JSON.parse(readFileSync(pruefen, 'utf8'))
+    } catch (f) {
+      console.log('')
+      console.log(`ABBRUCH: das Sprachpaket ist nicht lesbar: ${pruefen}`)
+      console.log(`  ${f instanceof Error ? f.message : String(f)}`)
+      process.exitCode = 2
+      return
+    }
+    const umfangPfad = join(wurzel, 'docs/status/sprachumfang.json')
+    let umfang
+    try {
+      umfang = JSON.parse(readFileSync(umfangPfad, 'utf8'))
+    } catch {
+      console.log('')
+      console.log(`ABBRUCH: keine Vergleichsmaßlatte: docs/status/sprachumfang.json fehlt.`)
+      console.log('  Anlegen mit:  bun scripts/sprachtrichter.mjs --umfang')
+      process.exitCode = 2
+      return
+    }
+
+    console.log('')
+    console.log(`== Vollständigkeit: ${pruefen}`)
+    let fehlendGesamt = 0
+    let vorhandenGesamt = 0
+    let umfangGesamt = 0
+    for (const [ns, schluessel] of Object.entries(umfang.namensraeume)) {
+      const haben = paket[ns] ?? {}
+      const fehlend = schluessel.filter((s) => haben[s] === undefined)
+      umfangGesamt += schluessel.length
+      vorhandenGesamt += schluessel.length - fehlend.length
+      fehlendGesamt += fehlend.length
+      const quote = schluessel.length === 0 ? 100 : Math.round(((schluessel.length - fehlend.length) / schluessel.length) * 100)
+      const marke = fehlend.length === 0 ? 'VOLLSTÄNDIG' : `${String(quote)} %`
+      console.log(`  ${ns.padEnd(26)} ${String(schluessel.length - fehlend.length).padStart(4)}/${String(schluessel.length).padStart(4)}  ${marke}`)
+      if (fehlend.length > 0 && fehlend.length <= 4) {
+        for (const f of fehlend) console.log(`        fehlt: ${f}`)
+      } else if (fehlend.length > 4) {
+        for (const f of fehlend.slice(0, 2)) console.log(`        fehlt u. a.: ${f}`)
+        console.log(`        … und ${String(fehlend.length - 2)} weitere`)
+      }
+    }
+    // Namensräume, die das Paket führt und der Umfang nicht kennt — auch ein Befund.
+    const unbekannt = Object.keys(paket).filter((ns) => umfang.namensraeume[ns] === undefined)
+    console.log('')
+    console.log(`  zusammen: ${String(vorhandenGesamt)} von ${String(umfangGesamt)} Schlüsseln`)
+    if (unbekannt.length > 0) {
+      console.log(`  Namensräume im Paket, die der Kern NICHT kennt: ${unbekannt.join(', ')}`)
+    }
+    console.log('')
+    if (fehlendGesamt === 0 && unbekannt.length === 0) {
+      console.log('VOLLSTÄNDIG: jeder Schlüssel des Kerns ist übersetzt.')
+      process.exitCode = 0
+    } else {
+      console.log(`UNVOLLSTÄNDIG: ${String(fehlendGesamt)} Schlüssel fehlen.`)
+      console.log('Das ist kein Fehler des Pakets, sondern sein STAND — die Zahl nennt ihn.')
+      process.exitCode = 1
+    }
+    return
+  }
+
   process.exitCode = 0
 }
 
