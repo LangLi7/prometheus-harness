@@ -1,0 +1,419 @@
+{
+  "workflowRun": {
+    "paket": "dsh-client-ui-workflow-run",
+    "englisch": {
+      "run.title": "{name}",
+      "run.members.one": "{count} member",
+      "run.members.other": "{count} members",
+      "run.empty": "No members started",
+      "phase.unassigned": "Unphased",
+      "phase.empty": "Empty phase name",
+      "statusCount.running": "Running {count}",
+      "statusCount.completed": "Completed {count}",
+      "statusCount.failed": "Failed {count}",
+      "statusCount.cancelled": "Cancelled {count}",
+      "statusCount.interrupted": "Interrupted {count}",
+      "member.empty": "Empty member name",
+      "member.open": "Open {name}",
+      "status.running": "Running",
+      "status.completed": "Completed",
+      "status.failed": "Failed",
+      "status.cancelled": "Cancelled",
+      "status.interrupted": "Interrupted"
+    }
+  },
+  "permission.access": {
+    "paket": "dsh-client-ui-permission-presets",
+    "englisch": {
+      "mode": "Access mode, current: {name}",
+      "close": "Close",
+      "preset.readOnly": "Read Only",
+      "preset.workspaceWrite": "Workspace Write",
+      "preset.fullAccess": "Full access",
+      "confirm.title": "Enable Full access?",
+      "confirm.description": "Full access reduces confirmation steps and lets the agent perform more actions directly, including sensitive operations, file changes, or external commands. Only use it when you trust the current task.",
+      "confirm.acknowledge": "I understand the risks and want to continue",
+      "confirm.cancel": "Cancel",
+      "confirm.enable": "Enable Full access",
+      "auto.label": "Auto review",
+      "auto.badge": "EXP",
+      "auto.description": "Run without a sandbox after an experimental same-model review of every native tool call and PTC inner call.",
+      "auto.confirm.title": "Enable Auto review (experimental)?",
+      "auto.confirm.description": "Auto review runs without a sandbox. Before every native tool call and PTC inner call, the same model as the current agent reviews whether to allow it; you approve or reject each call it denies. This feature is experimental, can falsely allow or deny actions, and uses additional tokens.",
+      "auto.confirm.acknowledge": "I understand these risks and want to continue",
+      "auto.confirm.enable": "Enable Auto review"
+    }
+  },
+  "plan": {
+    "paket": "dsh-client-ui-plan",
+    "englisch": {
+      "chip.label": "Plan",
+      "preview.title": "Plan",
+      "preview.document": "Plan · Markdown",
+      "preview.action": "Open",
+      "preview.open": "Open plan in sidebar",
+      "preview.full": "View full plan",
+      "preview.openNamed": "Open plan: {title}",
+      "preview.loading": "Loading plan…",
+      "preview.failed": "Could not load plan",
+      "preview.invalidAddress": "Invalid plan address",
+      "preview.historyUnavailable": "Session history is unavailable",
+      "preview.notFound": "This plan was not found",
+      "preview.unavailable": "Plan preview is unavailable",
+      "preview.expired": "This temporary plan preview has expired. Reopen it from the pending review card.",
+      "chip.on.aria": "Plan mode on, press to turn off",
+      "chip.on.title": "Plan mode on — click to turn off (/plan off)",
+      "chip.exitFailed": "Failed to exit plan mode"
+    }
+  },
+  "sidebarFiles": {
+    "paket": "dsh-client-ui-sidebar-files",
+    "englisch": {
+      "shortcut.noSession": "Select a session first",
+      "type.label": "Files",
+      "guide.title": "Workspace files",
+      "guide.description": "Browse files in this session's workspace",
+      "loading": "Reading…",
+      "empty": "Empty directory",
+      "truncated": "Too many entries, showing only some of them.",
+      "noWorkspace": "This session has no workspace directory.",
+      "reload": "Reload",
+      "autoRefresh": "Auto refresh",
+      "autoRefresh.enable": "Enable auto refresh",
+      "autoRefresh.disable": "Disable auto refresh",
+      "entry.other": "Not a file or a directory, so it cannot be opened.",
+      "error.notFound": "That directory is gone. It may have been moved or deleted.",
+      "error.outsideWorkspace": "That directory is outside the workspace, so the sidebar will not read it.",
+      "error.notDirectory": "That is not a directory.",
+      "error.unavailable": "Read failed: {message}"
+    }
+  },
+  "schedule.catalog": {
+    "paket": "dsh-client-ui-schedule",
+    "englisch": {
+      "trigger.label": "Reminders",
+      "list.loading": "Loading reminders…",
+      "list.error": "Could not load reminders.",
+      "list.retry": "Retry",
+      "delete.action": "Delete",
+      "delete.pending": "Deleting…",
+      "delete.label": "Delete reminder: {title}",
+      "list.open": "Open reminder details: {title}",
+      "trigger.one": "{count} reminder",
+      "trigger.other": "{count} reminders",
+      "list.aria": "Active reminders",
+      "list.nextRun": "Next run",
+      "frequency.once": "Once",
+      "frequency.every": "Every {value} {unit}",
+      "mark.aria": "{count} scheduled tasks",
+      "hover.more": "{count} more"
+    }
+  },
+  "open-in-app": {
+    "paket": "dsh-client-ui-open-in-app",
+    "englisch": {
+      "open.title": "Open in {app}",
+      "path.appDefault": "{app} (default)",
+      "path.appsError": "Could not load applications",
+      "shortcut.busy": "Opening workspace",
+      "shortcut.unavailable": "Current workspace or local application unavailable",
+      "open.tooltip": "Open locally",
+      "path.open": "Open",
+      "path.more": "More ways to open",
+      "path.reveal": "Show file location",
+      "path.openError": "Could not open. Try again.",
+      "path.revealError": "Could not show the file location. Try again.",
+      "app.finder": "Finder",
+      "app.explorer": "File Explorer",
+      "app.filemanager": "Files",
+      "app.terminal": "Terminal"
+    }
+  },
+  "sidebarExcel": {
+    "paket": "dsh-client-ui-sidebar-documentpreview",
+    "englisch": {
+      "title": "Spreadsheet",
+      "language": "en",
+      "loading": "Rendering document...",
+      "invalid": "This spreadsheet could not be opened. Check its format, contents, or password protection.",
+      "tooLarge": "This workbook exceeds the preview size limit.",
+      "timeout": "Opening this workbook timed out. Try a smaller file.",
+      "encoding": "This text encoding could not be read. Save the file as UTF-8 or UTF-16 with a BOM and retry.",
+      "formulaWarning": "This workbook contains formulas. Displayed results may be missing or inaccurate.",
+      "unsupportedNotice": "This preview does not support {features} in this workbook. Open it in a system application for the full experience.",
+      "charts": "charts",
+      "images": "images",
+      "shapes": "shapes",
+      "conditionalFormatting": "conditional formatting",
+      "featureSeparator": ", ",
+      "retry": "Retry"
+    }
+  },
+  "sidebarOffice": {
+    "paket": "dsh-client-ui-sidebar-documentpreview",
+    "englisch": {
+      "title": "Office document",
+      "loading": "Rendering document...",
+      "retry": "Retry",
+      "viewMissingFonts": "Missing fonts: {count}. Click to view.",
+      "missingFontsTitle": "Missing fonts",
+      "missingFontsDescription": "These fonts are unavailable for this preview. Text and layout may differ from the original document.",
+      "missingFontsCount": "Fonts: {count}",
+      "closeDetails": "Close font details",
+      "unavailable": "Office previews are unavailable. Enable the document preview service on the computer running DeepSeek Harness.",
+      "invalid": "This Office file cannot be previewed. It may be damaged, password protected, or have the wrong extension.",
+      "tooLarge": "The Office file or converted PDF exceeds the preview size limit. Reduce the file size or adjust the preview configuration.",
+      "failed": "Office conversion did not produce a usable PDF. Check the file and try again.",
+      "timeout": "Office conversion timed out. Try again.",
+      "busy": "Office preview is busy. Try again shortly.",
+      "changed": "The file changed while being read. Reopen the preview."
+    }
+  },
+  "settings.shell": {
+    "paket": "dsh-client-ui-settings-shell",
+    "englisch": {
+      "title": "Shell",
+      "description": "Limit how long each command may run and how much it may output.",
+      "timeoutMs": "Command timeout (ms)",
+      "timeoutMsHint": "How long one command may run before it is terminated.",
+      "maxOutputBytes": "Output cap per stream (bytes)",
+      "maxOutputBytesHint": "Output beyond this spills to a temporary file rather than being lost.",
+      "overridden": "Overridden",
+      "reset": "Reset to default",
+      "readOnly": "This deployment stores settings read-only.",
+      "unavailable": "This plugin is not loaded, so it cannot be configured right now.",
+      "save": "Save",
+      "saving": "Saving…",
+      "saveFailed": "The deployment did not accept these values; they were left for you to correct.",
+      "invalidNumber": "Enter a number, or leave blank to use the default."
+    }
+  },
+  "directory-browser": {
+    "paket": "dsh-client-ui-directory-picker-browse",
+    "englisch": {
+      "browser.title": "Select Workspace Directory",
+      "browser.home": "Home",
+      "browser.newFolder": "New folder",
+      "browser.folderName": "Folder name",
+      "browser.createIn": "New folder in \\\"{name}\\\"",
+      "browser.untitledFolder": "Untitled folder",
+      "browser.create": "Create",
+      "browser.cancel": "Cancel",
+      "browser.open": "Open",
+      "browser.editPath": "Edit path",
+      "browser.loading": "Loading…",
+      "browser.truncated": "Too many folders to list; only the beginning is shown.",
+      "browser.showHidden": "Show hidden files"
+    }
+  },
+  "goal": {
+    "paket": "dsh-client-ui-goal",
+    "englisch": {
+      "phase.active": "Ongoing Goal",
+      "phase.active.disarmed": "Inactive Goal",
+      "phase.paused": "Paused Goal",
+      "phase.blocked": "Blocked Goal",
+      "objective.aria": "Goal objective",
+      "commandInput.aria": "Command input",
+      "action.save": "Save goal",
+      "action.cancel": "Cancel edit",
+      "action.pause": "Pause goal",
+      "action.resume": "Resume goal",
+      "action.edit": "Edit goal",
+      "action.clear": "Clear goal"
+    }
+  },
+  "settings.agentLoop": {
+    "paket": "dsh-client-ui-settings-agent-loop",
+    "englisch": {
+      "title": "Agent loop",
+      "description": "Control how the Agent dispatches tool calls.",
+      "maxParallel": "Parallel tool calls",
+      "maxParallelHint": "Upper bound on parallel-safe calls running at once within one step.",
+      "overridden": "Overridden",
+      "reset": "Reset to default",
+      "readOnly": "This deployment stores settings read-only.",
+      "unavailable": "This plugin is not loaded, so it cannot be configured right now.",
+      "save": "Save",
+      "saving": "Saving…",
+      "saveFailed": "The deployment did not accept these values; they were left for you to correct.",
+      "invalidNumber": "Enter a number, or leave blank to use the default."
+    }
+  },
+  "settings.permission": {
+    "paket": "dsh-client-ui-permission-presets",
+    "englisch": {
+      "title": "Permission",
+      "description": "Choose the default permission mode for new sessions",
+      "loading": "Loading",
+      "unavailable": "Unavailable",
+      "preset.readOnly": "Read Only",
+      "preset.workspaceWrite": "Workspace Write",
+      "preset.fullAccess": "Full access",
+      "confirm.title": "Enable Full access?",
+      "confirm.description": "Full access lets new sessions reduce confirmation steps and perform more actions directly, including sensitive operations, file changes, or external commands. Only use it when you trust subsequent tasks.",
+      "confirm.acknowledge": "I understand the risks and want to continue",
+      "confirm.cancel": "Cancel",
+      "confirm.enable": "Enable Full access"
+    }
+  },
+  "reference": {
+    "paket": "dsh-client-ui-reference",
+    "englisch": {
+      "section.files": "Files & folders",
+      "section.subagents": "Subagents",
+      "section.sessions": "Sessions",
+      "candidate.noCwd": "(no cwd)",
+      "crumb.root": "Workspace",
+      "time.now": "now",
+      "time.minutes": "{n}min",
+      "time.hours": "{n}h",
+      "time.days": "{n}d",
+      "time.months": "{n}mo",
+      "time.years": "{n}y"
+    }
+  },
+  "session-log-download": {
+    "paket": "dsh-session-log-export",
+    "englisch": {
+      "header.more": "More actions",
+      "menu.download": "Download session log",
+      "menu.feedback": "Feedback",
+      "dialog.preparingTitle": "Exporting Session",
+      "dialog.preparingDescription": "Preparing a ZIP containing this Session, its sub-Sessions, and attachments.",
+      "dialog.successTitle": "Session download started",
+      "dialog.successDescription": "The browser is downloading the Session ZIP.",
+      "dialog.errorTitle": "Session export failed",
+      "dialog.close": "Close",
+      "dialog.commandFailed": "Could not start the Session export."
+    }
+  },
+  "sidebarPdf": {
+    "paket": "dsh-client-ui-sidebar-documentpreview",
+    "englisch": {
+      "title": "PDF",
+      "pageImage": "PDF page {page}",
+      "loading": "Rendering document...",
+      "rendering": "Rendering page…",
+      "failed": "Cannot display PDF: {message}",
+      "password": "This PDF requires a password; password-protected previews are not supported.",
+      "workerFailed": "The PDF rendering process could not continue. Please retry.",
+      "unsupported": "PDF preview requires the complete file contents.",
+      "retry": "Retry"
+    }
+  },
+  "slash.menu": {
+    "paket": "dsh-client-ui-input-trigger",
+    "englisch": {
+      "command": "Commands",
+      "skill": "Skills",
+      "subagent": "Subagents",
+      "loading": "Loading…",
+      "drill.aria": "Browse folder",
+      "drill.hint": "Browse folder",
+      "drill.key": "Tab",
+      "crumbs.aria": "Folder navigation",
+      "suggestions.aria": "Trigger suggestions"
+    }
+  },
+  "skill": {
+    "paket": "dsh-client-ui-skill",
+    "englisch": {
+      "row.title": "Skill",
+      "row.running": "Loading skill",
+      "row.preparing": "Preparing to load a skill",
+      "row.failed": "Skill load failed",
+      "row.stopped": "Skill load stopped",
+      "row.instructions": "Instructions",
+      "row.inspect": "Inspect",
+      "menu.userOnly": "user-only"
+    }
+  },
+  "approval": {
+    "paket": "dsh-client-ui-approval",
+    "englisch": {
+      "waiting": "Waiting for approval",
+      "detail.aria": "Approval details",
+      "escalation": "Tool {toolName} requests privileged execution",
+      "reject": "Reject",
+      "allowOnce": "Allow once"
+    }
+  },
+  "settings.plugins": {
+    "paket": "dsh-client-ui-settings-plugins",
+    "englisch": {
+      "nav": "Built-in plugins",
+      "title": "Built-in plugins",
+      "intro": "Inspect the plugins this deployment ships.",
+      "tabs": "Plugin views",
+      "empty": "This deployment exposes no plugin views."
+    }
+  },
+  "sidebar": {
+    "paket": "dsh-client-ui-sidebar",
+    "englisch": {
+      "session.new": "New Session",
+      "session.new.label": "New session",
+      "toggle.open": "Open sidebar",
+      "toggle.collapse": "Collapse sidebar",
+      "panels.label": "Global panels"
+    }
+  },
+  "sidebarImage": {
+    "paket": "dsh-client-ui-sidebar-documentpreview",
+    "englisch": {
+      "title": "Image",
+      "preview": "Image preview: {name}",
+      "loading": "Rendering document...",
+      "failed": "This image could not be displayed.",
+      "unsupported": "Image preview requires the complete file contents."
+    }
+  },
+  "documentHtml": {
+    "paket": "dsh-client-ui-sidebar-documentpreview",
+    "englisch": {
+      "title": "HTML",
+      "frame": "HTML document preview",
+      "loading": "Rendering document...",
+      "failed": "This HTML document could not be previewed."
+    }
+  },
+  "documentMarkdown": {
+    "paket": "dsh-client-ui-sidebar-documentpreview",
+    "englisch": {
+      "viewer.label": "Markdown",
+      "code.copy": "Copy",
+      "code.copied": "Copied",
+      "footnotes": "Footnotes"
+    }
+  },
+  "settings.sessionLog": {
+    "paket": "dsh-client-ui-settings-session-log",
+    "englisch": {
+      "title": "Upload Session Log when using the official model API",
+      "description": "Help improve DeepSeek models and products.",
+      "saved": "Preference saved",
+      "failed": "Could not save preference"
+    }
+  },
+  "sidebarCodePreview": {
+    "paket": "dsh-client-ui-sidebar-documentpreview",
+    "englisch": {
+      "title": "Code",
+      "copy": "Copy",
+      "copied": "Copied"
+    }
+  },
+  "settings.locale": {
+    "paket": "dsh-client-locale",
+    "englisch": {
+      "language.title": "Language"
+    }
+  },
+  "shortcuts.layout": {
+    "paket": "dsh-client-ui-layout",
+    "englisch": {
+      "toggle": "Toggle left sidebar"
+    }
+  }
+}

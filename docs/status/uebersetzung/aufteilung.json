@@ -1,0 +1,133 @@
+{
+  "erzeugt": "2026-10-14T15:31:37.186Z",
+  "portion": 300,
+  "teile": [
+    {
+      "teil": 1,
+      "namensraeume": [
+        "conversation"
+      ],
+      "schluessel": 371,
+      "quelle": "docs/status/uebersetzung/quelle-1.json",
+      "ziel": "docs/status/uebersetzung/teil-1.json"
+    },
+    {
+      "teil": 2,
+      "namensraeume": [
+        "pluginManager"
+      ],
+      "schluessel": 206,
+      "quelle": "docs/status/uebersetzung/quelle-2.json",
+      "ziel": "docs/status/uebersetzung/teil-2.json"
+    },
+    {
+      "teil": 3,
+      "namensraeume": [
+        "trajectory"
+      ],
+      "schluessel": 192,
+      "quelle": "docs/status/uebersetzung/quelle-3.json",
+      "ziel": "docs/status/uebersetzung/teil-3.json"
+    },
+    {
+      "teil": 4,
+      "namensraeume": [
+        "chat"
+      ],
+      "schluessel": 190,
+      "quelle": "docs/status/uebersetzung/quelle-4.json",
+      "ziel": "docs/status/uebersetzung/teil-4.json"
+    },
+    {
+      "teil": 5,
+      "namensraeume": [
+        "schedule.manager",
+        "workspace"
+      ],
+      "schluessel": 250,
+      "quelle": "docs/status/uebersetzung/quelle-5.json",
+      "ziel": "docs/status/uebersetzung/teil-5.json"
+    },
+    {
+      "teil": 6,
+      "namensraeume": [
+        "settings.models",
+        "settings.account",
+        "deliverables"
+      ],
+      "schluessel": 267,
+      "quelle": "docs/status/uebersetzung/quelle-6.json",
+      "ziel": "docs/status/uebersetzung/teil-6.json"
+    },
+    {
+      "teil": 7,
+      "namensraeume": [
+        "shortcuts",
+        "cordis",
+        "subagent",
+        "job",
+        "settings.pluginInventory",
+        "settings.subagent",
+        "settings"
+      ],
+      "schluessel": 297,
+      "quelle": "docs/status/uebersetzung/quelle-7.json",
+      "ziel": "docs/status/uebersetzung/teil-7.json"
+    },
+    {
+      "teil": 8,
+      "namensraeume": [
+        "sidebarRight",
+        "question",
+        "command",
+        "settings.agentPreset",
+        "sidebarTerminal",
+        "sidebarBrowser",
+        "settings.theme",
+        "model",
+        "sidebarDocumentPreview",
+        "feedback",
+        "settings.webSearch"
+      ],
+      "schluessel": 283,
+      "quelle": "docs/status/uebersetzung/quelle-8.json",
+      "ziel": "docs/status/uebersetzung/teil-8.json"
+    },
+    {
+      "teil": 9,
+      "namensraeume": [
+        "workflowRun",
+        "permission.access",
+        "plan",
+        "sidebarFiles",
+        "schedule.catalog",
+        "open-in-app",
+        "sidebarExcel",
+        "sidebarOffice",
+        "settings.shell",
+        "directory-browser",
+        "goal",
+        "settings.agentLoop",
+        "settings.permission",
+        "reference",
+        "session-log-download",
+        "sidebarPdf",
+        "slash.menu",
+        "skill",
+        "approval",
+        "settings.plugins",
+        "sidebar",
+        "sidebarImage",
+        "documentHtml",
+        "documentMarkdown",
+        "settings.sessionLog",
+        "sidebarCodePreview",
+        "settings.locale",
+        "shortcuts.layout"
+      ],
+      "schluessel": 277,
+      "quelle": "docs/status/uebersetzung/quelle-9.json",
+      "ziel": "docs/status/uebersetzung/teil-9.json"
+    }
+  ]
+}

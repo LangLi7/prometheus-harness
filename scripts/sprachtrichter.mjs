@@ -417,6 +417,15 @@ function haupt() {
       gemessenAm: new Date().toISOString(),
       sprachdateien: dateien.length,
       formen,
+      // **Achtung, gemessen am 14.10.2026:** die Schlüssel dieser Liste sind die
+      // **deklarierten** Namen (`export declare const NS`), und wo diese Zeile fehlt, fällt
+      // der Trichter auf den **Paketnamen** zurück. Von den 39 Einträgen sind **30 der
+      // Paketname** — `dsh-client-ui-approval` statt `approval`, `dsh-client-ui-layout`
+      // statt `shortcuts.layout`. Für ein **Sprachpaket** ist deshalb NICHT diese Datei
+      // bindend, sondern `docs/status/sprachquelle.json` (aus den Registrierungsaufrufen
+      // der Bündel gelesen, 56 Namensräume).
+      _warnung:
+        'Die Schlüssel dieser Liste sind DEKLARIERTE Namen und großenteils Paketnamen, nicht Laufzeit-Namensräume. Bindend für Sprachpakete ist docs/status/sprachquelle.json.',
       namensraeume: Object.fromEntries(
         [...jeNamensraum.entries()].sort().map(([ns, s]) => [ns, [...s].sort()]),
       ),
@@ -443,24 +452,42 @@ function haupt() {
       process.exitCode = 2
       return
     }
-    const umfangPfad = join(wurzel, 'docs/status/sprachumfang.json')
+    // **Die Vergleichsmaßlatte ist der LAUFZEIT-Namensraum, nicht der deklarierte.**
+    //
+    // Gemessen am 14.10.2026 (`docs/status/messsonden/sprachnamensraum-sonde.mjs`): von den
+    // 39 Fächern in `sprachumfang.json` sind **30 der Paketname**, nicht der Namensraum. Das
+    // Paket `dsh-client-ui-approval` registriert `locale.register(NS, {zh, en})` mit
+    // `NS = "approval"`; `dsh-client-ui-layout` registriert unter `shortcuts.layout`.
+    //
+    // Eine Prüfung gegen `sprachumfang.json` verlangte deshalb deutsche Texte unter Namen,
+    // die **niemand abfragt**, und meldete den richtigen Namen (`approval`) als „Namensraum,
+    // den der Kern NICHT kennt". Die Maßlatte ist jetzt `sprachquelle.json`: sie wird aus den
+    // Registrierungsaufrufen der Bündel gelesen und hat vier unabhängige Gegenproben
+    // (`chat` 190, `conversation` 371, `cordis` 51, `deliverables` 60).
+    const umfangPfad = join(wurzel, 'docs/status/sprachquelle.json')
     let umfang
     try {
       umfang = JSON.parse(readFileSync(umfangPfad, 'utf8'))
     } catch {
       console.log('')
-      console.log(`ABBRUCH: keine Vergleichsmaßlatte: docs/status/sprachumfang.json fehlt.`)
-      console.log('  Anlegen mit:  bun scripts/sprachtrichter.mjs --umfang')
+      console.log('ABBRUCH: keine Vergleichsmaßlatte: docs/status/sprachquelle.json fehlt.')
+      console.log('  Anlegen mit:  bun scripts/sprachquelle.mjs --json docs/status/sprachquelle.json')
+      console.log('  (NICHT mit sprachumfang.json — dessen Fächer sind großenteils Paketnamen.)')
       process.exitCode = 2
       return
     }
+    // Die Maßlatte führt je Namensraum die englischen Texte; geprüft wird gegen die SCHLÜSSEL.
+    const masslatte = Object.fromEntries(
+      Object.entries(umfang.faecher).map(([ns, f]) => [ns, Object.keys(f.englisch)]),
+    )
 
     console.log('')
     console.log(`== Vollständigkeit: ${pruefen}`)
+    console.log(`   Maßlatte: ${umfangPfad} (${String(Object.keys(masslatte).length)} Laufzeit-Namensräume)`)
     let fehlendGesamt = 0
     let vorhandenGesamt = 0
     let umfangGesamt = 0
-    for (const [ns, schluessel] of Object.entries(umfang.namensraeume)) {
+    for (const [ns, schluessel] of Object.entries(masslatte)) {
       const haben = paket[ns] ?? {}
       const fehlend = schluessel.filter((s) => haben[s] === undefined)
       umfangGesamt += schluessel.length
@@ -485,7 +512,7 @@ function haupt() {
     // viele** — ein stilles Übergehen wäre schlimmer als das falsche Melden.
     const uebersprungen = Object.keys(paket).filter((ns) => ns.startsWith('_'))
     const unbekannt = Object.keys(paket).filter(
-      (ns) => !ns.startsWith('_') && umfang.namensraeume[ns] === undefined,
+      (ns) => !ns.startsWith('_') && masslatte[ns] === undefined,
     )
     console.log('')
     console.log(`  zusammen: ${String(vorhandenGesamt)} von ${String(umfangGesamt)} Schlüsseln`)

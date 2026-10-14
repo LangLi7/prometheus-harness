@@ -216,3 +216,105 @@ schnell ein Treffer an einer Stelle, die mit der Frage nichts zu tun hat.
 Anfang (`registerFetch`). Und die **Gegenprobe** gehört dazu: wer den Anbieter findet, sucht
 den **Verbraucher** — findet er keinen, ist die Registratur leer, und das ist eine Aussage
 über den **Betrieb**, nicht über die **Möglichkeit**.
+
+---
+
+## 17. Die **Registrierungsstelle** messen, nicht den Namen glauben
+
+**Der Fall.** Der Übersetzungsumfang des Kerns stand als Liste von **39 Fächern** fest, und
+zwei davon waren schon übersetzt (`common`, `settings.locale`). Beim Nachsehen im Bündel:
+
+```js
+// node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js
+ctx.locale.register("shortcuts.layout", { zh, en })
+```
+
+Das Paket heißt `dsh-client-ui-layout`, der Namensraum heißt **`shortcuts.layout`**. Gemessen
+über alle 69 Bündel: von den 39 Fächern sind **30 der Paketname**, kein Namensraum. Ein
+Sprachpaket, das unter `dsh-client-ui-layout` registriert, legt einen Namen an, den **niemand
+abfragt** — und `--pruefen` hätte es **gelobt**, weil die Maßlatte dieselbe falsche Liste war.
+Der Kern hatte es übrigens hingeschrieben: der Trichter gab aus
+*„Fächer insgesamt: 39 (die übrigen sind Behelfsnamen aus Paketnamen — Pakete ohne eigenes NS)"*.
+Der Hinweis stand da und wurde überlesen.
+
+**Die Regel.** Bei Namen, die eine **Laufzeit** auflöst (Namensräume, Routen, Registraturen,
+Feldnamen), wird die **Aufrufstelle** gemessen — nicht die Deklaration, nicht der Paketname.
+Und: eine Maßlatte ist selbst Gegenstand der Prüfung. Eine Prüfung gegen die falsche Liste ist
+**grün und wertlos**.
+
+---
+
+## 18. Eine Gegenprobe, deren Erwartung nicht **unabhängig belegt** ist, meldet einen Befund über sich selbst
+
+**Der Fall.** Die erste Namensraum-Sonde fand 14 Literale für 39 Fächer und **kein** `common`.
+Sie schloß: „die Extraktion ist kaputt." Das war sie auch — aber die Gegenprobe war es
+ebenso: `common` wird vom **Sprach-Plugin-Kern** angelegt (`COMMON_NS = "common"` in
+`dsh-client-locale`) und steht in **keinem** Paket-Bündel. Die Sonde hätte immer gemeldet,
+was sie meldete.
+
+**Die Regel.** Eine Gegenprobe braucht eine Erwartung, die **woanders** belegt ist — eine
+Fundstelle, eine zweite Quelle, eine frühere Messung. Sonst prüft sie die eigene Annahme.
+Die zweite Fassung nimmt `chat`: `const NS = "chat"` steht belegt im Chat-Bündel (@307341)
+**und** `chat` ist ein Namensraum des Gesprächs-Registers.
+
+---
+
+## 19. Eine Sammlung nach dem **Gegenstand** zu keyen verschluckt, **wie oft** er vorkam
+
+**Zwei Fälle an einem Tag, beide mit falscher Zahl als Folge.**
+
+**(a) Die letzte Nennung gewinnt.** Die Ergebnistafel der Sonde war nach Namensraum gekeyt.
+Im Chat-Bündel steht beides:
+
+```js
+locale.register("chat", { zh, en })   // zuerst
+locale.bind("chat")                   // danach
+```
+
+Gemeldet wurde `chat (bind)` — obwohl `register("chat", { zh, en })` **direkt belegt** war
+(eigene Messung über drei Pakete). Die Tafel sagte damit, der Namensraum werde nur *gelesen*.
+
+**(b) Zweimal dasselbe melden macht die Zahl falsch.** Der Sprachprüfer meldete einen
+erfundenen Namensraum **zweimal** — einmal aus der Schleife über die geprüften Namen, einmal
+aus der Schleife über die Schlüssel des Pakets. Wer „2" liest, glaubt an zwei Fehler.
+
+**Die Regel.** Beim Sammeln unterscheiden: **Menge** (welche Gegenstände) und **Zählung**
+(wie oft). Wo ein Vorrang gilt, wird er **ausgeschrieben** (hier: `register` schlägt `bind`),
+und Meldungen über denselben Gegenstand werden **zusammengefaßt**. Der Test dazu steht in
+`scripts/tests/sprachpruefer.test.mjs` — er verlangt **genau einen** Fehler.
+
+---
+
+## 20. Eine Aufteilung von Hand verliert Schlüssel; sie muß **nachgerechnet** werden
+
+**Der Fall.** 2333 Texte wurden auf 9 Teile verteilt. Von Hand gezählt hätte die Summe der
+Teile „ungefähr" gestimmt — und zwei Schlüssel wären still verschwunden, weil sie in keinem
+Teil standen und niemand sie vermißt.
+
+**Die Regel.** Wer einen Auftrag teilt, baut **ein** Werkszeug, das die Vereinigung gegen die
+Quelle prüft und **jeden fehlenden Schlüssel beim Namen nennt** (`scripts/sprachaufteilung.mjs`).
+Geschrieben wird nur, wenn nichts fehlt. Und die Aufteilung selbst trägt eine Gegenprobe:
+*Fächer ohne `common` = 55, in Teilen = 55 → OK*.
+
+---
+
+## 21. Eine Prüfregel, die den **Inhalt** verlangt, kann eine **Änderung am Verhalten** erzwingen
+
+**Der Fall.** Der Auftrag und der Prüfer verlangten beide: *„Kein Wert ist leer."* Ein
+Übersetzer stieß auf einen Schlüssel, dessen englischer Wert `""` **ist** —
+`chat · message.stepProcess.sharedPrefix`. Er durfte nicht leer bleiben, also schrieb er
+„Erledigt" hinein. Das ist **falsch**: der Code zieht dieses Präfix nur ab, wenn beide
+Beschriftungen damit beginnen. Aus einer Prüfregel wurde eine Änderung am Verhalten.
+
+Gezählt (danach): im ganzen Kern gibt es **genau einen** leeren Wert und **einen**, der nur aus
+einem Leerzeichen besteht (`pluginManager · sentenceSeparator` = `" "`). Beide sind Absicht.
+
+**Die Regel.** Eine Vollständigkeitsprüfung fragt nach **Vorhandensein**, nicht nach **Fülle**:
+*ist der Schlüssel da?* — nicht *hat er Text?* Wo die Quelle leer ist, **muß** das Ergebnis
+leer sein, und die Prüfung verlangt **Gleichheit** statt Inhalt. Und die Lehre darüber hinaus:
+eine Regel, die eine Übersetzung erzwingt, wo keine hingehört, ist **schlimmer als keine
+Regel** — sie erzeugt einen Fehler und sieht dabei nach Ordnung aus.
+
+**Der Nachtrag zum selben Fehler.** Dieselbe Regel steckte ein zweites Mal im
+Vereinigungswerkzeug (`--vereinigen` verwarf leere Werte als „nicht geliefert"). Zwei Stellen,
+ein Denkfehler: *leer ist eine Aussage, kein Fehlen.*

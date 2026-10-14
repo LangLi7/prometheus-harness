@@ -163,3 +163,122 @@ und hält die Sätze **fest verdrahtet auf Deutsch**.
 **Was ausdrücklich NICHT in diesen Schritt gehört:** die 228 Go-Ausgaben in
 `services/**` (fremde Hand) und `website/.vitepress` (Bauzeit-Wert `lang: 'de-DE'`,
 eigene Baustelle).
+
+---
+
+## 8. Die Namensräume des Kerns — nachgemessen am 14.10.2026 (**Korrektur zu §2 und §7**)
+
+§2 sagt richtig, **daß** der Kern Wörterbücher je Namensraum führt, und §7 verlangt, sie
+„je Namensraum" zu liefern. **Welche Namen das sind, stand bis heute falsch fest** — und
+zwar an der Stelle, die den Auftrag bemaß.
+
+### 8.1 Der Befund
+
+| | alte Annahme | gemessen |
+|---|---|---|
+| Fächer | **39** (`docs/status/sprachumfang.json`, aus `export declare const NS`) | **56** (aus den Registrierungsaufrufen der Bündel) |
+| Texte | 1786 | **2374** |
+| davon Paketname statt Namensraum | — | **30 der 39** |
+
+Der Grund steht in einer Zeile des Bündels:
+
+```js
+// node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js
+ctx.locale.register("shortcuts.layout", { zh, en })
+```
+
+Das Paket heißt `dsh-client-ui-layout`, der Namensraum heißt **`shortcuts.layout`**. Wo die
+Typdeklaration **kein** `NS` nennt, hatte der Trichter den **Paketnamen** als Notnamen
+benutzt — und der Trichter **sagte das auch**: *„Fächer insgesamt: 39 (die übrigen sind
+Behelfsnamen aus Paketnamen — Pakete ohne eigenes NS)"*. Der Hinweis stand da und wurde beim
+Bauen des Pakets überlesen.
+
+| Paket | Namensraum der Laufzeit |
+|---|---|
+| `dsh-client-ui-layout` | `shortcuts.layout` |
+| `dsh-client-ui-approval` | `approval` |
+| `dsh-client-ui-settings-plugins` | `settings.plugins` |
+| `dsh-client-ui-sidebar-files` | `sidebarFiles` |
+| `dsh-client-ui-settings-session-log` | `settings.sessionLog` |
+| `dsh-client-ui-input-trigger` | `slash.menu` |
+| `dsh-client-ui-workspace` | `workspace` |
+| `dsh-client-ui-settings-general` | `settings` |
+| … 22 weitere | siehe `docs/status/sprachquelle.json` |
+
+### 8.2 Was das für das Paket bedeutet
+
+1. **Ein Paket, das unter dem Paketnamen registriert, übersetzt nichts.** Es legt einen
+   Namensraum an, den kein Aufruf abfragt. Die zwei bis heute „vollständigen" Fächer waren
+   davon **nicht** betroffen: `common` und `settings.locale` sind beide echte
+   Laufzeit-Namensräume, angelegt vom Sprach-Plugin-Kern `dsh-client-locale`
+   (`COMMON_NS`, `SETTINGS_NS`).
+2. **`common` ist die Fallback-Kette.** Im Kern steht wörtlich
+   `this.lookup(ns, key, chain) ?? (ns !== "common" ? this.lookup("common", key, chain) : void 0)`.
+   Ein deutsches `common` deckt damit **jede** Lücke eines anderen Namensraums — es ist der
+   Hebel mit der größten Wirkung pro Text.
+3. **Die Prüfung maß gegen die falsche Liste.** `--pruefen` verglich das Paket mit
+   `sprachumfang.json` und hätte ein Paket **gelobt**, das 30 nutzlose Namensräume füllt —
+   und den **richtigen** Namen (`approval`) als „Namensraum, den der Kern NICHT kennt"
+   gemeldet. Die Maßlatte ist jetzt `docs/status/sprachquelle.json`.
+4. **Der Umfang ist größer als gedacht.** Die größten Fächer der alten Liste stimmen
+   (`conversation` 371, `chat` 190, `cordis` 51), aber `pluginManager` (206), `trajectory`
+   (192), `schedule.manager` (134), `settings.account` (94) und `settings.models` (113)
+   standen **gar nicht** darin.
+
+### 8.3 Der Weg, auf dem die Zahl entstand — vier Korrekturen an einer Sonde
+
+Jede Korrektur kam aus einer Messung, nicht aus Nachdenken; jede ist in
+`docs/status/messsonden/sprachnamensraum-sonde.mjs` im Kopf dokumentiert.
+
+| # | Fehler | Wirkung | Beleg |
+|---|---|---|---|
+| 1 | nur **Literale** als erstes Argument gesucht | 14 Namensräume statt 56 | `const NS = "chat"; locale.register(NS, …)` |
+| 2 | `.locale.register(` verlangt einen **Punkt** vor `locale` | 26 Registrierungen sahen wie Leser aus | `locale.register("chat", {zh, en})` |
+| 3 | Tafel nach Namensraum gekeyt, **letzte Nennung gewinnt** | `chat` galt als Nur-Leser | `register("chat", …)` **vor** `bind("chat")` |
+| 4 | Objektblock mit den **meisten Treffern** | englische Texte waren chinesisch | `en` und `zh` haben denselben Schlüsselsatz |
+
+Dazu eine **ungültige Gegenprobe** (Arbeitsweise Regel 18): die erste Fassung verlangte,
+daß `common` als Literal in einem Bündel vorkommt — `common` steht aber in **keinem**
+Paket-Bündel. Die zweite Fassung nimmt `chat`, belegt durch `const NS = "chat"` @307341.
+
+### 8.4 Die Werkzeuge, die daraus entstanden sind
+
+| Werkzeug | Aufgabe | Gegenprobe |
+|---|---|---|
+| `scripts/sprachquelle.mjs` | englische Wörterbücher aus den **Registrierungsaufrufen** lesen | 4 unabhängige Zahlen: `chat` 190, `conversation` 371, `cordis` 51, `deliverables` 60 — **alle vier exakt** |
+| `scripts/sprachpruefer.mjs` | Paket gegen die Quelle prüfen (Platzhalter, Rand-Leerzeichen, erfundene Schlüssel) | `scripts/tests/sprachpruefer.test.mjs`, **12 Prüfungen**, sechs Fehlerarten müssen rot werden |
+| `scripts/sprachaufteilung.mjs` | Auftrag teilen **und** Vereinigung nachrechnen | Fächer ohne `common` = 55, in Teilen = 55 |
+| `scripts/sprachwerte.mjs` | englischen Text **eines** Fachs ausgeben (Nachschlagewerk) | wählt den Block `en`, nicht den ersten |
+
+### 8.5 Stand
+
+**2374 von 2374 Texten übersetzt, 56 von 56 Fächern VOLLSTÄNDIG** (Stand 14.10.2026).
+
+| Schritt | Ergebnis | Beleg |
+|---|---|---|
+| Umfang gemessen | 56 Namensräume, 2374 Texte | `bun scripts/sprachquelle.mjs` — vier Gegenproben exakt |
+| Auftrag geteilt | 9 Teile, 55 Fächer, 2333 Texte | `bun scripts/sprachaufteilung.mjs` — Gegenprobe 55 = 55 |
+| übersetzt | 9 Teile abgeliefert | `docs/status/uebersetzung/teil-*.json` |
+| geprüft | **keine** Strukturfehler | `bun scripts/sprachpruefer.mjs --paket packages/client/locale/de.json` |
+| vereinigt | kein Schlüssel fehlt | `bun scripts/sprachaufteilung.mjs --vereinigen` |
+| Terminologie | 28 Stellen vereinheitlicht | `bun scripts/sprachbegriffe.mjs` |
+| Testsuite | 1404 pass, 13 fail | die 13 liegen in Datenbank-, Rust- und Zeitsperren-Prüfungen; **keine** Prüfung unter `packages/**` nennt die Sprachdateien |
+
+**Was der Prüfer weiter meldet:** 72 „Verdachtsfälle" der Art *unverändert englisch*. Das sind
+Wörter, die im Deutschen gleich lauten (`Status`, `Revision`, `Minute`, `To-dos`) oder
+Werkzeug- und Produktnamen (`bash`, `glob`, `grep`, `JSON`, `DSH`, `DeepSeek Harness`). Der
+Prüfer **urteilt nicht** über sie — er nennt sie, damit sie angesehen werden.
+
+**Was noch offen ist:**
+
+1. **Die Komposition fehlt.** `packages/client/locale/` hat kein `package.json`, steht in
+   keiner Profil-Zeile und wird von keinem Prüfwerk angefaßt. Das Paket ist geschrieben und
+   gemessen, aber es **lädt nicht**. Dafür braucht es eine Arbeitsbereichs-Aufnahme und eine
+   bewußte Erneuerung von `bun.lock` (Arbeitsweise Regel 14: fremde Arbeit nicht anfassen).
+2. **Der Client als Zeuge fehlt.** Daß der **echte** `LocaleRuntime` diese Anmeldung annimmt,
+   ist weiterhin **nicht** gemessen — dafür braucht es einen `ClientContext`. Ein
+   selbstgebauter wäre eine Attrappe, die nur beweist, daß es mit **ihr** läuft.
+3. **Zwei Werte sind bewußt leer** (`chat · message.stepProcess.sharedPrefix` = `""`,
+   `pluginManager · sentenceSeparator` = `" "`). Beide bleiben unverändert; ein früherer
+   Auftragstext verlangte fälschlich „kein Wert ist leer" und hat einen Übersetzer zu einer
+   Erfindung verleitet (Arbeitsweise Regel 21).

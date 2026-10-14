@@ -178,9 +178,33 @@ describe('Der Trichter meldet die Sprache richtig an', () => {
     expect(registriert.some((r) => r.includes('register:_'))).toBe(false)
   })
 
-  it('faecher() läßt die reservierten Schlüssel weg', () => {
+  it('faecher() läßt die reservierten Schlüssel weg — und liefert ALLE Namensräume', () => {
     const f = faecher()
-    expect(Object.keys(f).sort()).toEqual(['common', 'settings.locale'])
+    const namen = Object.keys(f)
+    // Kein reservierter Schlüssel.
+    expect(namen.filter((n) => n.startsWith('_'))).toEqual([])
+    // **Gemessen, nicht erinnert:** die Zahl der Fächer muß die der Quelle sein.
+    //
+    // Hier stand einmal `toEqual(['common', 'settings.locale'])` — richtig, solange nur zwei
+    // Fächer übersetzt waren, und falsch, sobald es 56 waren. Eine Zusage über eine **Menge**
+    // gehört gegen die Quelle gestellt, nicht gegen eine Liste aus der Zeit davor.
+    const quelle = JSON.parse(
+      readFileSync(join(WURZEL, 'docs', 'status', 'sprachquelle.json'), 'utf8'),
+    ) as { faecher: Record<string, unknown> }
+    expect(namen.length).toBe(Object.keys(quelle.faecher).length)
+    expect(namen.sort()).toEqual(Object.keys(quelle.faecher).sort())
+  })
+
+  it('KEIN Fach, das die Laufzeit nicht registriert (die Lehre dieser Runde)', () => {
+    // **Der Fall.** Das Paket war zwischenzeitlich nach **Paketnamen** aufgebaut
+    // (`dsh-client-ui-approval`), während die Laufzeit `approval` abfragt. Ein solches Paket
+    // übersetzt nichts — und die damalige Prüfung hätte es gelobt, weil ihre Maßlatte
+    // dieselbe falsche Liste war (Arbeitsweise Regel 17).
+    const quelle = JSON.parse(
+      readFileSync(join(WURZEL, 'docs', 'status', 'sprachquelle.json'), 'utf8'),
+    ) as { faecher: Record<string, { paket: string }> }
+    const erfunden = Object.keys(faecher()).filter((n) => quelle.faecher[n] === undefined)
+    expect(erfunden).toEqual([])
   })
 
   it('SPRACHE und RUECKFALL sind, was der Kern erwartet', () => {
