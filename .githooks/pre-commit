@@ -1,6 +1,6 @@
 #!/bin/sh
 # ============================================================================
-# .githooks/pre-commit — der gitleaks-Haken (E2)
+# .githooks/pre-commit — der Geheimnis-Haken (E2)
 # ============================================================================
 #
 # Einhängen (einmal je Arbeitskopie, nicht je Klon-Zeitpunkt):
@@ -18,8 +18,61 @@
 # wurde. Ein Haken, der bei fehlendem Werkzeug jeden Commit blockiert, wird nach dem
 # dritten Mal mit `--no-verify` umgangen, und dann schützt er gar nichts.
 #
+# ============================================================================
+# NACHTRAG 14.10.2026 — dieser Haken war DREIFACH wirkungslos. Gefunden von aussen.
+# ============================================================================
+#
+# 1. **Er war nicht verdrahtet.** `git config core.hooksPath` war leer, in
+#    `.git/hooks/` lag nichts: gemessen mit `git hook run pre-commit` →
+#    „cannot find a hook named pre-commit". Der Haken hat nie gelaufen.
+#
+# 2. **Und die Zeile `exec bun …` griff das FALSCHE bun.** Über PATH löst `bun`
+#    auf `…/AppData/Roaming/npm/bun.ps1` auf — den npm-Stellvertreter, nicht die
+#    Laufzeit. Der Stellvertreter bricht ab mit „Bun's postinstall script was not
+#    run" — **und gibt 0 zurück.** Ein Haken, der mit einer Fehlermeldung Erfolg
+#    meldet, ist schlimmer als keiner: er sieht aus wie eine Prüfung. Die eigene
+#    Meldung „NICHT GEPRÜFT" wurde dabei nicht einmal erreicht.
+#
+# 3. **Und selbst mit richtigem bun prüft er nichts**, weil `gitleaks` fehlt — das
+#    ist die **beabsichtigte** Schwäche (siehe oben) und bleibt so.
+#
+# **Deshalb sucht der Haken sein bun jetzt selbst und BELEGT, daß es läuft**, statt
+# dem PATH zu vertrauen. Findet er keines, sagt er das — mit klaren Worten und
+# weiterhin Exit 0, damit die Regel „der Haken blockiert nicht" gilt. Aber er sagt
+# es **sichtbar**, statt still zu bestehen.
+#
 # Aufruf von Hand (ohne Commit):
 #
 #     sh .githooks/pre-commit
-#     bun scripts/leck-haken.mjs pruefen
-exec bun scripts/leck-haken.mjs pruefen
+#
+# ============================================================================
+
+set -u
+
+# **Ein lauffähiges bun finden — und es wirklich laufen lassen.**
+#
+# Die Reihenfolge: ausdrücklich gesetzt schlägt alles; dann das Home des
+# Benutzers; dann der PATH. `PMH_BUN` ist der Notausgang für Rechner, auf denen
+# bun woanders liegt — ohne daß hier ein Benutzername im Skript steht.
+lauffaehig() {
+  [ -n "$1" ] || return 1
+  command -v "$1" >/dev/null 2>&1 || [ -x "$1" ] || return 1
+  "$1" --version >/dev/null 2>&1
+}
+
+BUN=""
+for kandidat in "${PMH_BUN:-}" "$HOME/.bun/bin/bun.exe" "$HOME/.bun/bin/bun" bun; do
+  if lauffaehig "$kandidat"; then BUN="$kandidat"; break; fi
+done
+
+if [ -z "$BUN" ]; then
+  echo "[pmh] NICHT GEPRÜFT: kein lauffähiges bun gefunden."
+  echo "      Gesucht: \$PMH_BUN, \$HOME/.bun/bin/bun.exe, \$HOME/.bun/bin/bun, PATH."
+  echo "      Der Commit geht durch — aber dieser Haken hat NICHTS geprüft."
+  echo "      Abhilfe: PMH_BUN auf die Laufzeit setzen, z. B."
+  echo "        git config --local core.hooksPath .githooks   # falls noch nicht geschehen"
+  echo "        PMH_BUN=/pfad/zu/bun git commit …"
+  exit 0
+fi
+
+exec "$BUN" scripts/leck-haken.mjs pruefen
