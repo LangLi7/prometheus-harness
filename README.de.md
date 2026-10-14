@@ -23,7 +23,7 @@ Basispakete, erzeugt `.env` mit frischen Geheimnissen, startet PostgreSQL 17 und
 Redis 7, wartet auf deren Gesundheitsprüfungen, fährt die Migrationen und typprüft
 jedes Paket. Danach bedient `bun run start` die Oberfläche und druckt eine Adresse
 **mit Token**; ohne dieses Token antwortet die Oberfläche mit **401**. Gemessen:
-`bun run typecheck` meldet **25 Pakete grün, 0 rot**, und
+`bun run typecheck` meldet **23 Pakete grün, 0 rot**, und
 `bun test packages scripts apps` meldet **1189 pass · 87 skip · 0 fail** über 55
 Dateien auf Linux.
 
@@ -67,7 +67,7 @@ Nichts hier ist geschätzt.
 
 | | Stand | Gemessen mit |
 |---|---|---|
-| Typprüfung | **25 Pakete grün, 0 rot** | `bun run typecheck` |
+| Typprüfung | **23 Pakete grün, 0 rot** | `bun run typecheck` |
 | Prüfungen | **1189 pass · 87 skip · 0 fail** über 55 Dateien (Linux, CI) | `bun test packages scripts apps` |
 | Eigene CI | grün | [ci-nachweis.md](docs/status/ci-nachweis.md) |
 | Installation | ein Befehl, sieben gemeldete Schritte | `scripts\install.cmd` / `./scripts/install.sh` |

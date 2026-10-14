@@ -480,6 +480,130 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     }
   })
 
+  test('RLS filtert je Mandant — und ein fehlender Mandant ist LAUT (Probe: rls-verhalten.sql)', async () => {
+    // ---------------------------------------------------------------------------
+    // **Warum dieser Test existiert.**
+    // ---------------------------------------------------------------------------
+    // `docs/status/mandantentrennung.md` §8 haelt fest, dass RLS **aus** bleibt,
+    // weil ein fehlender Mandant „still null Zeilen" liefert und der Fehler dann
+    // wie „Tabelle leer" aussaehe statt wie „Zugriff verweigert".
+    //
+    // Gemessen gilt das nur fuer **eine** der beiden moeglichen Policy-Formen:
+    //
+    //   using (user_id = current_setting('pmh.user_id', true)::uuid)  -- still: 0 Zeilen
+    //   using (user_id = current_setting('pmh.user_id')::uuid)        -- LAUT: 42704
+    //
+    // `missing_ok = true` macht aus dem fehlenden Parameter `null`, und `null` in
+    // einem `using` filtert alles weg. Ohne `missing_ok` ist es ein Fehler.
+    // Dieser Test haelt **beide** Formen fest, damit die Entscheidung aus §8 nicht
+    // auf einer Annahme ruht.
+    //
+    // **Warum FORCE ROW LEVEL SECURITY und kein Rollenwechsel.** Der Test
+    // verbindet als `pmh_owner` — die **Eigentuemerin** aller Tabellen. Eigentuemer
+    // umgehen RLS, solange `FORCE` fehlt; gemessen sieht der Eigentuemer ohne
+    // FORCE **alle** Zeilen und wuerde „RLS wirkt nicht" melden, obwohl es wirkt.
+    // Der andere Weg — `SET LOCAL ROLE pmh_app` — scheitert, weil `pmh_owner` kein
+    // Mitglied von `pmh_app` ist. Die Anwendungsrolle bleibt die richtige Wahl fuer
+    // den Betrieb; hier wird die Eigentuemer-Ausnahme mit `FORCE` aufgehoben.
+    //
+    // **Warum SAVEPOINTs.** In PostgreSQL bricht ein Fehler die **ganze**
+    // Transaktion ab (`25P02`); jede weitere Anweisung scheitert dann an der
+    // abgebrochenen Transaktion statt an der Sache. Der erwartete `42704` wird
+    // deshalb in einen SAVEPOINT gelegt und danach zurueckgerollt — sonst koennte
+    // der Test die folgenden Faelle nicht mehr messen.
+    //
+    // Alles geschieht in **einer** Transaktion und wird **zurueckgerollt**.
+    const A = 'aaaaaaaa-0000-4000-8000-0000000000a1'
+    const B = 'bbbbbbbb-0000-4000-8000-0000000000b1'
+
+    /** Traegt das Ergebnis aus der Transaktion heraus, die zurueckgerollt werden MUSS. */
+    class Ruecknahme extends Error {
+      constructor(readonly werte: { laut: string; mitA: number; mitB: number; still: number }) {
+        super('Ruecknahme')
+      }
+    }
+
+    const werte = await sql
+      .begin(async (tx) => {
+        await tx.unsafe(`
+          CREATE TABLE rls_probe (id int PRIMARY KEY, user_id uuid NOT NULL);
+          INSERT INTO rls_probe (id, user_id) VALUES
+            (1, '${A}'), (2, '${A}'), (3, '${A}'), (4, '${B}');
+          ALTER TABLE rls_probe ENABLE ROW LEVEL SECURITY;
+          ALTER TABLE rls_probe FORCE ROW LEVEL SECURITY;
+          CREATE POLICY rls_probe_laut ON rls_probe
+            USING (user_id = current_setting('pmh.user_id')::uuid);
+        `)
+
+        // 1) Ohne Mandant: die LAUTE Form. Erwartet wird `42704`, nicht 0 Zeilen.
+        await tx.unsafe('SAVEPOINT s1')
+        let laut = ''
+        try {
+          await tx.unsafe('SELECT count(*) FROM rls_probe')
+        } catch (cause) {
+          laut = (cause as { code?: string }).code ?? ''
+        } finally {
+          await tx.unsafe('ROLLBACK TO SAVEPOINT s1')
+        }
+
+        // 2) Die STILLE Form — und zwar ZUERST, denn der Parameter ist in dieser
+        //    Sitzung bis hierher noch NIE gesetzt worden. Nur so wird der wirklich
+        //    abwesende Fall gemessen.
+        //
+        // **Zwei eigene Befunde stecken in dieser Reihenfolge.**
+        // (a) `set_config('pmh.user_id', NULL, true)` setzt den Parameter auf den
+        //     **leeren String**, nicht auf „ungesetzt". `''::uuid` wirft dann
+        //     `22P02 invalid input syntax for type uuid: ""` — das war mein erster
+        //     Entwurf, und er scheiterte genau daran.
+        // (b) `RESET pmh.user_id` hilft **nicht**: fuer einen eigenen Parameter ist
+        //     der Vorgabewert der leere String. Nach einem `set_config` laesst sich
+        //     der abwesende Zustand in derselben Sitzung nicht wiederherstellen.
+        //
+        // Es gibt deshalb **drei** Verhaltensfaelle, nicht zwei:
+        //
+        //   Parameter nie gesetzt + missing_ok=true -> NULL  -> 0 Zeilen (still)
+        //   Parameter nie gesetzt + ohne missing_ok -> 42704 (laut)
+        //   Parameter ist LEER                      -> 22P02 (laut, auch mit missing_ok)
+        await tx.unsafe(`ALTER POLICY rls_probe_laut ON rls_probe
+          USING (user_id = current_setting('pmh.user_id', true)::uuid)`)
+        const zeilenStill = await tx.unsafe<{ n: number }[]>('SELECT count(*)::int AS n FROM rls_probe')
+
+        // 3) Mit Mandant A: nur die eigenen Zeilen.
+        await tx.unsafe(`SELECT set_config('pmh.user_id', '${A}', true)`)
+        const zeilenA = await tx.unsafe<{ n: number }[]>('SELECT count(*)::int AS n FROM rls_probe')
+
+        // 4) Mit Mandant B: die andere Seite. Erst A und B ZUSAMMEN beweisen, dass
+        //    gefiltert wird und nichts verlorengeht — eine Zahl allein waere auch
+        //    mit einem kaputten Filter vereinbar.
+        await tx.unsafe(`SELECT set_config('pmh.user_id', '${B}', true)`)
+        const zeilenB = await tx.unsafe<{ n: number }[]>('SELECT count(*)::int AS n FROM rls_probe')
+
+        throw new Ruecknahme({
+          laut,
+          still: zeilenStill[0]?.n ?? -1,
+          mitA: zeilenA[0]?.n ?? -1,
+          mitB: zeilenB[0]?.n ?? -1,
+        })
+      })
+      .catch((cause: unknown) => {
+        if (cause instanceof Ruecknahme) return cause.werte
+        throw cause
+      })
+
+    // **Nur `42704` zaehlt.** Ein beliebiger Fehler waere kein Beweis: ohne
+    // `ENABLE ROW LEVEL SECURITY` gaebe es die Policy gar nicht, und ein Fehler
+    // ueber eine fehlende Spalte saehe genauso aus wie eine Abweisung.
+    expect({ laut: werte.laut }).toEqual({ laut: '42704' })
+    // Eingefuegt wurden 3 Zeilen fuer A und 1 fuer B. A+B MUSS 4 ergeben — das
+    // ist der Beweis, dass die Policy trennt und nicht bloß alles wegfiltert.
+    expect({ mitA: werte.mitA, mitB: werte.mitB, summe: werte.mitA + werte.mitB }).toEqual({
+      mitA: 3,
+      mitB: 1,
+      summe: 4,
+    })
+    expect({ ohneMandantStill: werte.still }).toEqual({ ohneMandantStill: 0 })
+  })
+
   test('das Blättern über den Zeiger benutzt den Schluessel (EXPLAIN, 20 Chats × 500 Nachrichten)', async () => {
     const target = targetOf(sql)
     // Ein realistischer Bestand: ein Benutzer, ein Workspace, zwanzig Chats mit

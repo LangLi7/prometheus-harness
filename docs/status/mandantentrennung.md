@@ -360,3 +360,169 @@ postgres("") → VERBINDUNG SCHEITERT: password authentication failed for user "
 zweite zeigt, **warum** — nicht der Schutz, sondern ein fehlender Datenbankbenutzer. Wer
 nur den ersten liest, hält die Zeile für harmlos und irrt.
 
+---
+
+## 13. Nachtrag 14.10.2026 — RLS **wirkt**, und §8s Sorge hängt an einer Zeile
+
+§8 begründet, warum RLS aus bleibt: *„RLS jetzt einzuschalten hieße: jede Abfrage liefert
+still null Zeilen, und der Fehler sähe aus wie ‚Tabelle leer' statt wie ‚Zugriff
+verweigert'."* **Dieser Satz ist gemessen — und er gilt nur für EINE der beiden möglichen
+Policy-Formen.** Damit ändert sich die Reihenfolge der Arbeit.
+
+Probe: [`packages/auth/db-schema/tests/proben/rls-verhalten.sql`](../../../packages/auth/db-schema/tests/proben/rls-verhalten.sql)
+— eine Transaktion, sechs gemessene Fälle, **Rücknahme am Ende**. Nach dem Lauf ist der
+Bestand unverändert: `rls=false`, `0` Policies.
+
+### 13.1 Der Bestand hat sich geändert: **12** Tabellen, nicht 11
+
+Selbst nachgemessen am 14.10.2026 (die Zahl in §1 stammt vom 13.10.):
+
+```
+api_keys · auth_events · auth_sessions · chats · conversation_sessions · messages
+one_time_tokens · schema_migrations · user_profiles · user_secrets · users · workspaces
+```
+
+**12 Tabellen**, alle `relrowsecurity = false`, `pg_policies` für `pmh`: **0**. Die Zahl in
+§1 („0 von 11") war zum Zeitpunkt ihrer Messung richtig und ist durch die späteren
+Migrationen überholt. Kein Widerspruch — eine veraltete Zahl, hiermit nachgezogen.
+
+### 13.2 Wer RLS umgeht — die Falle, die man kennen muß
+
+```
+pmh_admin    super=true   bypassrls=true    umgeht RLS IMMER
+pmh_app      super=false  bypassrls=false   die Anwendungsrolle -- RLS GREIFT
+pmh_owner    super=false  bypassrls=false   EIGENTÜMER aller 12 Tabellen
+pmh_readonly super=false  bypassrls=false
+```
+
+Gemessen mit eingeschaltetem RLS und einer Policy auf `chats`:
+
+| Fall | Zeilen | Was das zeigt |
+|---|---|---|
+| `pmh_admin` (Superuser) | **21** | Superuser umgehen RLS **immer** |
+| `pmh_owner` **ohne** `FORCE` | **21** | **Die Eigentümer-Ausnahme** — wer die Tabellen besitzt, wird **nicht** gefiltert |
+| `pmh_owner` **mit** `FORCE ROW LEVEL SECURITY` | **0** | `FORCE` hebt die Ausnahme auf (hier ohne Mandant: alles weg) |
+| **`pmh_app` ohne Mandant** | **0** | der stille Fall aus §8, gemessen |
+| `pmh_app` mit Mandant A | **20** | = erwartet |
+| `pmh_app` mit Mandant B | **1** | = erwartet |
+
+**20 + 1 = 21 = die Gesamtzahl.** Das ist der eigentliche Beweis: die beiden Mandanten
+sehen **zusammen** genau den Bestand und **einzeln** nur ihren Teil. Es wird gefiltert, und
+es geht nichts verloren.
+
+**Daß `pmh_app` nicht die Eigentümerin ist, ist die entscheidende Entwurfsentscheidung.**
+Wäre sie es, würde RLS **nichts** tun — und eine Probe als `pmh_owner` würde „RLS wirkt
+nicht" melden, obwohl sie wirkt.
+
+### 13.3 Der Hebel: **eine Zeile** entscheidet zwischen still und laut
+
+```sql
+using (user_id = current_setting('pmh.user_id', true)::uuid)  -- still: 0 Zeilen
+using (user_id = current_setting('pmh.user_id')::uuid)        -- LAUT: 42704
+```
+
+Das zweite Argument `missing_ok = true` macht aus einem **fehlenden** Parameter `null`.
+Und `null` in einem `using` filtert **alles** weg — genau der stille Fall, den §8
+fürchtet.
+
+**Ohne** `missing_ok` ist der fehlende Mandant ein **Fehler**. Gemessen, rollenunabhängig:
+
+```
+ohne missing_ok -> 42704 unrecognized configuration parameter "pmh.user_id"
+```
+
+### 13.4 Der Schluß — und was er an der Reihenfolge ändert
+
+§12 sagt: *„RLS + Policies (Migration 0005) — braucht den Aufrufer, der `pmh.user_id`
+setzt, sonst filtert es still alles weg."*
+
+**Gemessen ist das nur für die `missing_ok`-Form wahr.** Mit der **lauten** Form gilt:
+
+* Ein Aufrufer, der den Mandanten **nicht** setzt, bekommt `42704` — einen Fehler, der
+  **aussieht wie ein Fehler**. Keine stille Leere.
+* RLS darf damit **vor** der vollständigen Anwendungsverdrahtung eingeschaltet werden,
+  ohne daß ein vergessener Aufrufer unbemerkt leer läuft.
+
+**Die empfohlene Form ist deshalb die laute.** Sie erfüllt genau die Anforderung, die §8
+formuliert hat — nur nicht durch Zuwarten, sondern durch die Wahl des Ausdrucks.
+
+**Was dieser Nachtrag NICHT belegt:** daß ein Aufrufer den Mandanten wirklich setzt. Die
+Anwendungsverdrahtung (Paket B) fehlt weiterhin; gemessen ist das **Verhalten der
+Datenbank**, nicht der Anwendung. Und das **automatische** Setzen je Transaktion — der
+Aufrufer also — ist der nächste Schritt.
+
+### 13.4a Drei Verhaltensfälle, nicht zwei — beim Schreiben des Wächters gefunden
+
+Der Test in `postgres.test.ts` sollte den stillen Fall herstellen, indem er den Parameter
+zurücksetzt. **Beide naheliegenden Wege scheiterten, und beide Fehlschläge sind Befunde:**
+
+| Versuch | Was geschah |
+|---|---|
+| `set_config('pmh.user_id', NULL, true)` | setzt den Parameter auf den **leeren String**, nicht auf „ungesetzt" → `''::uuid` wirft **`22P02 invalid input syntax for type uuid: ""`** |
+| `RESET pmh.user_id` | hilft **nicht**: für einen **eigenen** Parameter ist der Vorgabewert der leere String. Nach einem `set_config` ist der abwesende Zustand in derselben Sitzung **nicht wiederherstellbar** |
+
+Damit gibt es **drei** Fälle, nicht zwei:
+
+| Zustand des Parameters | Policy-Form | Ergebnis |
+|---|---|---|
+| **nie gesetzt** | `missing_ok = true` | `NULL` → **0 Zeilen, still** |
+| **nie gesetzt** | ohne `missing_ok` | **`42704`, laut** |
+| **leer** (`''`) | beide | **`22P02`, laut** |
+
+**Die Folge für den Test:** der stille Fall muß **vor** dem ersten `set_config` gemessen
+werden. Danach ist er nicht mehr herstellbar — der Test hat jetzt genau diese Reihenfolge,
+und der Grund steht als Kommentar an der Stelle.
+
+**Die Folge für den Betrieb:** die **laute** Form bleibt die richtige Wahl. Sie ist in
+**zwei** von drei Fällen laut und im dritten (Parameter nie gesetzt) genau der Fall, den
+§8 fürchtet — und den die laute Form eben **nicht** still läßt. Ein `''` als Mandant würde
+sogar die `missing_ok`-Form zum Fehler machen, was ebenfalls richtig ist.
+
+### 13.4b Der Wächter läuft in der Suite
+
+Dieselbe Prüfung liegt als Test in `packages/auth/db-schema/tests/postgres.test.ts`
+(„RLS filtert je Mandant — und ein fehlender Mandant ist LAUT"):
+
+| Gemessen | Ergebnis |
+|---|---|
+| ohne Mandant, laute Form | **`42704`** |
+| ohne Mandant, `missing_ok`-Form (nie gesetzt) | **0** Zeilen |
+| Mandant A | **3** Zeilen |
+| Mandant B | **1** Zeile |
+| **A + B** | **4** = der eingefügte Bestand |
+
+`A + B = 4` ist der eigentliche Beweis: eine einzelne Zahl wäre auch mit einem Filter
+vereinbar, der **alles** wegwirft.
+
+Auch hier gilt: **nur `42704` zählt.** Ein beliebiger Fehler wäre kein Beweis — ein Fehler
+über eine fehlende Spalte sähe genauso aus wie eine Abweisung. Das ist dieselbe Lehre wie
+in §2 bei `23503`.
+
+**Zwei Fallen, die der Test umgeht und die dokumentiert gehören:**
+
+* **`FORCE ROW LEVEL SECURITY` statt Rollenwechsel.** Der Test verbindet als `pmh_owner`,
+  die **Eigentümerin** — und Eigentümer umgehen RLS. Ohne `FORCE` sähe der Test **alle**
+  Zeilen und meldete „RLS wirkt nicht", obwohl es wirkt. `SET LOCAL ROLE pmh_app` wäre der
+  andere Weg; er scheitert, weil `pmh_owner` kein Mitglied von `pmh_app` ist.
+* **`SAVEPOINT` um den erwarteten Fehler.** In PostgreSQL bricht ein Fehler die **ganze**
+  Transaktion ab (`25P02`); jede weitere Anweisung scheiterte dann an der abgebrochenen
+  Transaktion statt an der Sache. Der erwartete `42704` liegt deshalb in einem SAVEPOINT.
+
+Und: **ein Lauf dieser Datei gegen die Betriebsdatenbank ist durch den Vergleich mit
+`DATABASE_URL` gesperrt** (Zeile 198 ff.) — nicht durch ein Namensmuster. Beim Messen zeigte
+`PMH_TEST_DATABASE_URL` in `.env` auf **`pmh`**, also auf die **Betriebsdatenbank**; ohne
+diesen Vergleich hätte der `DROP TABLE … CASCADE` am Dateianfang sie abgeräumt.
+
+### 13.5 Ein zweiter, getrennter Befund: die Sitzungsprotokolle
+
+Unabhängig von RLS liegt ein zweiter Riß derselben Klasse offen: die
+**Sitzungsprotokolle** (`session.v4.jsonl.zstd`) liegen im **Klartext** (zstd-komprimiert,
+**nicht** verschlüsselt — belegt in [api-nachweis.md](api-nachweis.md) §4) unter **einem**
+Harness-Home, das **alle** Benutzer teilen. Die Anmeldung kennt mehrere Benutzer; die
+Protokolle kennen keine Trennung.
+
+**Die Datenbank ist damit nicht die einzige Grenze — und eine RLS-Migration schließt
+diesen Riß nicht.** Der Weg wäre ein Home je Benutzer; `--home` und `PMH_HOME` gibt es
+bereits. Das ist **nicht** gemessen und **nicht** gebaut — es steht hier, damit es nicht
+mit „RLS ist an" als erledigt gilt.
+

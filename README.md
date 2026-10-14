@@ -22,7 +22,7 @@ Clone the repository and run one command — `scripts\install.cmd` on Windows,
 generates `.env` with fresh secrets, starts PostgreSQL 17 and Redis 7, waits for
 their health checks, runs the migrations, and type-checks every package. Then
 `bun run start` serves the interface and prints an address carrying a token; the
-interface answers **401** without it. Measured: `bun run typecheck` reports **25
+interface answers **401** without it. Measured: `bun run typecheck` reports **23
 packages green, 0 red**, and `bun test packages scripts apps` reports **1189 pass ·
 87 skip · 0 fail** across 55 files on Linux.
 
@@ -64,7 +64,7 @@ Nothing here is an estimate.
 
 | | State | Measured by |
 |---|---|---|
-| Type check | **25 packages green, 0 red** | `bun run typecheck` |
+| Type check | **23 packages green, 0 red** | `bun run typecheck` |
 | Test suite | **1189 pass · 87 skip · 0 fail** across 55 files (Linux, CI) | `bun test packages scripts apps` |
 | Own CI | green | [ci-nachweis.md](docs/status/ci-nachweis.md) |
 | Install | one command, seven reported steps | `scripts\install.cmd` / `./scripts/install.sh` |
