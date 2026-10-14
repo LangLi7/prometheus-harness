@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from 'bun:test'
 
-import { berichte, entropie, finde, fingerabdruck, istPlatzhalter, siehtNachGeheimnisAus } from './geheimnis-scan.mjs'
+import { berichte, entropie, finde, fingerabdruck, istPlatzhalter, markenGrund, siehtNachGeheimnisAus } from './geheimnis-scan.mjs'
 
 describe('Der Fehlalarm, der nicht zurückkommen darf', () => {
   test('eine Adresse OHNE Zugangsdaten ist kein Geheimnis', () => {
@@ -36,9 +36,9 @@ describe('Was gefunden werden MUSS', () => {
     // ist der Schlüssel aus AWS' eigener Dokumentation und enthält „EXAMPLE" — er
     // wird von der Platzhalterregel **absichtlich** nicht gemeldet. Der nächste
     // Test hält beide Seiten dieser Entscheidung fest.
-    expect(finde('AKIAIOSFODNN7REALKEY', 'probe')[0]?.art).toBe('AWS-Zugangsschluessel')
-    expect(finde('ghp_0123456789abcdefghijklmnopqrstuvwxyz', 'probe')[0]?.art).toBe('GitHub-Token')
-    expect(finde('-----BEGIN RSA PRIVATE KEY-----', 'probe')[0]?.art).toBe('privater Schluessel')
+    expect(finde('AKIAIOSFODNN7REALKEY', 'probe')[0]?.art).toBe('AWS-Zugangsschluessel')  // pmh-scan: allow - erfundene Testvorlage
+    expect(finde('ghp_0123456789abcdefghijklmnopqrstuvwxyz', 'probe')[0]?.art).toBe('GitHub-Token')  // pmh-scan: allow - erfundene Testvorlage
+    expect(finde('-----BEGIN RSA PRIVATE KEY-----', 'probe')[0]?.art).toBe('privater Schluessel')  // pmh-scan: allow - erfundene Testvorlage
   })
 
   test('AWS\' eigener Beispielschluessel wird NICHT gemeldet — und warum', () => {
@@ -53,7 +53,7 @@ describe('Was gefunden werden MUSS', () => {
 
   test('eine Zuweisung mit hoher Entropie', () => {
     // Ein echter 32-Byte-Schluessel als base64url — kein Platzhalter.
-    const wert = 'kR7pQ2mX9vT4bN1sL6wZ3yH8jC5dF0gA2eU4iO7aS1k'
+    const wert = 'kR7pQ2mX9vT4bN1sL6wZ3yH8jC5dF0gA2eU4iO7aS1k'  // pmh-scan: allow - erfundene Testvorlage, kein echtes Geheimnis
     const funde = finde(`PMH_MASTER_KEY='${wert}'`, 'probe')
     expect(funde.map((f) => f.art)).toContain('Zuweisung mit hoher Entropie')
   })
@@ -78,6 +78,42 @@ describe('Die Entropie unterscheidet Zufall von Sprache', () => {
 
   test('zu kurz ist kein Geheimnis', () => {
     expect(siehtNachGeheimnisAus('kurz')).toBe(false)
+  })
+})
+
+describe('Die Marke befreit nur MIT Begruendung', () => {
+  const wert = 'ghp_0123456789abcdefghijklmnopqrstuvwxyz'
+
+  test('ein gueltiger Grund befreit — englisch und deutsch', () => {
+    expect(markenGrund(`x = '${wert}'  // pmh-scan: allow — dokumentierter Beispielwert`)).toBe(
+      'dokumentierter Beispielwert',
+    )
+    expect(markenGrund(`x = '${wert}'  # pmh-scan: erlaubt - Beispiel aus der Anleitung`)).toBe(
+      'Beispiel aus der Anleitung',
+    )
+  })
+
+  test('eine zu kurze „Begruendung" befreit NICHT', () => {
+    // Genau das soll die Marke verhindern: eine stille Ausnahme mit einem
+    // Buchstaben daneben. Ohne Grund bleibt der Fund ein Fund.
+    expect(markenGrund(`x = '${wert}'  // pmh-scan: allow — ok`)).toBeUndefined()
+    expect(markenGrund(`x = '${wert}'  // pmh-scan: allow — x`)).toBeUndefined()
+    expect(markenGrund(`x = '${wert}'  // pmh-scan: allow`)).toBeUndefined()
+    expect(finde(`x = '${wert}'  // pmh-scan: allow — ok`, 'p').filter((f) => f.grund === undefined)).toHaveLength(1)
+  })
+
+  test('befreit heisst NICHT unsichtbar', () => {
+    const text = `const BEISPIEL = '${wert}'  // pmh-scan: allow — Beispielwert aus der Anleitung`
+    const funde = finde(text, 'probe.mjs')
+    const zeilen = []
+    const ohne = berichte(funde, (t) => zeilen.push(t))
+    const ausgabe = zeilen.join('')
+    // Es bleibt kein Fund ohne Begruendung …
+    expect(ohne).toBe(0)
+    // … und die Befreiung steht MIT Grund in der Ausgabe, statt zu verschwinden.
+    expect(ausgabe).toContain('Befreit durch Marke')
+    expect(ausgabe).toContain('Beispielwert aus der Anleitung')
+    expect(ausgabe).not.toContain(wert)
   })
 })
 
