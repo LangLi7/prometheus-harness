@@ -220,3 +220,77 @@ authentifiziert sich weiterhin über den Token aus der Host-Konsole, diese Seite
 Herkünfte, `//host`, `/\host`, Rückstriche und Steuerzeichen fallen auf die Vorgabe
 zurück — sonst wäre die Seite ein offener Weiterleiter, und der Betroffene hätte gerade
 sein Kennwort eingegeben.
+
+### 8a. Live gemessen — nach dem Neustart des Hosts
+
+Der Host auf `127.0.0.1:3081` wurde am 14.10.2026 um **20:33** neu gestartet
+(`scripts/start.mjs --no-go --port 3081`). Er läuft **aus dem Quelltext**
+(`apps/cli/src/main.ts`, Profil `web`), das Paket zeigt mit `exports` auf `./src/index.ts` —
+deshalb genügte der **Neustart**, kein Bau der Pakete. Gemessen **danach**:
+
+| Weg | vorher | nachher |
+|---|---|---|
+| `GET /anmeldung/` | **404** | **200**, `text/html`, gebaute Seite mit `/anmeldung/assets/…` |
+| `GET /start` | **404** | **303**, `location: /anmeldung/` |
+| `GET /pmh/anmelden` | 200 | 200 (unberührt) |
+| `GET /` | 401 | 401 (Token-Tor unberührt) |
+
+Und **dieselbe Sonde gegen den Host** statt gegen den Entwicklungsserver:
+
+```
+& bun.exe docs/status/anmeldeseite-proxy-sonde.mjs http://127.0.0.1:3081
+  → 15/15 bestanden, exit 0
+```
+
+**Was das beweist und was nicht.** Bewiesen ist, daß der Host die Seite **an seinem eigenen
+Ursprung** ausliefert und daß die vier Wege dort unverändert antworten. **Nicht** bewiesen ist,
+daß ein **Browser** sie bedienen kann — auf diesem Rechner ist keiner installiert. Und die
+Erstanmeldung ist noch **nicht** möglich: `POST /api/pmh/auth/register` antwortet auf dem
+laufenden Host mit **403 `claim-fehlt`** (gemessen), weil keine `claim.txt` existiert und es
+**keinen Administrator** gibt. Der Weg dahin steht in §9.
+
+---
+
+## 9. Ein Konto anlegen — und warum das erste **Admin** wird
+
+Heute kann **niemand** ein Konto anlegen: das Tor ist offen (`admins = 0`), aber es verlangt ein
+**Claim-Token**, und ohne `claim.txt` gibt es keines. Gemessen auf dem laufenden Host:
+
+```
+POST /api/pmh/auth/register   ->  403  {"code":"claim-fehlt", …}
+```
+
+**Der Claim ist der Riegel dafür, daß nicht „wer den Port zuerst erreicht" das Adminkonto
+bekommt.** Er ist an **Maschine**, **lokalen Benutzer** und **Gerätekennung** gebunden
+(`packages/auth/claim`), gilt **15 Minuten** (`CLAIM_GUELTIG_SEKUNDEN = 15 * 60`) und wird
+**genau einmal** eingelöst.
+
+### Zwei Schritte — und einen davon muß der Betreiber selbst gehen
+
+**Schritt 1: das Token erzeugen** (ein Befehl, schreibt nur in **unser** Home):
+
+```powershell
+& 'C:\Users\Chang\.bun\bin\bun.exe' scripts/claim.mjs
+```
+
+Er legt **zwei** Dateien an: `claim.txt` (der **Klartext**, Modus 0600, für den Eigentümer) und
+`claim-ablage.json` (nur der **Hash**). Wer die Ablage liest, hat damit **kein** Token. Der Ort
+ist `PMH_HOME`, sonst `~/.pmh` — **nicht** `~/.dsh` (das Home des anderen Harness, es bleibt
+unangetastet), und **nicht** das `--home` des Hosts.
+
+**Schritt 2: im Browser registrieren** — Adresse und Kennwort **wählt der Betreiber**, nicht ich:
+
+```
+http://127.0.0.1:3081/anmeldung/   →  „Konto anlegen"
+  Adresse:      <Ihre Adresse>
+  Paßwort:      <Ihr Kennwort, mindestens 8 Zeichen>
+  Claim-Token:  <der Wert aus Schritt 1>
+```
+
+**Das erste so angelegte Konto trägt die Rolle `admin`** — das entscheidet der Weg
+(`wege.ts`), nicht die Seite. Danach ist der Claim-Weg **zu**: jedes weitere Konto braucht einen
+**angemeldeten Administrator** (und einen CSRF-Wert), und die Claim-Datei ist verbraucht.
+
+**Warum ich die Adresse und das Kennwort nicht setze.** Ein Konto mit einem Kennwort, das in
+einem Protokoll steht, ist kein Konto — es ist eine Hintertür mit einem Etikett. Der Betreiber
+wählt die Zugangsdaten; ich baue den Weg dorthin und weise ihn nach.

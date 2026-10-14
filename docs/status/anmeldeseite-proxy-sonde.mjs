@@ -160,7 +160,7 @@ pruefe(
 )
 
 // ── Bericht ─────────────────────────────────────────────────────────────────────────
-console.log(`Anmeldeseite durch den Entwicklungsserver — ${BASIS}\n`)
+console.log(`Anmeldeseite am Ursprung — ${BASIS}\n`)
 for (const z of zeilen) console.log(`  ${z.bestanden ? '✓' : '✗'} ${z.name}\n      ${z.befund}`)
 const bestanden = zeilen.filter((z) => z.bestanden).length
 console.log(`\n${bestanden}/${zeilen.length} Prüfungen bestanden.`)

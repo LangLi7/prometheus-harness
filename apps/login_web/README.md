@@ -54,10 +54,12 @@ Hinweis im Protokoll, damit die Ursache auffindbar bleibt.
 Der Bau wird gesucht unter `apps/login_web/dist` im Arbeitsverzeichnis; `PMH_ANMELDUNG_BAU`
 zeigt woandershin.
 
-> **Stand der Messung (14.10.2026):** die Wege sind über einen echten Socket **bewiesen**
-> (`packages/api/auth-http/tests/anmeldung.test.ts`, 23/23 mit Wegwerf-Datenbank), aber im
-> **laufenden** Host auf `127.0.0.1:3081` noch **404** — er läuft mit einem älteren Stand und
-> muß neu gebaut und gestartet werden. `/pmh/anmelden` ist dort **200**.
+> **Stand der Messung (14.10.2026, nach dem Neustart):** die Wege sind **live**. Der Host auf
+> `127.0.0.1:3081` liefert `/anmeldung/` mit **200** (der gebauten Seite samt
+> `/anmeldung/assets/…`), `/start` mit **303 → `/anmeldung/`**, `/pmh/anmelden` mit **200** und
+> `/` weiterhin mit **401** (Token-Tor). Dieselbe Sonde, gegen den Host statt gegen den
+> Entwicklungsserver, gibt **15/15, exit 0**. Vor dem Neustart waren `/anmeldung/` und `/start`
+> **404** — der Host lief mit einem älteren Stand.
 
 ## Wohin nach der Anmeldung
 
