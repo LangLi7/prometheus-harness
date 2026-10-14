@@ -54,7 +54,7 @@ CREATE TEMP TABLE probe (
 -- ---------------------------------------------------------------------------
 -- Aufbau: zwei Mandanten
 -- ---------------------------------------------------------------------------
-CREATE TEMP TABLE kennung (name text primary key, id uuid, ws uuid, doc uuid, chunk uuid) ON COMMIT DROP;
+CREATE TEMP TABLE kennung (name text primary key, id uuid, ws uuid, ordner uuid, doc uuid, chunk uuid) ON COMMIT DROP;
 
 INSERT INTO kennung (name, id)
 SELECT 'A', gen_random_uuid() UNION ALL SELECT 'B', gen_random_uuid();
@@ -64,8 +64,14 @@ SELECT id, 'wissensspeicher-' || lower(name) || '@probe.invalid', 'ersatz-hash',
 FROM kennung;
 
 UPDATE kennung k SET ws = gen_random_uuid();
-INSERT INTO pmh.workspaces (id, user_id, name, root_path)
-SELECT ws, id, 'Werkstatt ' || name, 'C:/probe/' || name FROM kennung;
+INSERT INTO pmh.workspaces (id, user_id, name)
+SELECT ws, id, 'Werkstatt ' || name FROM kennung;
+
+-- **Der Quellordner liegt seit Migration 9 in `workspace_folders`** (mehrere je
+-- Arbeitsbereich, genau einer primär). Die Probe legt je Mandant einen an.
+UPDATE kennung k SET ordner = gen_random_uuid();
+INSERT INTO pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer, sortierung)
+SELECT ordner, ws, id, 'C:/probe/' || name, true, 0 FROM kennung;
 
 -- Ein Dokument und ein Stueck JE Mandant — beide gehoeren ihrem eigenen.
 UPDATE kennung k SET doc = gen_random_uuid();

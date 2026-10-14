@@ -34,6 +34,7 @@ import m0005 from '../migrations/0005_benutzerprofile.sql' with { type: 'text' }
 import m0006 from '../migrations/0006_wissensspeicher.sql' with { type: 'text' }
 import m0007 from '../migrations/0007_obsidian.sql' with { type: 'text' }
 import m0008 from '../migrations/0008_sitzungsprotokoll.sql' with { type: 'text' }
+import m0009 from '../migrations/0009_arbeitsbereich-ordner.sql' with { type: 'text' }
 
 // ---------------------------------------------------------------------------
 // Migrationstyp
@@ -87,6 +88,7 @@ export const MIGRATIONS: readonly Migration[] = [
   // der Bedingung (ohne `missing_ok`), damit ein fehlender Mandant den Fehler
   // `42704` wirft statt still null Zeilen zu liefern.
   { version: 8, name: 'sitzungsprotokoll-und-schreibherrschaft', sql: m0008 },
+  { version: 9, name: 'arbeitsbereich-mit-mehreren-ordnern', sql: m0009 },
 ]
 
 /** Die Fassung, die dieses Paket erzeugt — die höchste Migrationsnummer. */

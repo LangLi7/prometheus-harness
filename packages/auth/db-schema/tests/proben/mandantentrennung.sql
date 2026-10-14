@@ -81,9 +81,16 @@ insert into pmh.users (id, email, display_name, role) values
   ('00000000-0000-4000-8000-0000000000a1', 'a@probe.invalid', 'Mandant A', 'user'),
   ('00000000-0000-4000-8000-0000000000b1', 'b@probe.invalid', 'Mandant B', 'user');
 
-insert into pmh.workspaces (id, user_id, name, root_path) values
-  ('00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-0000000000a1', 'Werkstatt A', 'C:\probe\a'),
-  ('00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-0000000000b1', 'Werkstatt B', 'C:\probe\b');
+insert into pmh.workspaces (id, user_id, name) values
+  ('00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-0000000000a1', 'Werkstatt A'),
+  ('00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-0000000000b1', 'Werkstatt B');
+
+-- **Der Quellordner steht seit Migration 9 in einer eigenen Tabelle.** Vorher war er
+-- `workspaces.root_path` — genau einer je Arbeitsbereich. Hier bleibt es bei einem
+-- Ordner je Werkstatt; die Probe prüft die Trennung, nicht die Anzahl.
+insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer, sortierung) values
+  ('00000000-0000-4000-8000-00000000f0a1', '00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-0000000000a1', 'C:\probe\a', true, 0),
+  ('00000000-0000-4000-8000-00000000f0b1', '00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-0000000000b1', 'C:\probe\b', true, 0);
 
 insert into pmh.chats (id, workspace_id, user_id, title, message_count) values
   ('00000000-0000-4000-8000-0000000000b3', '00000000-0000-4000-8000-0000000000b2', '00000000-0000-4000-8000-0000000000b1', 'Chat von B', 0);

@@ -151,15 +151,15 @@ export const MIGRATIONSTABELLE = 'schema_migrations'
  *
  * ```
  * $ docker exec pmh-postgres psql -U pmh_app -d pmh -t -c "select max(version) from schema_migrations;"
- *   8
+ *   9
  * ```
  *
  * **Warum hier zwischenzeitlich eine 7 stand.** Die Migrationen 0006, 0007 und 0008
  * liefen zuerst **nur gegen die Wegwerf-Datenbank**; die Betriebsdatenbank `pmh` blieb
  * auf Fassung 5. `/api/ready` meldete in dieser Zeit „Schemafassung 5 statt 7" — und das
  * war **korrekt**: die Migrationen fehlten wirklich. Am 14.10.2026 wurden 0006 bis 0008
- * gegen `pmh` nachgezogen. Sie sind **anlegend** (`CREATE TABLE`, `ADD COLUMN`), kein
- * `DROP` — gemessen danach: `max(version)` = 8.
+ * gegen `pmh` nachgezogen, am selben Tag 0009 (die Quellordner). Sie sind **anlegend**
+ * (`CREATE TABLE`, `ADD COLUMN`), kein `DROP` an Daten — gemessen danach: `max(version)` = 9.
  *
  * **Was hier bewußt nicht steht: ein Import von `@prometheus-harness/db-schema`.**
  * Das wäre die automatisch richtige Zahl — und würde dieses Paket an das
@@ -171,7 +171,7 @@ export const MIGRATIONSTABELLE = 'schema_migrations'
  * weil ein Import am Typsystem scheitert (sechs `TS2307` — die `.sql`-Deklaration
  * von `db-schema` ist im Programm von `readiness` nicht enthalten).
  */
-export const ERWARTETE_SCHEMAFASSUNG = 8
+export const ERWARTETE_SCHEMAFASSUNG = 9
 
 /**
  * Die Tabellen, ohne die die Anwendung nicht arbeiten kann.
