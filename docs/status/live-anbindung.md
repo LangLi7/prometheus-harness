@@ -216,7 +216,7 @@ Gemessen, jede Zeile mit ihrem Fundort:
 | **Harness → Client**, Sitzung live | **WebSocket** `/api/remote.mux` | **gemessen**: Aufwertung 3 ms, 26 ungerufene Rahmen (§7a) |
 | **Harness → Client**, einzelne Aufrufe | **HTTP** `POST /api/<voller/pfad>` | gemessen ([api-nachweis.md](api-nachweis.md)) |
 | **Harness → Client**, genaue Wege mit **strömenden** Körpern | **Fetch-Wege** | Der Griff ist `ctx.connection.fetch.register(weg)` (`HostConnectionService.fetch`, `dsh-client-connection/lib/index.js:634`). **Kein Verbraucher** — siehe §8a. **Es gibt nichts zu messen: die Registratur ist leer** |
-| **Harness → Client**, HMR | **SSE** (`new EventSource(EVENTS_ROUTE)`) | `dsh-client-hmr/lib/client.js:64`; der Kern **kann** SSE |
+| **Harness → Client**, HMR | **SSE**, Weg `/plugins/events` | **gemessen und bedient** — §11. Angemeldet von **`dsh-client-hmr`** (`lib/index.js:141`), **nicht** von `dsh-hmr` |
 | **Kompression** | SSE bleibt **unkomprimiert** | `dsh-host-webserver/lib/index.js:187` nimmt `text/event-stream` vom gzip **aus** |
 
 **Zwei Befunde, die daraus folgen:**
@@ -238,7 +238,82 @@ Vorliebe.**
 ## 9. Was dieses Blatt weiterhin offen läßt
 
 * Der Strom unter **Last** (viele Sitzungen gleichzeitig, viele Rahmen je Sekunde).
-* Die **HMR-SSE-Strecke** im Zustand `dsh-hmr = enabled=false`.
+* ~~Die **HMR-SSE-Strecke** im Zustand `dsh-hmr = enabled=false`~~ — **gemessen**, §11.
+
+## 11. Die SSE-Strecke — bedient, und **ohne Anmeldung**
+
+Sonde: [`messsonden/sse-sonde.mjs`](messsonden/sse-sonde.mjs) · Exit **0**
+
+### 11.1 Meine Vermutung war falsch
+
+In §8 stand, `dsh-hmr` sei `enabled=false`, während `dsh-client-hmr` `active` ist — und ich
+**vermutete**, die SSE-Strecke werde deshalb nicht bedient. **Falsch.** Gemessen:
+
+```
+Weg: /plugins/events          (EVENTS_ROUTE in dsh-client-hmr/lib/client.js)
+
+ohne Anmeldung:  HTTP 200   content-type: text/event-stream
+mit Anmeldung:   HTTP 200   content-type: text/event-stream
+                 cache-control: no-cache        connection: keep-alive
+gelesen:         28 517 Zeichen, erste Rahmen:
+                 : connected
+                 data: {"type":"graph","graph":{"rev":"2c88423fa94b","entries":[
+                        {"id":"@deepseek-ai/dsh-client-ui-open-in-app","url":"plugins/??@de…
+```
+
+**`dsh-hmr` ist etwas anderes** als der Träger der Strecke: es ist die **Nachlade-Maschine**
+(*„Reload plugin code and profile configuration through one coordinated queue"*). Angemeldet
+wird der Weg von **`dsh-client-hmr`** über `ctx.webServer.register({ … "content-type":
+"text/event-stream" … })` — und dieses Paket ist **aktiv**.
+
+**Die Lehre:** aus zwei Zuständen (`X aus`, `Y an`) auf das Verhalten einer **dritten** Sache
+zu schließen, war ein Schluß ohne Messung. Die Sonde hat ihn in einem Lauf widerlegt.
+
+### 11.2 Und sie liefert **ohne Anmeldung**
+
+**Dieselben 28 517 Zeichen kommen auch ohne Cookie.** Zum Vergleich, gemessen:
+
+| Weg | ohne Token |
+|---|---|
+| `/` (die Oberfläche) | **401** |
+| `/api/*` | **401** |
+| **`/plugins/events`** | **200 mit dem Plugin-Bestand** |
+
+**Das ist kein Zufall, sondern eine Grenze im Entwurf.** Der Zaun ist ausdrücklich auf `/api`
+beschränkt — im Kern steht:
+
+> *„Browser-safe, zero-dependency loopback classification **shared by the `/api` Host fence**"*
+
+`/plugins/events` liegt **außerhalb** dieses Zauns; es ist ein `webServer`-Weg.
+
+### 11.3 Und es ist **nicht** von außen lesbar — gemessen
+
+Ein fremder Ursprung wird mitgeschickt, und **alle** Antwortköpfe werden angesehen:
+
+```
+cache-control: no-cache      connection: keep-alive
+content-type: text/event-stream
+transfer-encoding: chunked
+CORS-Kopf access-control-allow-origin: FEHLT
+```
+
+**Ohne diesen Kopf darf eine fremde Webseite die Antwort nicht lesen** — ein
+`EventSource` aus einer anderen Seite scheitert, und ein `fetch` liefert eine undurchsichtige
+Antwort. Die Offenheit reicht damit so weit, wie jemand **direkt** fragen kann.
+
+### 11.4 Was davon **offen** bleibt — und warum es zählt
+
+Bei der Vorgabe bindet der Host auf **Loopback**; wer direkt fragen kann, sitzt auf derselben
+Maschine. **Aber:** der Betreiber plant einen **Netzzugang** (WireGuard oder Tailscale — Punkt
+D7 der Zielliste). Wird der Host dann auf eine **nicht-lokale** Adresse gebunden, liegt der
+**Plugin-Bestand** (Paketnamen, Wege, Revision) **ohne Token** in diesem Netz.
+
+**Ob das so bleiben soll, ist nicht entschieden** — es steht in keiner Aufzeichnung. Es ist
+auch **kein Geheimnis**, das dabei fällt, sondern eine **Bestandsauskunft**. Was fehlt, ist die
+Entscheidung, nicht der Code.
+
+**Der Weg wäre klein:** derselbe Zaun, den `/api` schon hat, auf den Weg anzuwenden — oder den
+Weg ausdrücklich als lokal zu kennzeichnen.
 
 ### 9a. Der „zweite Träger" existiert **nicht** — die Registratur ist leer
 
