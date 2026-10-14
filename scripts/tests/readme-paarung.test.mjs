@@ -228,11 +228,21 @@ describe('die READMEs selbst', () => {
   })
 
   test('keine erfundene Zahl ohne Befehl', () => {
-    // **Die Hausregel.** Jede Zahl nennt den Befehl, der sie gemessen hat. Diese
-    // Prüfung hält die wichtigsten fest — sie steht hier, damit ein
-    // nachträgliches Ändern der Zahl auffällt.
+    // **Die Hausregel.** Jede Zahl nennt den Befehl, der sie gemessen hat.
+    //
+    // **Geändert am 14.10.2026 — und der Grund ist die Lehre selbst.** Hier stand
+    // `expect(text).toMatch(/826/)`. Die Zahl war einmal gemessen und dann
+    // **falsch geworden**: 826 Prüfungen und 18 Pakete waren der Stand, bevor die
+    // Suite auf 55 Dateien und 25 Pakete wuchs. Die Prüfung nagelte damit eine
+    // **veraltete** Zahl fest und **verhinderte ihre Korrektur** — ein Wächter,
+    // der die Wahrheit blockiert, und der Betreiber hat genau das an der README
+    // bemerkt (sie widersprach dem Code).
+    //
+    // Jetzt pinnt sie die **aktuelle** Messung. Wer sie ändert, muß sie erneut
+    // nachziehen — das ist die Absicht. Aber sie schützt ab hier **nur noch
+    // Zahlen, die jemand gemessen hat**, nicht Zahlen, die einmal galten.
     for (const text of [en, de]) {
-      expect(text).toMatch(/826/)
+      expect(text).toMatch(/1189/)
       expect(text).toContain('bun run typecheck')
       expect(text).toContain('bun test packages scripts apps')
     }

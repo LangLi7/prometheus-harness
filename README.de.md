@@ -14,6 +14,31 @@ kind: "project"
 > Bauregel: der Kern wird **komponiert**, nie umgeschrieben. Was wir hinzufügen,
 > ist eine Unit — ladbar, austauschbar, weglassbar.
 
+<a id="summary"></a>
+## Zusammenfassung
+
+Repository klonen, ein Befehl — `scripts\install.cmd` unter Windows,
+`./scripts/install.sh` unter Linux und macOS. Er installiert Bun und die
+Basispakete, erzeugt `.env` mit frischen Geheimnissen, startet PostgreSQL 17 und
+Redis 7, wartet auf deren Gesundheitsprüfungen, fährt die Migrationen und typprüft
+jedes Paket. Danach bedient `bun run start` die Oberfläche und druckt eine Adresse
+**mit Token**; ohne dieses Token antwortet die Oberfläche mit **401**. Gemessen:
+`bun run typecheck` meldet **25 Pakete grün, 0 rot**, und
+`bun test packages scripts apps` meldet **1189 pass · 87 skip · 0 fail** über 55
+Dateien auf Linux.
+
+<a id="table-of-contents"></a>
+## Inhaltsverzeichnis
+
+- [Zusammenfassung](#summary)
+- [Warum es das gibt](#why-this-exists)
+- [Was heute läuft](#what-runs-today)
+- [Ausprobieren](#try-it)
+- [Wo das Detail steht](#where-the-detail-lives)
+- [Bekannte Grenzen](#known-limitations)
+- [Lizenz](#licence)
+
+<a id="why-this-exists"></a>
 ## Warum es das gibt
 
 Ein Harness ist nicht ein Programm. Er ist eine Agentenschleife, eine
@@ -34,28 +59,26 @@ Genau das macht das Projekt mehr als einen Fork im Dunkeln: wir können **Unit f
 Unit beurteilt** werden, und jede Unit, die mißlingt, läßt sich austauschen statt
 bereuen.
 
+<a id="what-runs-today"></a>
 ## Was heute läuft
 
-Jede Zahl unten ist gemessen, und der Befehl, der sie gemessen hat, steht im
-verlinkten Dokument. Nichts hier ist geschätzt.
+Jede Zahl unten ist gemessen, und der Befehl, der sie gemessen hat, steht daneben.
+Nichts hier ist geschätzt.
 
-| | Stand |
-|---|---|
-| Typprüfung | **25 Pakete grün, 0 rot** |
-| Prüfungen | **1189 pass · 87 skip · 0 fail** über 55 Dateien — auf Linux, in der CI |
-| Eigene CI | grün — [ci-nachweis.md](docs/status/ci-nachweis.md) |
-| Installation | ein Befehl, sieben gemeldete Schritte, Geheimnisse lokal erzeugt |
-| Start des Hosts | **~1,1 s** bis zur ersten HTTP-200 (gemessen: 1107–1232 ms) |
-| Anmeldung | der erste Claim legt den Administrator an; Paßwörter als **Argon2id** (`m=19456, t=2, p=1` — die erste OWASP-Konfiguration) |
-| Speicher | PostgreSQL 17 mit **pgvector**; Migrationen bis Fassung 7 |
-| Wissensspeicher | Dokumente, Stücke und Vektorindex; Obsidian-Gewölbe, Notizen, Etiketten und Verweise — je mit Probe |
-| Geheimnisse | AES-256-GCM-Umschläge, ein Datenschlüssel je Benutzer, hinter einem Schalter |
-| Echtes Modell | hat über die Kern-API geantwortet (`session/create`, `session/prompt`) — [api-nachweis.md](docs/status/api-nachweis.md) |
+| | Stand | Gemessen mit |
+|---|---|---|
+| Typprüfung | **25 Pakete grün, 0 rot** | `bun run typecheck` |
+| Prüfungen | **1189 pass · 87 skip · 0 fail** über 55 Dateien (Linux, CI) | `bun test packages scripts apps` |
+| Eigene CI | grün | [ci-nachweis.md](docs/status/ci-nachweis.md) |
+| Installation | ein Befehl, sieben gemeldete Schritte | `scripts\install.cmd` / `./scripts/install.sh` |
+| Start des Hosts | **~1,1 s** bis zur ersten HTTP-200 (1107–1232 ms) | `bun run start` |
+| Anmeldung | der erste Claim legt den Administrator an; **Argon2id** `m=19456, t=2, p=1` | `bun test packages scripts apps` |
+| Speicher | PostgreSQL 17 mit **pgvector**; Migrationen bis Fassung 7 | `bun scripts/migrate.mjs` |
+| Wissensspeicher | Dokumente, Stücke, Vektorindex; Obsidian-Gewölbe, Notizen, Etiketten, Verweise | `bun test packages scripts apps` |
+| Geheimnisse | AES-256-GCM-Umschläge, ein Datenschlüssel je Benutzer, hinter einem Schalter | [umschlagkosten.mjs](docs/status/messsonden/umschlagkosten.mjs) |
+| Echtes Modell | hat über die Kern-API geantwortet (`session/create`, `session/prompt`) | [api-nachweis.md](docs/status/api-nachweis.md) |
 
-**Und was noch fehlt**, steht genauso nüchtern da — samt der vier Aussagen, die
-dieses Projekt früher gemacht hat und die die Messung inzwischen widerlegt hat:
-[grenzen-und-offenes.md](docs/status/grenzen-und-offenes.md).
-
+<a id="try-it"></a>
 ## Ausprobieren
 
 ```sh
@@ -74,22 +97,17 @@ cd prometheus-harness
 bun run start
 ```
 
-Er installiert Bun und die Basispakete, erzeugt `.env` mit frischen Geheimnissen,
-startet PostgreSQL und Redis, wartet auf deren Gesundheitsprüfungen, fährt die
-Migrationen und typprüft jedes Paket. Danach bedient `bun run start` die
-Oberfläche und druckt eine Adresse **mit Starttoken** — **ohne dieses Token
-antwortet die Oberfläche mit 401**.
-
 Mit `--ohne-stapel` läuft der Installer ohne Datenbank; die PostgreSQL-Prüfungen
 **überspringen sich dann und sagen das**, statt ohne Datenbank zu „bestehen".
 Warum es drei Einstiegsskripte gibt und warum eine `.ps1` auf einem
 Standard-Windows nicht lädt, steht in
 [installations-einstiege.md](docs/status/installations-einstiege.md).
 
+<a id="where-the-detail-lives"></a>
 ## Wo das Detail steht
 
 Diese Datei beantwortet das *Warum*. Alles andere ist ein Dokument, und der
-Katalog ist [docs/INDEX.md](docs/INDEX.md) — ein Satz je Datei, 98 davon.
+Katalog ist [docs/INDEX.md](docs/INDEX.md) — ein Satz je Datei.
 
 | Frage | Dokument |
 |---|---|
@@ -105,6 +123,22 @@ Katalog ist [docs/INDEX.md](docs/INDEX.md) — ein Satz je Datei, 98 davon.
 Oberfläche — eine HTTP-Fläche, mehrere Gestalten. Ein Bild der Oberfläche kommt
 hier hinein, sobald sie fotografierenswert ist.
 
+<a id="known-limitations"></a>
+## Bekannte Grenzen
+
+Benannt, gemessen und nicht schöngeredet. Die vollständige Liste, samt fünf
+früherer Aussagen dieses Projekts, die die Messung inzwischen widerlegt hat, steht
+in [grenzen-und-offenes.md](docs/status/grenzen-und-offenes.md).
+
+- **Die Oberfläche ist ein Gerüst** — 5 Dateien, kein Chat und kein Dateibaum.
+- **Sitzungen liegen als JSONL**, nicht in PostgreSQL.
+- **Verdichtung fehlt** — `token-meter` zählt Token, es kürzt nicht.
+- **Der Wissensspeicher hat keinen Indexer** — Schema und Proben gibt es,
+  Einbettungen und Dateiwächter nicht.
+- **Die Datenbankprüfungen laufen gegen die Betriebsdatenbank**, zehn scheitern.
+- **Der Geheimnis-Haken prüft nichts** — `gitleaks` ist nicht installiert.
+
+<a id="licence"></a>
 ## Lizenz
 
 Der DeepSeek Harness dient als **Quellbestand**, deshalb gilt seine **MIT-Lizenz**.
