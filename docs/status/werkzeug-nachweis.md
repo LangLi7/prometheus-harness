@@ -46,6 +46,12 @@ nicht ermittelt: in der roten Sitzung setzte der Agent **Shell, glob und grep in
 **nicht** belegt. **Was fehlt:** mehrere Läufe mit gezielter Wiederholung, um die Häufigkeit zu
 bestimmen. Bis dahin gilt: **5 von 5 grün, aber `glob` mit einem beobachteten Ausfall.**
 
+> **Geschlossen am 14.10.2026 — siehe §8.** Das Flattern ist **nicht** sprunghaft: es hängt
+> am **Arbeitsverzeichnis** der Sitzung. Die Vorladung kommt aus `bunfig.toml`, und die wird
+> aus dem cwd gelesen; eine Sitzung außerhalb des Projekts bekommt einen **ungepatchten**
+> Subprozeß-Runner. Gemessen: nach der Reparatur **0 Defekte in 60 Aufrufen** in
+> Projekt-Sitzungen — und 8 Defekte in der **einen** Sitzung mit fremdem cwd.
+
 ## 3. Die Ursache, die gemessen ist
 
 ```
@@ -114,7 +120,7 @@ Anbindung an die fremden CLIs, nicht die Unteragenten.
 | `job_list` | ✅ | **OK** |
 | `schedule_list` | ✅ | **OK** |
 | `working_directory` | ✅ | **OK** |
-| `web_fetch` | ❌ `dispatcher.close is not a function` | **nicht prüfbar** — dieses Werkzeug steht **nicht** in unserer Liste |
+| `web_fetch` | ❌ `dispatcher.close is not a function` | **in unserer Liste — hier stand „nicht prüfbar"** |
 
 **Bilanz: 10 von 10 prüfbaren Werkzeugen grün.** Davon waren **drei** im Selbsttest-Bericht rot
 (`pwsh`, `glob`, `grep`) — dieselben drei sind jetzt grün.
@@ -123,9 +129,12 @@ Anbindung an die fremden CLIs, nicht die Unteragenten.
 
 * **`glob` war einmal rot** (§2). Ein Werkzeug mit einem beobachteten Ausfall ist **nicht**
   sauber grün. Die Häufigkeit ist **nicht** bestimmt.
-* **`web_fetch`** ist für uns **nicht prüfbar**, weil es in unserer Werkzeugliste fehlt. Der
-  Fremdbericht nennt `dispatcher.close is not a function` — eine Laufzeitaussage, die zu Bun
-  paßt, aber **von uns nicht gemessen** ist.
+* **`web_fetch`** ist **nicht** „nicht prüfbar". Hier stand, das Werkzeug stehe „nicht
+  in unserer Liste" — **widerlegt am 14.10.2026**: unsere eigenen Protokolle enthalten
+  **zwei** `web_fetch`-Aufrufe, **beide** mit `dispatcher.close is not a function`. Das
+  Werkzeug ist also vorhanden und der Defekt ist **bei uns reproduziert**, nicht bloß
+  fremd berichtet. Nicht geprüft ist, ob er in einer Sitzung mit **Projekt**-cwd
+  auftritt — beide Aufrufe liegen in einer Sitzung mit fremdem cwd (§8).
 * **Der `D:`-Pfad** aus dem Fremdbericht ist **nicht** nachgestellt. Unser Arbeitsbereich liegt
   auf `C:`. Der Befund bleibt **pfadspezifisch und offen** — dazu gehört der **getrennte**
   Befund `packages/util/atomic-write` (`Zugriff verweigert (os error 5)`, **nicht** durch unsere
@@ -211,3 +220,101 @@ die Zeile schreibt jetzt nach **`stderr`** — Diagnose dorthin, Daten nach `std
 **Was der Fund NICHT ist.** Er erklärt den sprunghaften `glob`-Ausfall **nicht**: der Runner
 berichtet über IPC (`"ipc"` in `runner-launch-<hash>.js`), nicht über stdout. Die Vermutung
 stand im Raum und ist damit **widerlegt** — sie steht hier, damit sie nicht wieder aufkommt.
+
+---
+
+## 8. Nachtrag 14.10.2026 — die Frage aus §2 ist geschlossen: das Flattern hängt am **Arbeitsverzeichnis**
+
+§2 ließ offen, **wie häufig** `glob` ausfällt, und §7 schloß mit „begründet offen". Jetzt ist
+die Frage beantwortet — nicht durch eine neue Modellsitzung, sondern durch **die Ereignisse
+selbst**.
+
+### Der Weg: die Ereignisse paaren, statt dem Agenten glauben
+
+`docs/status/messsonden/werkzeug-paarung.mjs` liest **alle** Sitzungsprotokolle, zieht jedes
+`tool/call` und jedes `tool/result` heraus und paart sie. Der Schlüssel ist
+**`message.toolCallId`**:
+
+```json
+"message": { "role": "tool",
+             "toolCallId": "call_00_ET_rT4CtZYkuDj2QWryf6WQ2645",
+             "source": { "kind": "tool", "callId": "call_00_ET_…" },
+             "isError": false }
+```
+
+**Mein erster Versuch paarte über `message.id`** — eine UUID der *Nachricht*, die mit dem
+Aufruf nichts zu tun hat — und bekam **0 Zuordnungen aus 112 Ergebnissen**. Der zweite Versuch
+paarte über `turn|step` und bekam 112 von 112 — **und das war falsch**: in einem Schritt können
+mehrere Werkzeuge laufen; gemessen paarte sich ein `pwsh`-Aufruf mit **zwei** Ergebnissen.
+**Eine Paarung, die zu gut aussieht, ist verdächtig.**
+
+### Was gemessen ist
+
+18 Protokolle, **113** `tool/call`, **112** `tool/result`, **23** Defekte. Und die Defekte
+liegen **nicht** gleichmäßig:
+
+| UTC | cwd der Sitzung | Aufrufe | Defekte |
+|---|---|---|---|
+| 17:57 / 17:59 / 18:01 | Projekt | 21 | **13** |
+| **18:06 / 18:07** | Projekt | 15 | **0** |
+| **18:08** | **`D:\Windows\Dokumente\deepseek-harness\default-workspace`** | 29 | **8** |
+| ab 18:20 | Projekt | 60 | **0** |
+
+Die Reparatur wurde **20:01:46 lokal = 18:01:46 UTC** festgeschrieben (`ca11574`). Davor: Defekte.
+Danach: in **Projekt**-Sitzungen **kein einziger** Defekt in 60 Aufrufen — und die **eine**
+Sitzung, die danach noch rot war, lief in einem **fremden** Arbeitsverzeichnis.
+
+### Der Mechanismus, direkt gemessen
+
+```powershell
+# cwd = Projekt (bunfig.toml vorhanden)
+[pmh] Bun-Lücke ergänzt: PTC-Typentfernung (module.stripTypeScriptTypes fehlt)
+[pmh] Bun-Lücke ergänzt: Subprozess-argv (Bun verschluckt den -- Trenner)
+["ziel","arg1"]                                     -> 2 Vorladungszeilen
+
+# cwd = %TEMP% (kein bunfig.toml)
+["ziel","arg1"]                                     -> 0 Vorladungszeilen
+```
+
+**Die Vorladung wird aus dem Arbeitsverzeichnis gelesen.** Startet ein `bun`-Prozeß außerhalb
+des Projekts, findet er `bunfig.toml` nicht, ergänzt **nichts** — und der Subprozeß-Runner
+verlangt den `--`-Trenner wörtlich, den Bun verschluckt. **Das ist die Ursache des Flatterns,
+und sie ist keine Laune:** sie ist das Arbeitsverzeichnis der Sitzung.
+
+**Was daran Schluß bleibt und nicht Messung:** daß der Runner als Kindprozeß das
+Arbeitsverzeichnis der **Sitzung** erbt. Gemessen ist (a) die Vorladung hängt am cwd und
+(b) die einzige rote Sitzung nach der Reparatur hatte ein fremdes cwd. Der Schluß von (a) und
+(b) auf die Kette ist **stimmig, aber nicht einzeln gemessen**. Er würde geschlossen durch
+einen Lauf mit `cwd` = fremdes Verzeichnis und gleichzeitiger Aufzeichnung der Umgebung des
+Runner-Kindes.
+
+### Die Bilanz, nach Arbeitsverzeichnis getrennt
+
+| cwd | Sitzungen | Werkzeuge | Aufrufe | Defekte | Urteil |
+|---|---|---|---|---|---|
+| **Projekt** (nach `ca11574`) | 12 | **13** | **60** | **0** | **grün** |
+| fremd (nach `ca11574`) | 1 | 11 | 29 | **8** | rot — Vorladung fehlt |
+| Projekt (vor `ca11574`) | 3 | 5 | 21 | 13 | rot |
+| fremd (vor `ca11574`) | 2 | 2 | 3 | 2 | rot |
+
+Die 13 Werkzeuge in Projektsitzungen nach der Reparatur, **kein einziger Defekt**:
+
+```
+glob, grep, job_list, job_output, pwsh, read, schedule_list,
+send_message, subagent, todo_write, web_search, working_directory, write
+```
+
+Ausgegeben von der Sonde selbst (`== Getrennt nach Arbeitsverzeichnis und Zeitpunkt ==`),
+nicht von Hand gezählt. **Meine erste Fassung dieses Abschnitts zählte 13 von Hand und
+schrieb `todo_search` statt `todo_write`** — eine Zahl, die stimmte, mit einer Liste, die
+es nicht tat. Auch das ist der Grund, warum die Sonde die Liste druckt und nicht ich.
+
+### Und ein eigener Zeitzonenfehler, festgehalten
+
+Beim ersten Lesen dieser Daten hielt ich `7dc73d2` (23:10:36 **lokal**) für den Umschlagpunkt
+und schrieb, die Defekte hörten „genau nach diesem Commit" auf. **Falsch:** die Sonde druckt
+**UTC**, die Commits sind **lokal** (+2). Richtig ist `ca11574` um 20:01:46 lokal = 18:01:46 UTC
+— also **drei Stunden vor** `7dc73d2`. Daß die Defekte nach der stdout→stderr-Umstellung
+aufhörten, war ein Artefakt meiner Zeitzonenmischung. `7dc73d2` hat damit **nichts** mit dem
+Werkzeugausfall zu tun, und die Begründung im Commit („der Runner berichtet über IPC, nicht über
+stdout") steht unberührt.
