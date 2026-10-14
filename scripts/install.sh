@@ -44,12 +44,69 @@
 set -eu
 
 # -----------------------------------------------------------------------------
-# In das Projektverzeichnis wechseln — unabhängig vom Aufrufort.
+# 0. Liege ich überhaupt im Projekt? — der Ein-Zeilen-Weg (`curl … | sh`)
 # -----------------------------------------------------------------------------
-# `CDPATH=` verhindert, daß eine gesetzte Variable die Ausgabe von `cd` stört;
-# ohne das könnte `cd` etwas ausgeben, was hier als Pfad weiterverwendet würde.
+# **Warum dieser Zweig seit dem 14.10.2026 existiert.** Bei `curl -fsSL … | sh`
+# gibt es **keine Skriptdatei**: `$0` ist dann `sh`, und `dirname "$0"` ist `.`.
+# Der `cd` in das Projektverzeichnis landete damit im **Elternverzeichnis des
+# Aufruforts** — das Skript hätte dort „installiert", wo nichts zu installieren
+# ist, und zwar ohne Fehlermeldung.
+#
+# Jetzt gilt: erst **prüfen**, ob hier wirklich das Projekt liegt. Wenn nicht,
+# wird es **geholt** — genau das, was der Ein-Zeiler verspricht. Damit ist der
+# Ein-Zeiler vorbereitet, sobald das Repository öffentlich ist.
+#
+# Übersteuerbar, damit die Wege prüfbar sind, ohne das Netz zu brauchen:
+#   PMH_REPO=<url-oder-pfad>   Quelle des Projekts
+#   PMH_VERZEICHNIS=<name>     Zielordner im aktuellen Verzeichnis
+PMH_REPO="${PMH_REPO:-https://github.com/LangLi7/prometheus-harness.git}"
+PMH_VERZEICHNIS="${PMH_VERZEICHNIS:-prometheus-harness}"
+
+istProjekt() {
+  [ -f scripts/install.mjs ] && [ -f package.json ]
+}
+
 CDPATH=''
-cd -- "$(dirname -- "$0")/.."
+# Nur wechseln, wenn neben MIR ein Projekt liegt. Bei einer Pipe gibt es kein
+# „neben mir", dann bleibt das Arbeitsverzeichnis, wie es ist.
+if [ -n "${0:-}" ] && [ -f "$(dirname -- "$0")/../scripts/install.mjs" ]; then
+  cd -- "$(dirname -- "$0")/.."
+fi
+
+if ! istProjekt; then
+  echo "Hier liegt kein Prometheus-Harness-Projekt — es wird geholt."
+  echo "  Quelle: $PMH_REPO"
+  echo "  Ziel:   $(pwd)/$PMH_VERZEICHNIS"
+  echo
+  if ! command -v git >/dev/null 2>&1; then
+    echo "FEHLER: 'git' fehlt, und ohne git kann das Projekt nicht geholt werden." >&2
+    echo "  Debian/Ubuntu:  sudo apt-get install -y git" >&2
+    echo "  Fedora:         sudo dnf install -y git" >&2
+    echo "  Alpine:         sudo apk add git" >&2
+    echo "  Arch:           sudo pacman -S git" >&2
+    echo "  macOS:          xcode-select --install   (oder: brew install git)" >&2
+    echo >&2
+    echo "Danach dieses Skript erneut aufrufen." >&2
+    exit 1
+  fi
+  if [ -e "$PMH_VERZEICHNIS" ]; then
+    echo "FEHLER: '$PMH_VERZEICHNIS' gibt es hier schon — ich überschreibe nichts." >&2
+    echo "  Entweder dort hineingehen und 'sh scripts/install.sh' aufrufen," >&2
+    echo "  oder PMH_VERZEICHNIS auf einen anderen Namen setzen." >&2
+    exit 1
+  fi
+  git clone --depth 1 "$PMH_REPO" "$PMH_VERZEICHNIS" || {
+    echo "FEHLER: das Klonen ist gescheitert. Ist die Adresse erreichbar und das" >&2
+    echo "  Repository für dich lesbar? Adresse: $PMH_REPO" >&2
+    exit 1
+  }
+  cd -- "$PMH_VERZEICHNIS"
+  echo "Geholt nach $(pwd) — die Installation läuft dort weiter."
+  echo
+  # **Weiterreichen statt kopieren.** Die Fortsetzung ist dasselbe Skript aus dem
+  # geklonten Baum, damit es nur EINE Fassung der Installation gibt.
+  exec sh scripts/install.sh "$@"
+fi
 
 echo "Prometheus Harness — Installation"
 echo "Projekt: $(pwd)"
