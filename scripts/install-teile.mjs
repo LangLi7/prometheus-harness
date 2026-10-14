@@ -329,7 +329,7 @@ export function fassePruefungenZusammen(ergebnisse) {
  * debian **vorhanden** (BusyBox bringt es mit). Es als Abhängigkeit zu führen
  * wäre eine Anforderung, die niemand erfüllen muß.
  */
-export const BENOETIGTE_WERKZEUGE = ['bun', 'docker', 'git']
+export const BENOETIGTE_WERKZEUGE = ['bun', 'docker', 'git', 'go']
 
 /**
  * Prüft, ob die Kennwörter in `.env` zu dem **laufenden** Container passen.

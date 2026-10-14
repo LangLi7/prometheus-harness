@@ -230,6 +230,20 @@ async function pruefeWerkzeuge() {
   }
   const gitDa = await laeuft(werkzeugBefehl('git'))
   ergebnisse.push({ name: 'git', ok: gitDa, hinweis: gitDa ? undefined : 'https://git-scm.com' })
+  // **Go — geprüft seit dem 14.10.2026, und der Grund ist gemessen.** `start.mjs`
+  // baut die Dienste unter `services/` mit `go build`. Fehlte Go, lief die
+  // Installation trotzdem **grün durch**, und erst `bun run start` meldete
+  // „[pmh-attach] FEHLER: 'go' nicht startbar" und „ÜBERSPRUNGEN — Build
+  // fehlgeschlagen": Erfolg am Ende der Installation, Enttäuschung beim ersten
+  // Start. Auf dem Entwicklerrechner fiel das nie auf, weil `go` dort im PATH
+  // liegt. Wie bei Docker gilt: **nennen, nicht still installieren** — die
+  // Adresse steht daneben, und der Hinweis sagt, was ohne Go passiert.
+  const goDa = await laeuft(werkzeugBefehl('go'), ['version'])
+  ergebnisse.push({
+    name: 'go',
+    ok: goDa,
+    hinweis: goDa ? undefined : 'https://go.dev/dl/ — ohne Go werden die Go-Dienste übersprungen',
+  })
   return { ergebnisse, dockerLaeuft, dockerDa }
 }
 
