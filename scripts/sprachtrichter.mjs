@@ -477,9 +477,21 @@ function haupt() {
       }
     }
     // Namensräume, die das Paket führt und der Umfang nicht kennt — auch ein Befund.
-    const unbekannt = Object.keys(paket).filter((ns) => umfang.namensraeume[ns] === undefined)
+    //
+    // **Reservierte Schlüssel beginnen mit `_`.** Der erste Entwurf des Pakets legte seine
+    // Metadaten (`_hinweis`, `_stand`, `_faecher`) auf dieselbe Ebene wie die Namensräume —
+    // und die Prüfung meldete sie als „Namensräume, die der Kern NICHT kennt". Das war ein
+    // **Fehler im Format**, nicht im Kern. Die Prüfung übergeht sie jetzt, **sagt aber, wie
+    // viele** — ein stilles Übergehen wäre schlimmer als das falsche Melden.
+    const uebersprungen = Object.keys(paket).filter((ns) => ns.startsWith('_'))
+    const unbekannt = Object.keys(paket).filter(
+      (ns) => !ns.startsWith('_') && umfang.namensraeume[ns] === undefined,
+    )
     console.log('')
     console.log(`  zusammen: ${String(vorhandenGesamt)} von ${String(umfangGesamt)} Schlüsseln`)
+    if (uebersprungen.length > 0) {
+      console.log(`  übersprungen (reserviert, mit _ ): ${uebersprungen.join(', ')}`)
+    }
     if (unbekannt.length > 0) {
       console.log(`  Namensräume im Paket, die der Kern NICHT kennt: ${unbekannt.join(', ')}`)
     }
