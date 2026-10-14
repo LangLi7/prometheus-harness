@@ -365,3 +365,26 @@ Quelle** gelesen, bevor er in eine Prüfung wandert. Ein erfundener Name erzeugt
 „nichts gefunden" meldet, ist erst dann ein Befund, wenn die **Suche** bewiesen ist — über eine
 Gegenprobe an einem Eintrag, den es geben **muß** (hier: `@deepseek-ai/dsh-client-locale` in
 der Startliste).
+
+---
+
+## 25. Ohne Anzeigegerät wird die **Wirkung** nicht behauptet — sie wird konstruktiv erzwungen
+
+**Der Fall.** Der Betreiber schickte einen Bildschirmausschnitt: in einem dunklen Dialog war
+das aufgeklappte Auswahlfenster **hell**, und ein Eintrag stand **weiß auf weiß**. Die Ursache
+war schnell gefunden (`background: transparent; color: inherit` auf einem **nativen**
+Bedienelement, dessen aufgeklapptes Fenster der Browser selbst zeichnet). Die **Behebung** aber
+ließ sich nicht nachsehen: auf diesem Rechner ist **kein Browser** installiert — kein Chrome,
+kein Edge, kein Firefox. Ich konnte also nicht prüfen, ob der Eintrag danach lesbar ist.
+
+**Was ich stattdessen getan habe.** Die Regel so gebaut, daß sie in **jedem** Theme lesbar sein
+**muß**: Grund und Schriftfarbe kommen aus den **Theme-Variablen** (`--dsw-alias-bg-layer-2`,
+`--dsw-alias-label-primary`), mit den **Systemfarben** `Canvas`/`CanvasText` als Rückfall. Keine
+feste Farbe — die wäre im anderen Theme wieder falsch. Dazu die Prüfung, die das Gebaute
+**ausführt** (mitgeschriebenes `document`) und genau **ein** eingehängtes Stilelement verlangt.
+
+**Die Regel.** Fehlt das Gerät, um eine Wirkung zu **sehen**, dann: (1) die Lösung so bauen, daß
+sie den Fehler **konstruktiv** ausschließt statt ihn kosmetisch zu treffen, (2) die Prüfung auf
+das **Gebaute** richten (wird es ausgeführt? nennt es die richtigen Größen?), und (3)
+ausdrücklich hinschreiben, **was nicht gemessen ist**. Ein „sieht jetzt gut aus" ohne
+Bildschirm wäre genau die Behauptung, die diese Datei verhindern soll.

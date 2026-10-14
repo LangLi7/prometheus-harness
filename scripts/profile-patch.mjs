@@ -396,4 +396,10 @@ export const EIGENE_PAKETE = [
   // Startliste und die Sprache `de` wird anmeldbar. Die Reihenfolge gegen
   // `@deepseek-ai/dsh-client-locale` (unser `dsh.client.inject`) ordnet der Kern selbst.
   '@prometheus-harness/client-locale',
+  // **Kontrast nativer Auswahlfenster.** Reine Oberflächen-Ergänzung: sie hängt eine
+  // Stilregel ein, damit die Einträge eines aufgeklappten `<select>` Grund und Schriftfarbe
+  // aus den Theme-Variablen bekommen. Anlaß war das Bild des Betreibers vom 14.10.2026:
+  // „HF-Mirror (China mirror)" war weiß auf weiß, weil die CSS des Sprachpakets
+  // `background: transparent; color: inherit` auf ein **natives** Bedienelement setzt.
+  '@prometheus-harness/client-select-contrast',
 ]

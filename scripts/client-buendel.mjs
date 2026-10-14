@@ -56,14 +56,55 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-/** Das Paket, um das es geht. */
-const PAKET = 'packages/client/locale'
-/** Der Name, unter dem sich das Bündel beim Modullader anmeldet — der Paketname. */
-const KENNUNG = '@prometheus-harness/client-locale'
-/** Die Sprache, die das Paket anmeldet. */
+/**
+ * Unsere Client-Plugins — je Eintrag, was zu bauen und was zu prüfen ist.
+ *
+ * **Warum eine Tabelle und kein fester Pfad.** Der erste Entwurf konnte **nur** das
+ * Sprachpaket bauen. Als das zweite Client-Plugin dazukam (`select-contrast`), wäre aus dem
+ * Werkzeug entweder eine Kopie oder ein Sonderfall geworden. Die Tabelle hält beides
+ * beisammen — und die Prüfungen bleiben **je Art** verschieden, weil ein Sprachpaket etwas
+ * anderes beweisen muß als eine Stilregel.
+ *
+ * @type {{dir: string, kennung: string, art: 'sprachpaket'|'stil', sprache?: string, muster?: RegExp}[]}
+ */
+export const PAKETE = [
+  {
+    dir: 'packages/client/locale',
+    kennung: '@prometheus-harness/client-locale',
+    art: 'sprachpaket',
+    sprache: 'de',
+  },
+  {
+    dir: 'packages/client/select-contrast',
+    kennung: '@prometheus-harness/client-select-contrast',
+    art: 'stil',
+    muster: /select option/,
+  },
+]
+
+/** Die Sprache, die das Sprachpaket anmeldet. */
 const SPRACHE = 'de'
-/** Die erwartete Zahl der Namensräume und Texte — aus der gemessenen Quelle. */
+/** Die gemessene Quelle der Wahrheit für den Umfang des Sprachpakets. */
 const QUELLE = 'docs/status/sprachquelle.json'
+
+/**
+ * Findet einen Eintrag der Tabelle.
+ *
+ * @param {string} dir - Paketverzeichnis
+ * @returns {typeof PAKETE[number]} der Eintrag
+ * @throws {Error} wenn das Verzeichnis nicht in der Tabelle steht
+ */
+export function paketFuer(dir) {
+  const sauber = dir.replace(/\\/gu, '/').replace(/\/+$/u, '')
+  const treffer = PAKETE.find((p) => p.dir === sauber)
+  if (treffer === undefined) {
+    throw new Error(
+      `client-buendel: \`${sauber}\` steht nicht in der Tabelle PAKETE. Ein neues Client-Plugin ` +
+        'wird dort eingetragen — sonst wüßte das Werkzeug nicht, was zu prüfen ist.',
+    )
+  }
+  return treffer
+}
 
 /**
  * Der Umschlag des Modulladers um einen CommonJS-Rumpf.
@@ -71,16 +112,16 @@ const QUELLE = 'docs/status/sprachquelle.json'
  * @param {string} rumpf - der gebaute CommonJS-Rumpf
  * @returns {string} die vollständige Bündeldatei
  */
-export function umschliesse(rumpf) {
+export function umschliesse(rumpf, kennung = '@prometheus-harness/client-locale', dir = 'packages/client/locale') {
   return `/**
- * Deutsches Sprachpaket — **Browser-Hälfte**. ERZEUGT von \`scripts/client-buendel.mjs\`.
- * Nicht von Hand ändern: die Quelle ist \`${PAKET}/src/index.ts\` samt \`de.json\`.
+ * Browser-Hälfte. ERZEUGT von \`scripts/client-buendel.mjs\`.
+ * Nicht von Hand ändern: die Quelle ist \`${dir}/src/index.ts\`.
  *
  * Der Umschlag ist die Form des Kerns (\`window.__ModuleLoader__.load\`), gemessen an
  * \`@deepseek-ai/dsh-client-locale/lib/client.js\`.
  */
 window.__ModuleLoader__.load({
-\tid: ${JSON.stringify(KENNUNG)},
+\tid: ${JSON.stringify(kennung)},
 \tfactory: (require) => {
 \t\tvar module = { exports: {} };
 \t\tvar exports = module.exports;
@@ -99,10 +140,11 @@ ${rumpf
  * Führt ein gebautes Bündel aus und **befragt das Ergebnis**.
  *
  * @param {string} text - der Inhalt der Bündeldatei
- * @param {{namensraeume: number, texte: number}} erwartet
+ * @param {typeof PAKETE[number]} paket - der Eintrag der Tabelle (Kennung und Art)
+ * @param {{namensraeume: number, texte: number}} erwartet - die gemessenen Zahlen (Sprachpaket)
  * @returns {{fehler: string[], befund: string[]}}
  */
-export function pruefeBuendel(text, erwartet) {
+export function pruefeBuendel(text, paket, erwartet) {
   const fehler = []
   const befund = []
 
@@ -124,7 +166,7 @@ export function pruefeBuendel(text, erwartet) {
   if (erfasst === undefined) {
     return { fehler: ['Kein `window.__ModuleLoader__.load(...)` im Bündel — der Kern würde nichts laden.'], befund }
   }
-  if (erfasst.id !== KENNUNG) fehler.push(`Die Kennung im Bündel ist ${JSON.stringify(erfasst.id)}, erwartet ${JSON.stringify(KENNUNG)}.`)
+  if (erfasst.id !== paket.kennung) fehler.push(`Die Kennung im Bündel ist ${JSON.stringify(erfasst.id)}, erwartet ${JSON.stringify(paket.kennung)}.`)
   befund.push(`Kennung: ${String(erfasst.id)}`)
 
   // ---- 2. Die Fabrik aufrufen. Ein `require` darf dabei nicht nötig sein. ----
@@ -158,14 +200,51 @@ export function pruefeBuendel(text, erwartet) {
   if (typeof plugin.apply !== 'function') fehler.push('Dem Plugin fehlt `apply` — der Kern verlangt eine Funktion oder ein Objekt mit `apply(ctx)`.')
   if (!Array.isArray(plugin.inject)) {
     fehler.push('Dem Plugin fehlt `inject` — der Kern weiß dann nicht, welchen Dienst es braucht.')
-  } else if (!plugin.inject.includes('locale')) {
+  } else if (paket.art === 'sprachpaket' && !plugin.inject.includes('locale')) {
     fehler.push(`\`inject\` ist ${JSON.stringify(plugin.inject)} — der Dienst \`locale\` fehlt.`)
   } else {
     befund.push(`inject: ${JSON.stringify(plugin.inject)}`)
   }
   if (fehler.length > 0) return { fehler, befund }
 
-  // ---- 4. Verhalten: an einem mitschreibenden ctx. ----
+  // ---- 4. Verhalten. Was zu beweisen ist, hängt an der ART des Plugins. ----
+
+  if (paket.art === 'stil') {
+    // Eine Stilregel ist erst dann etwas wert, wenn sie **wirklich** eingehängt wird und die
+    // Variablen des Themes nennt. Beides wird hier ausgeführt, nicht gelesen: das Bündel
+    // bekommt ein mitgeschriebenes `document`, und danach wird das Ergebnis befragt.
+    const angehaengt = []
+    const vorher = globalThis.document
+    globalThis.document = {
+      getElementById: () => null,
+      createElement: () => ({ id: '', textContent: '', remove: () => undefined }),
+      head: { append: (el) => angehaengt.push(el) },
+    }
+    try {
+      plugin.apply({ effect: (f) => f() })
+    } catch (f) {
+      fehler.push(`\`apply\` warf: ${f instanceof Error ? f.message : String(f)}`)
+      return { fehler, befund }
+    } finally {
+      globalThis.document = vorher
+    }
+    if (angehaengt.length !== 1) {
+      fehler.push(`\`apply\` hat ${String(angehaengt.length)} Stilelemente eingehängt, erwartet genau 1.`)
+      return { fehler, befund }
+    }
+    const regel = String(angehaengt[0]?.textContent ?? '')
+    if (paket.muster !== undefined && !paket.muster.test(regel)) {
+      fehler.push(`Die eingehängte Regel nennt ${String(paket.muster)} nicht.`)
+    }
+    if (!regel.includes('--dsw-')) {
+      fehler.push('Die Regel benutzt keine Theme-Variable (`--dsw-…`) — der Kontrast hinge dann an festen Farben und wäre in einem anderen Theme falsch.')
+    }
+    befund.push(`Regel eingehängt: ${regel.split('\n')[0] ?? ''} …`)
+    befund.push(`Länge der Regel: ${String(regel.length)} Zeichen`)
+    return { fehler, befund }
+  }
+
+  // ---- Verhalten eines Sprachpakets: an einem mitschreibenden ctx. ----
   const sprachen = []
   const registrierungen = []
   let texte = 0
@@ -217,56 +296,73 @@ export function pruefeBuendel(text, erwartet) {
 
 async function haupt() {
   const nurPruefen = process.argv.includes('--pruefen')
+  const args = process.argv.slice(2)
+  // `--paket <dir>` baut eines; ohne Angabe **alle** aus der Tabelle (ein vergessenes Plugin
+  // wäre sonst still nicht gebaut).
+  const gewaehlt = args.includes('--paket') ? [args[args.indexOf('--paket') + 1] ?? ''] : PAKETE.map((p) => p.dir)
   const quelle = JSON.parse(readFileSync(QUELLE, 'utf8'))
   const erwartet = {
     namensraeume: Object.keys(quelle.faecher).length,
     texte: Object.values(quelle.faecher).reduce((s, f) => s + Object.keys(f.englisch).length, 0),
   }
-  const ziel = join(PAKET, 'lib', 'client.js')
 
-  if (!nurPruefen) {
-    const ergebnis = await Bun.build({
-      entrypoints: [join(PAKET, 'src', 'index.ts')],
-      target: 'browser',
-      format: 'cjs',
-      minify: false,
-      sourcemap: false,
-    })
-    if (!ergebnis.success) {
-      console.log('BEFUND: der Bau ist gescheitert.')
-      for (const m of ergebnis.logs) console.log(`   ${String(m)}`)
-      process.exit(1)
-    }
-    const ausgabe = ergebnis.outputs[0]
-    if (ausgabe === undefined) {
-      console.log('BEFUND: der Bau lieferte keine Ausgabe.')
-      process.exit(1)
-    }
-    const rumpf = await ausgabe.text()
-    mkdirSync(dirname(ziel), { recursive: true })
-    writeFileSync(ziel, umschliesse(rumpf), 'utf8')
-    console.log(`Gebaut: ${ziel}  (${String(Buffer.byteLength(readFileSync(ziel)))} B)`)
-  } else if (!existsSync(ziel)) {
-    console.log(`BEFUND: ${ziel} fehlt — erst bauen (\`bun scripts/client-buendel.mjs\`).`)
-    process.exit(1)
-  } else {
-    console.log(`Geprüft wird die vorhandene Datei: ${ziel}`)
-  }
+  let fehlerGesamt = 0
+  for (const dir of gewaehlt) {
+    const paket = paketFuer(dir)
+    const ziel = join(paket.dir, 'lib', 'client.js')
+    console.log(`===== ${paket.kennung}  (${paket.art}) =====`)
 
-  const { fehler, befund } = pruefeBuendel(readFileSync(ziel, 'utf8'), erwartet)
-  console.log('')
-  console.log('== Befund am gebauten Bündel ==')
-  for (const b of befund) console.log(`   ${b}`)
-  console.log('')
-  if (fehler.length > 0) {
-    console.log(`FEHLER: ${String(fehler.length)}`)
-    for (const f of fehler) console.log(`   ${f}`)
+    if (!nurPruefen) {
+      const ergebnis = await Bun.build({
+        entrypoints: [join(paket.dir, 'src', 'index.ts')],
+        target: 'browser',
+        format: 'cjs',
+        minify: false,
+        sourcemap: false,
+      })
+      if (!ergebnis.success) {
+        console.log('BEFUND: der Bau ist gescheitert.')
+        for (const m of ergebnis.logs) console.log(`   ${String(m)}`)
+        process.exitCode = 1
+        return
+      }
+      const ausgabe = ergebnis.outputs[0]
+      if (ausgabe === undefined) {
+        console.log('BEFUND: der Bau lieferte keine Ausgabe.')
+        process.exitCode = 1
+        return
+      }
+      const rumpf = await ausgabe.text()
+      mkdirSync(dirname(ziel), { recursive: true })
+      writeFileSync(ziel, umschliesse(rumpf, paket.kennung, paket.dir), 'utf8')
+      console.log(`Gebaut: ${ziel}  (${String(Buffer.byteLength(readFileSync(ziel)))} B)`)
+    } else if (!existsSync(ziel)) {
+      console.log(`BEFUND: ${ziel} fehlt — erst bauen (\`bun scripts/client-buendel.mjs\`).`)
+      process.exitCode = 1
+      return
+    } else {
+      console.log(`Geprüft wird die vorhandene Datei: ${ziel}`)
+    }
+
+    const { fehler, befund } = pruefeBuendel(readFileSync(ziel, 'utf8'), paket, erwartet)
     console.log('')
-    console.log('BEFUND: das gebaute Bündel erfüllt die Form des Kerns NICHT.')
-    process.exit(1)
+    console.log('== Befund am gebauten Bündel ==')
+    for (const b of befund) console.log(`   ${b}`)
+    console.log('')
+    if (fehler.length > 0) {
+      console.log(`FEHLER: ${String(fehler.length)}`)
+      for (const f of fehler) console.log(`   ${f}`)
+      console.log('')
+      console.log('BEFUND: das gebaute Bündel erfüllt die Form des Kerns NICHT.')
+      fehlerGesamt += fehler.length
+    } else {
+      console.log('FEHLER: keine')
+    }
+    console.log('')
   }
-  console.log('FEHLER: keine')
-  console.log('BEFUND: Form und Verhalten des gebauten Bündels stimmen mit der Messung überein.')
+
+  if (fehlerGesamt > 0) process.exit(1)
+  console.log('BEFUND: Form und Verhalten aller gebauten Bündel stimmen mit der Messung überein.')
   process.exit(0)
 }
 

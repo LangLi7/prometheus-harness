@@ -1,0 +1,26 @@
+{
+  "name": "@prometheus-harness/client-select-contrast",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Kontrast nativer Auswahlfenster: die Einträge eines aufgeklappten select bekommen Grund und Schriftfarbe aus den Theme-Variablen des Kerns (--dsw-alias-bg-layer-2, --dsw-alias-label-primary) statt Browser-Vorgabe plus geerbter Schriftfarbe.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js"
+  ],
+  "scripts": {
+    "build": "bun run ../../../scripts/client-buendel.mjs --paket packages/client/select-contrast"
+  }
+}

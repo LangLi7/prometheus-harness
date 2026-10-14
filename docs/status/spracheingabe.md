@@ -143,3 +143,59 @@ echten SVG**. Der Text *„Node module resolver"* kommt im Antworttext **nicht m
    übersetzt ist (nächster Schritt: `bun scripts/sprachquelle.mjs` findet ihn, weil er in
    `client.js` registriert wird).
 5. **Kein Icon für die eigenen Pakete** — der Weg ist jetzt frei, aber wir haben keins.
+
+## 7. Kontrastfehler im Auswahlfeld — behoben (Bild des Betreibers, 14.10.2026)
+
+**Was zu sehen war.** Im Einstellungsdialog der Spracheingabe ist *Model download source*
+geöffnet: die Seite dunkel, das Auswahlfenster **hell** — und der dritte Eintrag
+*„HF-Mirror (China mirror)"* ist **weiß auf weiß**, praktisch unlesbar.
+
+**Die Ursache steht in der CSS des Sprachpakets** (`VoiceInput.module.css`, gemessen):
+
+```css
+.preferences select, .sourceChoice select {
+  background: transparent;   /* kein eigener Grund */
+  color: inherit;            /* die Farbe der dunklen Seite */
+}
+```
+
+Ein `<select>` ist ein **natives** Bedienelement: das **aufgeklappte** Fenster zeichnet der
+Browser selbst, außerhalb des Kastenbaums der Seite. Bleibt `background` leer, malt der
+Browser seinen Vorgabegrund (hell) und nimmt die **geerbte** Schriftfarbe (weiß) — genau die
+Mischung aus dem Bild. Für den **geschlossenen** Kasten ist `transparent` richtig, für die
+Einträge im aufgeklappten Fenster ist es ein Fehler.
+
+**Die Behebung — ein eigenes Client-Plugin.** `packages/client/select-contrast/`
+(`@prometheus-harness/client-select-contrast`) hängt **eine** Stilregel ein:
+
+```css
+select option,
+select optgroup {
+  background-color: var(--dsw-alias-bg-layer-2, Canvas);
+  color: var(--dsw-alias-label-primary, CanvasText);
+}
+```
+
+**Warum aus Theme-Variablen und nicht mit festen Farben.** `--dsw-alias-*` löst **pro Theme**
+auf — dunkel wird dunkel, hell wird hell; die Rückfallwerte `Canvas`/`CanvasText` sind die
+Systemfarben der CSS-Farbskala und richten sich nach `color-scheme`. Eine feste Farbe wäre in
+einem anderen Theme wieder falsch.
+
+**Warum ein eigenes Paket.** Das Sprachpaket liefert **Texte**, dies ist **Darstellung**. Ein
+Zusatz dort wäre bequem und würde beim nächsten Mal gesucht.
+
+**Was gemessen ist** (Exit 0): das Plugin steht in der **Startliste des Browsers** (69
+Einträge, vorher 68), sein Bündel wird ausgeliefert (**HTTP 200**, 2 981 Zeichen) und enthält
+die Regel samt **beiden** Theme-Variablen. Die Bauprüfung führt das Bündel aus — mit einem
+mitgeschriebenen `document` — und verlangt genau **ein** eingehängtes Stilelement, den
+Selektor `select option` und mindestens eine `--dsw-`-Variable; vier Gegenproben werden rot
+(kein `inject`, nichts eingehängt, feste Farben, falscher Selektor).
+
+**Was NICHT gemessen ist.** Auf diesem Rechner ist **kein Browser** installiert — weder Chrome
+noch Edge noch Firefox (`chrome-devtools`: *„Could not find Google Chrome executable"*). Daß
+die Einträge **sichtbar** sind, ist damit **nicht** belegt; die Regel ist so gebaut, daß sie in
+beiden Themes lesbar sein **muß**, aber das Urteil darüber gehört an den Bildschirm.
+
+**Offen, und das ist eine Meldung an den Kern:** die eigentliche Korrektur gehört in
+`client-ui-voice-input` selbst — dort sollte die Regel für `option`/`optgroup` stehen (oder das
+Paket sollte `color-scheme` berücksichtigen). Unser Plugin ist die Brücke, bis das dort steht.

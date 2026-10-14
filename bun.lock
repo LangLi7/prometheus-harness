@@ -108,6 +108,10 @@
       "name": "@prometheus-harness/client-locale",
       "version": "0.1.0",
     },
+    "packages/client/select-contrast": {
+      "name": "@prometheus-harness/client-select-contrast",
+      "version": "0.1.0",
+    },
     "packages/core/agent-loop": {
       "name": "@prometheus-harness/agent-loop",
       "version": "0.1.0",
@@ -898,6 +902,8 @@
     "@prometheus-harness/cli": ["@prometheus-harness/cli@workspace:apps/cli"],
 
     "@prometheus-harness/client-locale": ["@prometheus-harness/client-locale@workspace:packages/client/locale"],
+
+    "@prometheus-harness/client-select-contrast": ["@prometheus-harness/client-select-contrast@workspace:packages/client/select-contrast"],
 
     "@prometheus-harness/db-schema": ["@prometheus-harness/db-schema@workspace:packages/auth/db-schema"],
 
