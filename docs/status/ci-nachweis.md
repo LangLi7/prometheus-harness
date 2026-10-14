@@ -159,8 +159,18 @@ Zwei Läufe in Folge grün: **`38481436847`** (Commit `10ccbc8`) und
   `packages/util/atomic-write` (`os error 5` in `TEMP`) und `apps/cli`
   (typert-loader: *„2 required plugins did not activate"*) rot — **auf Linux
   nicht**: der grüne Lauf hatte **0 fail**, und der typert-loader-Fehler trat dort
-  gar nicht auf. Beide sind damit als **Windows-Eigenheiten** eingegrenzt, nicht
-  als Fehler des Codes. Behoben sind sie nicht.
+  gar nicht auf. Behoben sind sie nicht.
+
+  > **Nachtrag 14.10.2026 — hier stand „Windows-Eigenheiten", und das war zu
+  > schnell.** Gemessen nennt der Startfehler die gescheiterten Plugins
+  > **namentlich**: `Failed plugins (3): typert-loader`, **`ptc-runtime`** — und
+  > **kein einziges** Mal die zwei Pakete, die in keinem Baum installiert sind
+  > (`dsh-subagent-claude-code`, `dsh-subagent-codex`; Treffer für diese Namen im
+  > Fehlertext: **0**). Ein Verdacht, sie seien die Ursache, ist damit **widerlegt**.
+  > Gescheitert sind **kern-eigene** Plugins, und `ptc-runtime` ist die Stelle, an
+  > der **unsere** PTC-Reparatur greift — dort gehört die Suche hin, nicht bei den
+  > Subagent-Paketen. Die zwei fehlenden Pakete führt der Kern selbst als
+  > `ON_DEMAND_BUNDLES`; sie zu „beheben" hat **keine** gemessene Wirkung.
 
 ## 8. Was ich daraus mitnehme
 
