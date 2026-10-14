@@ -28,7 +28,7 @@
  * abgetastet (siehe `docs/status/groesse-und-ressourcen.md` §6: eine
  * Außenabtastung war dort schon einmal zu grob).
  *
- * Aufruf:  bun docs/status/messsonden/umschlagkosten.mjs [stuecke]
+ * Aufruf:  bun docs/status/messsonden/envelope-cost.mjs [stuecke]
  * Exit 0 = gemessen. Exit 2 = ein Ziel ließ sich nicht laden.
  */
 
