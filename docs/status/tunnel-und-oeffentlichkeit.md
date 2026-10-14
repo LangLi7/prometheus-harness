@@ -122,8 +122,36 @@ Bremse, kein Riegel.
 
 ---
 
-## 4. Was am DSH-Host selbst gemessen ist
+## 3a. „Ich komme auch ohne Token herein" — warum
 
+Gemessen am 14.10.2026:
+
+```
+GET /                 ohne Keks   ->  401
+GET /?token=…                     ->  303, location: ./
+   set-cookie: dsh-auth-<Token>=…; Max-Age=2592000; Path=/; HttpOnly; SameSite=Strict
+GET /                 mit Keks    ->  200
+```
+
+Der Keks trägt den Token **im Namen**, gilt **30 Tage** und wird ab dann bei jedem Aufruf
+mitgeschickt. Deshalb geht `http://127.0.0.1:3081` im Browser ohne Token: der Browser **hat** ihn.
+Die Tür ist nicht offen — der Schlüssel liegt in der Tasche.
+
+Was das heißt:
+
+- Der Keks **ist** der Schlüssel, keine Sitzungskennung. Wer ihn hat, hat alles: Dateien,
+  Prozesse, Werkzeuge. Keine Rollen, kein einzelner Widerruf, 30 Tage Laufzeit.
+- `HttpOnly` ist gut — Seitenskripte können ihn nicht lesen. `Secure` fehlt, weil der Rechner
+  kein TLS spricht.
+- Auf einem **öffentlichen** Hostnamen ist das ein 30 Tage gültiger Generalschlüssel im
+  Browserprofil. Wer das Profil liest oder eine böse Erweiterung hat, ist drin.
+
+**Die Konto-Anmeldung ändert daran nichts.** Sie ist die zweite Tür und gibt heute **keinen**
+Zugang zur Oberfläche. Genau das steht auf `/start`.
+
+**Wie man es selbst prüft:** ein Inkognito-Fenster (dort ist kein Keks) — `/` antwortet 401.
+
+## 4. Was am DSH-Host selbst gemessen ist
 | Frage | Antwort (gemessen) |
 |---|---|
 | Startseite von außen | **200**, `text/html`, 16 003 Zeichen |
