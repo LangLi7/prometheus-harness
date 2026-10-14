@@ -170,17 +170,74 @@ Aufwertung wurde abgelehnt.
 
 * **Nicht**, daß unsere Oberfläche live ist — sie ist es nicht.
 * **Nicht**, daß der Strom unter **Last** trägt (viele Sitzungen, viele Rahmen). Gemessen
-  sind **zwei** Sitzungen mit je **einem** Rahmen, je Lauf.
-* **Nicht**, daß es für **WebSocket** einen Ersatz gibt, falls ein Netz ihn blockiert:
-  `dsh-client-connection` kennt einen zweiten Weg (`HostConnectionFetch`), **gemessen ist
-  er nicht**.
-* **Nicht**, daß der Strom **von selbst** neue Ereignisse schickt. Immer gemessen wurde der
-  **Eröffnungsrahmen** — also die Antwort auf eine Anforderung. Daß danach **unaufgefordert**
-  weitere `item`-Rahmen kommen, ist **nicht** nachgewiesen: für diesen Nachweis müßte ein
-  Auftrag **während** des offenen Stroms laufen.
-* ~~Nicht, daß ein Unteragenten-Strom gelaufen ist~~ — **das ist jetzt gemessen** (§4a).
+  ist **eine** Sitzung mit **einem** Lauf.
+* **Nicht**, daß es für **WebSocket** einen Ersatz gibt, falls ein Netz ihn blockiert —
+  siehe §8, der Weg ist **erklärt, nicht gemessen**.
+* ~~Nicht, daß der Strom **von selbst** neue Ereignisse schickt~~ — **gemessen**, §7a.
+* ~~Nicht, daß ein Unteragenten-Strom gelaufen ist~~ — **gemessen**, §4a.
 
-**Der offene Punkt, der aus dieser Liste bleibt und am nächsten liegt:** der Strom wurde
-bisher nur **geöffnet und befragt**, nie **im Lauf** beobachtet. Genau das ist aber der
-Nutzen — „neue Ereignisse kommen ohne Abfragen". Ein Lauf mit offenem Strom ist die nächste
-Messung.
+### 7a. Der Strom **im Lauf** — er schiebt von selbst
+
+Sonde: [`messsonden/strom-lauf-sonde.mjs`](messsonden/strom-lauf-sonde.mjs) · Exit **0**
+
+Ablauf: Strecke aufwerten, `session/follow` senden (das ist die **Anforderung**), **danach**
+einen Auftrag absetzen, und ab diesem Punkt sendet die Sonde **nichts** mehr. Alles, was
+danach eintrifft, ist **ungerufen**.
+
+```
+Eröffnungsrahmen nach 0 ms
+Auftrag abgesetzt — der Strom ist OFFEN
+
+  [   515 ms]  13 ungerufene Rahmen
+  [  1015 ms]  15
+  [  2017 ms]  16
+  [  2518 ms]  20
+  [  3019 ms]  22
+  [  4021 ms]  26
+
+Rahmen gesamt nach dem Auftrag: 26      erster ungerufener nach 12 ms
+   4x event:user/message        2x event:step/start        1x event:turn/start
+   3x …delivery-accepted        2x event:assistant/message 1x event:tool/call
+   2x event:agent/inbox/spliced 2x event:step/end          1x event:tool/result
+   2x event:session/title       …                         1x event:turn/end
+```
+
+**26 Ereignisrahmen in 16 Arten, ohne eine einzige Abfrage.** Damit ist der Live-Weg belegt
+— und der Nutzen „neue Ereignisse **ohne** Abfragen" ist **gemessen**, nicht behauptet.
+
+## 8. Die anderen Live-Architekturen — was der Kern kennt und was wir nutzen
+
+Die Frage ist nicht „WebSocket **oder** SSE", sondern **welche Schicht** welchen Träger hat.
+Gemessen, jede Zeile mit ihrem Fundort:
+
+| Schicht | Träger | Befund |
+|---|---|---|
+| **Anbieter → Harness** (Tokenstrom) | **SSE** | `dsh-llm-deepseek/lib/index.js:2204` — der Adapter schickt `"accept": "text/event-stream"` |
+| **Harness → Client**, Sitzung live | **WebSocket** `/api/remote.mux` | **gemessen**: Aufwertung 3 ms, 26 ungerufene Rahmen (§7a) |
+| **Harness → Client**, einzelne Aufrufe | **HTTP** `POST /api/<voller/pfad>` | gemessen ([api-nachweis.md](api-nachweis.md)) |
+| **Harness → Client**, genaue Wege mit **strömenden** Körpern | **Fetch-Wege** | `dsh-client-connection/lib/types/rpc.d.ts`: `ConnectionFetchRoute` mit `requestBody: 'buffered' \| 'streaming'` und `fetch(request) → Promise<Response>`; `HostConnectionFetch` = *„Host registry for exact Fetch routes that cannot use JSON Remote invocation"*. **Erklärt, nicht gemessen** |
+| **Harness → Client**, HMR | **SSE** (`new EventSource(EVENTS_ROUTE)`) | `dsh-client-hmr/lib/client.js:64`; der Kern **kann** SSE |
+| **Kompression** | SSE bleibt **unkomprimiert** | `dsh-host-webserver/lib/index.js:187` nimmt `text/event-stream` vom gzip **aus** |
+
+**Zwei Befunde, die daraus folgen:**
+
+1. **SSE ist vorhanden, aber nicht für den Chat.** Sein einziger Verbraucher im Baum ist
+   **HMR** (`dsh-client-hmr`). Und im gemessenen Zustand unseres Hosts steht
+   **`@deepseek-ai/dsh-hmr` auf `enabled=false`**, während `@deepseek-ai/dsh-client-hmr`
+   `active` ist. Ob die SSE-Strecke damit überhaupt bedient wird, ist **nicht gemessen**.
+2. **Der Webserver ist auf SSE vorbereitet** — er nimmt den Medientyp ausdrücklich von der
+   Kompression aus. Das ist die Voraussetzung dafür, SSE später zu benutzen, **ohne** daß
+   eine Zwischenschicht die Rahmen puffert.
+
+**Warum WebSocket für den Chat und nicht SSE.** Sitzungsströme sind **bidirektional**
+(`open`/`cancel` gehen zum Host, `item`/`error` kommen zurück) und werden **multiplex**
+gefahren — eine Strecke für alle Ströme. SSE ist **einseitig**; ein Abbruch müßte über einen
+zweiten Weg laufen. **Das ist eine Schlußfolgerung aus dem gemessenen Protokoll, keine
+Vorliebe.**
+
+## 9. Was dieses Blatt weiterhin offen läßt
+
+* Der Strom unter **Last** (viele Sitzungen gleichzeitig, viele Rahmen je Sekunde).
+* Die **Fetch-Wege** als zweiter Träger — erklärt, **nicht gefahren**. Das ist der
+  eigentliche Ersatz, falls ein Netz WebSocket blockiert.
+* Die **HMR-SSE-Strecke** im Zustand `dsh-hmr = enabled=false`.
