@@ -12,7 +12,7 @@
 #
 # **Der eigene Fehler, der hier behoben ist.** Die erste Fassung belegte den Port
 # mit `bun -e "Bun.serve({...})"` und umgeleiteter Ausgabe. Der Halter band den
-# Port **nicht** — und der Test meldete in FASS 2 UND 3 "Port ist frei". Er
+# Port **nicht** - und der Test meldete in FASS 2 UND 3 "Port ist frei". Er
 # pruefte also nichts und sah trotzdem gruen aus. Jetzt ist der Halter eine
 # eigene Datei, die ihren Erfolg **ausgibt** ("halter: lauscht auf ..."), und
 # dieser Test wartet auf genau diese Zeile. Ohne sie bricht er ab.
@@ -28,16 +28,16 @@ $TESTPORT = 5780
 $fehler = 0
 
 # -----------------------------------------------------------------------------
-# Aufraeumen NACH PID — nicht nach Prozessname und Alter
+# Aufraeumen NACH PID - nicht nach Prozessname und Alter
 # -----------------------------------------------------------------------------
 #
-# **Der Fehler, der hier stand — gefunden von der Aufsicht (Befund B13).**
+# **Der Fehler, der hier stand - gefunden von der Aufsicht (Befund B13).**
 # Die erste Fassung raeumte so auf:
 #
 #     Get-Process bun | Where-Object { $_.StartTime -gt (Get-Date).AddMinutes(-2) }
 #                     | Stop-Process -Force
 #
-# Das toetet **jeden** bun-Prozess, der juenger als zwei Minuten ist — auch den
+# Das toetet **jeden** bun-Prozess, der juenger als zwei Minuten ist - auch den
 # `bun test` oder `bun install` eines anderen. Still: der fremde Lauf stirbt
 # ohne Meldung, und ein abgebrochenes `bun install` kann `node_modules`
 # beschaedigen. Das Muster stand an **sechs** Stellen im Projekt.
@@ -54,14 +54,14 @@ $script:gestartet = New-Object System.Collections.Generic.List[int]
 ** Sammelt eine PID und ALLE Nachfahren.
 **
 ** Warum die Nachfahren ausdruecklich gesucht werden.** `bun run scripts/start.mjs`
-** startet einen **zweiten** `bun`-Prozess — den Host. `taskkill /T` nimmt diesen
+** startet einen **zweiten** `bun`-Prozess - den Host. `taskkill /T` nimmt diesen
 ** Enkel nachweislich **nicht** mit: gemessen am 13.10.2026 hinterliess jeder Lauf
 ** dieses Skripts ein Paar aus Launcher und Host als Waise; **sechs** Paare
 ** standen noch, als es auffiel.
 **
 ** Warum EINE Abfrage und nicht eine je Knoten.** Die erste Fassung fragte fuer
 ** jeden Knoten `Get-CimInstance` mit Filter ab. Gemessen: das Skript brauchte
-** dadurch **ueber fuenf Minuten** und lief in die Zeitgrenze — WMI-Abfragen sind
+** dadurch **ueber fuenf Minuten** und lief in die Zeitgrenze - WMI-Abfragen sind
 ** teuer, und der Baum ist klein. Jetzt wird die Prozesstabelle **einmal** geholt
 ** und der Baum im Speicher gebaut.
 #>
@@ -93,24 +93,24 @@ function SammleBaum([int]$wurzel) {
 }
 
 <#
-** Beendet einen Prozessbaum — erst die Kinder, dann die Wurzel.
+** Beendet einen Prozessbaum - erst die Kinder, dann die Wurzel.
 **
 ** Nur diese PIDs. Nie nach Prozessname und Alter (Befund B13 der Aufsicht).
 #>
 function BeendeBaum([int]$wurzelPid) {
   if ($wurzelPid -le 0) { return }
   $baum = @(SammleBaum $wurzelPid)
-  # Umgekehrte Reihenfolge: die Blätter zuerst. Wird die Wurzel zuerst beendet,
+  # Umgekehrte Reihenfolge: die Blaetter zuerst. Wird die Wurzel zuerst beendet,
   # verliert man die Verbindung zu den Kindern und sie bleiben als Waisen.
   [array]::Reverse($baum)
   foreach ($p in $baum) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue }
   # `taskkill` zusaetzlich, ohne `/T`: es erreicht auch Prozesse, die
-  # `Stop-Process` nicht auflisten kann. Es ist **nicht** die einzige Maßnahme.
+  # `Stop-Process` nicht auflisten kann. Es ist **nicht** die einzige Massnahme.
   foreach ($p in $baum) { & taskkill /PID $p /F 2>&1 | Out-Null }
 }
 
 <#
-** Beendet alles, was dieses Skript gestartet hat — und nur das.
+** Beendet alles, was dieses Skript gestartet hat - und nur das.
 #>
 function BeendeEigene {
   foreach ($p in ($script:gestartet | Sort-Object -Descending)) { BeendeBaum $p }
@@ -135,7 +135,7 @@ function PortIstFrei([int]$port) {
 }
 
 <#
-** Wartet, bis ein Port frei ist — oder meldet, dass er es nicht wurde.
+** Wartet, bis ein Port frei ist - oder meldet, dass er es nicht wurde.
 **
 ** Warum gewartet wird: der Kernel gibt einen Port nicht im selben Augenblick
 ** frei, in dem der Prozess endet.
@@ -160,16 +160,16 @@ function StarteHost([string[]]$extra) {
   $beendet = $proc.HasExited
 
   # ---------------------------------------------------------------------------
-  # Den Port pruefen, den der Host WIRKLICH genommen hat — nicht den gefragten.
+  # Den Port pruefen, den der Host WIRKLICH genommen hat - nicht den gefragten.
   # ---------------------------------------------------------------------------
   # **Der Fehler, der hier stand.** Geprueft wurde `$TESTPORT`. Nimmt der Host
-  # wegen Belegung den naechsten Port (5781), band er 5780 **nie** — und die
-  # Pruefung meldete „Port 5780 ist nach dem Aufraeumen noch belegt", obwohl das
+  # wegen Belegung den naechsten Port (5781), band er 5780 **nie** - und die
+  # Pruefung meldete "Port 5780 ist nach dem Aufraeumen noch belegt", obwohl das
   # Aufraeumen gewirkt hatte. Ein **falscher Befund** ist so schaedlich wie ein
   # uebersehener: er lehrt, die Pruefung zu ignorieren.
   $gewaehlt = $null
   foreach ($z in $lines) {
-    $m = [regex]::Match($z, 'Oberfl(ä|ae)che: http://127\.0\.0\.1:(\d+)/')
+    $m = [regex]::Match($z, 'Oberfl(ae|ae)che: http://127\.0\.0\.1:(\d+)/')
     if ($m.Success) { $gewaehlt = [int]$m.Groups[2].Value; break }
   }
 
@@ -188,7 +188,7 @@ function StarteHost([string[]]$extra) {
 
   # **Und keine Waisen.** Der Enkel (`apps/cli`) ist der, den `taskkill /T` nicht
   # mitnimmt. Ein Test, der bei jedem Lauf Prozesse hinterlaesst, ist selbst ein
-  # Fehler — hier wird es nachgezaehlt.
+  # Fehler - hier wird es nachgezaehlt.
   $waisen = @(Get-CimInstance Win32_Process -Filter "Name = 'bun.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -like '*apps\cli\src\main.ts*' -or $_.CommandLine -like '*apps/cli/src/main.ts*' })
   if ($waisen.Count -gt 0) {
@@ -198,6 +198,40 @@ function StarteHost([string[]]$extra) {
   }
 
   return @{ Lines = ($lines | Where-Object { $_ -match '^\[pmh\]' }); All = $lines; Exited = $beendet; Port = $gewaehlt }
+}
+
+# -----------------------------------------------------------------------------
+# **Der stumme Verbraucher.** `StarteHost` gibt zwei Listen zurueck: `Lines` (nur
+# Zeilen mit dem Praefix `[pmh]`) und `All` (alles). Die Faelle 1-3 zeigten `Lines`
+# an und prueften gegen `Lines` -- `All` wurde zurueckgegeben und **nie benutzt**.
+#
+# Faellt der Host aus einem Grund OHNE dieses Praefix aus -- ein Bun-Fehler, eine
+# Stapelspur, ein fehlendes Modul --, dann ist `Lines` **leer**. Der Test meldete
+# dann "FEHLER: Fall 1 nicht erkannt" und zeigte **nichts**. Eine Fehlermeldung
+# ohne Spur ist keine Diagnose.
+#
+# **Warum hier reines ASCII steht, gemessen am 14.10.2026.** Diese Datei hat kein
+# BOM, und Windows PowerShell 5.1 liest sie deshalb als ANSI (cp1252). Ein
+# UTF-8-Gedankenstrich U+2014 wird dabei zu den Bytes E2 80 94, und 0x94 ist in
+# cp1252 das Zeichen U+201D -- ein **spitzes** Anfuehrungszeichen. PowerShell
+# behandelt U+201C/U+201D als **String-Begrenzer**. Die Zeichenkette endet damit
+# mitten im Satz, der Rest wird als Code gelesen: 13 Parserfehler, und pwsh 7
+# meldete 0. Wer nur mit pwsh prueft, sieht den Defekt nicht.
+#
+# **Der Filter bleibt fuer die PRUEFUNGEN** -- sie suchen `[pmh]`-Meldungen.
+# Gezeigt wird `All`.
+function ZeigeProtokoll($r, [int]$n) {
+  if (@($r.All).Count -eq 0) {
+    Write-Host "  (das Protokoll ist LEER - der Host hat NICHTS geschrieben)"
+    return
+  }
+  $r.All | Select-Object -First $n | ForEach-Object { "  " + $_ }
+  if (@($r.All).Count -gt $n) { Write-Host "  ... ($(@($r.All).Count) Zeilen insgesamt)" }
+  # **Und den Fall benennen, in dem die Pruefung blind ist.**
+  if (@($r.Lines).Count -eq 0) {
+    Write-Host "  HINWEIS: KEINE [pmh]-Zeile im Protokoll - der Grund stand oben OHNE Praefix."
+    Write-Host "           Die Pruefungen dieses Tests greifen auf [pmh] und sehen hier nichts."
+  }
 }
 
 function BelegePort([int]$port) {
@@ -215,8 +249,8 @@ function BelegePort([int]$port) {
     }
     if ($proc.HasExited) {
       # **Die Begruendung vollstaendig ausgeben.** Hier stand nur die erste Zeile
-      # von `.err` — und die war leer, weil `port-halter.mjs` seinen Fehler nach
-      # **stdout** schreibt. Eine Meldung „Halter beendet sich — " ohne Grund
+      # von `.err` - und die war leer, weil `port-halter.mjs` seinen Fehler nach
+      # **stdout** schreibt. Eine Meldung "Halter beendet sich - " ohne Grund
       # sagt niemandem etwas.
       Write-Host ("  FEHLER: Halter beendet sich (exit {0})" -f $proc.ExitCode)
       foreach ($f in @("$log.err", $log)) {
@@ -233,31 +267,49 @@ function BelegePort([int]$port) {
 
 Write-Host "=== FALL 1: Port $TESTPORT frei -> er wird genommen ==="
 $r1 = StarteHost @()
-$r1.Lines | Select-Object -First 7 | ForEach-Object { "  " + $_ }
+ZeigeProtokoll $r1 7
 if (-not ($r1.Lines -join ' ' -match "Port $TESTPORT \(Standard\) ist frei")) { Write-Host "  FEHLER: Fall 1 nicht erkannt"; $fehler++ }
 
 Write-Host ""
 Write-Host "=== FALL 2: Port $TESTPORT belegt -> Ausweichen mit Begruendung ==="
 $h = BelegePort $TESTPORT
 if ($h -eq $null) {
-  Write-Host "  UEBERSPRUNGEN: Halter konnte den Port nicht belegen — dieser Test prueft nichts."
+  Write-Host "  UEBERSPRUNGEN: Halter konnte den Port nicht belegen - dieser Test prueft nichts."
   $fehler++
 } else {
   Write-Host "  (Halter laeuft, PID $($h.Id))"
   $r2 = StarteHost @()
-  $r2.Lines | Select-Object -First 7 | ForEach-Object { "  " + $_ }
+  ZeigeProtokoll $r2 7
   $joined = $r2.Lines -join ' '
   if ($joined -match "Port $TESTPORT ist belegt") { Write-Host "  OK: Ausweichen genannt" } else { Write-Host "  FEHLER: kein Ausweichen genannt"; $fehler++ }
-  if ($joined -match "gewaehlt: $($TESTPORT + 1)|gewählt: $($TESTPORT + 1)") { Write-Host "  OK: naechster Port gewaehlt" } else { Write-Host "  HINWEIS: naechster Port nicht erkannt" }
-  if ($joined -match "Oberfläche: http://127\.0\.0\.1:$($TESTPORT + 1)/") { Write-Host "  OK: Oberflaechen-Adresse zeigt auf den gewaehlten Port" } else { Write-Host "  HINWEIS: Adresse pruefen" }
+  # **Kodierungsunabhaengige Muster -- gemessen am 14.10.2026.**
+  #
+  # Hier stand `"gewaehlt: $n|gewaehlt: $n"` (urspruenglich einmal mit ue, einmal mit
+  # Umlaut). Zwei Fallen auf einmal:
+  #
+  # 1. Die Transliteration auf ASCII hat beide Alternativen zu DERSELBEN gemacht --
+  #    der zweite Zweig war damit wirkungslos.
+  # 2. Das Muster mit Umlaut traf nur ZUFALLIG: 5.1 liest diese Datei als ANSI, der
+  #    Umlaut im Quelltext wird also zu "A-tilde-a-umlaut" -- und die Ausgabe des
+  #    Kindes wird ebenso falsch dekodiert. Zwei Fehler hoben einander auf.
+  #
+  # `.{1,2}` trifft beide Formen: "gewaehlt" (kein Sonderzeichen) und "gewXXhlt"
+  # (zwei Ersatzzeichen). Wer die Konsole spaeter auf UTF-8 stellt, aendert nichts.
+  if ($joined -match "gew.{1,2}hlt: $($TESTPORT + 1)") { Write-Host "  OK: naechster Port gewaehlt" }
+  else {
+    Write-Host "  HINWEIS: naechster Port nicht erkannt -- gesucht: 'gew.{1,2}hlt: $($TESTPORT + 1)'"
+    Write-Host "           die ersten Zeichen des Protokolls: $($joined.Substring(0, [Math]::Min(160, $joined.Length)))"
+  }
+  if ($joined -match "Oberfl.{1,2}che: http://127\.0\.0\.1:$($TESTPORT + 1)/") { Write-Host "  OK: Oberflaechen-Adresse zeigt auf den gewaehlten Port" }
+  else { Write-Host "  HINWEIS: Adresse pruefen -- gesucht: 'Oberfl.{1,2}che: http://127.0.0.1:$($TESTPORT + 1)/'" }
 
   # ---------------------------------------------------------------------------
-  # Den Halter SOFORT beenden — nicht erst nach Fall 3.
+  # Den Halter SOFORT beenden - nicht erst nach Fall 3.
   # ---------------------------------------------------------------------------
   # **Der Fehler, der hier stand.** Das Aufraeumen von `$h` geschah erst NACH
   # Fall 3. Port 5780 war also noch belegt, als Fall 3 seinen EIGENEN Halter
-  # darauf binden wollte — der scheiterte mit `EADDRINUSE` und beendete sich.
-  # Fall 3 meldete dann „UEBERSPRUNGEN", und die Ursache sah nach einem Fehler
+  # darauf binden wollte - der scheiterte mit `EADDRINUSE` und beendete sich.
+  # Fall 3 meldete dann "UEBERSPRUNGEN", und die Ursache sah nach einem Fehler
   # des Halters aus statt nach einem Reihenfolgefehler im Test.
   BeendeBaum $h.Id
   if (-not (WarteAufFreienPort $TESTPORT 5)) {
@@ -275,7 +327,7 @@ if ($h2 -eq $null) {
   $fehler++
 } else {
   $r3 = StarteHost @('--strict-port')
-  $r3.Lines | Select-Object -First 8 | ForEach-Object { "  " + $_ }
+  ZeigeProtokoll $r3 8
   if (($r3.Lines -join ' ') -match 'FEHLER: Kein freier Port') { Write-Host "  OK: sichtbarer Abbruch mit Begruendung" } else { Write-Host "  FEHLER: kein Abbruch gemeldet"; $fehler++ }
   BeendeBaum $h2.Id
 }
@@ -287,7 +339,7 @@ Write-Host ""
 Write-Host "=== FALL 4: die genannte Adresse ist BENUTZBAR (nicht nur vorhanden) ==="
 # -----------------------------------------------------------------------------
 # **Warum dieser Fall nachtraeglich dazukam.** Die Faelle 1-3 pruefen, dass die
-# Adresse den *gewaehlten Port* nennt. Genau das tat sie — und der Aufruf
+# Adresse den *gewaehlten Port* nennt. Genau das tat sie - und der Aufruf
 # antwortete trotzdem mit **401**, weil das Anmeldetoken fehlte. Ein Test, der
 # die Adresse nur als Zeichenkette prueft, sieht das nicht. Hier wird die Adresse
 # deshalb **aufgerufen**.
@@ -310,7 +362,7 @@ for ($i = 0; $i -lt 24; $i++) {
   if ($m.Success) { $gefunden = $m.Value; break }
 }
 if ($gefunden -eq $null) {
-  Write-Host "  FEHLER: keine benutzbare Adresse in der Ausgabe — der Start nennt sie nicht"
+  Write-Host "  FEHLER: keine benutzbare Adresse in der Ausgabe - der Start nennt sie nicht"
   $fehler++
 } else {
   $token = ($gefunden -split 'token=')[1]
@@ -325,7 +377,7 @@ if ($gefunden -eq $null) {
   }
   try {
     $null = Invoke-WebRequest -Uri $ohne -UseBasicParsing -TimeoutSec 6
-    Write-Host "  FEHLER: ohne Token -> 200 — die Oberflaeche ist ungeschuetzt!"; $fehler++
+    Write-Host "  FEHLER: ohne Token -> 200 - die Oberflaeche ist ungeschuetzt!"; $fehler++
   } catch {
     $code = $_.Exception.Response.StatusCode.value__
     if ($code -eq 401) { Write-Host "  OK: ohne Token -> 401 (geschuetzt)" }
@@ -338,6 +390,6 @@ BeendeEigene
 Write-Host ""
 Write-Host ("=== Ergebnis: {0} Befund(e) ===" -f $fehler)
 Pop-Location
-# **Der Exit-Code ist das Ergebnis.** Wer dieses Skript aufruft, liest ihn — nicht
+# **Der Exit-Code ist das Ergebnis.** Wer dieses Skript aufruft, liest ihn - nicht
 # die Ausgabe. Ohne diese Zeile endet es immer mit 0, auch bei Befunden.
 if ($fehler -gt 0) { exit 1 } else { exit 0 }

@@ -81,9 +81,40 @@ try {
     if (zeile === undefined) {
       // **Ein Ziel, das sich nicht laden läßt, wird BENANNT** — nicht als 0 gezählt.
       console.log('  ' + ziel.name.padEnd(34) + 'NICHT GELADEN')
-      if ((r.stderr ?? '').trim() !== '') {
-        const erste = (r.stderr ?? '').trim().split('\n').filter((z) => !z.includes('[pmh]'))[0] ?? ''
-        console.log('      ' + erste.slice(0, 120))
+      // **Hier stand ein Filter über stderr — und ich habe ihn zuerst FALSCH
+      // begründet.** Die Zeile lautete `filter((z) => !z.includes('[pmh]'))` und
+      // zeigte die erste Zeile OHNE Vorladungspräfix. Ich hielt das für stumm:
+      // „sind alle Zeilen `[pmh]`, steht unter NICHT GELADEN nichts".
+      //
+      // **Gemessen am 14.10.2026 — und damit widerlegt.** Ein echter Ladefehler
+      // liefert sehr wohl Zeilen ohne das Präfix:
+      //
+      //   [pmh] Bun-Lücke ergänzt: PTC-Typentfernung …
+      //   [pmh] Bun-Lücke ergänzt: Subprozess-argv …
+      //   error: Cannot find package 'es-gibt-mich-nicht-xyz' from '…'
+      //   Bun v1.4.0 (Windows x64)
+      //
+      // Der alte Filter zeigte also `error: Cannot find package …` — den Grund. Er
+      // war NICHT stumm. Die Änderung bleibt, aber als **Verbesserung**, nicht als
+      // Reparatur eines belegten Defekts: gezeigt werden jetzt bis zu sechs Zeilen
+      // statt einer, und die Vorladungszeilen sind **gekennzeichnet statt entfernt**.
+      //
+      // Die Lehre, die bleibt: ich habe aus dem **Lesen** des Codes auf einen Defekt
+      // geschlossen, ohne ihn zu messen. Ein Codebild ist kein Befund.
+      const stderrZeilen = (r.stderr ?? '')
+        .trim()
+        .split('\n')
+        .filter((z) => z.trim() !== '')
+      if (stderrZeilen.length === 0) {
+        console.log('      (stderr ist LEER — kein Anhaltspunkt vom Kind)')
+      } else {
+        for (const z of stderrZeilen.slice(0, 6)) {
+          const marke = z.includes('[pmh]') ? '   [Vorladung]' : ''
+          console.log('      ' + z.slice(0, 150) + marke)
+        }
+        if (stderrZeilen.length > 6) {
+          console.log(`      … und ${String(stderrZeilen.length - 6)} weitere Zeilen`)
+        }
       }
       continue
     }

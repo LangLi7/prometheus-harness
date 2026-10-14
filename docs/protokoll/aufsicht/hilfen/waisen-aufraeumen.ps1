@@ -1,33 +1,33 @@
 <#
 .SYNOPSIS
-  Räumt verwaiste PMH-Hosts auf — nach Herkunft, nicht nach Name und Alter.
+  Raeumt verwaiste PMH-Hosts auf - nach Herkunft, nicht nach Name und Alter.
 
 .DESCRIPTION
   **Warum diese Datei existiert.** Die Port-Tests des Projekts (`scripts/port-test.ps1`) starten je Fall
   einen Host und lassen danach Prozesse stehen. Gemessen am 13.10.2026 um **13:41:50**: **sechs** Hosts
-  liefen weiter (Ports 5780–5783, 5790, 5791), Alter 5,9 bis 11,4 Minuten, zusammen **1.129,7 MB**
-  Arbeitsspeicher — und **einer von ihnen hielt Port 5780**, den der nächste Testlauf braucht. Befund
+  liefen weiter (Ports 5780-5783, 5790, 5791), Alter 5,9 bis 11,4 Minuten, zusammen **1.129,7 MB**
+  Arbeitsspeicher - und **einer von ihnen hielt Port 5780**, den der naechste Testlauf braucht. Befund
   **B22** im Protokoll der Aufsicht. Der bauende Agent hat diese sechs um 13:42 **selbst entfernt**.
 
-  **Die Ursache ist inzwischen gemessen — Befund B23.** Die neue Fassung von `port-test.ps1` räumt
+  **Die Ursache ist inzwischen gemessen - Befund B23.** Die neue Fassung von `port-test.ps1` raeumt
   **gar nichts** auf: `function BeendeBaum([int]$pid)` bindet `$pid`, und das ist in PowerShell eine
-  **schreibgeschützte automatische Variable**. Der Funktionsrumpf wird nie erreicht, der Fehler ist
-  nicht terminierend — das Skript läuft weiter, als wäre nichts gewesen. **Acht** Aufrufe schlagen
+  **schreibgeschuetzte automatische Variable**. Der Funktionsrumpf wird nie erreicht, der Fehler ist
+  nicht terminierend - das Skript laeuft weiter, als waere nichts gewesen. **Acht** Aufrufe schlagen
   fehl. Wer diesen Fehler behebt (`[int]$prozessId`), braucht dieses Skript hier nur noch als Netz.
 
-  **Korrektur einer früheren Vermutung (Regel H6).** Hier stand, der Mechanismus sei „`StarteHost`
-  beendet den Launcher, und `Stop-Process -Force` liefert kein SIGINT/SIGTERM". Für die **neue**
-  Fassung ist das widerlegt (B23). Für die **alte** ist er **offen**: ihre Fenster (1, 5 und 2 Minuten)
-  hätten die 1,13 bis 11,4 Minuten alten Prozesse treffen müssen, und `Get-Process bun` **sieht** sie.
-  Die Zeilen haben in jenen Läufen also **nicht gewirkt** — warum, ist von hier aus nicht entschieden.
+  **Korrektur einer frueheren Vermutung (Regel H6).** Hier stand, der Mechanismus sei "`StarteHost`
+  beendet den Launcher, und `Stop-Process -Force` liefert kein SIGINT/SIGTERM". Fuer die **neue**
+  Fassung ist das widerlegt (B23). Fuer die **alte** ist er **offen**: ihre Fenster (1, 5 und 2 Minuten)
+  haetten die 1,13 bis 11,4 Minuten alten Prozesse treffen muessen, und `Get-Process bun` **sieht** sie.
+  Die Zeilen haben in jenen Laeufen also **nicht gewirkt** - warum, ist von hier aus nicht entschieden.
 
-  **Der Unterschied zu „Get-Process bun | Stop-Process".** Dieses Skript tötet **nicht** nach
-  Prozessname und Alter (das ist die Ursache, dass die Waisen unbemerkt blieben — Befund **B13**),
-  sondern prüft für **jeden** Kandidaten:
+  **Der Unterschied zu "Get-Process bun | Stop-Process".** Dieses Skript toetet **nicht** nach
+  Prozessname und Alter (das ist die Ursache, dass die Waisen unbemerkt blieben - Befund **B13**),
+  sondern prueft fuer **jeden** Kandidaten:
     1. der Prozess ist `bun`,
     2. seine Kommandozeile nennt **dieses Repository** (`$Repo`),
     3. und er ist ein **Host** (`apps/cli`) oder ein **Launcher** (`scripts/start.mjs`) dieses Projekts.
-  Getötet wird über die **PID mit Baum** (`taskkill /T /F`) — damit stirbt auch, was der Prozess
+  Getoetet wird ueber die **PID mit Baum** (`taskkill /T /F`) - damit stirbt auch, was der Prozess
   gestartet hat.
 
 .PARAMETER Anwenden
@@ -35,14 +35,14 @@
 
 .PARAMETER MinAlterMinuten
   Nur Prozesse, die **mindestens** so viele Minuten alt sind. Vorgabe: 3.
-  Diese Schwelle ist Absicht: läuft gerade ein Port-Test, dann sind dessen Hosts
-  **jung** und gehören ihm — sie dürfen nicht weggeräumt werden, sonst zerstört
-  man die Messung, die gerade läuft. Alt genug zu sein ist **notwendig, nicht
+  Diese Schwelle ist Absicht: laeuft gerade ein Port-Test, dann sind dessen Hosts
+  **jung** und gehoeren ihm - sie duerfen nicht weggeraeumt werden, sonst zerstoert
+  man die Messung, die gerade laeuft. Alt genug zu sein ist **notwendig, nicht
   hinreichend**: die Herkunft (Kommandozeile) entscheidet, das Alter siebt nur
   die lebenden Kinder eines laufenden Tests aus.
 
 .PARAMETER Repo
-  Wurzel des Projekts. Vorgabe: der Ordner zwei Ebenen über dieser Datei.
+  Wurzel des Projekts. Vorgabe: der Ordner zwei Ebenen ueber dieser Datei.
 
 .EXAMPLE
   pwsh -File waisen-aufraeumen.ps1              # nur anzeigen
@@ -69,7 +69,7 @@ $zuJung = @()
 foreach ($p in (Get-CimInstance Win32_Process -Filter "Name='bun.exe'" -ErrorAction SilentlyContinue)) {
   $cmd = [string]$p.CommandLine
   if ($cmd -eq '') { continue }
-  if (-not $cmd.ToLowerInvariant().Contains($repoKlein)) { continue }   # fremde bun-Prozesse bleiben unberührt
+  if (-not $cmd.ToLowerInvariant().Contains($repoKlein)) { continue }   # fremde bun-Prozesse bleiben unberuehrt
   $art = if ($cmd -match 'apps[\\/]cli') { 'Host' } elseif ($cmd -match 'scripts[\\/]start\.mjs') { 'Launcher' } else { $null }
   if ($null -eq $art) { continue }
   $prozess = Get-Process -Id $p.ProcessId -ErrorAction SilentlyContinue
@@ -85,13 +85,13 @@ foreach ($p in (Get-CimInstance Win32_Process -Filter "Name='bun.exe'" -ErrorAct
 }
 
 if ($zuJung.Count -gt 0) {
-  Write-Host ("Übergangen — jünger als {0} min, gehören vermutlich einem laufenden Test:" -f $MinAlterMinuten)
+  Write-Host ("Uebergangen - juenger als {0} min, gehoeren vermutlich einem laufenden Test:" -f $MinAlterMinuten)
   foreach ($z in $zuJung) { Write-Host "  $z" }
   Write-Host ""
 }
 
 if ($kandidaten.Count -eq 0) {
-  Write-Host "Keine Kandidaten — es läuft kein Host und kein Launcher dieses Projekts, der alt genug wäre."
+  Write-Host "Keine Kandidaten - es laeuft kein Host und kein Launcher dieses Projekts, der alt genug waere."
   exit 0
 }
 
@@ -108,9 +108,9 @@ if (-not $Anwenden) {
   exit 0
 }
 
-# **Erst die Hosts, dann die Launcher** — umgekehrt startet der Launcher nichts nach (er startet nur einmal).
+# **Erst die Hosts, dann die Launcher** - umgekehrt startet der Launcher nichts nach (er startet nur einmal).
 foreach ($k in ($kandidaten | Sort-Object { if ($_.Art -eq 'Host') { 0 } else { 1 } })) {
-  Write-Host ("  beende PID {0} ({1}, Port {2}, {3} min) samt Baum …" -f $k.PID, $k.Art, $k.Port, $k.Alter)
+  Write-Host ("  beende PID {0} ({1}, Port {2}, {3} min) samt Baum ..." -f $k.PID, $k.Art, $k.Port, $k.Alter)
   & taskkill /pid $k.PID /T /F 2>&1 | ForEach-Object { "    $_" }
 }
 

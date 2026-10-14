@@ -21,7 +21,7 @@ for ($i = 1; $i -le $MaxSekunden; $i++) {
   if ($proc.HasExited) { break }
 }
 if (-not $token) {
-  Write-Host "Kein Token — Host kam nicht hoch"
+  Write-Host "Kein Token - Host kam nicht hoch"
   Get-Content "$log.err" -ErrorAction SilentlyContinue | Select-Object -Last 4 | ForEach-Object { Write-Host "  $_" }
   if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
   exit 1

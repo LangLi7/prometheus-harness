@@ -1,7 +1,7 @@
-# Prüft die Schnittstellenfläche des Hosts am LAUFENDEN Host.
+# Prueft die Schnittstellenflaeche des Hosts am LAUFENDEN Host.
 #
 # Nicht die Doku fragen, sondern den Prozess: welche Pfade antworten, mit welchem
-# Status, und welche Kopfzeilen kommen zurück.
+# Status, und welche Kopfzeilen kommen zurueck.
 param(
   [int]$Port = 5401,
   [int]$MaxSekunden = 45
@@ -30,12 +30,12 @@ for ($i = 1; $i -le $MaxSekunden; $i++) {
 }
 
 if (-not $token) {
-  Write-Host "KEIN Token — Host kam nicht hoch"
+  Write-Host "KEIN Token - Host kam nicht hoch"
   Get-Content $err -ErrorAction SilentlyContinue | Select-Object -Last 5 | ForEach-Object { Write-Host "  $_" }
   if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
   exit 1
 }
-Write-Host "Token gelesen — Host läuft auf Port $Port"
+Write-Host "Token gelesen - Host laeuft auf Port $Port"
 Write-Host ""
 
 # Sitzung mit Cookie aufbauen (der Weg, den ein Browser geht).
@@ -58,7 +58,7 @@ function Probe([string]$method, [string]$path) {
   }
 }
 
-Write-Host "=== Pfade, die die Oberfläche braucht ==="
+Write-Host "=== Pfade, die die Oberflaeche braucht ==="
 $paths = @(
   '/', '/healthz', '/api', '/api/health',
   '/api/sessions', '/api/workspaces', '/api/settings', '/api/models',
