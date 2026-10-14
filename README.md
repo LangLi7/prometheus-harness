@@ -32,7 +32,7 @@ packages green, 0 red**, and `bun test packages scripts apps` reports **1189 pas
 - [Summary](#summary)
 - [Why this exists](#why-this-exists)
 - [What runs today](#what-runs-today)
-- [Try it](#try-it)
+- [Quickstart](#try-it)
 - [Where the detail lives](#where-the-detail-lives)
 - [Known Limitations](#known-limitations)
 - [Licence](#licence)
@@ -76,7 +76,7 @@ Nothing here is an estimate.
 | Real model | answered through the core API (`session/create`, `session/prompt`) | [api-nachweis.md](docs/status/api-nachweis.md) |
 
 <a id="try-it"></a>
-## Try it
+## Quickstart
 
 ```sh
 # Windows — Command Prompt, PowerShell, or double-click the file
@@ -94,9 +94,22 @@ cd prometheus-harness
 bun run start
 ```
 
-Run the installer with `--ohne-stapel` to skip the database; the PostgreSQL checks
-then **skip themselves and say so**, rather than passing with nothing to check
-against. Why there are three entry scripts, and why a `.ps1` does not load on a
+Open **that** address — not a fixed one. The interface answers **401** without the
+token it prints. The first visit asks for a **claim**, and the first account it
+creates is the **administrator**; further accounts are created by an admin, as in a
+fresh n8n instance.
+
+Two switches matter. `--ohne-stapel` skips the database: the PostgreSQL checks then
+**skip themselves and say so**, instead of passing with nothing to check against.
+`bun run start --help` lists every flag and environment variable, and an unknown
+flag is **rejected** rather than silently ignored.
+
+**For a deployment**, the database addresses come from `.env` — the installer
+writes them — and the port from `PMH_PORT` or `--port`. Two things are deliberately
+different from a one-line installer: there is **no built-in fallback database**
+(PostgreSQL 17 is required), and **Docker is not installed for you** (on Windows it
+is Docker Desktop, a program with its own licence; on Linux the official script
+needs root). Why there are three entry scripts, and why a `.ps1` does not load on a
 default Windows machine, is in
 [installations-einstiege.md](docs/status/installations-einstiege.md).
 

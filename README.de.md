@@ -33,7 +33,7 @@ Dateien auf Linux.
 - [Zusammenfassung](#summary)
 - [Warum es das gibt](#why-this-exists)
 - [Was heute läuft](#what-runs-today)
-- [Ausprobieren](#try-it)
+- [Schnellstart](#try-it)
 - [Wo das Detail steht](#where-the-detail-lives)
 - [Bekannte Grenzen](#known-limitations)
 - [Lizenz](#licence)
@@ -79,7 +79,7 @@ Nichts hier ist geschätzt.
 | Echtes Modell | hat über die Kern-API geantwortet (`session/create`, `session/prompt`) | [api-nachweis.md](docs/status/api-nachweis.md) |
 
 <a id="try-it"></a>
-## Ausprobieren
+## Schnellstart
 
 ```sh
 # Windows — Eingabeaufforderung, PowerShell oder Doppelklick auf die Datei
@@ -97,10 +97,25 @@ cd prometheus-harness
 bun run start
 ```
 
-Mit `--ohne-stapel` läuft der Installer ohne Datenbank; die PostgreSQL-Prüfungen
-**überspringen sich dann und sagen das**, statt ohne Datenbank zu „bestehen".
-Warum es drei Einstiegsskripte gibt und warum eine `.ps1` auf einem
-Standard-Windows nicht lädt, steht in
+Öffne **diese** Adresse — keine feste. Ohne das ausgegebene Token antwortet die
+Oberfläche mit **401**. Der erste Besuch verlangt einen **Claim**, und das erste
+Konto daraus ist der **Administrator**; weitere Konten legt ein Administrator an,
+wie bei einer frischen n8n-Instanz.
+
+Zwei Schalter zählen. `--ohne-stapel` läßt die Datenbank aus: die
+PostgreSQL-Prüfungen **überspringen sich dann und sagen das**, statt ohne
+Datenbank zu „bestehen". `bun run start --help` nennt jeden Schalter und jede
+Umgebungsvariable, und ein unbekannter Schalter wird **abgelehnt** statt
+stillschweigend geschluckt.
+
+**Für den Betrieb** kommen die Datenbankadressen aus `.env` — der Installer
+schreibt sie — und der Port aus `PMH_PORT` oder `--port`. Zwei Dinge sind bewußt
+anders als bei einem Ein-Zeilen-Installer: es gibt **keine eingebaute
+Ersatzdatenbank** (PostgreSQL 17 ist Voraussetzung), und **Docker wird nicht
+mitinstalliert** (unter Windows ist das Docker Desktop, ein Programm mit eigener
+Lizenz; unter Linux braucht das offizielle Skript root). Warum es drei
+Einstiegsskripte gibt und warum eine `.ps1` auf einem Standard-Windows nicht lädt,
+steht in
 [installations-einstiege.md](docs/status/installations-einstiege.md).
 
 <a id="where-the-detail-lives"></a>
