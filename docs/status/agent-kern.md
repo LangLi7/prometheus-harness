@@ -53,43 +53,61 @@ Die Kreuzung aus **gemessener Zusammensetzung** (`pluginInventur`) und **Ereigni
 fördert sofort zutage, was meine Liste verschwieg. Die Zuordnung Zeile → Werkzeugname steht
 **ausgeschrieben** in der Sonde, nicht geraten.
 
-**Von 16 Werkzeug-Zeilen des Presets wurden 7 NIE aufgerufen:**
+**Von 16 Werkzeug-Zeilen des Presets waren 7 ohne Aufruf.** Sie wurden mit
+[`messsonden/werkzeug-wecken.mjs`](messsonden/werkzeug-wecken.mjs) **gerufen** — je Werkzeug
+eine eigene Sitzung:
 
-| Zeile | zugeordnete Werkzeuge | Urteil |
-|---|---|---|
-| `dsh-tool-pwsh` | `pwsh` (33×) | belegt |
-| `dsh-tool-fs` | `read` (27×), `write` (9×) | belegt |
-| `dsh-tool-fs-search` | `glob` (14×), `grep` (9×) | belegt |
-| `dsh-tool-jobs` | `job_list` (3×), `job_output` (4×) | belegt |
-| `dsh-tool-schedule` | `schedule_list` (2×) | belegt |
-| `dsh-tool-todo` | `todo_write` (1×) | belegt |
-| `dsh-tool-web` | `web_search` (3×), `web_fetch` (2×) | belegt — **`web_fetch` 2× fehlerhaft** |
-| `dsh-tool-subagent` (2 Zeilen) | `subagent` (2×), `send_message` (2×) | belegt |
-| **`dsh-tool-skill`** | `skill` | **NIE AUFGERUFEN** |
-| **`dsh-tool-goal`** | `goal_*` | **NIE AUFGERUFEN** — das Ziel kam über `/goal`, nicht über das Werkzeug |
-| **`dsh-tool-ask-user`** | `ask_user_question` | **NIE AUFGERUFEN** |
-| **`dsh-tool-present`** | `present` | **NIE AUFGERUFEN** |
-| **`dsh-tool-subagent-control`** | `interrupt_agent`, `list_agents` | **NIE AUFGERUFEN** |
-| **`dsh-tool-subagent-control/list-agents`** | `list_agents` | **NIE AUFGERUFEN** |
-| **`dsh-tool-workflow`** | `workflow` | **NIE AUFGERUFEN** |
+| Werkzeug | Ergebnis des Weckrufs |
+|---|---|
+| `list_agents` | **GRÜN** — `(no subagents)` |
+| `present` | **GRÜN** — `Presented …\SONDE-PRESENT.txt`; **legt eine Datei an** |
+| `get_goal` | **GRÜN** — `{"goal":null}` |
+| `skill` | **GERUFEN, FEHLER** — `Error: skill "analyse" is unknown or no longer available` |
+| `ask_user_question` | **GERUFEN, ANTWORT AUSSTEHEND** — die Runde **blockiert**, bis jemand antwortet. Das ist richtig |
+| `interrupt_agent` | **nicht gefahren** — braucht einen laufenden Unteragenten |
+| `workflow` | **nicht gefahren** — startet Unteragenten und kostet ein Vielfaches der übrigen |
 
-**Und drei aktive Zeilen ohne jede Spur — kein Ereignis, kein Werkzeugaufruf:**
+**Zwei Korrekturen an meiner eigenen Tabelle:**
 
-* `@deepseek-ai/dsh-persona`
-* `@deepseek-ai/dsh-skill-filesystem`
-* `@deepseek-ai/dsh-workflow-ptc`
+* **`dsh-tool-goal` war NICHT „nie gerufen".** Ich hatte den Werkzeugnamen **geraten**
+  (`goal_get`); gemessen heißt er **`get_goal`**. Das Protokoll zeigt
+  `get_goal … {"goal":null}` — also ein grüner Aufruf. Meine Zuordnung war falsch, nicht
+  das Werkzeug. (Arbeitsweise, Regel 11.)
+* **Meine Sonde urteilte zweimal falsch.** Sie endete an der Zeitgrenze und urteilte mit dem
+  **zuletzt geglückt gelesenen** Stand; war die letzte Lesung fehlgeschlagen (die
+  zstd-Datei wird während des Schreibens gelesen), stand dort der `tool/call` **ohne**
+  Antwort — und sie meldete „ANTWORT AUSSTEHEND", obwohl das Ergebnis **im Protokoll stand**.
+  Behoben: nach der Schleife wird **noch einmal** gelesen.
 
-**Die Folge für das Urteil.** Der Agent-Kern ist **nicht** „abgeschlossen". Er ist
-**belegt für 14 Werkzeuge und 6 Befehle** — und **offen für sieben Werkzeug-Zeilen, die nie
-gerufen wurden**, plus drei Zeilen ohne Spur. Daß ein Werkzeug **nie gerufen** wurde, ist
-**kein** Defekt: es heißt, daß niemand es gebraucht hat. Es heißt aber auch, daß **nichts**
-über es bekannt ist — und „nie gerufen" ist von „kaputt" nicht zu unterscheiden, solange
-niemand es ruft.
+## 2.2 Der eigentliche Befund: **unser Host hat keine Fähigkeiten**
 
-**Eine Gegenprobe, die etwas fand:** `working_directory` wurde **2×** gerufen, hat aber
-**keine Zeile im Standard-Preset**. Das Werkzeug kommt also von **außerhalb** dieser
-Zusammensetzung — der Host stellt es bereit. Auch das steht in keiner meiner erfundenen
-13 Zeilen.
+`skill "analyse" is unknown` ist **kein Defekt des Werkzeugs** — das Werkzeug arbeitet
+korrekt und weist einen unbekannten Namen ab. Es ist ein Befund über **unseren Host**:
+
+| Wurzel | Befund |
+|---|---|
+| Projektbaum | **0** `SKILL.md` |
+| unser Harness-Home (`.pmh-build/harness-home`) | **kein** `skills/`-Verzeichnis |
+| `node_modules` | **5** `SKILL.md` — aber **verschachtelt** unter Paketverzeichnissen, und `dsh-skill-filesystem` findet „nested `**/SKILL.md` **deliberately not** discovered" |
+| `~/.dsh/skills` | **36 Einträge vorhanden**, darunter `analyse` mit formal **einwandfreiem** `SKILL.md` |
+
+**Warum sie nicht ankommen.** Unser `scripts/start.mjs` gibt dem Host ein **eigenes
+Harness-Home** — und das ist eine **gemessene Notwendigkeit**, kein Zufall: mit
+`DSH_HOME=C:\Users\Chang\.dsh` liegen dort **204 Pakete der Linie 0.1.1-rc.2**, während
+unser Projektbaum **0.2.1-alpha.2** trägt. Sie gewinnen über die Node-Auflösungskette, und
+**27 Profil-Einträge wurden als „version-inkompatibel" abgeschaltet** — darunter `llm`,
+`session`, `agent` und `webserver`. **Kein Webserver, kein HTTP.** Mit eigenem Home:
+**0** Abschaltungen.
+
+**Die Folge:** der Wurzelpfad `dshHome` (laut Kern `$DSH_HOME` oder `~/.dsh`, dort das
+Unterverzeichnis `skills`) zeigt damit auf **unser** Home — und das hat **kein** `skills/`.
+Die 36 Fähigkeiten des Benutzers sind für unseren Host **unsichtbar**.
+
+**Das ist eine offene Lücke, keine Kleinigkeit:** `dsh-tool-skill` steht im Standard-Preset
+auf `active`, und der Agent bekommt einen Hinweis auf Fähigkeiten — aber der Katalog ist
+**leer**. Der Weg wäre ein **eigenes `skills/`-Verzeichnis** für unseren Host (Projektwurzel
+oder Home), das eigene Fähigkeiten hält oder auf die des Benutzers **verweist** — ohne
+`~/.dsh` anzutasten. **Das ist eine Entscheidung, und sie ist nicht gefallen.**
 
 ## 3. Die sechs Befehle — einzeln gefahren
 
