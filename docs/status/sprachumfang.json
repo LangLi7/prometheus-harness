@@ -1,5 +1,5 @@
 {
-  "gemessenAm": "2026-10-14T14:09:13.096Z",
+  "gemessenAm": "2026-10-14T14:12:07.875Z",
   "sprachdateien": 56,
   "formen": {
     "objekt": 46,
@@ -198,6 +198,49 @@
       "stats.dialog.ttft",
       "stats.dialog.usageTitle",
       "view.chat"
+    ],
+    "common": [
+      "back",
+      "brand.localBuild",
+      "cancel",
+      "close",
+      "codeBlock.title",
+      "codeBlock.unwrap",
+      "codeBlock.wrap",
+      "collapse",
+      "copied",
+      "copy",
+      "copy.compactJson",
+      "copy.failed",
+      "copy.json",
+      "copy.optionsHint",
+      "copy.path",
+      "copy.prettyJson",
+      "copy.value",
+      "delete",
+      "edit",
+      "expand",
+      "json.label",
+      "load.failed",
+      "loading",
+      "markdown.footnotes",
+      "markdown.truncatedCharacters",
+      "more",
+      "next",
+      "none",
+      "number.million",
+      "number.thousand",
+      "ok",
+      "previous",
+      "retry",
+      "save",
+      "search",
+      "skip",
+      "submit",
+      "submitting",
+      "truncated",
+      "unknown",
+      "workspace.defaultName"
     ],
     "conversation": [
       "ask.answered",
@@ -1794,6 +1837,9 @@
       "time.months",
       "time.now",
       "time.years"
+    ],
+    "settings.locale": [
+      "language.title"
     ],
     "skill": [
       "menu.userOnly",

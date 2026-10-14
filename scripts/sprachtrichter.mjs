@@ -153,6 +153,72 @@ export function paketAus(pfad) {
   return i >= 0 && teile[i + 1] !== undefined ? teile[i + 1] : '(unbekannt)'
 }
 
+/**
+ * Die Wörterbücher, die das **Sprach-Plugin selbst** anlegt — und die deshalb in
+ * **keiner** `locales.d.ts` stehen.
+ *
+ * ## Der Fehler, der das nötig machte
+ *
+ * Der Trichter las nur die 56 `locales.*`-Dateien des Kerns. Gemessen am 14.10.2026:
+ *
+ * ```
+ * Fach 'common' in der Maßlatte:        NEIN
+ * 'codeBlock.wrap' kommt in KEINEM Fach vor
+ * ```
+ *
+ * `common` wird im **Bündel** von `dsh-client-locale` registriert
+ * (`locale.register(COMMON_NS, { zh, en })`), ebenso `settings.locale`. Und `common` ist
+ * genau das **gemeinsame Vokabular**, auf das jede Fläche zurückfällt, wenn ihr eigener
+ * Namensraum einen Schlüssel nicht hat. **Die Maßlatte war an der wichtigsten Stelle
+ * unvollständig** — aufgefallen ist das erst, als ich sie **benutzen** wollte.
+ *
+ * ## Warum mit Klammerntiefe und nicht mit einem Muster
+ *
+ * Die Werte im Bündel sind **minifiziert** und laufen teils über mehrere Zeilen.
+ * `/"([^"]+)"\s*:\s*"([^"]*)"/` findet deshalb nicht alle Paare — gemessen: es fand 14,
+ * während direkt darüber ein weiterer Schlüssel (`copy.optionsHint`) mit mehrzeiligem Wert
+ * stand. Deshalb wird der Objektkörper **bis zur passenden schließenden Klammer** gelesen
+ * und darin nach `"schlüssel":` auf der **ersten Ebene** gesucht.
+ *
+ * @param {string} text - Inhalt des Bündels
+ * @returns {Record<string, string[]>} Fach → Schlüssel
+ */
+export function lesePluginWoerterbuecher(text) {
+  const raus = {}
+  const fachVon = { en$1: 'common', zh$1: 'common', en: 'settings.locale', zh: 'settings.locale' }
+  for (const [variable, fach] of Object.entries(fachVon)) {
+    const kopf = new RegExp(`const\\s+${variable.replace('$', '\\$')}\\s*=\\s*\\{`, 'u').exec(text)
+    if (kopf === null) continue
+    const ab = kopf.index + kopf[0].length
+    let tiefe = 1
+    let i = ab
+    for (; i < text.length && tiefe > 0; i++) {
+      const c = text[i]
+      if (c === '{') tiefe += 1
+      else if (c === '}') tiefe -= 1
+    }
+    const koerper = text.slice(ab, i - 1)
+    // Schlüssel auf der ERSTEN Ebene: `"a.b": …` — Tiefe wird zeilenweise mitgeführt.
+    const schluessel = new Set()
+    let ebene = 0
+    for (const zeile of koerper.split('\n')) {
+      const vorher = ebene
+      for (const c of zeile) {
+        if (c === '{') ebene += 1
+        else if (c === '}') ebene -= 1
+      }
+      if (vorher !== 0) continue
+      const m = /^\s*(?:"([^"]+)"|'([^']+)'|([A-Za-z_$][\w$]*))\s*:/u.exec(zeile)
+      const name = m?.[1] ?? m?.[2] ?? m?.[3]
+      if (name !== undefined) schluessel.add(name)
+    }
+    const bisher = new Set(raus[fach] ?? [])
+    for (const s of schluessel) bisher.add(s)
+    raus[fach] = [...bisher]
+  }
+  return raus
+}
+
 function haupt() {
   const wurzel = process.cwd()
   const iPruefen = process.argv.indexOf('--pruefen')
@@ -196,6 +262,28 @@ function haupt() {
     jePaket.set(paket, bisher)
   }
 
+  // ---------------------------------------------------------------------------
+  // Die Wörterbücher des Sprach-Plugins selbst — sie stehen in KEINER locales.d.ts.
+  // ---------------------------------------------------------------------------
+  const buendelPfad = join(wurzel, KERN, 'dsh-client-locale', 'lib', 'client.js')
+  let ausBuendel = {}
+  try {
+    ausBuendel = lesePluginWoerterbuecher(readFileSync(buendelPfad, 'utf8'))
+  } catch {
+    ausBuendel = {}
+  }
+  let buendelSchluessel = 0
+  for (const [fach, schluessel] of Object.entries(ausBuendel)) {
+    const bisher = jeNamensraum.get(fach) ?? new Set()
+    const vorher = bisher.size
+    for (const s of schluessel) {
+      bisher.add(s)
+      alleSchluessel.add(s)
+    }
+    jeNamensraum.set(fach, bisher)
+    buendelSchluessel += bisher.size - vorher
+  }
+
   console.log('Sprachtrichter — der Umfang des Übersetzungsauftrags')
   console.log(`  Sprachdateien des Kerns gefunden: ${String(dateien.length)}`)
   console.log(`  davon Form A (Objekt):  ${String(formen.objekt)}`)
@@ -204,6 +292,8 @@ function haupt() {
   console.log(`  Pakete mit Schlüsseln:  ${String(jePaket.size)}`)
   console.log(`  Namensräume echt (NS):  ${String(echteNs.size)}`)
   console.log(`  Fächer insgesamt:       ${String(jeNamensraum.size)}  (die übrigen sind Behelfsnamen aus Paketnamen — Pakete ohne eigenes NS)`)
+  console.log(`  davon aus dem BÜNDEL des Sprach-Plugins: ${String(buendelSchluessel)} Schlüssel in ${String(Object.keys(ausBuendel).length)} Fächern`)
+  console.log(`    (${Object.keys(ausBuendel).join(', ')}) — sie stehen in KEINER locales.d.ts`)
   console.log('')
   console.log(`  **Die Zahl, auf die es ankommt, ist die der FÄCHER: ${String(jeNamensraum.size)}.** Ein Sprachpaket`)
   console.log('  liefert Wörterbücher je Namensraum; ein Paket ohne `NS` bildet einen eigenen.')
@@ -224,8 +314,11 @@ function haupt() {
   }
   console.log('')
   console.log('== Der Umfang ==')
-  console.log(`  Schlüssel gesamt (über alle Pakete):   ${String([...alleSchluessel].length)}`)
-  console.log(`  Schlüssel-Nennungen (mit Doppelungen): ${String(sortiert.reduce((s, [, i]) => s + i.schluessel.size, 0))}`)
+  console.log(`  Schlüssel VERSCHIEDEN (über alle Fächer): ${String(alleSchluessel.size)}`)
+  // **Über die FÄCHER summieren, nicht über die Pakete.** Hier stand `sortiert` — die
+  // Paketliste. Die Wörterbücher aus dem BÜNDEL des Sprach-Plugins gehören zu keinem Paket
+  // und fehlten damit in der Summe: sie zeigte 1744, während die Fächer 1786 trugen.
+  console.log(`  Schlüssel-Nennungen (mit Doppelungen):    ${String([...jeNamensraum.values()].reduce((s, set) => s + set.size, 0))}`)
   console.log('')
   console.log('  UNTERGRENZE: verschachtelte Wörterbücher zählen als EIN Schlüssel. Die')
   console.log('  wirkliche Zahl kann höher sein.')
