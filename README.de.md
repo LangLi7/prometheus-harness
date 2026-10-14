@@ -75,7 +75,7 @@ Nichts hier ist geschätzt.
 | Anmeldung | der erste Claim legt den Administrator an; **Argon2id** `m=19456, t=2, p=1` | `bun test packages scripts apps` |
 | Speicher | PostgreSQL 17 mit **pgvector**; Migrationen bis Fassung 7 | `bun scripts/migrate.mjs` |
 | Wissensspeicher | Dokumente, Stücke, Vektorindex; Obsidian-Gewölbe, Notizen, Etiketten, Verweise | `bun test packages scripts apps` |
-| Geheimnisse | AES-256-GCM-Umschläge, ein Datenschlüssel je Benutzer, hinter einem Schalter | [umschlagkosten.mjs](docs/status/messsonden/umschlagkosten.mjs) |
+| Geheimnisse | AES-256-GCM-Umschläge, ein Datenschlüssel je Benutzer, hinter einem Schalter | [envelope-cost.mjs](docs/status/messsonden/envelope-cost.mjs) |
 | Echtes Modell | hat über die Kern-API geantwortet (`session/create`, `session/prompt`) | [api-nachweis.md](docs/status/api-nachweis.md) |
 
 <a id="try-it"></a>

@@ -15,7 +15,7 @@ entfernt, lernt nichts.
 |---|---|
 | „the chain is not reachable" | **Widerlegt.** Über die Kern-API haben `session/create` und `session/prompt` ein echtes DeepSeek-Modell antworten lassen — [api-nachweis.md](api-nachweis.md). Erreichbar ist die Kette damit **über den Kern**, nicht über unsere eigene Oberfläche. |
 | „our own endpoint surface is two reading endpoints" | **Zu klein.** Dazu gehören `api/health`, `api/readiness` und der Anmeldebereich `api/auth-http` mit Anmeldeseite, Erstinbetriebnahme, API-Schlüsseln und Paßwort-Reset. |
-| „envelope encryption exists as a schema, not as code" | **Widerlegt.** `verpacke`, `entpacke` und `rotiere` stehen in `packages/auth/secrets` und sind gemessen (`docs/status/messsonden/umschlagkosten.mjs`). Offen ist die **Verdrahtung** des Wissensspeichers, nicht die Krypto. |
+| „envelope encryption exists as a schema, not as code" | **Widerlegt.** `verpacke`, `entpacke` und `rotiere` stehen in `packages/auth/secrets` und sind gemessen (`docs/status/messsonden/envelope-cost.mjs`). Offen ist die **Verdrahtung** des Wissensspeichers, nicht die Krypto. |
 | „the Rust inventory is unused — nothing invokes them" | **Widerlegt.** `packages/util/atomic-write` startet `pmh-atomicfs` als Prozeß; `native/crypto` liefert `random_hex` aus `/dev/urandom` bzw. `BCryptGenRandom`. |
 | „826 tests pass and 18 packages type-check clean" | **Zu klein.** Gemessen auf Linux: **1189 pass · 87 skip · 0 fail** über 55 Dateien; **25 Pakete** typprüfen grün. Belegt: [ci-nachweis.md](ci-nachweis.md). |
 

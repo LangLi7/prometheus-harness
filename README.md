@@ -72,7 +72,7 @@ Nothing here is an estimate.
 | Authentication | first claim creates the administrator; **Argon2id** `m=19456, t=2, p=1` | `bun test packages scripts apps` |
 | Storage | PostgreSQL 17 with **pgvector**; migrations to version 7 | `bun scripts/migrate.mjs` |
 | Knowledge store | documents, chunks, vector index; Obsidian vaults, notes, tags, links | `bun test packages scripts apps` |
-| Secrets | AES-256-GCM envelopes, one data key per user, behind a switch | [umschlagkosten.mjs](docs/status/messsonden/umschlagkosten.mjs) |
+| Secrets | AES-256-GCM envelopes, one data key per user, behind a switch | [envelope-cost.mjs](docs/status/messsonden/envelope-cost.mjs) |
 | Real model | answered through the core API (`session/create`, `session/prompt`) | [api-nachweis.md](docs/status/api-nachweis.md) |
 
 <a id="try-it"></a>

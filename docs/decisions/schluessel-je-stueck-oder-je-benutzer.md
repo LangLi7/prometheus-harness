@@ -149,7 +149,7 @@ Das ist eine **Meßfrage**, und sie ist mit den zwei vorhandenen Operationen dir
 meßbar: `verschluessele(stueck, datenschluessel)` (symmetrisch — der Weg „ein
 Schlüssel je Benutzer") gegen `verpacke(stueck, hauptschluessel)` (Umschlag je
 Stück: **Schlüsselerzeugung + Wickeln**). Sonde:
-`docs/status/messsonden/umschlagkosten.mjs` (**exit 0**).
+`docs/status/messsonden/envelope-cost.mjs` (**exit 0**).
 
 ```
 Umschlagkosten — 2000 Stuecke je 1200 Byte, gemessen im Prozeß
