@@ -318,3 +318,50 @@ Regel** — sie erzeugt einen Fehler und sieht dabei nach Ordnung aus.
 **Der Nachtrag zum selben Fehler.** Dieselbe Regel steckte ein zweites Mal im
 Vereinigungswerkzeug (`--vereinigen` verwarf leere Werte als „nicht geliefert"). Zwei Stellen,
 ein Denkfehler: *leer ist eine Aussage, kein Fehlen.*
+
+---
+
+## 22. Ein Wächter, der den geprüften Gegenstand **bestraft**, meldet nichts
+
+**Der Fall.** Die Bündelprüfung (`scripts/client-buendel.mjs`) ruft die Fabrik eines
+Client-Bündels auf und reicht ihr einen `require`-Stellvertreter. Der erste Entwurf ließ diesen
+Stellvertreter **werfen**, wenn das Bündel ein Modul verlangt — mit der Absicht, den Wunsch zu
+melden. Ergebnis: die Fabrik brach ab, der Aufruf landete im `catch`, und die Meldung
+*„gehört in `dsh.client.external`"* wurde **nie erreicht**. Gefunden hat das nicht das
+Nachdenken, sondern der Test `ein Modulwunsch wird gemeldet` — er war rot, obwohl der Fehler
+im Bündel stand.
+
+**Die Regel.** Ein Wächter **sammelt** und meldet am Ende; er **bricht nicht beim ersten
+Verstoß ab**. Wo ein Fehler erwartet wird, muß der Prüfweg bis zur Meldung durchlaufen.
+
+---
+
+## 23. Regel 11 gilt auch für **Felder, die man „kennt"**
+
+**Der Fall — die zweite Verletzung derselben Regel an einem Tag.** Die Laufzeitsonde las
+`snapshot.languages`. Der Vertrag nennt das Feld **`locales`**; belegt im Kern selbst:
+`snapshot.locales.map((l) => ({ id: l.id, label: l.label }))`. Die Sonde meldete daraufhin
+„Die Sprache `de` steht nicht in der Sprachliste" — obwohl sie **dastand**.
+
+**Die Regel.** Auch ein Feldname, den man hundertmal gesehen zu haben glaubt, wird **an der
+Quelle** gelesen, bevor er in eine Prüfung wandert. Ein erfundener Name erzeugt einen
+**falschen Befund** — und der sieht aus wie Arbeit.
+
+---
+
+## 24. Am lebenden Gegenstand: **parsen**, Vorbedingungen prüfen, Gegenprobe im Bestand
+
+**Vier Fälle in einer Stunde, alle am selben Host:**
+
+| Was ich tat | Was geschah |
+|---|---|
+| `Test-NetConnection` für die Portprüfung | Modul gesperrt → **alle** Ports meldeten „frei" (Regel 7) |
+| `Select-String 'client-locale'` im HTML | traf eine **Combo-Liste**, nicht die Startliste |
+| `window["__DSH_BOOT__"]` gesucht | der Host schreibt `globalThis[…]`, und die Liste steht JSON-**maskiert** in einem HTML-String |
+| `fetch` mit der Token-Adresse | HTTP 401 — `fetch` behält bei einer Weiterleitung **kein** `set-cookie` |
+
+**Die Regel.** Am lebenden Gegenstand gilt: **Struktur parsen** (JSON lesen, nicht mustern),
+**Vorbedingungen prüfen** (Keks mitführen, Erreichbarkeit messen), und ein Werkzeug, das
+„nichts gefunden" meldet, ist erst dann ein Befund, wenn die **Suche** bewiesen ist — über eine
+Gegenprobe an einem Eintrag, den es geben **muß** (hier: `@deepseek-ai/dsh-client-locale` in
+der Startliste).

@@ -103,6 +103,10 @@
       "name": "@prometheus-harness/store-postgres",
       "version": "0.1.0",
     },
+    "packages/client/locale": {
+      "name": "@prometheus-harness/client-locale",
+      "version": "0.1.0",
+    },
     "packages/core/agent-loop": {
       "name": "@prometheus-harness/agent-loop",
       "version": "0.1.0",
@@ -875,6 +879,8 @@
     "@prometheus-harness/claim": ["@prometheus-harness/claim@workspace:packages/auth/claim"],
 
     "@prometheus-harness/cli": ["@prometheus-harness/cli@workspace:apps/cli"],
+
+    "@prometheus-harness/client-locale": ["@prometheus-harness/client-locale@workspace:packages/client/locale"],
 
     "@prometheus-harness/db-schema": ["@prometheus-harness/db-schema@workspace:packages/auth/db-schema"],
 

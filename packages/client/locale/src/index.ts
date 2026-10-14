@@ -7,15 +7,26 @@
  * Wörterbuch ein. Die Form ist die, die der Kern selbst vorgibt (`dsh-client-locale`,
  * README): `inject = ['locale']`, dann `addLanguage` und `register`.
  *
- * **[NOCH NICHT KOMPONIERT.]** Dieses Paket steht in **keiner** Profil-Zeile. Es läuft
- * heute **nicht**. Was geprüft ist, ist die **Logik des Trichters** — gegen einen
- * mitgeschriebenen `ctx` in `scripts/tests/sprachpaket.test.mjs` — und die
- * **Vollständigkeit** des Wörterbuchs gegen den Kern.
+ * **[KOMPONIERT seit dem 14.10.2026.]** Das Paket steht als Zeile in der Patch-Schicht des
+ * Profils (eingetragen von `scripts/profile-patch.mjs`, id `pmh-client-locale`), erscheint in
+ * der Startliste des Browsers und wird unter `/plugins/…/client.js` ausgeliefert — alles drei
+ * gemessen mit `docs/status/messsonden/client-komposition-sonde.mjs`.
  *
- * Was **nicht** geprüft ist: daß der echte `LocaleRuntime` diese Anmeldung annimmt. Dafür
- * bräuchte es einen `ClientContext`; ein selbstgebauter wäre eine Attrappe, die nur beweist,
- * daß es mit **ihr** läuft. Das steht als offener Punkt in
- * `docs/status/live-anbindung.md` und in der Sprach-Bestandsaufnahme.
+ * **Der Zeuge für die Laufzeit** ist `docs/status/messsonden/sprachpaket-laufzeit-sonde.mjs`:
+ * dort läuft die **Originalklasse** `LocaleRuntime` aus
+ * `node_modules/@deepseek-ai/dsh-client-locale/lib/client.js` — nicht eine nachgebaute — und
+ * unser **gebautes** Bündel wird an ihr ausgeführt. Ergebnis: die Sprachliste führt
+ * `{ id: "de", label: "Deutsch", fallback: "en" }`, `setLocale("de")` greift, und sieben Proben
+ * liefern genau den Text aus `de.json`.
+ *
+ * **Die Grenze dieser Messung.** Der Cordis-Kontext um die Laufzeit ist mitgeschrieben
+ * (`new Context()`), und die Anzeige-sitze des Kerns (`ctx.slots`, `document`) werden nicht
+ * besetzt. Gemessen ist damit die **Laufzeit und ihre Regeln**, nicht was ein Browser
+ * **anzeigt**. Bis zum 14.10.2026 stand hier, es sei „nicht geprüft" — das war richtig,
+ * solange es keine Sonde gab; jetzt ist es **gemessen mit benannter Grenze**.
+ *
+ * Was weiterhin **nicht** gemessen ist: das Verhalten des vollen Client-Kerns im Browser
+ * (React-Mount, Einstellungszeile, HMR).
  *
  * ## Warum die Rückfallkette bei `en` enden **muß**
  *
@@ -32,6 +43,22 @@ import de from '../de.json' with { type: 'json' }
 
 /** Kennung des Pakets. */
 export const name = 'locale-de'
+
+/**
+ * Die Dienste, die dieses Plugin braucht — **der Client-Kern liest das**.
+ *
+ * **Gemessen, nicht geraten.** Ein Client-Bündel des Kerns endet mit
+ * `exports.apply = apply; exports.inject = inject;` (z. B.
+ * `node_modules/@deepseek-ai/dsh-client-locale/lib/client.js`, dort
+ * `const inject = ["slots", "remote", "configForms"]`). Diese Datei exportierte `apply`,
+ * aber **kein `inject`** — der Kern hätte nicht gewußt, daß das Plugin den Dienst `locale`
+ * braucht. Der Dienst heißt `locale`: der Kern legt ihn selbst an (`ctx.provide("locale", …)`
+ * im Bündel des Sprach-Plugins).
+ *
+ * Nicht zu verwechseln mit `dsh.client.inject` in der `package.json`: dort stehen
+ * **Paketnamen** (Ladereihenfolge), hier **Dienstnamen**.
+ */
+export const inject = ['locale']
 
 /** Die Sprache, die dieses Paket anmeldet. */
 export const SPRACHE = 'de'

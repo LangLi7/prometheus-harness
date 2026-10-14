@@ -381,4 +381,19 @@ export const EIGENE_PAKETE = [
   '@prometheus-harness/health',
   '@prometheus-harness/readiness',
   '@prometheus-harness/auth-http',
+  // **Das Sprachpaket Deutsch — die erste CLIENT-Zeile dieser Liste.**
+  //
+  // Es ist kein Host-Plugin: die Arbeit tut seine Browser-Hälfte
+  // (`packages/client/locale/lib/client.js`). Die Zeile steht trotzdem hier, weil die
+  // Modul-Hälfte des Kerns die Startliste des Browsers aus den **aktivierten
+  // Ladeprogramm-Zeilen** baut — wörtlich im Patch des Web-Bündels
+  // (`@deepseek-ai/dsh-web-app/cordis.patch.yml`):
+  //
+  // > *„`dsh.client` rows are the browser roster the modules node half scans into
+  // > `window.__DSH_BOOT__`; the modules row is simultaneously a host row."*
+  //
+  // Ohne diese Zeile gibt es keine Browser-Hälfte; mit ihr erscheint das Paket in der
+  // Startliste und die Sprache `de` wird anmeldbar. Die Reihenfolge gegen
+  // `@deepseek-ai/dsh-client-locale` (unser `dsh.client.inject`) ordnet der Kern selbst.
+  '@prometheus-harness/client-locale',
 ]

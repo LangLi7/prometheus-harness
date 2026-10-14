@@ -1,0 +1,28 @@
+{
+  "name": "@prometheus-harness/client-locale",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deutsches Sprachpaket als Client-Plugin: meldet die Sprache de an und hängt 56 Wörterbücher (2374 Texte) in den Namensraum-Speicher des Kerns. Die Knoten-Hälfte ist leer; die Browser-Hälfte liegt als gebautes lib/client.js vor.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js"
+  ],
+  "scripts": {
+    "build": "bun run ../../../scripts/client-buendel.mjs"
+  }
+}

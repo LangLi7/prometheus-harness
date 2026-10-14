@@ -271,14 +271,44 @@ Prüfer **urteilt nicht** über sie — er nennt sie, damit sie angesehen werden
 
 **Was noch offen ist:**
 
-1. **Die Komposition fehlt.** `packages/client/locale/` hat kein `package.json`, steht in
-   keiner Profil-Zeile und wird von keinem Prüfwerk angefaßt. Das Paket ist geschrieben und
-   gemessen, aber es **lädt nicht**. Dafür braucht es eine Arbeitsbereichs-Aufnahme und eine
-   bewußte Erneuerung von `bun.lock` (Arbeitsweise Regel 14: fremde Arbeit nicht anfassen).
-2. **Der Client als Zeuge fehlt.** Daß der **echte** `LocaleRuntime` diese Anmeldung annimmt,
-   ist weiterhin **nicht** gemessen — dafür braucht es einen `ClientContext`. Ein
-   selbstgebauter wäre eine Attrappe, die nur beweist, daß es mit **ihr** läuft.
+1. **~~Die Komposition fehlt.~~ ERLEDIGT am 14.10.2026.** `packages/client/locale/` hat jetzt
+   eine `package.json` mit `dsh.client` (`platform: web`,
+   `inject: ["@deepseek-ai/dsh-client-locale"]`), eine leere Knoten-Hälfte (`lib/index.js`,
+   wie beim Kern) und eine **gebaute** Browser-Hälfte (`lib/client.js`, 149 kB, mit allen
+   2374 Texten). Die Zeile steht in `scripts/profile-patch.mjs` (`EIGENE_PAKETE`); der Starter
+   schreibt sie bei jedem Start in die Patch-Schicht.
+
+   Gemessen am **lebenden Host** (`bun scripts/start.mjs --no-go --port 3081`) mit
+   `docs/status/messsonden/client-komposition-sonde.mjs`, **Exit 0**:
+
+   | Stufe | Ergebnis |
+   |---|---|
+   | Patch-Schicht | Zeile steht in `profiles/web/cordis.patch.yml` |
+   | Startliste des Browsers | **67 Einträge**; unser Eintrag mit `inject: ["@deepseek-ai/dsh-client-locale"]` |
+   | ausgeliefertes Bündel | HTTP **200**, **151 522 Zeichen**, Umschlag, Kennung, `inject`, deutscher Text |
+
+   `lib/client.js` ist **erzeugt** (`scripts/client-buendel.mjs`), nicht handgeschrieben — die
+   Quelle bleibt `src/index.ts` + `de.json`. `bun.lock` wuchs um **6 Zeilen**, nur um unser Paket.
+2. **Der Client als Zeuge — GEMESSEN, mit benannter Grenze.** Die Sonde
+   `docs/status/messsonden/sprachpaket-laufzeit-sonde.mjs` (**Exit 0**) lädt die
+   **Originalklasse** `LocaleRuntime` aus dem Kern-Bündel und führt **unser gebautes Bündel**
+   daran aus:
+
+   * Sprachliste danach: `[{zh, 中文}, {en, English}, {id: "de", label: "Deutsch", fallback: "en"}]`
+   * `setLocale("de")` → aktive Sprache `de`
+   * **7 von 7** Proben liefern genau den Text aus `de.json`, darunter ein ganzer Satz
+   * **Gegenprobe:** die Laufzeit wirft bei doppelter Sprachanmeldung — sie ist echt, keine Attrappe
+
+   **Grenze:** der Cordis-Kontext ist mitgeschrieben (`new Context()`), die Anzeige-Sitze
+   (`ctx.slots`, `document`) sind nicht besetzt, und die eingebauten englischen Wörterbücher
+   des Kerns sind in dieser Messung **nicht** angemeldet. Gemessen ist die **Laufzeit und ihre
+   Regeln** — nicht, was ein **Browser anzeigt**.
 3. **Zwei Werte sind bewußt leer** (`chat · message.stepProcess.sharedPrefix` = `""`,
    `pluginManager · sentenceSeparator` = `" "`). Beide bleiben unverändert; ein früherer
    Auftragstext verlangte fälschlich „kein Wert ist leer" und hat einen Übersetzer zu einer
    Erfindung verleitet (Arbeitsweise Regel 21).
+
+4. **Nicht gemessen: der volle Client im Browser** (React-Mount, Einstellungszeile „Sprache",
+   HMR-Nachladen). Ein Browser stand nicht zur Verfügung — `chrome-devtools` meldet
+   *„Could not find Google Chrome executable"*. Das ist eine **Grenze der Umgebung**, kein
+   offener Punkt des Pakets.
