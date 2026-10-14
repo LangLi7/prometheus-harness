@@ -138,12 +138,38 @@ beiden Plattformen, und jetzt prüfen die Vorlagen sie auf beiden.
 | Was | Ergebnis | Belegt durch |
 |---|---|---|
 | Abhängigkeiten aus der Sperrdatei | **exit 0** (535 installs, 630 Pakete, „no changes") | Lauf `38481436847` |
-| Typprüfung | **25 Pakete grün, 0 rot** — 4,2 s | derselbe Lauf |
+| Typprüfung | **23 Pakete grün, 0 rot** — 4,2 s | derselbe Lauf |
 | Suite auf Linux | **1189 pass · 87 skip · 0 fail** — 9,41 s | derselbe Lauf |
 | Ergebnis des Ablaufs | `conclusion: success`, 29–34 s | `gh run view --json conclusion` |
 
 Zwei Läufe in Folge grün: **`38481436847`** (Commit `10ccbc8`) und
 **`38481741410`** (Commit `5a3b874`).
+
+### Nachtrag 14.10.2026 — hier stand **25**, richtig sind **23**
+
+In der Zeile „Typprüfung" stand **25 Pakete**. Das war ein **Zahlendreher**, und er ist
+nachgerechnet, nicht geschätzt:
+
+```
+git ls-tree -r --name-only 10ccbc8 -- packages | grep 'package.json$'   →  23
+git ls-tree -r --name-only HEAD    -- packages | grep 'package.json$'   →  23
+                                                  Unterschied            →  keiner
+```
+
+Der Lauf `38481436847` ging gegen Commit **`10ccbc8`** — und dieser Baum trug **23**
+Pakete, nicht 25. `scripts/typecheck.ps1` ist seit `10ccbc8` **unverändert** und druckt die
+Zahl, die es **geprüft** hat (`tsgo --noEmit: $checked Pakete geprüft, …`). Er kann dort
+also keine 25 gemeldet haben.
+
+**Damit ist die Frage geschlossen, die im README als offen stand** („warum 23 statt 25?"):
+**Es fehlt kein Paket.** Alle **23** Pakete mit `package.json` tragen ein `tsconfig.json`
+(**0 Lücken**), und seit `64f1882` wurde genau **ein** Paket gelöscht
+(`packages/llm/llm-deepseek`) — das ist in den 23 bereits berücksichtigt. Die 25 war eine
+Zahl in einem Dokument, keine Zahl aus einem Lauf.
+
+**Die Lehre:** ein Nachweis, der eine Zahl **abschreibt** statt sie **einzutragen**, trägt
+den Fehler weiter. Die README-Zeile erbte die 25 aus diesem Dokument — und ich habe sie
+zuerst als „veraltete Zahl" gedeutet und zwei fehlende Pakete gesucht, die es nie gab.
 
 ## 7. Was diese CI NICHT prüft — und was daran offen bleibt
 
