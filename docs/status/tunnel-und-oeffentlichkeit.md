@@ -139,6 +139,33 @@ jeden, der `cloudflared access ssh` bedienen kann. Und eine Modell-API ohne Anme
 darf. Ob dort eine Regel liegt, kann ich von hier **nicht** messen; das Dashboard ist die
 einzige Quelle.
 
+### Der ungesicherte Kanal ist **öffentlich** — gemessen
+
+Der Pfad `/plugins/events` ist die **HMR-Röhre des Kerns** (`node_modules/@deepseek-ai/dsh-client-hmr/lib/index.js:5`,
+`EVENTS_ENDPOINT = "/plugins/events"`). Sie ist der **einzige** Weg am Host, der **ohne Token**
+antwortet — am Prometheus-Host wie am DSH-Host. Am 14.10.2026 von außen gemessen:
+
+```
+curl.exe -s -N --max-time 5 -i 'https://deepseek.changchi.space/plugins/events'
+  → HTTP/1.1 200 OK
+    Content-Type: text/event-stream
+    (Ereignis `graph` mit der Plugin-Liste: JA)
+```
+
+**Was das verrät.** Den **Plugin-Graphen** (Kennungen, Adressen, `rev`) und — bei einem Neubau —
+die Meldung, daß sich etwas geändert hat. **Was es nicht verrät** (im Fenster von 4 Sekunden
+gemessen): **keine** Geheimnisse — 0 Treffer auf `token`/`secret`/`passwort`/`api_key`. Der
+Gewinn für einen Angreifer ist damit gering: dieselbe Plugin-Liste steht ohnehin im öffentlichen
+Start-HTML (`__DSH_BOOT__`). **Der Befund ist das Muster**, nicht der Inhalt: eine Route ohne
+Token auf einem Host, der im Internet steht.
+
+**Warum ich sie nicht selbst schließe.** Die Route gehört einem **fremden** Paket des Kerns
+(`@deepseek-ai/dsh-client-hmr`), nicht unserem Baum. Sie zu schließen heißt, ein Kernpaket zu
+patchen — und der letzte Versuch, ein Kernpaket zu patchen, hat den Host mit **167
+Importfehlern** nicht mehr starten lassen (siehe `arbeitsweise.md`, Metadaten-Patch). **Die
+billigste Abhilfe kostet keinen Code:** eine Regel am Rand (Cloudflare → WAF → `/plugins/events`
+sperren) oder Access vor den Hostnamen. Beides gehört ins Dashboard, nicht in dieses Repository.
+
 ---
 
 ## 5. Was zu tun ist — in dieser Reihenfolge
