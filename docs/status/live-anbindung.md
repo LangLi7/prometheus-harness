@@ -239,6 +239,88 @@ Vorliebe.**
 
 * Der Strom unter **Dauerlast** über **Minuten** (gemessen ist ein Lauf über ~6 s, §12).
 * ~~Die **HMR-SSE-Strecke** im Zustand `dsh-hmr = enabled=false`~~ — **gemessen**, §11.
+* ~~Verhalten bei **Verbindungsabbruch** und Wiederaufsetzen~~ — **gemessen**, §13.
+
+## 13. Wiederaufnahme — der Verlauf überlebt einen Abbruch **mitten im Lauf**
+
+Sonde: [`messsonden/strom-wiederaufnahme-sonde.mjs`](messsonden/strom-wiederaufnahme-sonde.mjs)
+· Exit **0** · zwei Läufe mit **identischen** Zahlen
+
+Das ist der Fall, der für die Anforderung *„beim Neustart Chatverlauf"* wirklich zählt.
+
+### Der Ablauf
+
+1. Kleine Runde absetzen, ihr Ende **in der Protokolldatei** abwarten (nicht über die API raten).
+2. Strecke aufwerten, `session/follow` → **Eröffnungsrahmen**.
+3. **Langen** Auftrag absetzen (sechs Befehle), 1,5 s mitlesen.
+4. **Die Strecke schließen — mitten im Lauf.**
+5. **20 s ohne Zuhörer** — der Lauf läuft weiter.
+6. Neu verbinden, erneut folgen → **neuer** Eröffnungsrahmen.
+7. Den Verlauf über `session/page` rückwärts blättern und **alle `seq`** einsammeln.
+
+### Das Ergebnis — zweimal gleich
+
+```
+Vorlauf beendet: ja
+Erster Eröffnungsrahmen:                    cursor = 21
+Lauf läuft — 7 Rahmen live, höchster seq:   27
+
+ABBRUCH — 20 000 ms ohne Zuhörer
+
+Zweiter Eröffnungsrahmen:                   cursor = 67
+deckt die Lücke (67 >= 27):                 JA
+
+Verlauf rückwärts:   1 Seite, 68 Einträge
+Bereich:             0 … 67
+vorhanden:           68 verschiedene seq
+Dubletten:           0
+fehlende seq:        KEINE
+```
+
+**Der Verlauf überlebt einen Abbruch mitten im Lauf — vollständig, ohne Lücke, ohne
+Doppelung.** Der `cursor` wuchs über die Lücke von **27 auf 67**: der Host wußte von allem,
+was ohne Zuhörer geschah.
+
+### Der Schnitt heißt **`cursor`** — und das ist gemessen, nicht gelesen
+
+Der Vertrag sagt über `throughSeq`:
+
+> *„Inclusive log cut obtained from the corresponding follow opening frame."*
+
+**Der gemessene Eröffnungsrahmen trägt aber gar kein `throughSeq`.** Seine Felder auf
+oberster Ebene:
+
+```
+value = { type, header{ version, id, createdAt, cwd, isSeeded, agentPreset },
+          cursor : number, hasMore : boolean, projections{ asOfSeq, values{ … } } }
+```
+
+Felder mit `seq`/`cursor`/`cut`/`resume` im Namen: **`cursor`**, `records[i].event.seq`,
+`projections.asOfSeq`. **Der Schnitt ist `cursor`** — das einzige Feld auf oberster Ebene,
+das eine Position im Protokoll bezeichnet, und `hasMore` gehört zum Blättern dazu. Mit dem
+`cursor` als `throughSeq` liefert `session/page` den **vollständigen** Bereich.
+
+### Vier eigene Fehler, die dieser Sonde vorausgingen
+
+| Nr | Fehler | Wie er auffiel |
+|---|---|---|
+| 1 | **Erst folgen, dann Auftrag** — die Sitzung war **leer**, ihr Rahmen hatte keinen Schnitt | `ABBRUCH: kein throughSeq im ersten Rahmen` |
+| 2 | **Warteschleife auf einen Fehler**: 15 s lang `session/page` mit `throughSeq: 10_000` — eine **ungültige** Abfrage. Sie schlug immer fehl, die Zeit lief ab, **danach war der Lauf fertig** | die Lücke war leer, der Test wertlos |
+| 3 | Die **Gegenprobe** fehlte zunächst: *wächst der Schnitt über die Lücke?* Ohne sie hätte die Sonde ein leeres Ergebnis als **Befund** gemeldet | eingebaut; sie meldete sofort `UNGÜLTIGER LAUF`, Exit 2 |
+| 4 | **Ein Strukturfeld mit einem Muster gelesen.** `/"throughSeq"\s*:\s*(\d+)/` über einen Rahmen von **88 031 Zeichen**, der den **ganzen Schnappschuß** enthält — das Muster fand einen Wert **tief in einem Datensatz** und meldete **15**, während der `cursor` von 19 auf 65 wuchs | behoben durch **Parsen** |
+
+**Fehler 4 ist die schärfste Lehre dieser Runde:** über **JSON** wird nicht gemustert, sondern
+**gelesen**. Es ist dieselbe Familie wie Regel 16 („nach exakten Bezeichnern suchen") — eine
+Stufe strenger, weil die Struktur bereits **maschinenlesbar** vorlag und ich sie trotzdem
+gemustert habe.
+
+### Was ausdrücklich **nicht** gemessen ist
+
+* **Dauerlast** über Minuten und **viele** gleichzeitige Abbrüche.
+* Ob die Wiederaufnahme auch bei einem **Prozeßneustart** des Hosts gilt — hier wurde nur die
+  **Verbindung** getrennt, nicht der Host beendet.
+* Ob `session/page` bei **sehr langen** Verläufen (viele Seiten) dieselbe Lückenlosigkeit hält;
+  gemessen ist **eine** Seite mit 68 Einträgen.
 
 ## 12. Bündelung — **eine** Strecke trägt **acht** Sitzungen
 

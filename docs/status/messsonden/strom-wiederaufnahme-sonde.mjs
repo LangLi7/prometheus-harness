@@ -320,7 +320,7 @@ async function haupt() {
       return
     }
     /** Der Schnitt für `session/page`: `throughSeq` wenn vorhanden, sonst der `cursor`. */
-    const schnittWert = schnitt1 ?? cursor1
+    const schnittWert = cursor1   // DER SCHNITT IST DER CURSOR — siehe Kopf der Datei
     if (schnitt1 === null) {
       console.log('  HINWEIS: kein `throughSeq` — es wird der `cursor` benutzt und das GESAGT.')
     }
@@ -385,8 +385,8 @@ async function haupt() {
       console.log(`    ${r.slice(0, 260)}`)
       console.log(`    … Ende: ${r.slice(-200)}`)
     }
-    const deckt = schnitt2 !== null && schnitt2 >= hoechsterVorher
-    console.log(`  deckt die Lücke (${String(schnitt2)} >= ${String(hoechsterVorher)}): ${deckt ? 'JA' : 'NEIN'}`)
+    const deckt = cursor2 !== null && cursor2 >= hoechsterVorher
+    console.log(`  deckt die Lücke (${String(cursor2)} >= ${String(hoechsterVorher)}): ${deckt ? 'JA' : 'NEIN'}`)
 
     // ---- 5. Den Verlauf rückwärts blättern und ALLE seq sammeln ----
     console.log('')
@@ -398,7 +398,7 @@ async function haupt() {
     while (hasMore && seiten < 20) {
       const anfrage = {
         address: { kind: 'session', sessionId: sid },
-        throughSeq: schnitt2 ?? 0,
+        throughSeq: cursor2 ?? 0,
         ...(beforeSeq === undefined ? {} : { beforeSeq }),
         maxMessages: 20,
       }
@@ -454,22 +454,22 @@ async function haupt() {
     // Im ersten Lauf dieser Sonde war genau das der Fall: `throughSeq` war **vor und
     // nach** dem Riß **15**. Ohne diese Prüfung hätte die Sonde „BELEGT" gemeldet — und
     // der Befund wäre leer gewesen.
-    const lueckeWarLeer = schnitt2 !== null && schnitt2 <= hoechsterVorher
+    const lueckeWarLeer = cursor2 !== null && cursor2 <= hoechsterVorher
     if (lueckeWarLeer) {
       console.log(`  UNGÜLTIGER LAUF: der Schnitt ist nach dem Riß NICHT gewachsen`)
-      console.log(`    vorher: ${String(hoechsterVorher)}   nachher: ${String(schnitt2)}`)
+      console.log(`    vorher: ${String(hoechsterVorher)}   nachher: ${String(cursor2)}`)
       console.log('  In der Lücke ist also NICHTS geschehen. Der Lauf belegt die Wiederaufnahme')
       console.log('  während eines Laufs NICHT — er belegt nur, daß man sich nach einem')
       console.log('  abgeschlossenen Verlauf wieder verbinden kann.')
       console.log('  Das ist ein Befund über den TEST, nicht über den Host.')
       process.exitCode = 2
-    } else if (schnitt2 === null) {
+    } else if (cursor2 === null) {
       console.log('  Kein zweiter Eröffnungsrahmen — die Wiederaufnahme ist NICHT belegt.')
       process.exitCode = 1
     } else if (fehlend.length === 0 && dubletten === 0 && deckt) {
       console.log('  Die Wiederaufnahme ist BELEGT:')
       console.log(`    - neuer Anschluß nach ${String(TRENN_MS)} ms ohne Zuhörer`)
-      console.log(`    - der Schnitt WUCHS über die Lücke: ${String(hoechsterVorher)} -> ${String(schnitt2)}`)
+      console.log(`    - der CURSOR wuchs über die Lücke: ${String(hoechsterVorher)} -> ${String(cursor2)}`)
       console.log(`    - ${String(menge.size)} seq LÜCKENLOS von ${String(kleinster)} bis ${String(groesster)}`)
       console.log('    - KEINE Doppelung')
       console.log('  Der Verlauf überlebt also einen Abbruch MITTEN IM LAUF — vollständig.')
