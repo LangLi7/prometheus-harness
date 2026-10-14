@@ -469,6 +469,50 @@ Damit gibt es **drei** Fälle, nicht zwei:
 | **nie gesetzt** | ohne `missing_ok` | **`42704`, laut** |
 | **leer** (`''`) | beide | **`22P02`, laut** |
 
+**Und der vierte Fall, am 14.10.2026 beim Bau des Aufrufers gemessen: nach dem ENDE einer
+Transaktion ist der Parameter nicht weg — er steht als `''` in der Verbindung.**
+
+`is_local` nimmt den **Wert** zurück, nicht den **Parameter**. Gemessen am echten Treiber
+(`packages/auth/store-postgres/tests/postgres.test.ts`): innen `A`, nach dem `commit` auf
+**derselben** Verbindung `''` — nicht `NULL`.
+
+**Das ist die gute Nachricht, und sie gehört ausgesprochen:** eine Verbindung, die **je**
+einen Mandanten gesetzt hat, liefert danach `''` und damit **`22P02` — laut**. Der **stille**
+Fall (0 Zeilen) gilt nur für eine Verbindung, die den Parameter **nie** gesetzt hat. Von den
+vier Fällen sind damit **drei laut** und **einer still** — und der stille ist der, in dem
+niemand je einen Mandanten gesetzt hat.
+
+### 13.4c Der Aufrufer existiert jetzt — `mitMandant`
+
+`packages/auth/store-postgres/src/index.ts` exportiert:
+
+```ts
+export async function mitMandant<T>(
+  sql: SqlZugang, userId: string, arbeit: (innerhalb: SqlZugang) => Promise<T>,
+): Promise<T>
+```
+
+Er öffnet **eine** Transaktion, sendet
+`select set_config('pmh.user_id', $1, true)` und führt `arbeit` **darin** aus. Drei
+Eigenschaften sind geprüft, nicht behauptet:
+
+| Eigenschaft | Wo geprüft | Ergebnis |
+|---|---|---|
+| `set_config` mit `true` (`is_local`) | `tests/mandant.test.ts` | **7 pass / 0 fail** |
+| gesetzt **vor** der Arbeit, Arbeit **innen** | dieselbe Datei | belegt |
+| **ohne Transaktion wirft es** (statt sitzungsweit zu setzen) | dieselbe Datei, mit Gegenprobe | belegt |
+| Der Mandant **läuft nicht aus** | `tests/postgres.test.ts` am echten Treiber | **12 pass / 0 fail** |
+
+**Ohne `begin` wird geworfen, nicht geschwiegen.** Der naheliegende Rückfall — „dann setzen
+wir ihn eben sitzungsweit" — erzeugt genau das Leck, das die Funktion verhindern soll.
+`TransaktionsZugang` ist deshalb ein **eigener** Typ; `SqlZugang` bleibt unverändert, damit
+bestehende Attrappen keine Transaktion nachbilden müssen.
+
+**Was jetzt noch fehlt, um RLS einzuschalten:** die **Migration 0005** mit den Policies und
+die **Verdrahtung** der Abfragen durch `mitMandant`. Die drei Bedingungen aus §8 sind damit
+erfüllt: es gibt einen Aufrufer, ein fehlender Mandant ist **laut**, und das Verhalten ist
+gemessen.
+
 **Die Folge für den Test:** der stille Fall muß **vor** dem ersten `set_config` gemessen
 werden. Danach ist er nicht mehr herstellbar — der Test hat jetzt genau diese Reihenfolge,
 und der Grund steht als Kommentar an der Stelle.

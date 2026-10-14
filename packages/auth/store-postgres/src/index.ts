@@ -98,6 +98,76 @@ async function ausfuehren(
 }
 
 // ---------------------------------------------------------------------------
+// Der Mandant — der Aufrufer, der `pmh.user_id` setzt
+// ---------------------------------------------------------------------------
+
+/**
+ * Ein Zugang, der **Transaktionen** kann. Der echte Treiber (`postgres`) erfüllt das;
+ * eine Attrappe ohne `begin` erfüllt es **nicht** — und das ist Absicht.
+ *
+ * **Warum `begin` nicht in {@link SqlZugang} steht.** Jede bestehende Attrappe und jeder
+ * Aufrufer bliebe sonst gezwungen, eine Transaktion nachzubilden, die er nicht braucht.
+ * Der Mandant ist der **einzige** Vorgang, der sie wirklich verlangt.
+ */
+export interface TransaktionsZugang extends SqlZugang {
+  begin<T>(arbeit: (innerhalb: SqlZugang) => Promise<T>): Promise<T>
+}
+
+/**
+ * Führt `arbeit` in **einer** Transaktion aus, mit gesetztem Mandanten.
+ *
+ * ## Warum es das gibt
+ *
+ * Die Mandantentrennung ist auf der Struktur belegt (zusammengesetzte Fremdschlüssel,
+ * Migration 0004) und das **Verhalten** von Row Level Security ist gemessen
+ * (`docs/status/mandantentrennung.md` §13, `tests/proben/rls-verhalten.sql`):
+ * mit Mandant sieht eine Rolle **nur** ihre Zeilen, ohne Mandant **keine**.
+ *
+ * **Aber es gab keinen Aufrufer, der den Mandanten setzt.** Genau deshalb blieb RLS aus:
+ * ohne Aufrufer filtert es still alles weg. Diese Funktion ist dieser Aufrufer.
+ *
+ * ## Der Wert heißt `true` — und das ist der ganze Punkt
+ *
+ * ```sql
+ * select set_config('pmh.user_id', $1, true)   -- drittes Argument: is_local
+ * ```
+ *
+ * `true` bindet den Wert an die **Transaktion**. Ohne ihn bliebe der Mandant in der
+ * **Verbindung** stehen — und weil Verbindungen aus einem Vorrat wiederverwendet werden,
+ * liefe die nächste Abfrage unter dem **vorigen** Benutzer. Das wäre schlimmer als kein
+ * Mandant: es wäre ein **fremder**.
+ *
+ * ## Ohne Transaktion wird **geworfen**, nicht geschwiegen
+ *
+ * Fehlt `begin`, bricht die Funktion mit einer Begründung ab. Ein stiller Rückfall — etwa
+ * „dann setzen wir ihn eben sitzungsweit" — würde genau das Leck erzeugen, das diese
+ * Funktion verhindern soll.
+ *
+ * @param sql - Zugang **mit** `begin` (der echte Treiber).
+ * @param userId - der Mandant; die Policy castet ihn auf `uuid`.
+ * @param arbeit - was innerhalb der Transaktion geschehen soll. **Jede** Abfrage darin
+ *   läuft unter dem Mandanten — auch die, die ihn vergessen würde.
+ */
+export async function mitMandant<T>(
+  sql: SqlZugang,
+  userId: string,
+  arbeit: (innerhalb: SqlZugang) => Promise<T>,
+): Promise<T> {
+  const kandidat = sql as Partial<TransaktionsZugang>
+  if (typeof kandidat.begin !== 'function') {
+    throw new Error(
+      'mitMandant braucht einen Zugang mit `begin` (Transaktion). Ohne Transaktion wäre ' +
+        '`set_config(…, true)` nicht auf sie begrenzt; der Mandant bliebe in der Verbindung ' +
+        'stehen und die nächste Abfrage liefe unter einem anderen Benutzer.',
+    )
+  }
+  return await kandidat.begin(async (innerhalb) => {
+    await innerhalb.unsafe(`select set_config('pmh.user_id', $1, true)`, [userId])
+    return await arbeit(innerhalb)
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Die vier Übergänge
 // ---------------------------------------------------------------------------
 

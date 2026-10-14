@@ -70,7 +70,7 @@ import {
   type SessionRecord,
 } from '@prometheus-harness/auth'
 import { migrate, type MigrationTarget } from '@prometheus-harness/db-schema'
-import { erzeugeSpeicher, type SqlZugang } from '../src/index.ts'
+import { erzeugeSpeicher, mitMandant, type SqlZugang } from '../src/index.ts'
 
 // ---------------------------------------------------------------------------
 // Zugang
@@ -481,5 +481,88 @@ run('Anmeldung gegen die echte Datenbank', () => {
     const hasher = new Argon2PasswordHasher()
     await register(speicher.benutzer, hasher, `jonas${TESTDOMAENE}`, PASSWORT, 'Jonas', { maxUsers: 100_000 })
     expect(await speicher.benutzer.count()).toBe(vorher + 1)
+  })
+
+  test('mitMandant setzt den Mandanten TRANSAKTIONSLOKAL — er läuft nicht aus (B4)', async () => {
+    // ---------------------------------------------------------------------------
+    // **Die Frage, die dieser Test beantwortet.**
+    // ---------------------------------------------------------------------------
+    // `select set_config('pmh.user_id', $1, true)` — das dritte Argument `is_local`
+    // bindet den Wert an die **Transaktion**. Stünde dort `false`, bliebe der Mandant
+    // in der **Verbindung** stehen. Und weil Verbindungen aus einem Vorrat
+    // wiederverwendet werden, liefe die **nächste** Abfrage unter dem **vorigen**
+    // Benutzer. Das wäre schlimmer als kein Mandant: es wäre ein **fremder**.
+    //
+    // **Warum auf EINER Verbindung gemessen wird.** Über den Vorrat (`max: 2`) könnte
+    // die Abfrage „außen" auf einer **anderen** Verbindung landen — dann belegte der
+    // Test nur, daß ein zweiter Kanal nichts weiß, und **nicht**, daß der Wert
+    // verschwunden ist. Deshalb wird eine Verbindung mit `reserve()` festgehalten und
+    // beides darüber gefahren.
+    //
+    // **Was hier NICHT geprüft wird.** Daß Row Level Security danach filtert. Das ist
+    // eine Eigenschaft von PostgreSQL und steht gemessen in
+    // `packages/auth/db-schema/tests/proben/rls-verhalten.sql` und in
+    // `docs/status/mandantentrennung.md` §13.
+    const A = 'aaaaaaaa-0000-4000-8000-0000000000c1'
+
+    const lese = async (s: SqlZugang): Promise<string | null> => {
+      const zeilen = (await s.unsafe(`select current_setting('pmh.user_id', true) as wert`)) as {
+        wert: string | null
+      }[]
+      return zeilen[0]?.wert ?? null
+    }
+
+    // ---- Teil 1: mitMandant arbeitet mit dem ECHTEN Treiber ----
+    // Der Treiber wird als `SqlZugang` übergeben; die Umdeutung steht hier, weil die
+    // Schnittstelle absichtlich nur `unsafe` verlangt. Daß `begin` vorhanden ist,
+    // prüft `mitMandant` zur Laufzeit selbst — und wirft, wenn nicht.
+    const echt = sql as unknown as SqlZugang
+    expect(await mitMandant(echt, A, lese)).toBe(A)
+
+    // ---- Teil 2: die Transaktionslokalität, auf EINER Verbindung ----
+    // **Warum das getrennt gemessen wird.** Über den Vorrat (`max: 2`) könnte die
+    // Abfrage „außen" auf einer **anderen** Verbindung landen — dann belegte der Test
+    // nur, daß ein zweiter Kanal nichts weiß, und **nicht**, daß der Wert
+    // verschwunden ist. `reserve()` hält eine Verbindung fest.
+    //
+    // **Warum hier rohes SQL steht.** `reserviert.begin` gibt es in dieser Fassung des
+    // Treibers **nicht** (gemessen: `TypeError: reserviert.begin is not a function`).
+    // Deshalb wird die Transaktion über `begin`/`commit` gefahren — und damit genau
+    // das geprüft, was `mitMandant` innen tut: **`true` als drittes Argument**.
+    const reserviert = await sql.reserve()
+    try {
+      await reserviert.unsafe('begin')
+      try {
+        await reserviert.unsafe(`select set_config('pmh.user_id', $1, true)`, [A] as never[])
+        const innen = (await reserviert.unsafe(`select current_setting('pmh.user_id', true) as wert`)) as {
+          wert: string | null
+        }[]
+        expect(innen[0]?.wert ?? null).toBe(A)
+        await reserviert.unsafe('commit')
+      } catch (fehler) {
+        await reserviert.unsafe('rollback')
+        throw fehler
+      }
+
+      // Dieselbe Verbindung, Transaktion beendet. **Gemessen: der Wert ist `''`, nicht
+      // `NULL`.** Ein eigener Parameter, der einmal gesetzt wurde, **existiert** danach
+      // mit leerem Wert weiter — `is_local` nimmt den Wert zurück, nicht den Parameter.
+      //
+      // **Das ist eine gute Nachricht, und sie gehört benannt.** Ohne Mandant ergibt
+      // `current_setting('pmh.user_id', true)` hier `''`, und `''::uuid` wirft
+      // **`22P02`** — also **laut**. Nur auf einer Verbindung, die den Parameter **nie**
+      // gesetzt hat, liefert `missing_ok = true` ein `NULL` und damit **still null
+      // Zeilen**. Beides ist gemessen; siehe `docs/status/mandantentrennung.md` §13.4a.
+      //
+      // Geprüft wird deshalb: **der Mandant ist weg** (`''` oder `NULL`, nie `A`).
+      const aussen = (await reserviert.unsafe(`select current_setting('pmh.user_id', true) as wert`)) as {
+        wert: string | null
+      }[]
+      const draussen = aussen[0]?.wert ?? null
+      expect(draussen).not.toBe(A)
+      expect(draussen ?? '').toBe('')
+    } finally {
+      await reserviert.release()
+    }
   })
 })
