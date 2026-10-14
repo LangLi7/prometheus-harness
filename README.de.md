@@ -148,10 +148,12 @@ in [grenzen-und-offenes.md](docs/status/grenzen-und-offenes.md).
 - **Die Oberfläche ist ein Gerüst** — 8 Dateien unter `apps/web/src`, kein Chat
   und kein Dateibaum. (Gezählt am 14.10.2026; hier stand bis dahin *5*.)
 - **Sitzungen liegen als JSONL**, nicht in PostgreSQL.
-- **Verdichtung ist komponiert und aktiv, ihr Verhalten unbelegt** — das
-  Standard-Preset aktiviert `dsh-compaction-basic`, `dsh-command-compact` und
-  `dsh-compaction-tool-result-pruner`. Hier stand bis zum 14.10.2026
-  *„Verdichtung fehlt"*; die Messung hat das widerlegt
+- **Verdichtung läuft auf Anforderung; die Selbstauslösung ist unbelegt** —
+  `/compact` wird ausgeführt und schreibt verkettete Ereignisse
+  `compaction/start|summary|end` mit einer **echten** Zusammenfassung
+  ([verdichtung-nachweis.md](docs/status/verdichtung-nachweis.md)). Was **keine**
+  Messung zeigt, ist ob sie bei **Kontextdruck von selbst** auslöst. Hier stand bis
+  zum 14.10.2026 *„Verdichtung fehlt"*; die Messung hat das widerlegt
   ([plugin-inventur.md](docs/status/plugin-inventur.md)).
 - **Der Wissensspeicher hat keinen Indexer** — Schema und Proben gibt es,
   Einbettungen und Dateiwächter nicht.

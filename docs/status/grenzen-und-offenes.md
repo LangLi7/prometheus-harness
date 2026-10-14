@@ -62,13 +62,22 @@ für Anmeldung und Wissensspeicher; ein `session-persistence-postgres` gibt es
 nicht. Der Sitzungsformat-Stand v1 gegen die Vorlage v4 ist **nicht neu gemessen**
 — die Aussage stammt aus einem früheren Bericht.
 
-**Verdichtung ist komponiert und aktiv — ihr Verhalten ist unbelegt.** Hier stand
+**Verdichtung läuft auf Anforderung — die Selbstauslösung ist unbelegt.** Hier stand
 „**Verdichtung fehlt**"; das war am 14.10.2026 **falsch**. Gemessen über
 `pluginInventory/list`: das Standard-Preset aktiviert `dsh-compaction-basic`,
 `dsh-command-compact` und `dsh-compaction-tool-result-pruner`, alle mit
-Lebensphase `active`. Belegt: [plugin-inventur.md](plugin-inventur.md). Offen ist
-etwas **anderes** als behauptet: keine Messung zeigt bisher, daß die Verdichtung in
-einer **langen** Sitzung wirklich auslöst.
+Lebensphase `active` ([plugin-inventur.md](plugin-inventur.md)).
+
+Und sie **wirkt**, wenn man sie anfordert: `/compact` läuft über
+`commands/execute` durch (`kind: 'success'`, „Compacted 4 history items (~1154
+tokens)") und schreibt **verkettete** Ereignisse `compaction/start|summary|end` mit
+einer **echten** Zusammenfassung — dreimal wiederholt, dreimal Exit 0
+([verdichtung-nachweis.md](verdichtung-nachweis.md)).
+
+Offen ist etwas **anderes** als das, was hier zuerst stand: ob die Verdichtung bei
+**Kontextdruck von selbst** auslöst. Der gemessene Weg ist der **auf Anforderung**;
+`dsh-compaction-basic` und `dsh-compaction-tool-result-pruner` sind komponiert, ihr
+**automatisches** Auslösen ist ein anderer Vorgang und weiterhin ungemessen.
 
 **Der Wissensspeicher hat kein Schema-Problem mehr, aber keinen Indexer.**
 Migration 0006 (Dokumente, Stücke, `vector(768)`, HNSW) und 0007 (Obsidian:
