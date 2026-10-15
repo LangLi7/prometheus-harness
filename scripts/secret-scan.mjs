@@ -1,5 +1,5 @@
 /**
- * geheimnis-scan.mjs — der eingebaute Geheimnis-Scanner.
+ * secret-scan.mjs — der eingebaute Geheimnis-Scanner.
  *
  * ## Warum es diese Datei gibt
  *
@@ -41,10 +41,10 @@
  * Scanner, der Geheimnisse in die CI-Ausgabe schreibt, verbreitet sie.
  *
  * Aufruf:
- *   bun scripts/geheimnis-scan.mjs verlauf        # alle Commits + verfolgte Dateien
- *   bun scripts/geheimnis-scan.mjs gestellt       # nur die gestellten Änderungen
- *   bun scripts/geheimnis-scan.mjs dateien        # nur der heutige Baum
- *   bun scripts/geheimnis-scan.mjs text "<text>"
+ *   bun scripts/secret-scan.mjs verlauf        # alle Commits + verfolgte Dateien
+ *   bun scripts/secret-scan.mjs gestellt       # nur die gestellten Änderungen
+ *   bun scripts/secret-scan.mjs dateien        # nur der heutige Baum
+ *   bun scripts/secret-scan.mjs text "<text>"
  *
  * Rückgabewert: 0 = nichts (oder nur Befreites) gefunden, 1 = Fund, 2 = Aufruffehler.
  */
@@ -345,9 +345,9 @@ function main() {
   }
 
   schreibe(
-    'Aufruf:\n  bun scripts/geheimnis-scan.mjs verlauf\n  bun scripts/geheimnis-scan.mjs gestellt\n  bun scripts/geheimnis-scan.mjs dateien\n  bun scripts/geheimnis-scan.mjs text "<text>"\n',
+    'Aufruf:\n  bun scripts/secret-scan.mjs verlauf\n  bun scripts/secret-scan.mjs gestellt\n  bun scripts/secret-scan.mjs dateien\n  bun scripts/secret-scan.mjs text "<text>"\n',
   )
   process.exit(2)
 }
 
-if (process.argv[1]?.replace(/\\/gu, '/').endsWith('geheimnis-scan.mjs')) main()
+if (process.argv[1]?.replace(/\\/gu, '/').endsWith('secret-scan.mjs')) main()

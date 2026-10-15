@@ -1,5 +1,5 @@
 /**
- * Prüfungen für `scripts/geheimnis-scan.mjs`.
+ * Prüfungen für `scripts/secret-scan.mjs`.
  *
  * Der wichtigste Fall steht **zuerst**: der Scanner darf `redis://127.0.0.1:6379`
  * **nicht** melden. Genau das hat `leck-pruefung.mjs` getan, weil es nur auf die
@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from 'bun:test'
 
-import { berichte, entropie, finde, fingerabdruck, istPlatzhalter, markenGrund, siehtNachGeheimnisAus } from './geheimnis-scan.mjs'
+import { berichte, entropie, finde, fingerabdruck, istPlatzhalter, markenGrund, siehtNachGeheimnisAus } from './secret-scan.mjs'
 
 describe('Der Fehlalarm, der nicht zurückkommen darf', () => {
   test('eine Adresse OHNE Zugangsdaten ist kein Geheimnis', () => {
