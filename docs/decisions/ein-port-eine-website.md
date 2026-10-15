@@ -1,0 +1,98 @@
+# Ein Port, eine Website — die Welt wird nicht abgespalten
+
+Entscheidung des Betreibers, 15.10.2026:
+
+> „der port sollte natürlich die selbe sein also wird es nicht gespalten oder so. das bedeutet nur
+> das es eine art selbe website ist"
+
+## 1. Was heute gemessen ist
+
+`netstat -ano`, lauschende Einträge, 15.10.2026 (**59** Einträge insgesamt):
+
+| Port | Zustand | Wofür |
+|---|---|---|
+| **3080** | **belegt** | die DSH-Oberfläche |
+| **3081** | **belegt** | **unser Host** — `/` → 303 `/anmeldung/` |
+| 5173 | **belegt** | eine **fremde** Anwendung (in `welt-adresse.mjs` so vermerkt) |
+| 5174 | frei | die Referenz-WebUI (anderer Rechner/Ordner) |
+| 5175 | frei | `apps/web` (der Chat) |
+| **5176** | **belegt** | **der Welt-Prototyp** (`snapshots/web`, `WELT_PORT`) |
+| 5180 | frei | `apps/login_web` (Vite-Entwicklungsserver) |
+| 5432 | **belegt** | PostgreSQL |
+| 6379 | **belegt** | Redis |
+
+Die Zahlen stehen in `scripts/welt-adresse.mjs` (`WELT_PORT = 5176`), in
+`docs/status/anmeldeseite-und-erstlogin.md` §8 und in `docs/reference/web-frontend.md` §5.
+
+**Wie die Zahl entstanden ist — und warum sie nicht mehr trägt.** `welt-adresse.mjs` begründet
+`5176` damit, daß `5173`, `5174` und `5175` vergeben waren und der Prototyp sich den nächsten
+genommen hat. **Das ist eine Begründung aus der Not, nicht aus dem Entwurf** — und genau die
+Not ist jetzt behoben: der Betreiber will **eine** Website.
+
+## 2. Die Entscheidung
+
+**Der Welt-Prototyp wird NICHT auf einem eigenen Port ausgeliefert.** Er ist ein Teil **derselben**
+Website und liegt damit hinter **demselben Port wie der Rest** — erreichbar über einen **Pfad**
+(`/welt`), nicht über `:5176`.
+
+**Was daraus folgt, in drei Sätzen:**
+
+1. `WELT_PORT` **entfällt** als eigene Zahl. An seine Stelle tritt ein **Pfad** auf der Adresse des
+   Hosts.
+2. Der **Umschalter** in der Oberfläche öffnet diesen Pfad — dieselbe Herkunft, kein zweiter
+   Ursprung. Damit fällt auch die Sorge um **gemischte Herkünfte** weg (Kekse, CORS, `SameSite`):
+   bei einem Port gibt es sie nicht.
+3. Der Host **liefert** den Prototypen aus, wie er die Anmeldeseite schon ausliefert — gemessen:
+   `/` → 303 `/anmeldung/` auf **3081**, aus **unserem** Host, ohne zweiten Lauschpunkt.
+
+**Warum das keine Kleinigkeit ist.** Ein zweiter Port ist eine zweite **Herkunft**. Eine Herkunft
+ist im Browser die Grenze für Kekse, `localStorage` und `fetch`. Derselbe Port macht aus „zwei
+Anwendungen, die sich kennen müssen" **eine** Anwendung. Der Umschalter wird damit zu einem
+**Wechsel innerhalb** der Seite statt zu einem Sprung zwischen zwei Sites.
+
+## 3. Was dafür geändert werden muss — und von wem
+
+| Datei | Was | Zustand |
+|---|---|---|
+| `scripts/welt-adresse.mjs` | `WELT_PORT` → `WELT_PFAD` (Pfad statt Port) | **fremde, unverfolgte Arbeit** (Regel 14) |
+| `scripts/start.mjs` | den Prototypen nicht mehr als eigenen Dienst starten; stattdessen den Host ihn ausliefern lassen | **fremd geändert, nicht festgeschrieben** |
+| `scripts/client-buendel.mjs` | die Prüfung „steht derselbe Port im Bündel?" wird zu „steht derselbe **Pfad**?" | **fremd geändert, nicht festgeschrieben** |
+| `packages/client/world-switch` | das Ziel des Umschalters | Arbeit des Welt-Umschalters |
+
+**Diese vier Stellen sind fremde, nicht festgeschriebene Arbeit.** Ich habe sie **nicht angefaßt**
+— und ich werde sie nicht anfassen, solange der Betreiber es nicht sagt (Regel 14, und der Vorfall
+vom 15.10.2026, bei dem acht fremde Dateien in einem Commit landeten).
+
+**Der Zustand ist gemessen, nicht vermutet** (`git status --porcelain`, `git ls-files`):
+
+```
+scripts/welt-adresse.mjs            verfolgt=nein  status=[?? scripts/welt-adresse.mjs]
+scripts/start.mjs                   verfolgt=ja    status=[ M scripts/start.mjs]
+scripts/client-buendel.mjs          verfolgt=ja    status=[ M scripts/client-buendel.mjs]
+packages/client/world-switch        verfolgt=nein  status=[?? packages/client/world-switch/]
+```
+
+**Zwei der vier Stellen sind gar nicht verfolgt** — der Welt-Umschalter liegt als **ganzes, neues
+Paket** unverfolgt im Baum. Wer ihn umbaut, bevor er festgeschrieben ist, baut an etwas, das noch
+keine Geschichte hat.
+
+**Der Weg, der beides respektiert:** die fremde Arbeit wird **zuerst festgeschrieben**. Danach ist
+sie unser Bestand, und der Umbau auf einen Port ist ein normaler Zug mit eigener Messung:
+`WELT_PORT` durch einen Pfad ersetzen, den Host den Prototypen ausliefern lassen, den Umschalter
+auf den Pfad zeigen lassen — und die Gegenprobe ist ein `curl` auf **einen** Port, der beide
+Seiten liefert.
+
+## 4. Zwei eigene Meßfehler, die in dieser Stunde passiert sind
+
+Beide beim Bestimmen der Ports, beide nach der alten Regel: **eine leere Anzeige ist ein Fehler,
+kein Wert.**
+
+1. **`Get-NetTCPConnection` scheiterte** — auf diesem Rechner ist die Ausführungsrichtlinie
+   `Restricted`, das Modul `NetTCPIP` lädt nicht. Mein `if ($c) … else „frei"` hat die **leere**
+   Antwort als **„Port frei"** ausgegeben. **Alle neun Ports standen auf „frei"**, obwohl sechs
+   belegt sind.
+2. **`netstat -ano` schreibt auf diesem Windows `ABHÖREN`, nicht `LISTENING`.** Mein Filter auf
+   `LISTENING` fand **0** Einträge — und wieder sah es aus wie „nichts lauscht".
+
+**Erst der dritte Versuch hat gemessen:** das Zustandswort aus der **Ausgabe selbst** ablesen,
+statt es zu erwarten. `ABHÖREN` als Filter ergab **59** Einträge.
