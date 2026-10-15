@@ -27,7 +27,7 @@
  * @module @prometheus-harness/directory-curator/verwalter
  */
 
-import type { Familie, Sondebefund } from '@prometheus-harness/verzeichnis'
+import type { Familie, Sondebefund } from '@prometheus-harness/provider-directory'
 import type { Auslegeergebnis } from './interpreter.ts'
 import { messbar } from './interpreter.ts'
 import {
@@ -85,7 +85,7 @@ export interface Verwalteroptionen {
    * Die Sonde — **hereingereicht**.
    *
    * Damit ist dieser Ablauf **ohne Netz** prüfbar. Und es steht genau eine Stelle fest, die
-   * hinausruft: `sonde` aus `@prometheus-harness/verzeichnis`.
+   * hinausruft: `sonde` aus `@prometheus-harness/provider-directory`.
    *
    * @param familie - die zu prüfende Familie
    * @returns der Befund

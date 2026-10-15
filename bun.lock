@@ -100,12 +100,12 @@
       "name": "@prometheus-harness/openrouter",
       "version": "0.0.0",
     },
-    "packages/ai/settings": {
-      "name": "@prometheus-harness/settings",
+    "packages/ai/provider-directory": {
+      "name": "@prometheus-harness/provider-directory",
       "version": "0.0.0",
     },
-    "packages/ai/verzeichnis": {
-      "name": "@prometheus-harness/verzeichnis",
+    "packages/ai/settings": {
+      "name": "@prometheus-harness/settings",
       "version": "0.0.0",
     },
     "packages/api/auth-http": {
@@ -1015,6 +1015,8 @@
 
     "@prometheus-harness/permissions": ["@prometheus-harness/permissions@workspace:packages/auth/permissions"],
 
+    "@prometheus-harness/provider-directory": ["@prometheus-harness/provider-directory@workspace:packages/ai/provider-directory"],
+
     "@prometheus-harness/readiness": ["@prometheus-harness/readiness@workspace:packages/api/readiness"],
 
     "@prometheus-harness/reset": ["@prometheus-harness/reset@workspace:packages/auth/reset"],
@@ -1042,8 +1044,6 @@
     "@prometheus-harness/token-meter": ["@prometheus-harness/token-meter@workspace:packages/llm/token-meter"],
 
     "@prometheus-harness/unit-export": ["@prometheus-harness/unit-export@workspace:packages/units/unit-export"],
-
-    "@prometheus-harness/verzeichnis": ["@prometheus-harness/verzeichnis@workspace:packages/ai/verzeichnis"],
 
     "@prometheus-harness/web": ["@prometheus-harness/web@workspace:apps/web"],
 

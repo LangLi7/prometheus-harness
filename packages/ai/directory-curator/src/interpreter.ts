@@ -39,7 +39,7 @@ import {
   type Stufen,
 } from '@prometheus-harness/faehigkeiten'
 import type { Waechter } from '@prometheus-harness/guard'
-import type { Wegbefund } from '@prometheus-harness/verzeichnis'
+import type { Wegbefund } from '@prometheus-harness/provider-directory'
 
 /** Was der Ausleger braucht. */
 export interface Auslegeauftrag {

@@ -13,14 +13,14 @@
  *
  * ## Was diese Datei NICHT beweist
  *
- * Daß die Sonde richtig mißt (das steht in `@prometheus-harness/verzeichnis`) und daß ein echtes
+ * Daß die Sonde richtig mißt (das steht in `@prometheus-harness/provider-directory`) und daß ein echtes
  * Modell richtig auslegt. Hier antworten Attrappen mit **vorgegebenen** Werten.
  */
 
 import { describe, expect, test } from 'bun:test'
 import { FAEHIGKEITEN, type Entscheider, type EntscheidungsEingabe, type Urteil } from '@prometheus-harness/faehigkeiten'
 import { waechter } from '@prometheus-harness/guard'
-import type { Familie, Sondebefund } from '@prometheus-harness/verzeichnis'
+import type { Familie, Sondebefund } from '@prometheus-harness/provider-directory'
 import {
   KatalogFehler,
   LEER,

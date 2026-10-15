@@ -26,12 +26,12 @@
  * Ein Tor, das alles mit 401 beantwortet, sagt nichts über den Weg dahinter. Wer 401 als Beweis
  * nimmt, hält jeden Pfad für vorhanden — und trägt einen Anbieter ein, der nichts kann.
  *
- * @module @prometheus-harness/verzeichnis/sonde
+ * @module @prometheus-harness/provider-directory/probe
  */
 
 import { entschaerfeText, findeBekannte } from '@prometheus-harness/guard'
 import type { Faehigkeit } from '@prometheus-harness/faehigkeiten'
-import type { Familie, Weg, Wegart } from './familien.ts'
+import type { Familie, Weg, Wegart } from './families.ts'
 
 /** Ein austauschbarer Netzzugriff — für die Prüfung. */
 export type Abruf = (adresse: string, einstellung: RequestInit) => Promise<Response>

@@ -17,7 +17,7 @@
  */
 
 import type { Faehigkeit, Herkunft } from '@prometheus-harness/faehigkeiten'
-import type { Sondebefund, Wegbefund } from '@prometheus-harness/verzeichnis'
+import type { Sondebefund, Wegbefund } from '@prometheus-harness/provider-directory'
 
 /** Die Fassung dieses Formats. Eine unbekannte wird **abgelehnt**, nicht gedeutet. */
 export const FASSUNG = 1

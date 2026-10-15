@@ -1,5 +1,5 @@
 /**
- * `@prometheus-harness/verzeichnis` — das Verzeichnis der KI-Anbieter.
+ * `@prometheus-harness/provider-directory` — das Verzeichnis der KI-Anbieter.
  *
  * ## Die Lücke, die dieses Paket füllt
  *
@@ -18,7 +18,7 @@
  * geprüft. Hier stehen die **Tatsachen über die Schnittstellen** und die **Sonde**, die sie
  * nachmißt.
  *
- * @module @prometheus-harness/verzeichnis
+ * @module @prometheus-harness/provider-directory
  */
 
 export {
@@ -37,7 +37,7 @@ export {
   type Weg,
   type Wegart,
   type Wegstand,
-} from './familien.ts'
+} from './families.ts'
 
 export {
   VERSUCHSPFAD,
@@ -49,4 +49,4 @@ export {
   type Sondebefund,
   type SondeOptionen,
   type Wegbefund,
-} from './sonde.ts'
+} from './probe.ts'

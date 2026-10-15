@@ -203,7 +203,7 @@ export async function pruefeDatei(pfad: string, gewichte: Gewichte): Promise<Pru
   return { heil: true, groesse: gemessen.groesse, sha256: gemessen.sha256 }
 }
 
-/** Ein austauschbarer Netzzugriff — wie in `@prometheus-harness/verzeichnis`. */
+/** Ein austauschbarer Netzzugriff — wie in `@prometheus-harness/provider-directory`. */
 export type Abruf = (adresse: string, einstellung: RequestInit) => Promise<Response>
 
 /** Was das Holen braucht. */

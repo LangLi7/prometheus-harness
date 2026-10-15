@@ -3,7 +3,7 @@
  *
  * ## Die Lücke, die er schließt
  *
- * Das Verzeichnis (`@prometheus-harness/verzeichnis`) **kann** messen, aber es läuft nicht von
+ * Das Verzeichnis (`@prometheus-harness/provider-directory`) **kann** messen, aber es läuft nicht von
  * selbst. Ohne diesen Verwalter wäre „gemessen" eine Auskunft, die **nie altert** — und ein neuer
  * Anbieter, ein neues Modell oder ein abgeschalteter Weg fiele niemandem auf.
  *

@@ -26,7 +26,7 @@
  * **Was ein Eintrag in {@link Familie.wege} NICHT behauptet:** daß die Fähigkeit *wirkt*. Er
  * behauptet: **wir kennen einen Weg dorthin.** Ob er trägt, sagt der Zustand.
  *
- * @module @prometheus-harness/verzeichnis/familien
+ * @module @prometheus-harness/provider-directory/families
  */
 
 import type { Faehigkeit } from '@prometheus-harness/faehigkeiten'
