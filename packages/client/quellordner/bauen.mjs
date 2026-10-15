@@ -46,8 +46,29 @@ const HIER = dirname(fileURLToPath(import.meta.url))
 /** Die Kennung, unter der der Kern das Bündel lädt — sie MUSS dem Paketnamen entsprechen. */
 const KENNUNG = '@prometheus-harness/client-quellordner'
 
-/** Was der Browser nicht mitgeliefert bekommt, sondern vom Kern erfragt. */
-const FREMD = ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/server']
+/**
+ * Die Baseline der Shell — **gemessen**, nicht geraten.
+ *
+ * Fundstelle: `deepseek-harness/packages/client/web/src/platform.ts` (`PLATFORM_MODULES`), laut
+ * `packages/client/AGENTS.md` *„the single source of truth for shell-seeded shared modules"*;
+ * der Hausbau verbraucht sie in `packages/client/tsdown.client.ts:419` als External-Liste.
+ *
+ * **Vorher stand hier eine geratene Liste** (`react`, `react/jsx-runtime`, `react-dom`,
+ * `react-dom/server`). Sie war fast richtig — und `react-dom/server` gehört **nicht** zur Baseline.
+ * Eine geratene Liste, die fast stimmt, ist die gefährlichste Sorte.
+ */
+const BASELINE = [
+  'react',
+  'react/jsx-runtime',
+  'react-dom',
+  'react-dom/client',
+  '@deepseek-ai/cordis',
+  '@deepseek-ai/dsh-client-ui-slots',
+  '@deepseek-ai/dsh-client-ui-primitives',
+]
+
+/** Was der Browser nicht mitgeliefert bekommt, sondern vom Kern erfragt — die Baseline. */
+const FREMD = BASELINE
 
 /** Die Zieldatei. */
 const ZIEL = join(HIER, 'lib', 'client.js')
@@ -64,6 +85,17 @@ async function baueRumpf() {
     format: 'cjs',
     external: FREMD,
     minify: false,
+    // **Der Produktionsmodus ist PFLICHT, nicht Geschmack.**
+    //
+    // Ohne diese Zeile baut Bun mit der **Entwicklungs**-JSX-Laufzeit, und das Bündel verlangt
+    // dann `react/jsx-dev-runtime`. Die steht **nicht** in `PLATFORM_MODULES` — der Modullader
+    // des Kerns würde werfen: *„require(...) missed the module table"*. Das Bündel wäre im
+    // Browser **nicht geladen**, und keine Prüfung hätte es gemerkt, solange sie einen echten
+    // `require` durchreicht.
+    //
+    // Gefunden hat es die verschärfte Prüfung am 15.10.2026 — beim ersten Lauf nach dem Einbau
+    // der gemessenen Baseline. Genau dafür ist sie da.
+    define: { 'process.env.NODE_ENV': JSON.stringify('production') },
   })
   if (!ergebnis.success || ergebnis.outputs.length === 0) {
     throw new Error(`Der Bau scheiterte: ${ergebnis.logs.map((l) => String(l)).join(' ')}`)
@@ -119,6 +151,24 @@ function pruefe(text) {
   if (geladen.id !== KENNUNG) befunde.push(`Die Kennung ist „${String(geladen.id)}" statt „${KENNUNG}".`)
 
   const require = createRequire(join(HIER, 'package.json'))
+
+  // **Die Modulwünsche sichtbar machen — wie das Hauswerkzeug.** Es ruft die Fabrik mit einer
+  // ATTRAPPE auf und meldet jeden Wunsch; mein Werkzeug reichte bisher einen ECHTEN `require`
+  // durch. Damit lud React wirklich, und **nichts fiel auf**: die Prüfung war grün, obwohl sie
+  // weniger sah. Genau dieser Unterschied hat am 15.10.2026 gezeigt, daß die Baseline fehlte.
+  const verlangt = []
+  geladen.factory((name) => {
+    verlangt.push(name)
+    return require(name)
+  })
+  const fremd = verlangt.filter((name) => !BASELINE.includes(name))
+  if (fremd.length > 0) {
+    befunde.push(
+      `Die Fabrik verlangt Module außerhalb der Baseline: ${fremd.join(', ')} — die gehören in ` +
+        '`dsh.client.external` (sonst findet der Browser sie nicht).',
+    )
+  }
+
   const plugin = geladen.factory(require)
 
   if (plugin.name !== 'quellordner') befunde.push(`name ist „${String(plugin.name)}".`)

@@ -54,7 +54,7 @@ module.exports = __toCommonJS(exports_client);
 var import_react = require("react");
 
 // packages/client/quellordner/src/dialog.tsx
-var jsx_dev_runtime = require("react/jsx-dev-runtime");
+var jsx_runtime = require("react/jsx-runtime");
 var TEXTE = {
   titel: "Quellordner",
   name: "Name",
@@ -73,30 +73,30 @@ function Ordnerzeile({
   beiZugriff,
   beschaeftigt
 }) {
-  return /* @__PURE__ */ jsx_dev_runtime.jsxDEV("li", {
+  return /* @__PURE__ */ jsx_runtime.jsxs("li", {
     className: "pmh-ordner-zeile",
     "data-primaer": ordner.istPrimaer ? "ja" : "nein",
     children: [
-      /* @__PURE__ */ jsx_dev_runtime.jsxDEV("span", {
+      /* @__PURE__ */ jsx_runtime.jsx("span", {
         className: "pmh-ordner-pfad",
         title: ordner.pfad,
         children: ordner.pfad
-      }, undefined, false, undefined, this),
-      ordner.bezeichnung === undefined ? null : /* @__PURE__ */ jsx_dev_runtime.jsxDEV("span", {
+      }),
+      ordner.bezeichnung === undefined ? null : /* @__PURE__ */ jsx_runtime.jsx("span", {
         className: "pmh-ordner-bezeichnung",
         children: ordner.bezeichnung
-      }, undefined, false, undefined, this),
-      ordner.istPrimaer ? /* @__PURE__ */ jsx_dev_runtime.jsxDEV("span", {
+      }),
+      ordner.istPrimaer ? /* @__PURE__ */ jsx_runtime.jsx("span", {
         className: "pmh-ordner-primaer",
         "aria-label": TEXTE.primaer,
         children: TEXTE.primaer
-      }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime.jsxDEV("span", {
+      }) : /* @__PURE__ */ jsx_runtime.jsx("span", {
         className: "pmh-ordner-zugriff",
         children: ordner.zugriff === "schreiben" ? TEXTE.schreiben : TEXTE.lesen
-      }, undefined, false, undefined, this),
-      ordner.istPrimaer ? null : /* @__PURE__ */ jsx_dev_runtime.jsxDEV(jsx_dev_runtime.Fragment, {
+      }),
+      ordner.istPrimaer ? null : /* @__PURE__ */ jsx_runtime.jsxs(jsx_runtime.Fragment, {
         children: [
-          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("button", {
+          /* @__PURE__ */ jsx_runtime.jsx("button", {
             type: "button",
             className: "pmh-ordner-zugriff-schalten",
             disabled: beschaeftigt,
@@ -104,8 +104,8 @@ function Ordnerzeile({
               beiZugriff?.(ordner.id, ordner.zugriff === "schreiben" ? "lesen" : "schreiben");
             },
             children: ordner.zugriff === "schreiben" ? TEXTE.lesen : TEXTE.schreiben
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("button", {
+          }),
+          /* @__PURE__ */ jsx_runtime.jsx("button", {
             type: "button",
             className: "pmh-ordner-entfernen",
             "aria-label": `${TEXTE.entfernen}: ${ordner.pfad}`,
@@ -114,28 +114,28 @@ function Ordnerzeile({
               beiEntfernen?.(ordner.id);
             },
             children: "×"
-          }, undefined, false, undefined, this)
+          })
         ]
-      }, undefined, true, undefined, this)
+      })
     ]
-  }, undefined, true, undefined, this);
+  });
 }
 function QuellordnerDialog(eigenschaften) {
   const beschaeftigt = eigenschaften.beschaeftigt === true;
   const sortiert = [...eigenschaften.ordner].sort((a, b) => Number(b.istPrimaer) - Number(a.istPrimaer));
-  return /* @__PURE__ */ jsx_dev_runtime.jsxDEV("div", {
+  return /* @__PURE__ */ jsx_runtime.jsxs("div", {
     className: "pmh-quellordner",
     role: "dialog",
     "aria-label": TEXTE.titel,
     children: [
-      /* @__PURE__ */ jsx_dev_runtime.jsxDEV("div", {
+      /* @__PURE__ */ jsx_runtime.jsxs("div", {
         className: "pmh-quellordner-kopf",
         children: [
-          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("h2", {
+          /* @__PURE__ */ jsx_runtime.jsx("h2", {
             className: "pmh-quellordner-titel",
             children: TEXTE.titel
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("button", {
+          }),
+          /* @__PURE__ */ jsx_runtime.jsx("button", {
             type: "button",
             className: "pmh-quellordner-schliessen",
             "aria-label": TEXTE.schliessen,
@@ -144,49 +144,49 @@ function QuellordnerDialog(eigenschaften) {
               eigenschaften.beiSchliessen?.();
             },
             children: "×"
-          }, undefined, false, undefined, this)
+          })
         ]
-      }, undefined, true, undefined, this),
-      eigenschaften.fehler === undefined ? null : /* @__PURE__ */ jsx_dev_runtime.jsxDEV("p", {
+      }),
+      eigenschaften.fehler === undefined ? null : /* @__PURE__ */ jsx_runtime.jsx("p", {
         className: "pmh-quellordner-fehler",
         role: "alert",
         children: eigenschaften.fehler
-      }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime.jsxDEV("label", {
+      }),
+      /* @__PURE__ */ jsx_runtime.jsxs("label", {
         className: "pmh-quellordner-name",
         children: [
-          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("span", {
+          /* @__PURE__ */ jsx_runtime.jsx("span", {
             children: TEXTE.name
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("input", {
+          }),
+          /* @__PURE__ */ jsx_runtime.jsx("input", {
             type: "text",
             value: eigenschaften.name,
             disabled: beschaeftigt,
             onChange: (e) => {
               eigenschaften.beiName?.(e.target.value);
             }
-          }, undefined, false, undefined, this)
+          })
         ]
-      }, undefined, true, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime.jsxDEV("div", {
+      }),
+      /* @__PURE__ */ jsx_runtime.jsxs("div", {
         className: "pmh-quellordner-liste",
         children: [
-          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("h3", {
+          /* @__PURE__ */ jsx_runtime.jsx("h3", {
             children: TEXTE.quellordner
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("ul", {
-            children: sortiert.map((ordner) => /* @__PURE__ */ jsx_dev_runtime.jsxDEV(Ordnerzeile, {
+          }),
+          /* @__PURE__ */ jsx_runtime.jsx("ul", {
+            children: sortiert.map((ordner) => /* @__PURE__ */ jsx_runtime.jsx(Ordnerzeile, {
               ordner,
               beiEntfernen: eigenschaften.beiEntfernen,
               beiZugriff: eigenschaften.beiZugriff,
               beschaeftigt
-            }, ordner.id, false, undefined, this))
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("p", {
+            }, ordner.id))
+          }),
+          /* @__PURE__ */ jsx_runtime.jsx("p", {
             className: "pmh-quellordner-hinweis",
             children: TEXTE.arbeitsplatzHinweis
-          }, undefined, false, undefined, this),
-          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("button", {
+          }),
+          /* @__PURE__ */ jsx_runtime.jsx("button", {
             type: "button",
             className: "pmh-quellordner-hinzufuegen",
             disabled: beschaeftigt,
@@ -194,11 +194,11 @@ function QuellordnerDialog(eigenschaften) {
               eigenschaften.beiHinzufuegen?.();
             },
             children: TEXTE.hinzufuegen
-          }, undefined, false, undefined, this)
+          })
         ]
-      }, undefined, true, undefined, this)
+      })
     ]
-  }, undefined, true, undefined, this);
+  });
 }
 
 // packages/client/quellordner/src/stand.ts
@@ -317,7 +317,7 @@ async function entferneOrdner(id, optionen) {
 }
 
 // packages/client/quellordner/src/client.tsx
-var jsx_dev_runtime2 = require("react/jsx-dev-runtime");
+var jsx_runtime2 = require("react/jsx-runtime");
 var name = "quellordner";
 var inject = ["slots", "workspaces", "sessions"];
 function QuellordnerSchicht({
@@ -360,7 +360,7 @@ function QuellordnerSchicht({
     });
   };
   if (!offen) {
-    return /* @__PURE__ */ jsx_dev_runtime2.jsxDEV("button", {
+    return /* @__PURE__ */ jsx_runtime2.jsx("button", {
       type: "button",
       className: "pmh-quellordner-knopf",
       onClick: () => {
@@ -370,9 +370,9 @@ function QuellordnerSchicht({
         setOffen(true);
       },
       children: "Quellordner"
-    }, undefined, false, undefined, this);
+    });
   }
-  return /* @__PURE__ */ jsx_dev_runtime2.jsxDEV(QuellordnerDialog, {
+  return /* @__PURE__ */ jsx_runtime2.jsx(QuellordnerDialog, {
     name: "",
     ordner,
     ...fehler === undefined ? {} : { fehler },
@@ -401,7 +401,7 @@ function QuellordnerSchicht({
     beiSchliessen: () => {
       setOffen(false);
     }
-  }, undefined, false, undefined, this);
+  });
 }
 function apply(ctx) {
   const kern = ctx;
