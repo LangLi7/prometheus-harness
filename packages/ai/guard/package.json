@@ -1,5 +1,5 @@
 {
-  "name": "@prometheus-harness/waechter",
+  "name": "@prometheus-harness/guard",
   "private": true,
   "version": "0.0.0",
   "type": "module",

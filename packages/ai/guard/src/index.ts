@@ -1,5 +1,5 @@
 /**
- * `@prometheus-harness/waechter` — die Kontrolle **vor** der Tat.
+ * `@prometheus-harness/guard` — die Kontrolle **vor** der Tat.
  *
  * ## Was er beantwortet
  *
@@ -34,7 +34,7 @@
  * `sicherheit` (Zahl zwischen 0 und 1), und das Modell füllt es aus. Was nicht im Feld steht, ist
  * keine Sicherheit; dann greift {@link umgangFuer} und schickt die Frage zum Menschen.
  *
- * @module @prometheus-harness/waechter
+ * @module @prometheus-harness/guard
  */
 
 import {
@@ -51,7 +51,7 @@ import {
   findeMitRegeln,
   type Regel,
   type Treffer,
-} from './regeln.ts'
+} from './rules.ts'
 
 export {
   REGELN,
@@ -60,7 +60,7 @@ export {
   findeMitRegeln,
   type Regel,
   type Treffer,
-} from './regeln.ts'
+} from './rules.ts'
 
 /** Ein eingetragener Wert — **mit Namen**, weil der Name kein Geheimnis ist und dem Menschen hilft. */
 export interface Eintrag {

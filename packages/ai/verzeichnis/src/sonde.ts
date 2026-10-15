@@ -29,7 +29,7 @@
  * @module @prometheus-harness/verzeichnis/sonde
  */
 
-import { entschaerfeText, findeBekannte } from '@prometheus-harness/waechter'
+import { entschaerfeText, findeBekannte } from '@prometheus-harness/guard'
 import type { Faehigkeit } from '@prometheus-harness/faehigkeiten'
 import type { Familie, Weg, Wegart } from './familien.ts'
 

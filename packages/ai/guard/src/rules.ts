@@ -26,7 +26,7 @@
  * Regel, die bei jedem Git-Hash anschlägt, wird nach zwei Tagen **abgeschaltet** — und dann findet
  * sie auch das echte Geheimnis nicht mehr. Ein Wächter, der zu oft ruft, ist kein Wächter.
  *
- * @module @prometheus-harness/waechter/regeln
+ * @module @prometheus-harness/guard/regeln
  */
 
 /** Ein Fund — **niemals** der Wert, immer nur wo, wie lang und wonach. */

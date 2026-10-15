@@ -38,7 +38,7 @@ import {
   type Schema,
   type Stufen,
 } from '@prometheus-harness/faehigkeiten'
-import type { Waechter } from '@prometheus-harness/waechter'
+import type { Waechter } from '@prometheus-harness/guard'
 import type { Wegbefund } from '@prometheus-harness/verzeichnis'
 
 /** Was der Ausleger braucht. */

@@ -33,7 +33,7 @@ Teile da, und einer davon ist **nicht einmal festgeschrieben**.
 | `packages/llm/llm-retry`, `token-meter` | festgeschrieben | Wiederholung **desselben** Anbieters; Zählung |
 | `packages/ai/faehigkeiten` | **neu, festgeschrieben** | Der Vertrag für **sechs** Fähigkeiten + Registratur + Eskalation zum Menschen |
 | `packages/ai/openrouter` | **neu, festgeschrieben** | **Ein** Anbieter, **vier** Fähigkeiten über **vier** Wege |
-| `packages/ai/waechter` | **neu, festgeschrieben** | Die Kontrolle vor der Tat |
+| `packages/ai/guard` | **neu, festgeschrieben** | Die Kontrolle vor der Tat |
 
 ### Und das, was nicht festgeschrieben ist
 

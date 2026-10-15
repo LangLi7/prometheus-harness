@@ -88,6 +88,10 @@
       "name": "@prometheus-harness/faehigkeiten",
       "version": "0.0.0",
     },
+    "packages/ai/guard": {
+      "name": "@prometheus-harness/guard",
+      "version": "0.0.0",
+    },
     "packages/ai/local": {
       "name": "@prometheus-harness/local",
       "version": "0.0.0",
@@ -102,10 +106,6 @@
     },
     "packages/ai/verzeichnis": {
       "name": "@prometheus-harness/verzeichnis",
-      "version": "0.0.0",
-    },
-    "packages/ai/waechter": {
-      "name": "@prometheus-harness/waechter",
       "version": "0.0.0",
     },
     "packages/api/auth-http": {
@@ -995,6 +995,8 @@
 
     "@prometheus-harness/faehigkeiten": ["@prometheus-harness/faehigkeiten@workspace:packages/ai/faehigkeiten"],
 
+    "@prometheus-harness/guard": ["@prometheus-harness/guard@workspace:packages/ai/guard"],
+
     "@prometheus-harness/health": ["@prometheus-harness/health@workspace:packages/api/health"],
 
     "@prometheus-harness/home-paths": ["@prometheus-harness/home-paths@workspace:packages/util/home-paths"],
@@ -1042,8 +1044,6 @@
     "@prometheus-harness/verwalter": ["@prometheus-harness/verwalter@workspace:packages/ai/verwalter"],
 
     "@prometheus-harness/verzeichnis": ["@prometheus-harness/verzeichnis@workspace:packages/ai/verzeichnis"],
-
-    "@prometheus-harness/waechter": ["@prometheus-harness/waechter@workspace:packages/ai/waechter"],
 
     "@prometheus-harness/web": ["@prometheus-harness/web@workspace:apps/web"],
 

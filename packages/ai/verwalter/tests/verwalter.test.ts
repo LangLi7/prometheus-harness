@@ -19,7 +19,7 @@
 
 import { describe, expect, test } from 'bun:test'
 import { FAEHIGKEITEN, type Entscheider, type EntscheidungsEingabe, type Urteil } from '@prometheus-harness/faehigkeiten'
-import { waechter } from '@prometheus-harness/waechter'
+import { waechter } from '@prometheus-harness/guard'
 import type { Familie, Sondebefund } from '@prometheus-harness/verzeichnis'
 import {
   KatalogFehler,

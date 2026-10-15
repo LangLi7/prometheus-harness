@@ -90,5 +90,5 @@ Preis-Leistungs-Verhältnisses. Dazu zwei gemessene Anmerkungen:
    für diese Rolle kein Mangel, sondern ausreichend.
 2. **Der Verwalter liest fremde Antworten — also muß der Wächter davor.** Wenn DeepSeek eine
    fremde API-Antwort *auslegt*, geht diese Antwort über das Netz. Enthielte sie einen Schlüssel,
-   hätte das Auslegen ihn verschickt. Der Weg gehört deshalb **durch `@prometheus-harness/waechter`**
+   hätte das Auslegen ihn verschickt. Der Weg gehört deshalb **durch `@prometheus-harness/guard`**
    — Stufe 1 (Regeln, ohne Modell) zuerst, und bei einem Fund **kein** Modellaufruf.

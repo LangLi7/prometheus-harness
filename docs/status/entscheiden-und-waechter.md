@@ -108,7 +108,7 @@ API eine andere Form**, und die Form gehört beschrieben, nicht einprogrammiert.
 
 ## 8. Was noch offen ist — als nächste Schritte
 
-**A. Der Wächter** (`packages/ai/waechter`). Die Kontrollfrage vor der Tat: *darf dieser Text
+**A. Der Wächter** (`packages/ai/guard`). Die Kontrollfrage vor der Tat: *darf dieser Text
 hinaus?* Zwei Stufen, und die Reihenfolge ist Absicht:
 
 1. **Regeln, ohne Modell** — bekannte Geheimwerte aus dem Speicher, Schlüsselmuster. Das ist
