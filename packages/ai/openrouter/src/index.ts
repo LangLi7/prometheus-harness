@@ -124,6 +124,23 @@ export const UMWELT_SCHLUESSEL = 'OPENROUTER_API_KEY'
 /** Die Vorgabe-Stimme — gemessen: `Kore` liefert bei `google/gemini-3.8-flash-tts` Ton. */
 export const VORGABE_STIMME = 'Kore'
 
+/**
+ * Unsere Denkstufen als die Werte, die der Dienst kennt.
+ *
+ * **Warum übersetzt und nicht durchgereicht.** Unsere Wörter stehen in den Einstellungen und in der
+ * Oberfläche; die Werte des Dienstes sind seine Sache. Eine Zwischenschicht heißt: wenn ein Dienst
+ * `reasoning_effort` anders schreibt, ändert sich **eine** Zeile — nicht jede Einstellung.
+ */
+const DENKSTUFEN: Readonly<Record<'aus' | 'niedrig' | 'mittel' | 'hoch', string>> = {
+  // `'aus'` wird als `'minimal'` gesendet — **gemessen ist das nicht.** Daß die drei genannten
+  // Modelle den Parameter annehmen, steht in der Modellliste; welchen Wert sie als „kein Denken"
+  // lesen, nicht. Wer `'aus'` setzt, soll das wissen.
+  aus: 'minimal',
+  niedrig: 'low',
+  mittel: 'medium',
+  hoch: 'high',
+}
+
 // ---------------------------------------------------------------------------
 // Fehler
 // ---------------------------------------------------------------------------
@@ -201,6 +218,29 @@ export interface OpenrouterOptionen {
    * Budget aufgebraucht. Wer hier eine Zahl einträgt, muß sie großzügig wählen.
    */
   readonly hoechstToken?: number
+  /**
+   * Wie stark das Modell **denken** darf.
+   *
+   * ## Warum das hier steht — gemessen am 15.10.2026
+   *
+   * Der Befund: bei `max_tokens: 300` kam ein **leerer** Inhalt zurück. Die Zwischenschritte des
+   * Modells hatten das Budget aufgebraucht; das Urteil stand nie in `content`. Bezahlt für nichts
+   * Brauchbares.
+   *
+   * Und die Auskunft, die den Ausweg zeigt: `google/gemini-3.8-flash`, `openai/gpt-oss-20b` und
+   * `typesafe/jev-router` nennen **alle** `reasoning_effort` unter ihren Parametern; **332 von 462**
+   * Modellen der Liste nennen `reasoning`. Der Weg, das Denken zu begrenzen, ist also ein
+   * **Parameter** — kein zweites Modell und kein Plugin.
+   *
+   * **Der zweite Hebel gehört daneben:** ein Modell zu wählen, das **gar nicht** denkt
+   * (`ibm-granite/granite-4.0-h-micro` kennt `reasoning` nicht). Bei einer Entscheidung aus einer
+   * festen Auswahl ist Nachdenken oft nur teuer.
+   *
+   * **`'aus'` ist ehrlich benannt, aber nicht gemessen.** Daß diese drei Modelle das Denken
+   * *abschalten* lassen, steht **nicht** in meiner Messung — nur, daß sie den Parameter
+   * `reasoning_effort` annehmen. Wer `'aus'` setzt, soll wissen, daß es ein Versuch ist.
+   */
+  readonly denken?: 'aus' | 'niedrig' | 'mittel' | 'hoch'
 }
 
 // ---------------------------------------------------------------------------
@@ -418,6 +458,10 @@ export function openrouter(optionen: OpenrouterOptionen = {}): Anbieter {
           json_schema: { name: 'urteil', strict: true, schema },
         },
         ...(optionen.hoechstToken === undefined ? {} : { max_tokens: optionen.hoechstToken }),
+        // **Der Hebel gegen das volle Denk-Budget.** Gemessen: die drei genannten Modelle nehmen
+        // `reasoning_effort` an. Fehlt der Wert, wird **nichts** gesendet — der Anbieter entscheidet
+        // dann wie bisher, und wir tun nicht so, als hätten wir es begrenzt.
+        ...(optionen.denken === undefined ? {} : { reasoning_effort: DENKSTUFEN[optionen.denken] }),
       }
       const antwort = await rufe(
         WEG_GESPRAECH,

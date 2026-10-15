@@ -454,6 +454,68 @@ describe('Entscheiden', () => {
     expect(text).toContain('***')
   })
 
+  test('die Denkstufe geht mit — und fehlt sie, wird NICHTS gesendet', async () => {
+    // Gemessen am 15.10.2026: bei zu kleinem Budget kam ein LEERER Inhalt zurück, weil das Denken
+    // das Budget aufbrauchte. `reasoning_effort` ist der Hebel — und die drei genannten Modelle
+    // nehmen ihn an.
+    const b = await macheBuehne()
+    b.antworte({ status: 200, koerper: chatAntwort('{"antwort":"ja"}') })
+    const a = openrouter({
+      schluessel: () => SCHLUESSEL,
+      basis: b.basis,
+      modelle: { entscheiden: 'x/y' },
+      denken: 'niedrig',
+    })
+    await a.entscheider?.entscheide({ frage: 'f', lage: 1, schema: SCHEMA })
+    const mitStufe = JSON.parse(b.aufzeichnungen[0]?.koerper ?? '{}') as Record<string, unknown>
+    expect(mitStufe['reasoning_effort']).toBe('low')
+
+    // **Und ohne Stufe wird nichts gesendet.** Etwas zu senden, das niemand gesetzt hat, hieße
+    // eine Entscheidung zu treffen, die nicht getroffen wurde.
+    const b2 = await macheBuehne()
+    b2.antworte({ status: 200, koerper: chatAntwort('{"antwort":"ja"}') })
+    const a2 = mitModell(b2.basis, 'entscheiden', 'x/y')
+    await a2.entscheider?.entscheide({ frage: 'f', lage: 1, schema: SCHEMA })
+    const ohne = JSON.parse(b2.aufzeichnungen[0]?.koerper ?? '{}') as Record<string, unknown>
+    expect(Object.hasOwn(ohne, 'reasoning_effort')).toBe(false)
+  })
+
+  test('die vier Denkstufen werden auf die Werte des Dienstes übersetzt', async () => {
+    for (const [unsere, seine] of [
+      ['aus', 'minimal'],
+      ['niedrig', 'low'],
+      ['mittel', 'medium'],
+      ['hoch', 'high'],
+    ] as const) {
+      const b = await macheBuehne()
+      b.antworte({ status: 200, koerper: chatAntwort('{"antwort":"ja"}') })
+      const a = openrouter({
+        schluessel: () => SCHLUESSEL,
+        basis: b.basis,
+        modelle: { entscheiden: 'x/y' },
+        denken: unsere,
+      })
+      await a.entscheider?.entscheide({ frage: 'f', lage: 1, schema: SCHEMA })
+      const koerper = JSON.parse(b.aufzeichnungen[0]?.koerper ?? '{}') as Record<string, unknown>
+      expect({ unsere, gesendet: koerper['reasoning_effort'] }).toEqual({ unsere, gesendet: seine })
+    }
+  })
+
+  test('die Denkstufe gilt NUR fürs Entscheiden — nicht fürs Einbetten', async () => {
+    // Einbetten denkt nicht. Den Parameter dort mitzusenden wäre eine Auskunft über etwas, das es
+    // nicht gibt.
+    const b = await macheBuehne()
+    b.antworte({ status: 200, koerper: JSON.stringify({ data: [{ index: 0, embedding: [1, 2] }] }) })
+    const a = openrouter({
+      schluessel: () => SCHLUESSEL,
+      basis: b.basis,
+      modelle: { einbetten: 'm' },
+      denken: 'hoch',
+    })
+    await a.einbetter?.betteEin(['a'])
+    expect(b.aufzeichnungen[0]?.koerper).not.toContain('reasoning_effort')
+  })
+
   test('ohne eingestelltes Modell wird GEWORFEN — und nichts gesendet', async () => {
     const b = await macheBuehne()
     const a = openrouter({ schluessel: () => SCHLUESSEL, basis: b.basis })
