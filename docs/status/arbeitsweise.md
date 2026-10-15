@@ -893,5 +893,43 @@ einer; die Prüfung sagt, daß er der einzige war.
 Male war das **Werkzeug** die Fehlerquelle, nicht der Gegenstand — und beide Male hätte ein Blick
 auf die **Wirkung** gereicht: dort `git status`, hier die Zeile selbst.
 
+## 45. Ein `git add` auf einen **Ordner** stuft fremde Arbeit mit ein — und eine Fehlermeldung ist kein Rauschen
+
+**Der Fall, und er ist der schwerste dieser Arbeit.** Beim Festschreiben von acht Umbenennungen
+habe ich `git add -- scripts` und `git add -- docs/status/messsonden` geschrieben — **ganze
+Ordner**. Der Commit `cd7e5ae` nahm dadurch **acht fremde, nicht festgeschriebene Dateien** mit:
+
+| Art | Dateien |
+|---|---|
+| **fünf neue** | `docs/status/messsonden/gewichte-holen.mjs`, `…/sherpa-trockenlauf.mjs`, `…/sprach-anbieter-pruefstand.mjs`, `…/verknuepfung-probe.ps1`, `scripts/welt-adresse.mjs` |
+| **drei geänderte** | `scripts/client-buendel.mjs` **+294**, `scripts/profile-patch.mjs` **+32**, `scripts/start.mjs` **+71** |
+
+Die drei geänderten Dateien enthalten **nur** die fremde Arbeit (den „Welt-Umschalter"):
+`WELT_URL`, `WELT_PORT`, `--no-welt`, `client-world-switch`. **Nichts von mir.**
+
+**Der zweite Fehler, der den ersten gedeckt hat.** Ich habe vorher
+`git status --porcelain --cached` aufgerufen — **diese Option gibt es nicht.** git schrieb
+`error: unknown option 'cached'`, und ich habe die Meldung als Rauschen behandelt und trotzdem
+festgeschrieben. **Wer den Prüfschritt aufruft und seine Ausgabe nicht liest, hat keinen
+Prüfschritt.**
+
+**Behoben und gemessen.** `git reset --soft HEAD~1`, dann `git restore --staged` auf die acht
+Pfade. **Daß ich sie inhaltlich nicht berührt habe, ist nachgemessen, nicht behauptet:** kein
+`language-*`-Token steht in einer von ihnen (**0 Treffer**), und ihr Zustand ist wieder wie vorher
+— drei ` M`, fünf `??`. Der neue Commit enthält **genau 19 Dateien**, alle meine.
+
+**Die Regeln, mechanisch:**
+1. **Pfade einstufen, nie Ordner.** `git add -- <datei>` je Datei. Ein Ordner ist eine
+   Behauptung über seinen **ganzen Inhalt**, und den kennt nur, wer ihn vorher aufzählt.
+2. **`git status --porcelain` ohne erfundene Optionen** — und **vor** dem Festschreiben die
+   **Liste** ansehen: `git diff --cached --name-status`.
+3. **Fällt ein Befehl mit einem Fehler aus, wird nicht weitergemacht.** Der nächste Schritt baut
+   auf ihm auf.
+
+**Warum das Regel 14 verschärft.** Dort steht „fremde Arbeit nicht anfassen". Hier ist sie
+**mitgeschrieben** worden — der Schaden ist nicht der Verlust, sondern die **Behauptung**, es sei
+meine Arbeit gewesen. Rückgängig machen war möglich, weil der Zustand meßbar war; **wer fremde
+Arbeit festschreibt und es nicht merkt, hat sie für immer zu seiner gemacht.**
+
 
 

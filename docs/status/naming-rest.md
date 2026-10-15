@@ -500,3 +500,33 @@ nichts aufgerufen; dann die **Familie `sprach*`** (11) als geschlossener Block, 
 Fundstellen **eine** Ersetzung sind; dann der Rest einzeln, jeweils mit `reference-guard` als
 Gegenprobe. **Ein Skriptname darf erst fallen, wenn der Wächter für tote Verweise vorher und
 nachher dieselbe Zahl zeigt.**
+
+## 13. Was die `docs/`-Ausnahme **verdeckt** hat — 28 Codenamen
+
+**Der Wächter prüft `docs/` nicht.** Begründet war das mit den **Notizen**: ein Dokumentname wie
+`arbeitsweise.md` ist ein Aufsatztitel. **Aber unter `docs/` liegt nicht nur Papier.**
+Nachgezählt am 15.10.2026, Endungen `.mjs .ts .js .json .sql .ps1 .cmd .sh`:
+
+| Bereich | Beispiele | Anzahl |
+|---|---|---|
+| `docs/status/messsonden/` | `strom-sonde.mjs`, `befehl-sonde.mjs`, `verdichtung-sonde.mjs`, `werkzeug-paarung.mjs`, `api-sonde.ts`, **`sprachnamensraum-sonde.mjs`**, … | 14 |
+| `docs/protokoll/aufsicht/werkzeuge/` | `leck-pruefung.mjs`, `protokoll-pruefung.mjs`, `stand-abgleich.mjs`, `takt-pruefung.mjs`, `zugangs-lage.mjs`, `bun-faehigkeiten.mjs`, `geheimnis-historie.mjs` | 7 |
+| `docs/protokoll/aufsicht/hilfen/` | `anbieter-rauchtest.mjs`, `b1-nachziehen.mjs`, `zugang-bereitstellen.mjs`, `rechte-probe-assertion.sql` | 4 |
+| `docs/status/` (Wurzel) | `anmeldeseite-proxy-sonde.mjs` | 1 |
+| **andere** | `sprachbasis.json`, `sprachquelle.json`, `uebersetzung/quelle-1.json` … | — |
+
+**Das sind 28 ausführbare oder erzeugte Dateien, keine Notizen.** Sie fallen unter den Auftrag
+(„Codenamen englisch, Notizen deutsch"), und der Wächter hat sie **nie gemeldet**, weil er `docs/`
+als Ganzes überspringt. **Eine Ausnahme, die mit „das sind doch alles Dokumente" begründet wird,
+verdeckt alles, was dort kein Dokument ist** — dieselbe Sorte Fehler wie eine Wortliste, die ein
+Wort nicht kennt, nur eine Ebene höher: nicht das Wort fehlt, sondern der **Ort**.
+
+**Der nächste Schritt ist deshalb kein Umbenennen, sondern eine Messung:** der Namenswächter
+bekommt eine **Code-Erkennung auch unter `docs/`** — geprüft werden `.mjs .ts .js .json .sql .ps1
+.cmd .sh`, **ausgenommen bleiben `.md`, `.txt`, `.jsonl`** (Notizen und Protokolle). Erst wenn der
+Wächter diese 28 **selbst** meldet, ist der Umfang gemessen und nicht aufgezählt.
+
+**Und ein Name darin ist nicht unserer:** `scripts/welt-adresse.mjs` liegt als **unverfolgte,
+fremde** Arbeit im Baum. Er wird **gemeldet, nicht angefaßt** (Regel 14) — und der Wächter sagt
+dazu nichts, weil er den Baum liest, nicht die Zugehörigkeit. Ein Umbenennungszug muß die
+`git ls-files`-Menge als Maß nehmen, nicht den Ordner.
