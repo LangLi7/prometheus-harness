@@ -1,5 +1,5 @@
 /**
- * `@prometheus-harness/login-web/sprache` — welche Sprache die Seite zeigt.
+ * `@prometheus-harness/login-web/language` — welche Sprache die Seite zeigt.
  *
  * ## Woher die Wahl kommt
  *
@@ -19,7 +19,7 @@
  * **einer** Stelle (dem Sprachpaket des Rechners). Ist er nicht erreichbar, gilt die
  * mitgebündelte Liste — die Seite soll nicht leer bleiben, nur weil eine Abfrage scheitert.
  *
- * @module @prometheus-harness/login-web/sprache
+ * @module @prometheus-harness/login-web/language
  */
 
 import {

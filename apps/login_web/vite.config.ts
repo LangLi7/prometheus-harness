@@ -27,7 +27,7 @@
  *
  * ## Wohin weitergeleitet wird
  *
- * **Nicht hier.** Das Ziel steht in `src/weiter.ts` an **einer** Stelle
+ * **Nicht hier.** Das Ziel steht in `src/redirect.ts` an **einer** Stelle
  * (`VORGABE_ZIEL` und der Parameter `weiter`). Dort docken später die Einstellungen an,
  * ohne daß an dieser Datei etwas zu ändern wäre.
  *

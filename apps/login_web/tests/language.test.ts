@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from 'bun:test'
 import { VORGABE_SPRACHE } from '@prometheus-harness/languages'
-import { waehleSprache } from '../src/sprache.ts'
+import { waehleSprache } from '../src/language.ts'
 
 describe('Die Sprache wählen', () => {
   test('der Keks schlägt alles', () => {

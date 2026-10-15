@@ -121,7 +121,7 @@ gebaut; **das ist der nächste Schritt**, nicht die 43 Umbenennungen.
 | ~~1~~ | `packages/util/sprachen` → `languages` | klein | **vollzogen** (§6) — der Prüfstein für den Umbenennungsweg abseits von `scripts/` |
 | 2 | `packages/api/auth-http/src` (6) + `tests` (5) | mittel | Nur Importe im eigenen Haus, aber **97 Prüfungen** hängen daran |
 | 3 | `packages/auth/store-postgres` (9) — **vollzogen** (§8) · `db-schema/tests` + `fixtures` (7) — **vollzogen** (§9) | mittel | „Attrappen“, „Wurzeln“, „Zerleger“ sind Hausvokabular — die Bedeutung muß mitwandern |
-| 4 | `apps/login_web` (4) | klein | Zwei Dateien, je eine Prüfdatei |
+| 4 | `apps/login_web` (4) — **vollzogen** (§10) | klein | Zwei Dateien, je eine Prüfdatei — dazu der **Bau** als Nachweis |
 | 5 | `scripts/` (43) | **groß** | Erst **nach** dem Werkzeug für tote Verweise |
 
 ## 5. Der Wächter selbst
@@ -348,3 +348,40 @@ ihn zu melden.
 Wächter auf, sondern dem **Aufzählen** der Dateien im Fixture-Ordner. Das Wort `verhalten` ist
 nachgetragen und hat eine eigene Gegenprobe. **Drei Züge, drei Fälle** — die Wortliste ist keine
 Wahrheit über den Baum, sie ist der **Stand** der bisherigen Blicke.
+
+## 10. Zug 4, vollzogen: `apps/login_web` — 4 Namen
+
+| heute | englisch | warum |
+|---|---|---|
+| `src/sprache.ts` | `src/language.ts` | Die Kopfzeile sagt: *„welche Sprache die Seite zeigt"* |
+| `src/weiter.ts` | `src/redirect.ts` | Die Kopfzeile sagt: *„**wohin nach der Anmeldung**"* — und die Datei weist fremde Ziele ab |
+| `tests/sprache.test.ts` | `tests/language.test.ts` | |
+| `tests/weiter.test.ts` | `tests/redirect.test.ts` | |
+
+**Was NICHT umbenannt wurde, obwohl es deutsch ist — und das ist der Punkt.**
+
+| Vertrag | Wert | Warum er bleibt |
+|---|---|---|
+| Der Keks | `pmh_sprache` | Ein Keks ist ein **Laufzeitvertrag**. Umbenannt wären alle Anmeldungen stillschweigend abgemeldet |
+| Der Abfrageparameter | `ZIEL_PARAMETER = 'weiter'` | Eine **Adresse** in Links. Umbenannt wären verschickte Links kaputt |
+
+**Ein Dateiname ist eine Adresse im Baum; ein Keks und ein Abfrageparameter sind Adressen in der
+WIRKUNG.** Regel 42 greift für die erste Sorte. Die zweite Sorte umzubenennen wäre keine
+Namensreinheit, sondern ein Ausfall — beide Werte sind nachgemessen und unverändert.
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Wer hängt daran? | `grep` in `apps/login_web` | **8 Stellen** in 6 Dateien (+ 4 Moduladreßzeilen im Paket selbst) |
+| Umbenennen | `git mv` ×4 | 4 `R`-Zeilen |
+| Ersetzen | 12 Vorkommen, auch `@prometheus-harness/login-web/{sprache,weiter}` | **SUMME=12** |
+| Gegenprobe | `sprache.ts\|weiter.ts\|login-web/sprache\|login-web/weiter` in Code | **0 Treffer** |
+| Verträge | `Select-String 'pmh_sprache\|ZIEL_PARAMETER'` | **unverändert** |
+| Tests | `bun test --cwd apps/login_web` | **15 pass, 0 fail**, exit **0** — dieselbe Zahl wie vorher |
+| **Der Bau** | `bun run build` in `apps/login_web` | **exit 0**, *„20 modules transformed"*, *„✓ built in 354ms"*, `dist/assets/index-E3LkHWs_.js` **229,57 kB** (gzip 72,25 kB) |
+| Baum | `bun run scripts/typecheck.mjs` | **37 Pakete grün, 0 rot**, exit 0 |
+| Wächter | `bun scripts/naming-guard.mjs` | **54 → 50** |
+
+**Warum der Bau hier mehr wert ist als der Typecheck.** Eine Typführung überlebt eine Umbenennung
+fast immer: sie prüft **Namen**, nicht **Wege**. Der Bündler geht die **Wege** — `main.tsx` →
+`App.tsx` → `redirect.ts`. Gemessen am 15.10.2026 hat der Bau die Umbenennung bestätigt, und zwar
+mit einer Zahl (**20 Module**) statt mit einem Haken. Stufe **„komponiert"** aus Regel 2.

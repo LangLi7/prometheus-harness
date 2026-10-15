@@ -1,5 +1,5 @@
 /**
- * `@prometheus-harness/login-web/weiter` — **wohin nach der Anmeldung**.
+ * `@prometheus-harness/login-web/redirect` — **wohin nach der Anmeldung**.
  *
  * ## Warum das eine eigene Datei ist
  *
@@ -26,7 +26,7 @@
  *
  * Bei jedem abgelehnten Ziel gilt die **Vorgabe** — kein Fehler, kein leeres Ziel.
  *
- * @module @prometheus-harness/login-web/weiter
+ * @module @prometheus-harness/login-web/redirect
  */
 
 /** Der Name des Parameters in der Adresse — **eine** Stelle, auch für Links auf diese Seite. */

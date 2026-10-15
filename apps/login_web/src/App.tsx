@@ -7,7 +7,7 @@
  *    und den Weg weiter; sonst das Formular.
  * 2. Nach erfolgreicher Anmeldung zeigt sie den Weg nach `/start` an (die Schnittstelle des
  *    Rechners). **Automatisch** leitet sie nicht weiter — die Einstellung dafür gibt es noch
- *    nicht (siehe `src/weiter.ts`).
+ *    nicht (siehe `src/redirect.ts`).
  * 3. Beim Konto-Anlegen ist das **Claim-Token** das Feld, das heute zählt: solange **kein**
  *    Admin im Bestand ist, verlangt der Server es (gemessen: 403 `claim-fehlt`), und das erste
  *    so angelegte Konto wird `admin`.
@@ -30,9 +30,9 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ReactElement } from 'react'
 import { abmelden, anmelden, ich, registrieren, zugang } from './api.ts'
 import type { AuthFehler, Konto } from './api.ts'
-import { ermittleZiel } from './weiter.ts'
-import { SPRACHEN, gewaehlteSprache, ladeSprachliste, merkeSprache, texteFuer } from './sprache.ts'
-import type { Sprache, Texte } from './sprache.ts'
+import { ermittleZiel } from './redirect.ts'
+import { SPRACHEN, gewaehlteSprache, ladeSprachliste, merkeSprache, texteFuer } from './language.ts'
+import type { Sprache, Texte } from './language.ts'
 
 /** Welches Formular sichtbar ist. */
 type Ansicht = 'anmelden' | 'registrieren'

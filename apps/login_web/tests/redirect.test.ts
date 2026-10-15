@@ -1,5 +1,5 @@
 /**
- * Prüfung der Weiterleitung nach der Anmeldung (`src/weiter.ts`).
+ * Prüfung der Weiterleitung nach der Anmeldung (`src/redirect.ts`).
  *
  * ## Warum diese Datei wichtig ist
  *
@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { ermittleZiel, istRelativ, VORGABE_ZIEL, ZIEL_PARAMETER } from '../src/weiter.ts'
+import { ermittleZiel, istRelativ, VORGABE_ZIEL, ZIEL_PARAMETER } from '../src/redirect.ts'
 
 describe('Ziel nach der Anmeldung', () => {
   test('ohne Angabe gilt die Vorgabe', () => {
