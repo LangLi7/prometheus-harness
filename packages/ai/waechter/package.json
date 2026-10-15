@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/waechter",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Der Wächter: die Kontrolle VOR der Tat. Stufe 1 prüft ohne Modell und ohne Netz — bekannte Geheimwerte und Schlüsselformen. Stufe 2 läßt ein Urteil fällen und entscheidet über umgangFuer, ob gehandelt, nachgefragt oder der Mensch gefragt wird.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

@@ -607,3 +607,28 @@ Verweis auf etwas, das es wirklich gibt? Das gilt für Regelwerke, für Dateipfa
 Zahlen („47 Prüfungen") — eine Zahl in einem Dokument ist eine Behauptung wie jede andere und muß
 aus einem Lauf stammen, nicht aus der Erinnerung.
 
+## 36. Eine Regel wird gegen die **ganze** Menge geprüft, nicht gegen ein Beispiel
+
+**Der Fall.** Die Wächter-Regel für „eine Stelle, die ihr Geheimnis selbst so nennt" begann mit `\b`
+— einer Wortgrenze. `_` ist aber ein **Wortzeichen**, und vor `API_KEY` steht ein `_`. Die Regel
+griff deshalb bei `secret: …` (Leerzeichen davor) und **nicht** bei
+`FIRECRAWL_FALLBACK_API_KEY: …` — dem **häufigsten** Fall überhaupt.
+
+Meine Einzelprüfung war **grün**. Sie prüfte `secret: …` und nichts sonst. Der Fehler fiel erst auf,
+als die Prüfung nicht ein Beispiel verlangte, sondern **jede** Geheimniszeile des echten Textes:
+fünf Funde, sechs Geheimniszeilen — eine ungedeckt. Die Zahl war größer als null und damit
+unauffällig; nur der Abgleich **jeder** Zeile zeigte die Lücke.
+
+**Die Regel.** Wer ein Muster schreibt, schreibt die Prüfung über die **Aufzählung** der Fälle, die
+es treffen soll — und prüft, daß **jeder** einzelne trifft. Ein grüner Lauf über einen Fall beweist
+einen Fall.
+
+**Verwandt, aber nicht dasselbe wie Regel 5.** Dort ging es darum, daß eine Gegenprobe **rot** werden
+muß. Hier ging die Gegenprobe nicht ins Leere — sie stellte nur die **falsche** Frage. Ein Muster mit
+einem Beispiel zu prüfen ist wie einen Schlüssel an einem Schloß zu prüfen: es sagt nichts über die
+anderen Schlösser.
+
+**Der Merksatz für Muster mit deutschen Bezeichnern.** `\b` vor einem Namen, dem ein `_` vorangeht,
+ist **keine** Grenze. Wo Unterstriche im Spiel sind, ist `(?<![A-Za-z0-9])` gemeint — nicht `\b`.
+
+
