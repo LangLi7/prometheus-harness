@@ -801,5 +801,41 @@ muß, sonst mißt sie nichts. Hier wurde sie rot (404 für den erfundenen Pfad) 
 Aussage kleiner als sie klang. Ein rot werdender Wächter beweist, **daß** er mißt; nicht, **was**
 gemessen wurde.
 
+**Nachtrag vom 15.10.2026 — die dritte Instanz derselben Sorte.** Der `git add`-Aufruf nannte auch
+`packages/util/sprachen` — einen Pfad, den das `git mv` **davor** schon entfernt hatte. `git add`
+exit **128**, nichts eingestuft (dieselbe Wirkung wie im Commit `271095b`). Und ich hatte die Liste
+erzeugt, indem ich sie **vor** der Umbenennung abschrieb. Beim Umbenennen selbst passe ich auf; bei
+der Liste daneben nicht. Eine Pfadliste wird **nach** der Tat aufgeschrieben, jedes Mal.
+
+## 43. Den Umfang einer Regel dort messen, wo man **nicht** hingesehen hat
+
+**Der Fall.** Nach acht Paket-Umbenennungen schrieb ich in `naming-plan.md`:
+
+> **Regel 42 ist damit auf der Ordner- und Dateiebene durchgesetzt.**
+
+Das war **falsch**. Richtig war: die acht **Pakete** aus **meinem eigenen Plan** sind umbenannt. Der
+Umfang stammte aus der Liste, die ich schon in der Hand hatte — und **eine Liste ist eine Erinnerung
+an das, was man schon weiß.** Der Wächter hat danach dort gezählt, wo ich nicht hingesehen hatte:
+**1039 Namen**, davon **82** Verstöße in `scripts/`, `apps/`, `docker/` und sechs Paketen, die in
+keinem Plan standen.
+
+**Die Regel.** Wer sagt „das ist erledigt", muß den **Umfang** dort gemessen haben, wo er **nicht**
+hingesehen hat. Die eigene Liste ist der **Anfang** der Messung, nie ihr Ergebnis: erst zählen, was
+es überhaupt gibt (hier: 254 eindeutige Dateinamen, 420 Ordnernamen), dann prüfen. **Eine
+Aufzählung, die aus dem Gedächtnis kommt, zählt die Erinnerung, nicht den Baum.**
+
+**Die Gegenprobe dazu, und sie ist der eigentliche Beweis.** Daß der Wächter **82** sagt, zeigt nur,
+daß er **etwas** sagt. Nach **genau einer** Umbenennung (`util/sprachen` → `util/languages`, Zug 1)
+sagte er **80** — und die geprüfte Menge wuchs dabei von **1039** auf **1040**. **Ein Wächter beweist
+sich nicht durch eine Zahl, sondern dadurch, daß er der Wirklichkeit folgt.** Wer nur die Zahl
+festhält, hält den Bericht fest; wer die Änderung festhält, hält das Messen fest.
+
+**Warum die Wortliste dabei ehrlich bleibt.** Der erste Lauf hatte **19** Wörter und meldete **34**
+Verstöße. Danach wurden alle Namen der geprüften Wurzeln aufgezählt, und die Liste wuchs auf das,
+was **wirklich dort steht** — daraus wurden **82**. Die Liste bleibt **unvollständig** (ein deutsches
+Wort, das nicht in ihr steht, wird nicht gemeldet), und **genau das steht im Bericht**. Eine
+unvollständige Liste mit genannter Grenze ist ein Werkzeug; eine unvollständige Liste, die
+„vollständig" heißt, ist eine Attrappe (Regel 10).
+
 
 
