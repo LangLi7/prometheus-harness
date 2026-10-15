@@ -124,3 +124,40 @@ Statusdeutung der Sonde fängt beides. Und `/images/generations` **existiert** b
 wirkt". Die Sonde darf nur die Anwesenheit behaupten; `bild` steht deshalb weiterhin in **keiner**
 Fähigkeitsliste — die Form des Auftrags ist ungemessen. Als Regel 37 festgehalten.
 
+### Korrektur vom selben Tag — der Satz oben ist zu streng
+
+**Der Satz, wie er dastand:** *„`bild` steht deshalb weiterhin in keiner Fähigkeitsliste."*
+
+**Was daran falsch war.** Er wirft zwei verschiedene Fragen in eine Antwort: *ist der Pfad
+gemessen?* und *ist die Form gemessen?* Die Antwort ist deshalb kein Ja/Nein, sondern ein
+**Zustand**. Und `bild` ist bei OpenRouter inzwischen **als Pfad bestätigt** (400 auf einen leeren
+Auftrag, 404 auf einen erfundenen) — nur die **Form** fehlt.
+
+**Was jetzt gilt.** `Weg.felder` und `Weg.aus` sind **optional**, und `standDesWeges(weg)` rechnet
+den Zustand aus, statt ihn zu behaupten:
+
+| Zustand | `gemessenAm` | `felder` |
+|---|---|---|
+| `benutzbar` | gesetzt | gesetzt |
+| `pfad-bestaetigt` | gesetzt | **fehlt** |
+| `unbestaetigt` | fehlt | — |
+
+`bild` steht damit bei OpenRouter als **`pfad-bestaetigt`** in der Tabelle — sichtbar, ehrlich, und
+für niemanden benutzbar, der eine Form braucht. **Keine erfundenen Feldnamen.**
+
+## 7. Die fünf neuen Familien (15.10.2026)
+
+Übertragen aus `docs/status/anbieter-erkundung.md`, **ohne einen einzigen geratenen Wert**:
+
+| Familie | Basis | Kopf | Wege |
+|---|---|---|---|
+| Anthropic | `api.anthropic.com/v1` | **`x-api-key` + `anthropic-version`** | Chat über `/messages` |
+| Z.ai | `api.z.ai/api/paas/v4` | Bearer | sechs Pfade, alle nur **bestätigt** |
+| ZenMux | `zenmux.ai/api/v1` | Bearer | **keine** — POSTs nicht prüfbar |
+| Nous Research | `inference-api.nousresearch.com/v1` | Bearer | Chat |
+| OpenCode Zen | `opencode.ai/zen/v1` | Bearer | Chat (antwortet 500) |
+
+**Bei keinem ist ein Feldname eingetragen** — bei keinem ist die Form gemessen. Eine Prüfung
+verlangt genau das: für jede neue Familie und jeden Weg muß `felder` **fehlen**.
+
+

@@ -22,13 +22,21 @@
  */
 
 export {
+  ANTHROPIC,
   DEEPSEEK,
   FAMILIEN,
+  GEMESSEN_AM,
+  NOUS,
+  OPENCODE,
   OPENROUTER,
+  ZAI,
+  ZENMUX,
   familieMit,
+  standDesWeges,
   type Familie,
   type Weg,
   type Wegart,
+  type Wegstand,
 } from './familien.ts'
 
 export {

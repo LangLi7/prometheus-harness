@@ -21,7 +21,22 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { DEEPSEEK, FAMILIEN, OPENROUTER, familieMit, VERSUCHSPFAD, frageModelle, pruefeWeg, sonde, VerzeichnisFehler } from '../src/index.ts'
+import {
+  ANTHROPIC,
+  DEEPSEEK,
+  FAMILIEN,
+  GEMESSEN_AM,
+  OPENROUTER,
+  VERSUCHSPFAD,
+  ZAI,
+  ZENMUX,
+  VerzeichnisFehler,
+  familieMit,
+  frageModelle,
+  pruefeWeg,
+  sonde,
+  standDesWeges,
+} from '../src/index.ts'
 
 /** Der Schlüssel für die Prüfung — **kein echter**, und genau deshalb darf er hier stehen. */
 const SCHLUESSEL = 'sk-or-v1-nur-fuer-die-pruefung-0000000000000000'
@@ -112,26 +127,87 @@ describe('Die Familien', () => {
     expect(familieMit('openrouter')?.name).toBe('OpenRouter')
   })
 
-  test('OpenRouter nennt vier Fähigkeiten, und JEDE ist als gemessen gekennzeichnet', () => {
+  test('OpenRouter nennt sechs Wege — und jeder PFAD ist als gemessen gekennzeichnet', () => {
     const wege = OPENROUTER.wege
-    expect(Object.keys(wege).sort()).toEqual(['einbetten', 'entscheiden', 'sprache-zu-text', 'text-zu-sprache'])
+    expect(Object.keys(wege).sort()).toEqual([
+      'bild',
+      'einbetten',
+      'entscheiden',
+      'gespraech',
+      'sprache-zu-text',
+      'text-zu-sprache',
+    ])
     for (const [faehigkeit, weg] of Object.entries(wege)) {
-      expect({ faehigkeit, gemessen: weg?.gemessenAm }).toEqual({ faehigkeit, gemessen: '2026-10-15' })
+      expect({ faehigkeit, gemessen: weg?.gemessenAm }).toEqual({ faehigkeit, gemessen: GEMESSEN_AM })
     }
   })
 
-  test('DeepSeek nennt NUR entscheiden — und es ist UNBESTÄTIGT', () => {
-    expect(Object.keys(DEEPSEEK.wege)).toEqual(['entscheiden'])
-    // Genau das ist der Unterschied, den das Verzeichnis tragen muß: gemessen ist nur, daß die
-    // drei Nicht-Chat-Wege 404 geben. Die FORM der strukturierten Ausgabe ist ungemessen.
-    expect(DEEPSEEK.wege.entscheiden?.gemessenAm).toBeUndefined()
+  test('KORREKTUR: `bild` steht jetzt doch in der Tabelle — aber als `pfad-bestaetigt`', () => {
+    // **Die frühere Fassung dieser Prüfung hieß: „`bild` nennt KEINE Familie — der Weg ist bei
+    // keiner gemessen."** Das war zu streng formuliert, und die Messung hat es überholt: der PFAD
+    // ist inzwischen gemessen (400 auf einen leeren Auftrag, während ein erfundener Pfad 404 gibt).
+    //
+    // Die richtige Antwort auf „ist das gemessen?" ist deshalb kein Ja/Nein, sondern ein ZUSTAND.
+    // Die alte Aussage bleibt hier stehen — wer die Geschichte löscht, lernt nichts (Regel 12).
+    const bild = OPENROUTER.wege.bild
+    expect(bild?.pfad).toBe('/images/generations')
+    expect(bild === undefined ? 'fehlt' : standDesWeges(bild)).toBe('pfad-bestaetigt')
+    // Und die Form ist weiterhin NICHT geraten: keine erfundenen Feldnamen.
+    expect(bild?.felder).toBeUndefined()
+  })
+
+  test('DeepSeek: der Chat-Pfad ist gemessen, die FORM der strukturierten Ausgabe nicht', () => {
+    // Auch hier eine Korrektur: die erste Fassung ließ `gemessenAm` weg. Der Pfad IST gemessen
+    // (422 auf einen leeren Auftrag, 404 auf einen erfundenen) — ungemessen ist die Form.
+    expect(Object.keys(DEEPSEEK.wege).sort()).toEqual(['entscheiden', 'gespraech'])
+    const entscheiden = DEEPSEEK.wege.entscheiden
+    expect(entscheiden?.gemessenAm).toBe(GEMESSEN_AM)
+    expect(entscheiden?.felder).toBeUndefined()
+    expect(entscheiden === undefined ? 'fehlt' : standDesWeges(entscheiden)).toBe('pfad-bestaetigt')
     expect(DEEPSEEK.stand).toContain('404')
   })
 
-  test('`bild` nennt KEINE Familie — der Weg ist bei keiner gemessen', () => {
-    for (const familie of FAMILIEN) {
-      expect({ familie: familie.id, bild: familie.wege.bild }).toEqual({ familie: familie.id, bild: undefined })
+  test('die drei Zustände werden AUSGERECHNET, nicht behauptet', () => {
+    expect(
+      standDesWeges({ pfad: '/x', art: 'json', gemessenAm: GEMESSEN_AM, felder: { a: 'b' } }),
+    ).toBe('benutzbar')
+    expect(standDesWeges({ pfad: '/x', art: 'json', gemessenAm: GEMESSEN_AM })).toBe('pfad-bestaetigt')
+    expect(standDesWeges({ pfad: '/x', art: 'json' })).toBe('unbestaetigt')
+    // **Eine geratene Form ohne gemessenen Pfad bleibt unbestätigt.** Sie hilft niemandem: wer
+    // Feldnamen kennt, aber nicht weiß, ob der Weg existiert, hat nichts.
+    expect(standDesWeges({ pfad: '/x', art: 'json', felder: { a: 'b' } })).toBe('unbestaetigt')
+  })
+
+  test('die fünf neuen Familien sind eingetragen — mit gemessenem Pfad und OHNE erfundene Felder', () => {
+    for (const id of ['anthropic', 'zai', 'zenmux', 'nous', 'opencode']) {
+      const familie = familieMit(id)
+      expect({ id, gefunden: familie !== undefined }).toEqual({ id, gefunden: true })
+      expect({ id, basis: familie?.basis.startsWith('https://') }).toEqual({ id, basis: true })
+      // **Keine erfundenen Feldnamen.** Bei keinem der neuen Anbieter ist die Form gemessen.
+      for (const [faehigkeit, weg] of Object.entries(familie?.wege ?? {})) {
+        expect({ id, faehigkeit, felder: weg?.felder }).toEqual({ id, faehigkeit, felder: undefined })
+      }
     }
+  })
+
+  test('Anthropic braucht einen ANDEREN Kopf — der gemessene Beweis für die Funktion', () => {
+    const kopf = ANTHROPIC.kopf('nur-ein-beispiel-1234')
+    expect(kopf).toEqual({ 'x-api-key': 'nur-ein-beispiel-1234', 'anthropic-version': '2023-06-01' })
+    expect(kopf['authorization']).toBeUndefined()
+    // Und einen anderen Chat-Weg als alle anderen Familien.
+    expect(ANTHROPIC.wege.entscheiden?.pfad).toBe('/messages')
+  })
+
+  test('ZenMux nennt KEINEN Weg — lieber leer als geraten', () => {
+    // Jeder POST gibt 403, auch ein erfundener Pfad. Dort lernt man nichts über Wege.
+    expect(ZENMUX.wege).toEqual({})
+    expect(ZENMUX.stand).toContain('403')
+  })
+
+  test('Z.ai: der Pfad ist bestätigt, die WIRKUNG nicht — und genau das steht dabei', () => {
+    expect(Object.keys(ZAI.wege).length).toBe(6)
+    expect(ZAI.stand).toContain('200')
+    expect(ZAI.stand).toContain('NICHT')
   })
 
   test('derselbe Fähigkeitsname, ein ANDERER Weg — die gemessene Lehre als Daten', () => {
@@ -152,7 +228,7 @@ describe('Die Familien', () => {
       stimme: 'voice',
       format: 'response_format',
     })
-    expect(OPENROUTER.wege['sprache-zu-text']?.felder['ton']).toBe('file')
+    expect(OPENROUTER.wege['sprache-zu-text']?.felder?.['ton']).toBe('file')
   })
 
   test('der Schlüssel steht NICHT in der Tabelle — er kommt aus der Funktion', () => {
