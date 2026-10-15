@@ -40,7 +40,7 @@ import {
 import {
   ergaenzungNoetig as metadatenNoetig,
   richteEin as metadatenEin,
-} from './plugin-metadaten-aufloeser.mjs'
+} from './plugin-metadata-resolver.mjs'
 
 const lies = (pfad) => readFileSync(pfad, 'utf8')
 

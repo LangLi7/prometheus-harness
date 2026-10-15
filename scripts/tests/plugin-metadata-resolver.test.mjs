@@ -1,5 +1,5 @@
 /**
- * Prüfung der Metadaten-Ergänzung (`scripts/plugin-metadaten-aufloeser.mjs`).
+ * Prüfung der Metadaten-Ergänzung (`scripts/plugin-metadata-resolver.mjs`).
  *
  * **Die Gegenprobe ist hier das Wichtigste** (Arbeitsweise Regel 5): die Ergänzung greift in
  * **fremden** Code. Sie muß (a) den echten Anker finden, (b) ein **lauffähiges** Ergebnis
@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, test } from 'bun:test'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import { ANKER, ZIELDATEI, ergaenzeAufloeser, ergaenzungNoetig } from '../plugin-metadaten-aufloeser.mjs'
+import { ANKER, ZIELDATEI, ergaenzeAufloeser, ergaenzungNoetig } from '../plugin-metadata-resolver.mjs'
 
 const ZIELDATEI_PFAD = 'node_modules/@deepseek-ai/dsh-app-boot/lib/index.js'
 
@@ -78,7 +78,7 @@ describe('Metadaten-Auflöser', () => {
     //
     // Diese Prüfung hält fest, daß die Ergänzung **keinen Ersatz am Lader** anbringt. Der
     // Dateiname darf in der Dokumentation vorkommen — eine Zuweisung nicht.
-    const text = readFileSync('scripts/plugin-metadaten-aufloeser.mjs', 'utf8')
+    const text = readFileSync('scripts/plugin-metadata-resolver.mjs', 'utf8')
     expect(text.includes('ModuleLoader.fromInternal =')).toBe(false)
     expect(text.includes('resolveSync:')).toBe(false)
     // Und die Zieldatei ist der Verbraucher, nicht der Lader.
