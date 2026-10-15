@@ -76,6 +76,10 @@
         "@prometheus-harness/session-format": "workspace:*",
       },
     },
+    "packages/ai/einstellungen": {
+      "name": "@prometheus-harness/einstellungen",
+      "version": "0.0.0",
+    },
     "packages/ai/faehigkeiten": {
       "name": "@prometheus-harness/faehigkeiten",
       "version": "0.0.0",
@@ -960,6 +964,8 @@
     "@prometheus-harness/client-select-contrast": ["@prometheus-harness/client-select-contrast@workspace:packages/client/select-contrast"],
 
     "@prometheus-harness/db-schema": ["@prometheus-harness/db-schema@workspace:packages/auth/db-schema"],
+
+    "@prometheus-harness/einstellungen": ["@prometheus-harness/einstellungen@workspace:packages/ai/einstellungen"],
 
     "@prometheus-harness/faehigkeiten": ["@prometheus-harness/faehigkeiten@workspace:packages/ai/faehigkeiten"],
 
