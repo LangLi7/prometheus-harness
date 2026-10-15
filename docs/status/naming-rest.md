@@ -385,3 +385,40 @@ Namensreinheit, sondern ein Ausfall — beide Werte sind nachgemessen und unver�
 fast immer: sie prüft **Namen**, nicht **Wege**. Der Bündler geht die **Wege** — `main.tsx` →
 `App.tsx` → `redirect.ts`. Gemessen am 15.10.2026 hat der Bau die Umbenennung bestätigt, und zwar
 mit einer Zahl (**20 Module**) statt mit einem Haken. Stufe **„komponiert"** aus Regel 2.
+
+## 11. Zug 4b, vollzogen: die letzten sieben außerhalb von `scripts/`
+
+**Damit ist der ganze Baum außer `scripts/` englisch benannt.** Sieben Dateien in vier Paketen und
+`docker/`. Die Namen wurden **gelesen, nicht geraten** (Regel 11):
+
+| heute | englisch | warum |
+|---|---|---|
+| `packages/auth/db-schema/src/betriebsdatenbank.ts` | `src/operational-database.ts` | Kopfzeile: *„**welche Datenbank die Anwendung benutzt**"* |
+| `packages/auth/secrets/src/krypto.ts` | `src/crypto.ts` | *„die Kryptographie der Umschlagverschlüsselung"* |
+| `packages/auth/secrets/src/schluesselgeber.ts` | `src/key-provider.ts` | *„**Woher** der Hauptschlüssel kommt"* — Datei → Secret → Vault |
+| `packages/auth/secrets/tests/krypto.test.ts` | `tests/crypto.test.ts` | |
+| `packages/auth/secrets/tests/schluesselkette.test.ts` | `tests/key-chain.test.ts` | |
+| `packages/ai/local/tests/lokal.test.ts` | `tests/local.test.ts` | |
+| `docker/rechtprobe.sql` | `docker/rights-probe.sql` | *„Rechteprobe: greift das Rechtemodell WIRKLICH?"* |
+
+**Was deutsch bleibt, und warum das kein Zugeständnis ist.** Die **Bezeichner** im Code:
+`betriebsdatenbankNamenAusDatei` ist ein **Funktionsname**, `KryptoFehler`, `erzeugeSchluessel`,
+`Hauptschluessel` sind **Typen und Konstanten**. Der Auftrag lautet auf **Ordner und Dateien** —
+und ein deutscher Bezeichner in deutschem Kommentarwerk ist Hausstil. Ebenso bleiben die
+**Notizen** unter `docs/` deutsch benannt: ein Dokumentname ist ein **Aufsatztitel**, keine
+Moduladresse.
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Wer hängt daran? | `grep` über `*.{ts,tsx,mjs,js,json,yml,yaml,toml,sql,ps1,cmd,sh,md}` | **33 Zeilen**, davon 13 in Code und 20 in datierten Berichten |
+| Umbenennen | `git mv` ×7 | 7 `R`-Zeilen |
+| Ersetzen | 16 Dateien | **SUMME=21** — auch zwei **Meßwerkzeuge** und ein SQL-Helfer unter `docs/` |
+| Tests | 5 Pakete | db-schema **23/0** · store-postgres **71/0** · auth-http **97/0** · secrets **37/0** · local **20/0** — alle exit **0** |
+| Baum | `bun run scripts/typecheck.mjs` | **37 Pakete grün, 0 rot**, exit 0 |
+| Namenswächter | `bun scripts/naming-guard.mjs` | **50 → 43** — und die 43 sind **alle** in `scripts/` |
+| **Referenzwächter** | `bun scripts/reference-guard.mjs` | Code **48 → 48**, also **kein neuer toter Verweis** |
+
+**Der letzte Punkt ist der Beweis, daß die Lehre aus §4 angekommen ist.** Nach den vier
+Umbenennungszügen davor hatte ich jedes Mal *„kein Treffer"* gemeldet und **zehn** Stellen
+übersehen. Diesmal lief die Gegenprobe gegen die **Liste der alten Namen** — und der zweite Wächter
+bestätigt sie: **die Zahl der toten Verweise im Code ist nicht gestiegen.**

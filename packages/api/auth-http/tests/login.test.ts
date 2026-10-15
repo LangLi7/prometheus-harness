@@ -474,7 +474,7 @@ function zeigtAufBetriebsdatenbank(): boolean {
   if (DA === undefined) return false
   // **Die Datei, nicht die Sitzung.** Der erste Entwurf verglich `DATABASE_URL` aus der
   // Umgebung mit der Prüfadresse — dieselbe Schwäche, die am 15.10.2026 den zerstörenden
-  // Schematest durchgelassen hat (siehe `packages/auth/db-schema/src/betriebsdatenbank.ts`).
+  // Schematest durchgelassen hat (siehe `packages/auth/db-schema/src/operational-database.ts`).
   try {
     const hier = new URL(DA).pathname.replace(/^\//u, '')
     return hier !== '' && betriebsdatenbankNamen(new URL('.', import.meta.url)).includes(hier)

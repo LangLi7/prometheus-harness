@@ -251,7 +251,7 @@ beforeAll(async () => {
   const angabe = await sql.unsafe<{ db: string }[]>('SELECT current_database() AS db')
   const hier = angabe[0]?.db ?? '?'
 
-  // **Die Datei, nicht die Sitzung.** Siehe `src/betriebsdatenbank.ts` — dort stehen die zwei
+  // **Die Datei, nicht die Sitzung.** Siehe `src/operational-database.ts` — dort stehen die zwei
   // Messungen (der Unfall und der Fehlalarm danach), die zu dieser Regel geführt haben.
   const betriebe = betriebsdatenbankNamen(dirname(fileURLToPath(import.meta.url)))
   if (betriebe.includes(hier)) {

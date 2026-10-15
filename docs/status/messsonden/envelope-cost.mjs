@@ -32,7 +32,7 @@
  * Exit 0 = gemessen. Exit 2 = ein Ziel ließ sich nicht laden.
  */
 
-import { erzeugeSchluessel, verschluessele } from '../../../packages/auth/secrets/src/krypto.ts'
+import { erzeugeSchluessel, verschluessele } from '../../../packages/auth/secrets/src/crypto.ts'
 import { verpacke } from '../../../packages/auth/secrets/src/index.ts'
 
 /** Ein realistischer Textabschnitt — `chunker.ts` schneidet bei 1200 Zeichen. */

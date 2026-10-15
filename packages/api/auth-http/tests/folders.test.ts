@@ -181,7 +181,7 @@ mitDatenbank('Die Ordnerwege mit Datenbank', () => {
     // kein Riegel stand. Sie hat aufgeräumt (Konto und Arbeitsbereich am Ende gelöscht), aber
     // **zwei Prüfspur-Einträge** (`auth_events`) blieben stehen: 16 → 18.
     //
-    // Dieselbe Regel wie in `packages/auth/db-schema/src/betriebsdatenbank.ts`: verglichen wird
+    // Dieselbe Regel wie in `packages/auth/db-schema/src/operational-database.ts`: verglichen wird
     // mit der **Datei** `.env`, nicht mit der Sitzung.
     const angabe = await sql.unsafe<{ db: string }[]>('select current_database() as db')
     const hier = angabe[0]?.db ?? '?'

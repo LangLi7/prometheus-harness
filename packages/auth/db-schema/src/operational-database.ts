@@ -1,5 +1,5 @@
 /**
- * `@prometheus-harness/db-schema/betriebsdatenbank` — **welche Datenbank die Anwendung benutzt.**
+ * `@prometheus-harness/db-schema/operational-database` — **welche Datenbank die Anwendung benutzt.**
  *
  * ## Warum das hier steht
  *
@@ -13,7 +13,7 @@
  * einzelnen Sitzung darf sie nicht entwaffnen. Vier Prüfdateien brauchen diesen Vergleich — hier
  * steht er **einmal**.
  *
- * @module @prometheus-harness/db-schema/betriebsdatenbank
+ * @module @prometheus-harness/db-schema/operational-database
  */
 
 import { existsSync, readFileSync } from 'node:fs'

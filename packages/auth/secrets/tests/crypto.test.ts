@@ -20,7 +20,7 @@
  * Der POSIX-Zweig von {@link pruefeDateirechte} (eine 0644-Datei ist ein
  * **Fehler**) läßt sich auf diesem Rechner **nicht** ausführen: `platform()` ist
  * `win32`, und NTFS meldet für jede Datei `0o666` (gemessen, siehe
- * `src/schluesselgeber.ts`). Geprüft wird deshalb der Windows-Zweig — und der
+ * `src/key-provider.ts`). Geprüft wird deshalb der Windows-Zweig — und der
  * POSIX-Zweig steht als **ungeprüft** im Nachweis, statt als „getestet".
  */
 

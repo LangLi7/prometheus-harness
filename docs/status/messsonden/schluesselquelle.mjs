@@ -5,7 +5,7 @@
  *
  * Der Auftrag (C1) lautete: *„kein Code liest `PMH_MASTER_KEY` — Umschlagverfahren ohne
  * Schlüsselgeber"*. **Gemessen ist das heute falsch:** es gibt einen Schlüsselgeber
- * (`packages/auth/secrets/src/schluesselgeber.ts`) und vier Quellenarten in einer
+ * (`packages/auth/secrets/src/key-provider.ts`) und vier Quellenarten in einer
  * festen Reihenfolge.
  *
  * Die Frage, die der Auftrag eigentlich stellt, ist damit eine **andere**: liefert bei

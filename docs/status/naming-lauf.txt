@@ -2,7 +2,7 @@ Wächter für Regel 42 — Ordnernamen und Dateinamen englisch.
 
 Gegenprobe: schmutziger Baum wird rot (ja), sauberer Baum bleibt grün (ja), Ausnahme greift statt Verstoß (ja).
 
-Geprüft: 1040 Namen in 7 Wurzeln (5 Pfade übersprungen: node_modules, .git, docs, snapshots, dist, coverage, .turbo, .pmh).
+Geprüft: 1042 Namen in 7 Wurzeln (5 Pfade übersprungen: node_modules, .git, docs, snapshots, dist, coverage, .turbo, .pmh).
 
 Ausgenommen MIT GRUND (7):
   packages\auth\db-schema\migrations\0003_sitzungen_und_gespraeche.sql  —  deutsches Segment "sitzungen"  [Schemafassung: der Dateiname ist die Version]

@@ -147,7 +147,7 @@ beforeAll(async () => {
   // -------------------------------------------------------------------------
   const angabe = await sql.unsafe<{ db: string }[]>('SELECT current_database() AS db')
   const hier = angabe[0]?.db ?? '?'
-  // **Die Datei, nicht die Sitzung.** Siehe `packages/auth/db-schema/src/betriebsdatenbank.ts`.
+  // **Die Datei, nicht die Sitzung.** Siehe `packages/auth/db-schema/src/operational-database.ts`.
   const betriebe = betriebsdatenbankNamen(new URL('.', import.meta.url))
   if (betriebe.includes(hier)) {
     await sql.end({ timeout: 5 })

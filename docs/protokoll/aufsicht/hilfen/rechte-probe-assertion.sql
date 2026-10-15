@@ -2,7 +2,7 @@
 -- rechte-probe-assertion.sql — bereitgelegt von der AUFSICHT, NICHT angewendet
 -- =============================================================================
 --
--- **Warum diese Datei existiert.** `docker/rechtprobe.sql` beschreibt die richtigen Fälle, prüft sie
+-- **Warum diese Datei existiert.** `docker/rights-probe.sql` beschreibt die richtigen Fälle, prüft sie
 -- aber **nicht selbst**: es läuft mit `\set ON_ERROR_STOP off`, und neben jedem „das MUSS scheitern"
 -- steht nur ein `\echo`-Kommentar. Damit sind drei Ausgänge ununterscheidbar:
 --

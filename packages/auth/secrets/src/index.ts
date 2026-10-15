@@ -22,7 +22,7 @@
  * Spalte `wrapped_key` anfaßt und nicht den ganzen Geheimtext:
  *
  * ```
- * Rotation:  value_cipher bleibt BYTE-GLEICH   (bewiesen in tests/krypto.test.ts)
+ * Rotation:  value_cipher bleibt BYTE-GLEICH   (bewiesen in tests/crypto.test.ts)
  *            wrapped_key  wird neu geschrieben
  *            master_key_version steigt
  * ```
@@ -47,8 +47,8 @@
 
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
-import { KryptoFehler, entschluessele, erzeugeSchluessel, verschluessele } from './krypto.ts'
-import type { Hauptschluessel } from './schluesselgeber.ts'
+import { KryptoFehler, entschluessele, erzeugeSchluessel, verschluessele } from './crypto.ts'
+import type { Hauptschluessel } from './key-provider.ts'
 // **Werte-Import zusätzlich zur Weitergabe unten.** `export … from` führt die
 // Namen **nicht** in den Gültigkeitsbereich dieses Moduls ein — `standardQuellen`
 // braucht sie aber als Werte. Beides ist nötig: die Weitergabe für den Aufrufer,
@@ -59,7 +59,7 @@ import {
   dockerSecretQuelle,
   umgebungsQuelle,
   type Schluesselquelle,
-} from './schluesselgeber.ts'
+} from './key-provider.ts'
 
 // **Der Fehler wird importiert UND ausgeführt.** Beides ist nötig: dieses Modul
 // wirft ihn selbst (`verpacke`, `rotiere`), und der Aufrufer muß ihn fangen
@@ -77,7 +77,7 @@ export {
   erzeugeSchluessel,
   pruefeSchluessel,
   verschluessele,
-} from './krypto.ts'
+} from './crypto.ts'
 
 export {
   DOCKER_SECRET_PFAD,
@@ -91,7 +91,7 @@ export {
   type Hauptschluessel,
   type Schluesselart,
   type Schluesselquelle,
-} from './schluesselgeber.ts'
+} from './key-provider.ts'
 
 /** Der Name der Datei, in der der Hauptschlüssel liegen darf. */
 export const HAUPTSSCHLUESSELDATEI = 'master.key'
@@ -232,7 +232,7 @@ export function entpacke(
  * Das ist der Zweck der zweiten Stufe: `valueCipher` und `keyHint` werden
  * **unverändert** durchgereicht, nur der umhüllte Datenschlüssel und die Fassung
  * ändern sich. Der Geheimtext bleibt byte-gleich — nachgewiesen in
- * `tests/krypto.test.ts`.
+ * `tests/crypto.test.ts`.
  *
  * @param umschlag - der alte Umschlag
  * @param alt - der alte Hauptschlüssel

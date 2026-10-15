@@ -150,7 +150,7 @@ beforeAll(async () => {
   )
   const hier = angabe[0]?.db ?? '?'
 
-  // **Die Datei, nicht die Sitzung.** Siehe `packages/auth/db-schema/src/betriebsdatenbank.ts`:
+  // **Die Datei, nicht die Sitzung.** Siehe `packages/auth/db-schema/src/operational-database.ts`:
   // eine übersteuerte `DATABASE_URL` hat am 15.10.2026 den Riegel des zerstörenden Schematests
   // entwaffnet. Ein Vergleich mit der Umgebung ist kein Riegel.
   const betriebe = betriebsdatenbankNamen(new URL('.', import.meta.url))

@@ -39,7 +39,7 @@ import m0010 from '../migrations/0010_zusatzordner-zugriff.sql' with { type: 'te
 
 // **Wer ist die Betriebsdatenbank?** Der Riegel der Prüfungen — siehe die Datei selbst für die
 // zwei Messungen, die zu dieser Regel geführt haben.
-export { betriebsdatenbankNamen, betriebsdatenbankNamenAusDatei, datenbankNameAus } from './betriebsdatenbank.ts'
+export { betriebsdatenbankNamen, betriebsdatenbankNamenAusDatei, datenbankNameAus } from './operational-database.ts'
 
 // ---------------------------------------------------------------------------
 // Migrationstyp

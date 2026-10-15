@@ -50,7 +50,7 @@
 
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { platform } from 'node:os'
-import { KryptoFehler, SCHLUESSEL_BYTES, erzeugeSchluessel, pruefeSchluessel } from './krypto.ts'
+import { KryptoFehler, SCHLUESSEL_BYTES, erzeugeSchluessel, pruefeSchluessel } from './crypto.ts'
 
 /** Woher ein Schlüssel kommen kann. */
 export type Schluesselart = 'datei' | 'docker-secret' | 'vault' | 'umgebung'
