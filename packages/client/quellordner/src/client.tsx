@@ -13,14 +13,19 @@
  * einzuhängen, dessen Eigenschaften man nicht kennt, ist Raten — und Raten ist hier verboten.
  * Der Dialog bringt seinen eigenen Knopf mit und braucht keinen zweiten Einstiegspunkt.
  *
- * ## Der CSRF-Wert — und was daran OFFEN ist
+ * ## Der CSRF-Wert — jetzt GEMESSEN statt festgelegt
  *
- * Die drei ändernden Wege verlangen den Kopf `x-pmh-csrf`. **Woher die Seite ihn nimmt, ist
- * NICHT gemessen.** Deshalb steht hier kein geratener Weg, sondern ein **deutlich benannter
- * Platz**: {@link csrfAusSeite} liest ihn aus einem Meta-Feld, das der Host setzen muß. Fehlt es,
- * gibt die Datenschicht einen klaren Fehler — und sendet **gar nicht**.
+ * **Meine erste Fassung las ihn aus einem Meta-Feld** (`meta[name="pmh-csrf"]`) und nannte das
+ * ausdrücklich eine „Festlegung dieser Datei". Sie war **falsch**: die Anmeldeseite liest ihn seit
+ * jeher aus dem **Keks** (`packages/api/auth-http/src/seite.ts:274`, Name in
+ * `packages/auth/auth/src/session.ts:450`). Jetzt steht hier {@link csrfWert} — aus dem Keks.
  *
- * **Das ist der offene Punkt dieser Datei**, und er steht hier, statt überspielt zu werden.
+ * ## Was NOCH offen ist
+ *
+ * Der Container lädt **keine** Ordner. Dafür braucht er die **Arbeitsbereichs-Kennung**, und die
+ * kommt aus den Client-Diensten `workspaces` und `sessions` — die müßte diese Datei erst
+ * **einbinden** (`inject`), und **das ist nicht gemessen**. Die Regel selbst steht bereit und ist
+ * geprüft: {@link arbeitsbereichId} in `stand.ts`, nachgebaut aus `ui-git/src/client/index.ts:204`.
  *
  * @module @prometheus-harness/client-quellordner/client
  */
@@ -28,6 +33,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { useState } from 'react'
 import { QuellordnerDialog, type Ordner } from './dialog.tsx'
+import { csrfWert } from './stand.ts'
 import { type WegeOptionen } from './wege.ts'
 
 /** Kennung des Plugins. */
@@ -35,22 +41,6 @@ export const name = 'quellordner'
 
 /** Was der Client-Kern bereitstellen muß. */
 export const inject: readonly string[] = ['slots']
-
-/**
- * Liest den CSRF-Wert aus der Seite.
- *
- * **Offen:** daß der Host ein solches Meta-Feld setzt, ist **nicht** gemessen. Der Name
- * `pmh-csrf` ist eine Festlegung dieser Datei, keine vorgefundene Tatsache.
- *
- * @returns der Wert oder `undefined`
- */
-export function csrfAusSeite(): string | undefined {
-  const dokument = globalThis.document
-  if (dokument === undefined) return undefined
-  const feld = dokument.querySelector('meta[name="pmh-csrf"]')
-  const wert = feld?.getAttribute('content')
-  return wert === null || wert === undefined || wert.trim() === '' ? undefined : wert
-}
 
 /** Was die Komponente an Diensten bekommt. */
 export interface QuellordnerDienste {
@@ -118,7 +108,7 @@ export function apply(ctx: Context): void {
         // Ein Listeneintrag BRAUCHT eine eigene id — ohne sie wirft die Registratur.
         id: 'quellordner',
         label: 'Quellordner',
-        inject: (): QuellordnerDienste => ({ optionen: { csrf: csrfAusSeite } }),
+        inject: (): QuellordnerDienste => ({ optionen: { csrf: csrfWert } }),
       },
       QuellordnerSchicht,
     ),

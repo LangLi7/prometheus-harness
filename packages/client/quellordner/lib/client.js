@@ -47,7 +47,6 @@ var exports_client = {};
 __export(exports_client, {
   QuellordnerSchicht: () => QuellordnerSchicht,
   apply: () => apply,
-  csrfAusSeite: () => csrfAusSeite,
   inject: () => inject,
   name: () => name
 });
@@ -202,18 +201,37 @@ function QuellordnerDialog(eigenschaften) {
   }, undefined, true, undefined, this);
 }
 
+// packages/client/quellordner/src/stand.ts
+var CSRF_KEKS = "pmh_csrf";
+function wertAusKeks(kekse, name) {
+  for (const stueck of kekse.split(";")) {
+    const gleich = stueck.indexOf("=");
+    if (gleich === -1)
+      continue;
+    if (stueck.slice(0, gleich).trim() !== name)
+      continue;
+    const wert = stueck.slice(gleich + 1).trim();
+    if (wert === "")
+      return;
+    try {
+      return decodeURIComponent(wert);
+    } catch {
+      return wert;
+    }
+  }
+  return;
+}
+function csrfWert(kekse) {
+  const quelle = kekse ?? globalThis.document?.cookie;
+  if (quelle === undefined)
+    return;
+  return wertAusKeks(quelle, CSRF_KEKS);
+}
+
 // packages/client/quellordner/src/client.tsx
 var jsx_dev_runtime2 = require("react/jsx-dev-runtime");
 var name = "quellordner";
 var inject = ["slots"];
-function csrfAusSeite() {
-  const dokument = globalThis.document;
-  if (dokument === undefined)
-    return;
-  const feld = dokument.querySelector('meta[name="pmh-csrf"]');
-  const wert = feld?.getAttribute("content");
-  return wert === null || wert === undefined || wert.trim() === "" ? undefined : wert;
-}
 function QuellordnerSchicht({ optionen }) {
   const [offen, setOffen] = import_react.useState(false);
   const [ordner] = import_react.useState([]);
@@ -246,7 +264,7 @@ function apply(ctx) {
     name: "shell.overlay",
     id: "quellordner",
     label: "Quellordner",
-    inject: () => ({ optionen: { csrf: csrfAusSeite } })
+    inject: () => ({ optionen: { csrf: csrfWert } })
   }, QuellordnerSchicht));
 }
 
