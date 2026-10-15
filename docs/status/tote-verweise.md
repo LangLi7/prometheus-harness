@@ -31,11 +31,51 @@ tauscht man 43 deutsche Namen gegen eine unbekannte Zahl stiller Ausfälle."*
 **Nach Bereich:** `packages` 14 · `scripts` 13 · `native` 7 · `services` 5 · `docs` 4 · Wurzeldateien
 4 · `website` 1.
 
-**Dokumente: 616** in 51 Dateien. Sie machen **nicht** rot: ein toter Verweis in einem datierten
-Bericht ist **Geschichte**. `naming-rest.md` und `naming-plan.md` nennen absichtlich die alten Namen.
+**Dokumente: 624** in 52 Dateien. Sie machen **nicht** rot: ein toter Verweis in einem datierten
+Bericht ist **Geschichte**. `naming-rest.md` und `naming-plan.md` nennen absichtlich die alten Namen
+— und **dieser Bericht selbst** nennt die zehn Namen aus §4, die er repariert hat. Er zählt deshalb
+mit (616 vor diesem Bericht, 624 danach). **Ein Bericht über alte Namen ist ein Bericht mit alten
+Namen.**
 
-**Nicht geprüft, gezählt:** 431 relative Angaben · **301 Muster** · 1796 Angaben ohne Endung.
-**693 Textdateien, 933 verschiedene Adressen.**
+**Nicht geprüft, gezählt:** 431 relative Angaben · 301 Muster · rund 1800 Angaben ohne Endung.
+**694 Textdateien, 943 verschiedene Adressen.**
+
+## 7. Der zweite Lauf hat den ersten widerlegt — die Rückkopplung
+
+**Der Befund, der erst durch den ZWEITEN Lauf entstand.** Unmittelbar nach dem Festschreiben meldete
+derselbe Befehl:
+
+| | erster Lauf | zweiter Lauf |
+|---|---|---|
+| Tote Verweise im **Code** | **48** | **58** |
+| Tote Verweise in **Dokumenten** | 616 | **1174** |
+| Geprüfte Textdateien | 693 | 697 |
+
+**Die Ursache, gemessen und nicht geraten:** der Wächter hatte **seine eigene Niederschrift
+gelesen.** `docs/status/reference-lauf.txt` listet die toten Adressen auf — jede davon steht dort
+als Text. Vor dem Festschreiben war die Datei **unverfolgt** und damit außerhalb der Menge
+`git ls-files`; danach nicht mehr. **Ein Werkzeug, das aufschreibt, was es findet, und dann alles
+liest, findet seine eigenen Notizen.** Die Zahl war um 558 gewachsen, **ohne daß sich im Baum
+irgendetwas geändert hätte** — außer daß ich den Befund aufgeschrieben hatte.
+
+**Und dasselbe ein zweites Mal, in der Quelle des Werkzeugs.** Nach dem Ausschluß des Belegs blieben
+**58 − 48 = 10** übrig: **sechs** aus `scripts/reference-guard.mjs`, **vier** aus seinem Prüfskript.
+Es sind die **erfundenen Namen der Gegenprobe** (`scripts/weg.mjs`, `tests/da.test.ts`,
+`scripts/gibt-es-nicht.mjs`) und **Zitate eigener Befunde**. Ein Werkzeug, das seine eigenen
+Beispiele als Befund zählt, meldet sich selbst.
+
+**Behoben** durch `AUSGENOMMENE_DATEIEN` — mit **genanntem Preis**: ein toter Verweis **in diesen
+drei Dateien** wird nicht gemeldet. Das ist kleiner als ein Wächter, der sich ständig selbst meldet
+und deshalb abgeschaltet wird. **Zwei Läufe hintereinander ergeben jetzt dasselbe:** 48 im Code,
+624 in Dokumenten, 694 Textdateien, 943 Adressen.
+
+**Und eine zweite Lehre aus derselben Stunde.** Auf der Suche nach dem Zuwachs habe ich die Funde
+nach Quellen gruppiert und nur die mit **≥ 2** angesehen. Dabei fielen
+`packages/ai/openrouter/src/index.ts` und `tests/openrouter.test.ts` heraus — beide nennen
+`tests/lebend.test.ts`, und **diese Datei gibt es nicht.** Direkt befragt antwortet `lebendig()`
+für alle drei Schreibweisen **`false`**. Der Wächter hatte also recht; **meine Anzeige hatte
+geschnitten** (Regel 13: den Erzeuger nicht abschneiden). Wer eine Zusammenfassung liest und dann
+über den Gegenstand redet, redet über die Zusammenfassung.
 
 ## 4. Der Befund, der meine eigene Arbeit trifft
 

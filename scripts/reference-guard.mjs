@@ -93,6 +93,35 @@ export const ADRESSWURZELN = [
  */
 export const AUSGENOMMEN = ['node_modules', '.git', 'dist', 'coverage', '.turbo', '.pmh', '.bun-cache', 'dsh']
 
+/**
+ * Dateien, die **als Quelle** übersprungen werden.
+ *
+ * **Der Grund ist eine Rückkopplung, und sie ist gemessen.** Der erste Lauf meldete **48** tote
+ * Verweise im Code. Nach dem Festschreiben des Belegs (`docs/status/reference-lauf.txt`) meldete
+ * der **zweite** Lauf **58** — und **1174** statt 616 in Dokumenten. **Der Wächter hatte seine
+ * eigene Niederschrift gelesen:** der Beleg listet die toten Adressen auf, und jede davon steht
+ * dort als Text. Vor dem Festschreiben war die Datei **unverfolgt** und damit außerhalb der Menge
+ * `git ls-files` — danach nicht mehr.
+ *
+ * **Ein Werkzeug, das aufschreibt, was es findet, und dann alles liest, findet seine eigenen
+ * Notizen.** Der Beleg bleibt trotzdem: er ist der Nachweis. Er wird nur nicht mitgezählt.
+ *
+ * **Und dasselbe noch einmal, in der Quelle des Werkzeugs.** Nach dem Festschreiben meldete der
+ * Lauf **58** statt 48 im Code — **zehn** davon aus `scripts/reference-guard.mjs` (6) und
+ * `scripts/tests/reference-guard.test.mjs` (4). Es sind **erfundene Namen der Gegenprobe**
+ * (`scripts/weg.mjs`, `tests/da.test.ts`) und **Zitate eigener Befunde**. Ein Werkzeug, das seine
+ * eigenen Beispiele als Befund zählt, meldet sich selbst.
+ *
+ * **Die Grenze, die damit ausgesprochen ist:** ein toter Verweis **in diesen drei Dateien** wird
+ * nicht gemeldet. Das ist der Preis; er ist kleiner als ein Wächter, der ständig sich selbst
+ * meldet und deshalb abgeschaltet wird.
+ */
+export const AUSGENOMMENE_DATEIEN = [
+  'docs/status/reference-lauf.txt',
+  'scripts/reference-guard.mjs',
+  'scripts/tests/reference-guard.test.mjs',
+]
+
 /** Endungen, die als Adresse zählen — ein Verweis ohne Endung ist ein Name, keine Adresse. */
 const ENDUNGEN = new Set([
   'ts', 'tsx', 'mts', 'cts', 'js', 'mjs', 'cjs', 'json', 'jsonl', 'md', 'txt', 'yml', 'yaml', 'toml',
@@ -252,6 +281,7 @@ export function pruefeVerweise(wurzel, optionen = {}) {
    * @param pfadAbsolut - der Pfad auf der Platte
    */
   function pruefeDatei(pfadRelativ, pfadAbsolut) {
+    if (AUSGENOMMENE_DATEIEN.includes(pfadRelativ.replace(/\\/gu, '/'))) return
     if (!TEXTENDUNGEN.has(endung(pfadRelativ))) return
     let text
     try {

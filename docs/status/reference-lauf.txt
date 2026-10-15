@@ -3,11 +3,11 @@ Wächter für tote Verweise — zeigt eine Adresse auf eine Datei, die es nicht 
 Gegenprobe: toter Verweis wird gefunden (ja), sauberer Baum bleibt grün (ja), Dokument zählt nicht als Code (ja), paketlokaler Pfad wird NICHT gemeldet (ja).
 
 Dateiliste aus: git ls-files (unsere Menge)
-Geprüft: 693 Textdateien, 933 verschiedene Adressen.
-Nicht geprüft, gezählt: 431 relative Angaben, 301 Muster, 1796 Angaben ohne Endung.
+Geprüft: 694 Textdateien, 947 verschiedene Adressen.
+Nicht geprüft, gezählt: 437 relative Angaben, 301 Muster, 1799 Angaben ohne Endung.
 
 TOTE VERWEISE IM CODE:      48 (in 32 Dateien)
-Tote Verweise in Dokumenten: 616 (in 51 Dateien)
+Tote Verweise in Dokumenten: 628 (in 52 Dateien)
 
 Im CODE — das ist ein Defekt:
   docker/postgres-init/02-roles.sql   <-  .env.example
@@ -88,7 +88,9 @@ In DOKUMENTEN — das kann Geschichte sein (datierte Berichte nennen alte Namen 
   apps/host/src/main.ts   <-  docs/status/delta-non-web.md
   apps/login_web/src/sprache.ts   <-  docs/status/naming-rest.md
   apps/login_web/tests/sprache.test.ts   <-  docs/status/naming-rest.md
+  apps/login_web/tests/weiter.test.ts   <-  docs/status/arbeitsweise.md
   apps/login_web/tests/weiter.test.ts   <-  docs/status/pruefstand-und-frische-stapel.md
+  apps/login_web/tests/weiter.test.ts   <-  docs/status/tote-verweise.md
   apps/web/product-isolation.ts   <-  docs/reference/inventory-config-native.md
   apps/web/stress-tests/reasoning-chunks.stress.ts   <-  docs/reference/inventory-config-native.md
   apps/web/tests/access-confirmation.e2e.ts   <-  docs/reference/inventory-config-native.md
@@ -100,6 +102,7 @@ In DOKUMENTEN — das kann Geschichte sein (datierte Berichte nennen alte Namen 
   docker/02-roles.sh   <-  docs/protokoll/aufsicht/befunde.md
   docker/02-roles.sh   <-  docs/protokoll/aufsicht/LAGE.md
   docker/02-roles.sh   <-  docs/protokoll/aufsicht/protokoll.md
+  docs/a.md   <-  docs/status/tote-verweise.md
   docs/AGENTS.md   <-  docs/reference/inventory-config-native.md
   docs/architecture.md   <-  docs/reference/inventory-config-native.md
   docs/cli-contract.md   <-  docs/reference/inventory-config-native.md
@@ -215,6 +218,7 @@ In DOKUMENTEN — das kann Geschichte sein (datierte Berichte nennen alte Namen 
   native/system/test/flock.test.js   <-  docs/reference/inventory-config-native.md
   native/system/test/launcher.test.js   <-  docs/reference/inventory-config-native.md
   native/system/tsconfig.json   <-  docs/reference/inventory-config-native.md
+  packages/.../tests/paths.test.ts   <-  docs/status/arbeitsweise.md
   packages/api/auth-http/src/anmeldung.ts   <-  docs/status/anmeldung-sprachen.md
   packages/api/auth-http/src/anmeldung.ts   <-  docs/status/naming-rest.md
   packages/api/auth-http/src/seite.ts   <-  docs/INDEX.md
@@ -222,6 +226,8 @@ In DOKUMENTEN — das kann Geschichte sein (datierte Berichte nennen alte Namen 
   packages/api/auth-http/tests/anmeldung.test.ts   <-  docs/status/naming-rest.md
   packages/api/auth-http/tests/erstlogin.test.ts   <-  docs/status/anmeldeseite-und-erstlogin.md
   packages/api/auth-http/tests/http-schicht.test.ts   <-  docs/status/api-schichten.md
+  packages/api/auth-http/tests/ordner.test.ts   <-  docs/status/arbeitsweise.md
+  packages/api/auth-http/tests/ordner.test.ts   <-  docs/status/tote-verweise.md
   packages/api/auth-http/tests/seite.test.ts   <-  docs/status/anmeldeseite-und-erstlogin.md
   packages/api/gateway/src/index.ts   <-  docs/protokoll/aufsicht/befunde.md
   packages/api/gateway/tests/gateway.host.spec.ts   <-  docs/protokoll/aufsicht/protokoll.md
@@ -231,6 +237,7 @@ In DOKUMENTEN — das kann Geschichte sein (datierte Berichte nennen alte Namen 
   packages/api/session-controller/tests/projection-discovery.host.spec.ts   <-  docs/reference/inventory-session-data.md
   packages/api/session-controller/tests/session-projection-discoverery.host.spec.ts   <-  docs/reference/inventory-session-data.md
   packages/attachment/attachment-local/src/index.ts   <-  docs/reference/inventory-config-native.md
+  packages/auth/.../tests/roots.test.ts   <-  docs/status/arbeitsweise.md
   packages/auth/db-schema/tests/proben/benutzerprofile.sql   <-  docs/status/benutzerprofile.md
   packages/auth/db-schema/tests/proben/mandantentrennung.sql   <-  docs/review/BEFUNDE-ALLE.md
   packages/auth/db-schema/tests/proben/mandantentrennung.sql   <-  docs/status/mandantentrennung.md
@@ -551,6 +558,7 @@ In DOKUMENTEN — das kann Geschichte sein (datierte Berichte nennen alte Namen 
   scripts/gen-session-format-catalog.ts   <-  docs/reference/inventory-session-data.md
   scripts/gen-third-party-notices.ts   <-  docs/reference/inventory-config-native.md
   scripts/gen-translation-brief.ts   <-  docs/reference/inventory-config-native.md
+  scripts/gibt-es-nicht.mjs   <-  docs/status/tote-verweise.md
   scripts/github-matrix.mjs   <-  docs/reference/inventory-config-native.md
   scripts/install-lefthook.mjs   <-  docs/reference/inventory-config-native.md
   scripts/locale-dictionary-parity.spec.ts   <-  docs/reference/inventory-config-native.md
@@ -586,6 +594,7 @@ In DOKUMENTEN — das kann Geschichte sein (datierte Berichte nennen alte Namen 
   scripts/verify-translation-prompt.ts   <-  docs/reference/inventory-config-native.md
   scripts/verify-type-equiv.ts   <-  docs/reference/inventory-config-native.md
   scripts/verify-type-equiv.ts   <-  docs/reference/reference-dsh.md
+  scripts/weg.mjs   <-  docs/status/tote-verweise.md
   snapshots/acp/escalation-approved/cordis.yml   <-  docs/reference/inventory-session-data.md
   snapshots/AGENTS.md   <-  docs/reference/inventory-config-native.md
   snapshots/python-sdk-single-exe/authoring/model-visible.json   <-  docs/reference/inventory-config-native.md
@@ -617,6 +626,7 @@ In DOKUMENTEN — das kann Geschichte sein (datierte Berichte nennen alte Namen 
   tests/contract.rs   <-  docs/protokoll/aufsicht/protokoll.jsonl
   tests/contract.rs   <-  docs/review/review-backend-transfer.md
   tests/crew.spec.ts   <-  docs/protokoll/aufsicht/befunde.md
+  tests/da.test.ts   <-  docs/status/tote-verweise.md
   tests/deepseek.test.ts   <-  docs/decisions/naming-grenze.md
   tests/dom-stub.ts   <-  docs/design/3d-zoom-konzept.md
   tests/dom-stub.ts   <-  docs/status/arbeitspakete.md
@@ -630,6 +640,7 @@ In DOKUMENTEN — das kann Geschichte sein (datierte Berichte nennen alte Namen 
   tests/i18n.test.ts   <-  docs/status/arbeitspakete.md
   tests/knowledge.test.ts   <-  docs/status/naming-rest.md
   tests/language.test.ts   <-  docs/status/naming-rest.md
+  tests/lebend.test.ts   <-  docs/status/tote-verweise.md
   tests/llm-http.test.ts   <-  docs/decisions/naming-grenze.md
   tests/locale-keys.test.ts   <-  docs/status/arbeitspakete.md
   tests/mandant.test.ts   <-  docs/status/mandantentrennung.md
@@ -640,6 +651,7 @@ In DOKUMENTEN — das kann Geschichte sein (datierte Berichte nennen alte Namen 
   tests/one-time-token.test.ts   <-  docs/status/naming-rest.md
   tests/opening-view.test.ts   <-  docs/design/3d-zoom-konzept.md
   tests/opening-view.test.ts   <-  docs/status/arbeitspakete.md
+  tests/openrouter.test.ts   <-  docs/status/tote-verweise.md
   tests/orbits.test.ts   <-  docs/status/arbeitspakete.md
   tests/plugin-host.test.ts   <-  docs/status/arbeitspakete.md
   tests/postgres.test.ts   <-  docs/INDEX.md
