@@ -551,9 +551,14 @@ mitDatenbank('Mit einem echten Konto', () => {
   })
 
   afterAll(async () => {
-    await new Promise<void>((fertig) => einer.server.close(() => fertig()))
-    await sql.unsafe('DELETE FROM users WHERE email = $1', [ADRESSE]).catch(() => undefined)
-    await sql.end({ timeout: 5 })
+    // Der Riegel fragt den GEGENSTAND, nicht die Umgebung — sonst schließt dieser Haken einen
+    // Server, den `beforeAll` nie gebaut hat (gemessen am 15.10.2026).
+    const e: typeof einer | undefined = einer
+    const db: postgres.Sql | undefined = sql
+    if (e === undefined || db === undefined) return
+    await new Promise<void>((fertig) => e.server.close(() => fertig()))
+    await db.unsafe('DELETE FROM users WHERE email = $1', [ADRESSE]).catch(() => undefined)
+    await db.end({ timeout: 5 })
   })
 
   test('mit gültiger Sitzung zeigt `/start` das Konto — und den Namen ENTschärft', async () => {

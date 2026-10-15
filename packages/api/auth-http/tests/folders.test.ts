@@ -241,10 +241,15 @@ mitDatenbank('Die Ordnerwege mit Datenbank', () => {
   })
 
   afterAll(async () => {
-    if (!bereit) return
-    await new Promise<void>((fertig) => einer.server.close(() => fertig()))
-    await sql.unsafe('delete from pmh.users where id = $1', [benutzerId]).catch(() => undefined)
-    await sql.end({ timeout: 5 })
+    // Der Riegel fragt den GEGENSTAND: `bereit` fragt die Umgebung (Regel 33), und ohne
+    // laufende Datenbank baute `beforeAll` nichts — der Haken schloß dann einen Server,
+    // den es nie gab. Gemessen am 15.10.2026 (docs/status/naming-rest.md §7).
+    const e: typeof einer | undefined = einer
+    const db: postgres.Sql | undefined = sql
+    if (e === undefined || db === undefined) return
+    await new Promise<void>((fertig) => e.server.close(() => fertig()))
+    await db.unsafe('delete from pmh.users where id = $1', [benutzerId]).catch(() => undefined)
+    await db.end({ timeout: 5 })
     rmSync(HOME, { recursive: true, force: true })
   })
 

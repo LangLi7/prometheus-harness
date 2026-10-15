@@ -225,3 +225,35 @@ geschätzt.
 **Das ist nicht meine Umbenennung** (sie ändert Dateinamen, keine Objekte), es ist **alt** — und es
 ist **dieselbe Sorte Fehler wie Regel 33**: *ein Riegel, der die Umgebung fragt, ist kein Riegel.*
 Er wird als eigener Zug behoben, nicht in diesem.
+
+> **RICHTIGSTELLUNG, in derselben Runde.** Der Absatz darüber nennt als Ursache *„es läuft kein
+> PostgreSQL"*. **Das ist falsch, und er bleibt stehen.** Die gemessene Ursache steht in der
+> Fehlerzeile selbst, die ich zuerst nur als Rauschen gelesen hatte:
+>
+> ```
+> error: ABBRUCH: dieser Test LÖSCHT ALLE BENUTZER und zeigt auf „pmh" — dieselbe Datenbank wie
+> die Anwendung (DATABASE_URL in .env). Er ist für eine Wegwerf-Datenbank gedacht:
+> setze PMH_TEST_DATABASE_URL auf eine andere Datenbank.
+>   at packages/api/auth-http/tests/postgres.test.ts:154:15
+> ```
+>
+> **`beforeAll` bricht ABSICHTLICH ab** — es ist das **Wegwerf-Netz** aus einer früheren Runde
+> (`betriebsdatenbankNamenAusDatei` + `PMH_WEGWERF_BESTAETIGT=1`), und es hat recht: die
+> `PMH_TEST_DATABASE_URL` der Wurzel-`.env` zeigt auf **`pmh`**, dieselbe Datenbank wie die
+> Anwendung. Der Fehler war nicht der Abbruch, sondern daß ein **zweiter, irreführender** Fehler
+> danebenstand: der `afterAll` schloß einen Server, den das abgebrochene `beforeAll` nie gebaut
+> hatte. **Der eine echte Befund war unter einem unechten begraben.**
+
+**Behoben und nachgemessen** — der Riegel fragt jetzt den **Gegenstand** statt die Umgebung
+(`const s: Server | undefined = server`, `const db: postgres.Sql | undefined = sql`), in vier
+Haken (`postgres.test.ts`, `folders.test.ts`, `login.test.ts`, `first-login.test.ts`):
+
+| Zustand | vorher | nachher |
+|---|---|---|
+| `PMH_TEST_DATABASE_URL` wie in `.env` (zeigt auf `pmh`) | **4 fail**, exit 1 | **2 fail**, exit 1 — und beide sind **das Netz**, nicht der Haken |
+| `PMH_TEST_DATABASE_URL=''` | 0 fail, 97 pass, 37 skip | unverändert: **0 fail**, 97 pass, 37 skip, exit **0** |
+
+**Die zwei verbleibenden Fehler werden NICHT wegrepariert.** Ein roter Lauf, der „du zeigst auf die
+Betriebsdatenbank" sagt, ist die Absicht. Wer ihn grün haben will, setzt `PMH_TEST_DATABASE_URL`
+auf eine Wegwerf-Datenbank und `PMH_WEGWERF_BESTAETIGT=1` — das ist der dokumentierte Weg, nicht
+ein Nachlassen der Prüfung.

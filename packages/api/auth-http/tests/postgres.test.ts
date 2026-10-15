@@ -238,14 +238,21 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  if (!adresseGesetzt(URL_FROM_ENV)) return
-  await new Promise<void>((fertig) => server.close(() => fertig()))
+  // **Der Riegel gehört an den GEGENSTAND, nicht an die Umgebung.** Gemessen am 15.10.2026:
+  // `adresseGesetzt(URL_FROM_ENV)` fragt die UMGEBUNG. Steht `PMH_TEST_DATABASE_URL` in der
+  // Wurzel-`.env` und läuft kein PostgreSQL, bricht das `beforeAll` ab — und dieser Haken
+  // schloß dann einen Server, den es nie gab: `TypeError: undefined is not an object`. Vier
+  // solcher Haken machten den Lauf rot, ohne daß EINE Zusicherung fehlschlug.
+  const s: Server | undefined = server
+  const db: postgres.Sql | undefined = sql
+  if (s === undefined || db === undefined) return
+  await new Promise<void>((fertig) => s.close(() => fertig()))
   // **Kein Aufräumen der Benutzer hier.** Das `beforeAll` leert die Tabelle
   // ohnehin, bevor es losgeht — ein zweiter Löschvorgang am Ende bringt nichts
   // und nimmt die Möglichkeit, nach einem roten Lauf **nachzusehen**, was
   // tatsächlich in der Datenbank steht. Auf einer Wegwerf-Datenbank ist das
   // Beobachten mehr wert als die leere Tabelle.
-  await sql.end({ timeout: 5 })
+  await db.end({ timeout: 5 })
   if (home !== undefined && existsSync(home)) rmSync(home, { recursive: true, force: true })
 })
 

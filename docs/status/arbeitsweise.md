@@ -837,5 +837,38 @@ Wort, das nicht in ihr steht, wird nicht gemeldet), und **genau das steht im Ber
 unvollständige Liste mit genannter Grenze ist ein Werkzeug; eine unvollständige Liste, die
 „vollständig" heißt, ist eine Attrappe (Regel 10).
 
+## 44. Ein Here-String mit **doppelten** Anführungszeichen frißt den Backtick
+
+**Der Fall.** Ich schrieb mit PowerShell einen Kommentar in `postgres.test.ts` — und benutzte dafür
+`@"…"@`, weil ich Variablen einsetzen wollte. Im Text stand Markdown mit Backticks:
+`` `adresseGesetzt(URL_FROM_ENV)` `` und `` `PMH_TEST_DATABASE_URL` ``. In einem **doppelt**
+quotierten Here-String ist der Backtick ein **Escape-Zeichen**:
+
+| geschrieben | gelesen als | im Text gelandet |
+|---|---|---|
+| `` `a `` | Steuercode **7** (BEL) | das `a` **weg**, dafür ein Klingelzeichen |
+| `` `P `` | unbekannte Folge | Backtick **weg**, `P` bleibt |
+| ``` `` ``` | ein Backtick | richtig |
+
+Gemessen, nicht geraten: `[System.IO.File]::ReadAllLines(...)[241]` und die Codepunkte der Zeile —
+an Position 8 stand **`7`**. Die Zeile lautete danach `//  dresseGesetzt(URL_FROM_ENV) fragt die
+UMGEBUNG.` — **ein `a` fehlte, und ein Steuerzeichen stand in einer Quelldatei.**
+
+**Die Regel.** **Wird Text mit Backticks oder `$` geschrieben, nimmt man den EINFACH quotierten
+Here-String `@'…'@`** — er kennt weder Variablen noch Escapes. Und **wer programmatisch Text
+ändert, liest die geänderte Stelle zurück**: der Beleg ist die gelesene Zeile, nicht das Skript,
+das sie geschrieben hat.
+
+**Die Gegenprobe, die dazugehört.** Nicht nur die eine Zeile ansehen, sondern **alle** in dieser
+Runde angefaßten Dateien auf Steuerzeichen prüfen (`[int]$_ -lt 32` außer `\n` und `\r`):
+`postgres.test.ts`, `folders.test.ts`, `login.test.ts`, `first-login.test.ts`,
+`naming-guard.mjs`, `naming-guard.test.mjs`, `naming-rest.md` → **0** in jeder. Der Fehler war
+einer; die Prüfung sagt, daß er der einzige war.
+
+**Warum das die zweite Verletzung derselben Sorte an einem Tag ist.** Kurz davor hatte ein
+`git add` einen Pfad genannt, den das `git mv` schon entfernt hatte (Regel 43, Nachtrag). Beide
+Male war das **Werkzeug** die Fehlerquelle, nicht der Gegenstand — und beide Male hätte ein Blick
+auf die **Wirkung** gereicht: dort `git status`, hier die Zeile selbst.
+
 
 

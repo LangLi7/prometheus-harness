@@ -87,9 +87,12 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  if (DA === undefined) return
-  await sql.unsafe('DELETE FROM users WHERE email LIKE $1', [`%${DOMAENE}`]).catch(() => undefined)
-  await sql.end({ timeout: 5 })
+  // `DA === undefined` fragt die Umgebung. Der Aufbau steht in `sql` — also fragt der Riegel
+  // `sql` (gemessen am 15.10.2026, docs/status/naming-rest.md §7).
+  const db: postgres.Sql | undefined = sql
+  if (db === undefined) return
+  await db.unsafe('DELETE FROM users WHERE email LIKE $1', [`%${DOMAENE}`]).catch(() => undefined)
+  await db.end({ timeout: 5 })
   rmSync(home, { recursive: true, force: true })
 })
 
