@@ -22,7 +22,7 @@
  *
  * ## Warum die Dateien IM Projekt liegen
  *
- * Bun liest `bunfig.toml` (und damit die Vorladung `scripts/bun-luecken-vorladen.mjs`)
+ * Bun liest `bunfig.toml` (und damit die Vorladung `scripts/bun-gap-preload.mjs`)
  * abhängig vom Ort. Ein Meßaufbau außerhalb des Projekts hätte eine **andere**
  * Umgebung als die echte Suite — und eine Messung, die etwas anderes mißt als das
  * Gemeinte, ist keine. Das Verzeichnis wird danach wieder entfernt.

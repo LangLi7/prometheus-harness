@@ -31,7 +31,7 @@
   "packages/units/unit-export/src/cli.ts": 1,
   "packages/util/atomic-write/tests/fixtures/pmh-atomicfs-fake.mjs": 2,
   "scripts/build-go.ps1": 3,
-  "scripts/bun-luecken-vorladen.mjs": 1,
+  "scripts/bun-gap-preload.mjs": 1,
   "scripts/client-buendel.mjs": 6,
   "scripts/install.ps1": 4,
   "scripts/language-checker.mjs": 3,

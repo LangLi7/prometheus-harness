@@ -1,5 +1,5 @@
 /**
- * `scripts/ledger-nachziehen.mjs` — den Audit-Ledger auf den heutigen Stand bringen.
+ * `scripts/ledger-catchup.mjs` — den Audit-Ledger auf den heutigen Stand bringen.
  *
  * ## Der Ledger ist ein ARRAY — und das hat drei Anläufe gekostet
  *
@@ -35,7 +35,7 @@
  *
  * Trockenlauf ist die Voreinstellung; geschrieben wird nur mit `--anwenden`.
  *
- * @module scripts/ledger-nachziehen
+ * @module scripts/ledger-catchup
  */
 
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -144,7 +144,7 @@ export function zieheNach(einheiten, heute) {
     commits_seit_ledger: 84,
     betriebsdatenbank: `pmh: fassung ${String(heute.fassungBetrieb)}, ${String(heute.tabellen)} Tabellen`,
     ACHTUNG:
-      'Die Betriebsdatenbank liegt HINTER dem Code (Code: Fassung 7). Pruefen mit: bun scripts/schema-stand.mjs pruefen',
+      'Die Betriebsdatenbank liegt HINTER dem Code (Code: Fassung 7). Pruefen mit: bun scripts/schema-version.mjs pruefen',
     neue_migrationen: [
       { fassung: 4, name: 'mandantentrennung-an-fremdschluesseln', wirkung: 'B-S1 Struktur behoben' },
       { fassung: 5, name: 'benutzerprofile-isolation-je-benutzer', wirkung: 'neue Tabelle user_profiles' },
@@ -215,7 +215,7 @@ export function fuehreAus(argv, umgebung = process.env, schreibe = (t) => proces
   for (const a of aenderungen) schreibe(`  - ${a}\n`)
 
   if (!anwenden) {
-    schreibe(`\nZum Schreiben: bun scripts/ledger-nachziehen.mjs --anwenden\n`)
+    schreibe(`\nZum Schreiben: bun scripts/ledger-catchup.mjs --anwenden\n`)
     return 0
   }
 
@@ -255,6 +255,6 @@ export function fuehreAus(argv, umgebung = process.env, schreibe = (t) => proces
   return 0
 }
 
-if (process.argv[1] !== undefined && process.argv[1].endsWith('ledger-nachziehen.mjs')) {
+if (process.argv[1] !== undefined && process.argv[1].endsWith('ledger-catchup.mjs')) {
   process.exitCode = fuehreAus(process.argv.slice(2))
 }

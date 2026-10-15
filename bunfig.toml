@@ -50,7 +50,7 @@
 # (`patches/` bleibt leer, `patchedDependencies` gibt es nicht).
 #
 # **Kein Bundler, kein Build-Schritt** — die Regel von oben bleibt unangetastet.
-preload = ["./scripts/bun-luecken-vorladen.mjs"]
+preload = ["./scripts/bun-gap-preload.mjs"]
 
 [install]
 # `apps/web` bringt eine eigene bun.lock und ein eigenes node_modules mit. Ein

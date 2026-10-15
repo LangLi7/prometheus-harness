@@ -88,7 +88,12 @@ describe('Ein einzelner Name', () => {
     // Wäre hier ein `includes` statt eines Segmentvergleichs gebaut, stünde `standard` als
     // deutscher Name im Bericht — und der Wächter wäre unglaubwürdig.
     expect(pruefeName('standard.ts')).toEqual({ ok: true })
-    expect(pruefeName('schema-stand.mjs').ok).toBe(false)
+    // **Hier stand einmal `schema-stand.mjs` — und die Ersetzung hat es MITVERAENDERT**, als
+    // dieses Skript umbenannt wurde. Damit prüfte die Zeile einen englischen Namen und wurde rot.
+    // Die Lehre: eine Umbenennung erreicht jede Stelle, an der der alte Name als TEXT steht —
+    // auch ein Beispiel in einem Test. Jetzt steht hier ein Wort, das zu den Notizen gehört und
+    // deshalb nicht umbenannt wird (`docs/protokoll/`).
+    expect(pruefeName('protokoll.ts').ok).toBe(false)
   })
 
   test('ein leerer Name ist ein Aufruffehler, kein stilles Ja', () => {

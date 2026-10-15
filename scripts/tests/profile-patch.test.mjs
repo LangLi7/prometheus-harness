@@ -129,7 +129,7 @@ describe('bereichsZeilen', () => {
     // Versuch war, `ptc-runtime`, `workflow-ptc` und `tool-workflow` hier
     // abzuschalten, weil `ptc-runtime` unter Bun nicht ladbar war. Das war eine
     // **Umgehung**: sie kostete PTC dauerhaft. Die Ursache ist jetzt behoben
-    // (`scripts/ptc-typentfernung.mjs`), deshalb darf hier **keine** Abschaltung
+    // (`scripts/ptc-type-stripping.mjs`), deshalb darf hier **keine** Abschaltung
     // mehr stehen. Wer sie wieder einbaut, bekommt eine rote Prüfung und muß sich
     // entscheiden.
     //
