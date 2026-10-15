@@ -1506,16 +1506,16 @@ export function erzeugeSpeicher(sql: SqlZugang): AuthSpeicher {
 // Form, die der Sandkasten versteht: **eine** Hauptwurzel und die Zusatzordner, getrennt nach
 // Lesen und Schreiben.
 //
-// **Der Ringbezug ist Absicht und harmlos.** `wurzeln.ts` holt `mitMandant` von hier, und hier
+// **Der Ringbezug ist Absicht und harmlos.** `roots.ts` holt `mitMandant` von hier, und hier
 // wird `ladeWurzeln` von dort geholt. In ES-Modulen sind **Funktionsdeklarationen** gehoben und
 // stehen damit auch während des Ladens bereit — geprüft wird das von
-// `tests/wurzeln.test.ts`, das über den Paketeingang importiert.
-export { ladeWurzeln, schreibbareWurzeln, type Wurzeln } from './wurzeln.ts'
+// `tests/roots.test.ts`, das über den Paketeingang importiert.
+export { ladeWurzeln, schreibbareWurzeln, type Wurzeln } from './roots.ts'
 
 // ---------------------------------------------------------------------------
 // Quellordner ändern
 // ---------------------------------------------------------------------------
-// **Auch nur ausgeführt.** `ordner.ts` benutzt die Regeln der Datenbank (genau ein
+// **Auch nur ausgeführt.** `folders.ts` benutzt die Regeln der Datenbank (genau ein
 // Arbeitsplatz, der Arbeitsplatz ist schreibbar) und die Naht `mitMandant`.
 export {
   entferneOrdner,
@@ -1525,4 +1525,4 @@ export {
   setzeZugriff,
   type Ordner,
   type Zugriff,
-} from './ordner.ts'
+} from './folders.ts'

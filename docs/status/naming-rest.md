@@ -120,7 +120,7 @@ gebaut; **das ist der nächste Schritt**, nicht die 43 Umbenennungen.
 |---|---|---|---|
 | ~~1~~ | `packages/util/sprachen` → `languages` | klein | **vollzogen** (§6) — der Prüfstein für den Umbenennungsweg abseits von `scripts/` |
 | 2 | `packages/api/auth-http/src` (6) + `tests` (5) | mittel | Nur Importe im eigenen Haus, aber **97 Prüfungen** hängen daran |
-| 3 | `packages/auth/store-postgres` (9), `db-schema/tests/proben` (4) | mittel | „Attrappen“, „Wurzeln“, „Zerleger“ sind Hausvokabular — die Bedeutung muß mitwandern |
+| 3 | `packages/auth/store-postgres` (9) — **vollzogen** (§8) · `db-schema/tests/proben` (4) — **offen** | mittel | „Attrappen“, „Wurzeln“, „Zerleger“ sind Hausvokabular — die Bedeutung muß mitwandern |
 | 4 | `apps/login_web` (4) | klein | Zwei Dateien, je eine Prüfdatei |
 | 5 | `scripts/` (43) | **groß** | Erst **nach** dem Werkzeug für tote Verweise |
 
@@ -246,9 +246,7 @@ Er wird als eigener Zug behoben, nicht in diesem.
 
 **Behoben und nachgemessen** — der Riegel fragt jetzt den **Gegenstand** statt die Umgebung
 (`const s: Server | undefined = server`, `const db: postgres.Sql | undefined = sql`), in vier
-Haken (`postgres.test.ts`, `folders.test.ts`, `login.test.ts`, `first-login.test.ts`):
-
-| Zustand | vorher | nachher |
+Haken (`postgres.test.ts`, `folders.test.ts`, `login.test.ts`, `first-login.test.ts`):| Zustand | vorher | nachher |
 |---|---|---|
 | `PMH_TEST_DATABASE_URL` wie in `.env` (zeigt auf `pmh`) | **4 fail**, exit 1 | **2 fail**, exit 1 — und beide sind **das Netz**, nicht der Haken |
 | `PMH_TEST_DATABASE_URL=''` | 0 fail, 97 pass, 37 skip | unverändert: **0 fail**, 97 pass, 37 skip, exit **0** |
@@ -257,3 +255,45 @@ Haken (`postgres.test.ts`, `folders.test.ts`, `login.test.ts`, `first-login.test
 Betriebsdatenbank" sagt, ist die Absicht. Wer ihn grün haben will, setzt `PMH_TEST_DATABASE_URL`
 auf eine Wegwerf-Datenbank und `PMH_WEGWERF_BESTAETIGT=1` — das ist der dokumentierte Weg, nicht
 ein Nachlassen der Prüfung.
+
+## 8. Zug 3a, vollzogen: `packages/auth/store-postgres` — 9 Dateien
+
+Drei Quelldateien und sechs Prüfdateien. **Die Namen wurden GELESEN, nicht geraten** (Regel 11):
+`ordner.ts` sagt in seiner Kopfzeile „Quellordner **ändern**" → `folders.ts`; `wurzeln.ts` heißt dort
+„die **Zugriffspfade** eines Arbeitsbereichs" → `roots.ts`; `zerleger.ts` heißt „Text in Stücke, die
+in `chunks` passen" → `chunker.ts`, weil der Name nennt, was **herauskommt**.
+
+| heute | englisch | warum |
+|---|---|---|
+| `src/ordner.ts` | `src/folders.ts` | Quellordner ändern |
+| `src/wurzeln.ts` | `src/roots.ts` | die schreibbaren Wurzeln |
+| `src/zerleger.ts` | `src/chunker.ts` | es **macht** `chunks` |
+| `tests/attrappe.test.ts` | `tests/fake.test.ts` | Gegenstück zu `tests/postgres.test.ts`: dort echt, hier Attrappe |
+| `tests/einmaltoken.test.ts` | `tests/one-time-token.test.ts` | |
+| `tests/mandant.test.ts` | `tests/tenant.test.ts` | |
+| `tests/wissen.test.ts` | `tests/knowledge.test.ts` | |
+| `tests/wurzeln.test.ts` | `tests/roots.test.ts` | |
+| `tests/zerleger.test.ts` | `tests/chunker.test.ts` | |
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Wer hängt daran? | `grep` über `*.{ts,tsx,mjs,js,json,ps1,cmd,sh,yml}` | **9 Zeilen** — 8 im Paket, 1 in einem Meßwerkzeug |
+| Umbenennen | `git mv` ×9 | 9 `R`-Zeilen |
+| Ersetzen | Pfadliste **nach** dem `git mv` eingesammelt | **9** Vorkommen im Paket + **1** in `docs/status/messsonden/envelope-cost.mjs` |
+| Gegenprobe | `grep` auf die sieben alten Dateinamen in Code | **1 Treffer** — die eingefrorene Sprachbasis, absichtlich |
+| Tests | `bun test --cwd packages/auth/store-postgres` | **71 pass, 25 skip, 0 fail**, exit **0** |
+| Baum | `bun run scripts/typecheck.mjs` | **37 Pakete grün, 0 rot**, exit 0 |
+| Wächter | `bun scripts/naming-guard.mjs` | **69 → 60** — genau **neun** weniger, wie viele Dateien umbenannt wurden |
+
+**Der Beleg, daß die Sprachbasis der Umbenennung FOLGT.** Der Wächter war zuerst rot mit genau
+einem Eintrag (`+1 packages/auth/store-postgres/src/folders.ts (0 -> 1)`), und nach `--basis` sah der
+Diff so aus:
+
+```
++  "packages/auth/store-postgres/src/folders.ts": 1,
+-  "packages/auth/store-postgres/src/ordner.ts": 1,
+```
+
+Eine Löschung, eine Einfügung — **die Basis wird vollständig neu geschrieben und verliert dabei den
+alten Pfad.** Das war nicht bekannt; jetzt ist es gemessen. Eine Basis, die alte Pfade behielte,
+würde bei jeder Umbenennung stillschweigend wachsen.

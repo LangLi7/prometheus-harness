@@ -3,7 +3,7 @@
  *
  * ## Warum eine Attrappe hier richtig ist
  *
- * Dieselbe Begründung wie in `mandant.test.ts`: eine Attrappe kann bestätigen, was **unser
+ * Dieselbe Begründung wie in `tenant.test.ts`: eine Attrappe kann bestätigen, was **unser
  * Code** tut — sie kann nicht bestätigen, was PostgreSQL tut. Diese Datei prüft die
  * **Übersetzung**: aus Zeilen der Tabelle werden Hauptwurzel und Zusatzordner, und ein
  * unbekannter Wert darf **nicht** zu Schreibrechten führen.
@@ -14,7 +14,7 @@
 
 import { describe, expect, test } from 'bun:test'
 import type { SqlZugang, TransaktionsZugang } from '../src/index.ts'
-import { ladeWurzeln, schreibbareWurzeln } from '../src/wurzeln.ts'
+import { ladeWurzeln, schreibbareWurzeln } from '../src/roots.ts'
 
 /** Eine Anweisung, wie sie wirklich gesendet wurde. */
 interface Gesendet {

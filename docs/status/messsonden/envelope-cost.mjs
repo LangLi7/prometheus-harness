@@ -35,7 +35,7 @@
 import { erzeugeSchluessel, verschluessele } from '../../../packages/auth/secrets/src/krypto.ts'
 import { verpacke } from '../../../packages/auth/secrets/src/index.ts'
 
-/** Ein realistischer Textabschnitt — `zerleger.ts` schneidet bei 1200 Zeichen. */
+/** Ein realistischer Textabschnitt — `chunker.ts` schneidet bei 1200 Zeichen. */
 const STUECK_BYTES = 1200
 
 const stuecke = Number(process.argv[2] ?? 2000)

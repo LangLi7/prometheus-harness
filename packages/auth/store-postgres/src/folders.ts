@@ -24,7 +24,7 @@
  */
 
 import { mitMandant, type SqlZugang } from './index.ts'
-import { ladeWurzeln, type Wurzeln } from './wurzeln.ts'
+import { ladeWurzeln, type Wurzeln } from './roots.ts'
 
 /** Die Zugriffsart eines Ordners. */
 export type Zugriff = 'lesen' | 'schreiben'

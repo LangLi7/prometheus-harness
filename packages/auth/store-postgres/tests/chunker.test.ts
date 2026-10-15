@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { ZERLEGER_VORGABEN, zerlege } from '../src/zerleger.ts'
+import { ZERLEGER_VORGABEN, zerlege } from '../src/chunker.ts'
 
 /** Ein Absatz mit n Sätzen. */
 function absatz(saetze: number, laenge = 40): string {

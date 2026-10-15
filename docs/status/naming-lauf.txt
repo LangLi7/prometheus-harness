@@ -13,7 +13,7 @@ Ausgenommen MIT GRUND (7):
   packages\auth\db-schema\migrations\0009_arbeitsbereich-ordner.sql  —  deutsches Segment "arbeitsbereich"  [Schemafassung: der Dateiname ist die Version]
   packages\auth\db-schema\migrations\0010_zusatzordner-zugriff.sql  —  deutsches Segment "zusatzordner"  [Schemafassung: der Dateiname ist die Version]
 
-80 Verstöße:
+69 Verstöße:
 
   apps\login_web\src\
     sprache.ts  —  deutsches Segment "sprache"
@@ -25,19 +25,6 @@ Ausgenommen MIT GRUND (7):
     rechtprobe.sql  —  deutsches Segment "rechtprobe"
   packages\ai\local\tests\
     lokal.test.ts  —  deutsches Segment "lokal"
-  packages\api\auth-http\src\
-    anmeldung.ts  —  deutsches Segment "anmeldung"
-    ordner.ts  —  deutsches Segment "ordner"
-    rechte.ts  —  deutsches Segment "rechte"
-    seite.ts  —  deutsches Segment "seite"
-    wege.ts  —  deutsches Segment "wege"
-    zugang.ts  —  deutsches Segment "zugang"
-  packages\api\auth-http\tests\
-    anmeldung.test.ts  —  deutsches Segment "anmeldung"
-    ordner.test.ts  —  deutsches Segment "ordner"
-    rechte.test.ts  —  deutsches Segment "rechte"
-    seite.test.ts  —  deutsches Segment "seite"
-    zugang.test.ts  —  deutsches Segment "zugang"
   packages\auth\db-schema\src\
     betriebsdatenbank.ts  —  deutsches Segment "betriebsdatenbank"
   packages\auth\db-schema\tests\
