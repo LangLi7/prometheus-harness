@@ -43,7 +43,7 @@
 -- unverändert: `rls=false`, `0` Policies.
 --
 -- Aufruf:
---   Get-Content packages/auth/db-schema/tests/proben/rls-verhalten.sql -Raw |
+--   Get-Content packages/auth/db-schema/tests/fixtures/rls-behavior.sql -Raw |
 --     docker exec -i pmh-postgres psql -U pmh_admin -d pmh -v ON_ERROR_STOP=1
 --
 -- =============================================================================

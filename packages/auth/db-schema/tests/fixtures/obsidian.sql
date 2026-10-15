@@ -3,7 +3,7 @@
 -- ===========================================================================
 --
 -- Aufruf:
---   Get-Content packages/auth/db-schema/tests/proben/obsidian.sql -Raw |
+--   Get-Content packages/auth/db-schema/tests/fixtures/obsidian.sql -Raw |
 --     docker exec -i pmh-postgres psql -U pmh_admin -d pmh_test -v ON_ERROR_STOP=1
 --
 -- WAS SIE TUT. Zwei Mandanten mit je einem Vault, je einer Notiz, Etiketten und

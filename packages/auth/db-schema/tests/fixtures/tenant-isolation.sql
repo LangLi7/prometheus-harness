@@ -4,7 +4,7 @@
 --
 -- Aufruf (aus dem Projektwurzelverzeichnis, Docker-Stapel laeuft):
 --
---   Get-Content packages/auth/db-schema/tests/proben/mandantentrennung.sql -Raw |
+--   Get-Content packages/auth/db-schema/tests/fixtures/tenant-isolation.sql -Raw |
 --     docker exec -i pmh-postgres psql -U pmh_admin -d pmh -v ON_ERROR_STOP=1
 --
 -- WAS DIESE PROBE TUT. Sie stellt zwei Mandanten her (A und B), baut bei B eine

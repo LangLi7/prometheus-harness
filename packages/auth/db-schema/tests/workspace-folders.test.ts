@@ -15,7 +15,7 @@
  *
  * ## Warum alles in einer Transaktion mit RÜCKWÄRTSLAUF
  *
- * Dieselbe Begründung wie in `sitzungsprotokoll.test.ts`: die Prüfung darf **nichts**
+ * Dieselbe Begründung wie in `session-log.test.ts`: die Prüfung darf **nichts**
  * hinterlassen. Sie läuft gegen eine Wegwerf-Datenbank, und jede Zeile, die sie anlegt,
  * verschwindet mit dem `ROLLBACK`.
  *

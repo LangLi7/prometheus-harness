@@ -6,7 +6,7 @@
  * Diese Datei hat genau eine Aufgabe: den **richtigen Auftrag** an den **richtigen Weg** mit dem
  * **richtigen Körper** zu senden. Der untergeschobene Abruf schreibt mit, was gesendet wurde — und
  * die Prüfungen vergleichen das Zeichen für Zeichen. Was sie **nicht** beweisen: daß der Server die
- * Aufträge so annimmt. Das steht in `packages/api/auth-http/tests/ordner.test.ts` (zwölf Prüfungen
+ * Aufträge so annimmt. Das steht in `packages/api/auth-http/tests/folders.test.ts` (zwölf Prüfungen
  * über einen echten Socket).
  *
  * ## Der Fall, der am leichtesten still bleibt

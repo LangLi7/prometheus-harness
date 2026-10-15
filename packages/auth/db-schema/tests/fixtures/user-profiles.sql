@@ -3,7 +3,7 @@
 -- ===========================================================================
 --
 -- Aufruf:
---   Get-Content packages/auth/db-schema/tests/proben/benutzerprofile.sql -Raw |
+--   Get-Content packages/auth/db-schema/tests/fixtures/user-profiles.sql -Raw |
 --     docker exec -i pmh-postgres psql -U pmh_admin -d pmh -v ON_ERROR_STOP=1
 --
 -- WAS DIESE PROBE PRUEFT. Daß die Bedingungen der Tabelle **wirken** — und zwar

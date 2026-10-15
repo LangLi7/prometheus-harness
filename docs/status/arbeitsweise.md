@@ -631,6 +631,29 @@ anderen Schlösser.
 **Der Merksatz für Muster mit deutschen Bezeichnern.** `\b` vor einem Namen, dem ein `_` vorangeht,
 ist **keine** Grenze. Wo Unterstriche im Spiel sind, ist `(?<![A-Za-z0-9])` gemeint — nicht `\b`.
 
+**Nachtrag vom 15.10.2026 — dieselbe Regel, diesmal beim Umbenennen, viermal hintereinander.** Nach
+**jeder** meiner vier Umbenennungen meldete ich „Gegenprobe: kein Treffer". Der neue Wächter für tote
+Verweise (`docs/status/tote-verweise.md`) fand danach **zehn** Stellen, an denen die **umbenannte
+Datei sich selbst noch unter dem alten Namen nannte**:
+
+```
+apps/login_web/tests/redirect.test.ts    ->  "bun test apps/login_web/tests/weiter.test.ts"
+packages/.../tests/paths.test.ts         ->  "packages/api/auth-http/tests/ordner.test.ts"
+packages/auth/.../tests/roots.test.ts    ->  ".../arbeitsbereich-ordner.test.ts"
+die fünf Fixture-Dateien                 ->  "Get-Content .../proben/<alter Name>.sql"
+```
+
+**Warum meine Gegenprobe sie nicht sah.** Sie suchte nach **`weiter.ts`** — und in `weiter.test.ts`
+steht `weiter.test.ts`. Sie suchte nach **`/proben/`** im Pfad — und in `fixtures/rls-behavior.sql`
+steht `proben/rls-verhalten.sql`. **Der Suchbegriff war ein Beispiel, nicht die Menge** — genau der
+Fehler dieser Regel, nur eine Ebene höher: nicht im Muster, sondern in der **Prüfung des Musters**.
+
+**Die verschärfte Fassung.** Eine Umbenennung zieht nicht nur ihre Importe. Sie zieht **jede Stelle,
+an der der alte Name als Text steht — auch in der umbenannten Datei selbst** (Kopfzeile,
+Aufrufbeispiel, Verweis auf die Nachbardatei). Und die Gegenprobe muß über die **Liste der alten
+Namen** laufen, nicht über ein Muster, das ich mir zu diesem Zweck ausgedacht habe. **Wer sein
+Muster prüft, prüft sein Muster.**
+
 ## 38. Kein Urteil ohne Meßwert — und keine Prüfung für einen Zustand, den es nicht gibt
 
 **Der Fall, und der Betreiber hat mich darauf gestoßen.** Der Ausleger (das Modell, das fremde

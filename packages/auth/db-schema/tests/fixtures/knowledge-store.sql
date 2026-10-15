@@ -4,7 +4,7 @@
 --
 -- Aufruf (aus dem Projektwurzelverzeichnis, Docker-Stapel laeuft):
 --
---   Get-Content packages/auth/db-schema/tests/proben/wissensspeicher.sql -Raw |
+--   Get-Content packages/auth/db-schema/tests/fixtures/knowledge-store.sql -Raw |
 --     docker exec -i pmh-postgres psql -U pmh_admin -d pmh_test -v ON_ERROR_STOP=1
 --
 -- WAS DIESE PROBE TUT. Sie stellt zwei Mandanten her (A und B), gibt jedem eine

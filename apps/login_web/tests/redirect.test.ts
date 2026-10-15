@@ -10,7 +10,7 @@
  * und jeder abgelehnte Fall steht hier als eigener Test.
  *
  * ```powershell
- * bun test apps/login_web/tests/weiter.test.ts
+ * bun test apps/login_web/tests/redirect.test.ts
  * ```
  *
  * @module @prometheus-harness/login-web/tests/weiter

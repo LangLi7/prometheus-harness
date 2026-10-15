@@ -26,7 +26,7 @@
  * Gegenstand der Prüfung — mit nur einer Rolle wäre sie wertlos.
  *
  * ```powershell
- * bun test packages/auth/db-schema/tests/sitzungsprotokoll.test.ts
+ * bun test packages/auth/db-schema/tests/session-log.test.ts
  * ```
  *
  * @module @prometheus-harness/db-schema/tests/sitzungsprotokoll

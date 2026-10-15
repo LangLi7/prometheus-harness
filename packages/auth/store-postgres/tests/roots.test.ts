@@ -9,7 +9,7 @@
  * unbekannter Wert darf **nicht** zu Schreibrechten führen.
  *
  * Daß die Tabelle wirklich filtert (Row Level Security), steht gemessen in
- * `packages/auth/db-schema/tests/arbeitsbereich-ordner.test.ts` — dort gegen echtes PostgreSQL.
+ * `packages/auth/db-schema/tests/workspace-folders.test.ts` — dort gegen echtes PostgreSQL.
  */
 
 import { describe, expect, test } from 'bun:test'
