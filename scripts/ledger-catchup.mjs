@@ -158,7 +158,7 @@ export function zieheNach(einheiten, heute) {
     neue_angriffsflaechen: [
       { was: 'Anmeldeseite aus eigenem Host', pfade: ['/pmh/anmelden', '/api/pmh/auth/seite', '/api/pmh/auth/seite.js'] },
       { was: 'vier Anmeldewege', pfade: ['/api/pmh/auth/register', '/api/pmh/auth/login', '/api/pmh/auth/logout', '/api/pmh/auth/me'] },
-      { was: 'Skripte mit Schreibrecht', pfade: ['scripts/reset.mjs', 'scripts/api-key.mjs', 'scripts/geheimnis.mjs'] },
+      { was: 'Skripte mit Schreibrecht', pfade: ['scripts/reset.mjs', 'scripts/api-key.mjs', 'scripts/secret.mjs'] },
       { was: 'git-Haken', pfade: ['.githooks/pre-commit'] },
       { was: 'eigene CI', pfade: ['.github/workflows/pmh-ci.yml'] },
     ],

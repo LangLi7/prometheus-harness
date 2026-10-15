@@ -71,7 +71,7 @@ async function aufbau(umgebung) {
   const version = Number(umgebung.PMH_MASTER_KEY_VERSION?.trim() ?? '1')
   // **Die Leiter steht an einer Stelle** (`standardQuellen`): Datei im Home →
   // Docker-Secret → Umgebungsvariable. Vorher stand die Reihenfolge hier **und**
-  // in `scripts/geheimnis.mjs`; mit der Docker-Stufe wären es drei Kopien einer
+  // in `scripts/secret.mjs`; mit der Docker-Stufe wären es drei Kopien einer
   // Sicherheitsaussage geworden.
   const haupt = holeHauptschluessel(
     standardQuellen(umgebung, home),

@@ -1,5 +1,5 @@
 /**
- * `scripts/geheimnis.mjs` — die Geheimnisse eines Benutzers setzen, ansehen, prüfen.
+ * `scripts/secret.mjs` — die Geheimnisse eines Benutzers setzen, ansehen, prüfen.
  *
  * ## Warum es das geben muß
  *
@@ -26,7 +26,7 @@
  * Prüfspur (`auth_events`) bekommt **keinen** Eintrag mit dem Wert — die Tabelle
  * ist ausdrücklich ohne Klartext-Geheimnisse angelegt.
  *
- * @module scripts/geheimnis
+ * @module scripts/secret
  */
 
 import { readFileSync } from 'node:fs'
@@ -104,9 +104,9 @@ export async function fuehreAus(argv, umgebung = process.env, schreibe = (t) => 
   if (befehl === undefined || !['set', 'liste', 'pruefe'].includes(befehl)) {
     schreibe(
       'Aufruf:\n' +
-        '  bun scripts/geheimnis.mjs set <ref> --benutzer <email>      (Wert über STDIN)\n' +
-        '  bun scripts/geheimnis.mjs liste --benutzer <email>\n' +
-        '  bun scripts/geheimnis.mjs pruefe <ref> --benutzer <email> [--zeigen]\n' +
+        '  bun scripts/secret.mjs set <ref> --benutzer <email>      (Wert über STDIN)\n' +
+        '  bun scripts/secret.mjs liste --benutzer <email>\n' +
+        '  bun scripts/secret.mjs pruefe <ref> --benutzer <email> [--zeigen]\n' +
         '\n' +
         '  Der Wert kommt über die Standardeingabe, NICHT als Argument: Argumente\n' +
         '  stehen in der Prozeßliste und sind für jeden Benutzer dieses Rechners lesbar.\n',
@@ -196,6 +196,6 @@ export async function fuehreAus(argv, umgebung = process.env, schreibe = (t) => 
   }
 }
 
-if (process.argv[1] !== undefined && process.argv[1].endsWith('geheimnis.mjs')) {
+if (process.argv[1] !== undefined && process.argv[1].endsWith('secret.mjs')) {
   process.exitCode = await fuehreAus(process.argv.slice(2))
 }

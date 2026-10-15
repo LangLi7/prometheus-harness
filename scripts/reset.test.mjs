@@ -5,7 +5,7 @@
  *
  * `fuehreAus` ist in allen Skripten dieses Repos exportiert, damit man es fahren
  * kann — und **kein** Skript wird gefahren: `grep` über `*.ts` findet keinen
- * einzigen Aufruf von `geheimnis.mjs` oder `claim.mjs` in einer Prüfung. Ein
+ * einzigen Aufruf von `secret.mjs` oder `claim.mjs` in einer Prüfung. Ein
  * Ausgang ohne Aufrufer ist dasselbe Muster wie ein Verfahren ohne Aufrufer, nur
  * eine Ebene höher. Hier wird es geschlossen.
  *
