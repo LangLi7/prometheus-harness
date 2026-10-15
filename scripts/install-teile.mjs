@@ -96,7 +96,7 @@ export function neuesGeheimnis(bytes = 32) {
  * Die Namen der Zugangsdaten, die eine Installation braucht. **Eine Liste, keine
  * verstreuten Zeichenketten.**
  *
- * Der Grund ist die Prüfung `install-teile.test.mjs`: sie vergleicht diese Liste
+ * Der Grund ist die Prüfung `install-parts.test.mjs`: sie vergleicht diese Liste
  * mit den Namen, die in `.env.example` **und** in `docker-compose.yml` vorkommen.
  * Läuft eine Variable in einem der beiden Dokumente ein und hier nicht, wird die
  * Prüfung rot — statt daß die Installation eine leere Kennung benutzt.

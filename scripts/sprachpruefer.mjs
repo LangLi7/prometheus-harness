@@ -66,7 +66,7 @@ function istWort(text) {
  *
  * Sie ist exportiert, damit ein Test sie **rot** laufen lassen kann: eine Prüfung, die nicht
  * rot werden kann, mißt nichts (Arbeitsweise Regel 5). Siehe
- * `scripts/tests/sprachpruefer.test.mjs`.
+ * `scripts/tests/language-checker.test.mjs`.
  *
  * @param {{faecher: Record<string, {englisch: Record<string, string>}>}} quelle
  * @param {Record<string, Record<string, string>>} paket

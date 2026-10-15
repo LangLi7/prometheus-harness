@@ -13,7 +13,7 @@ Ausgenommen MIT GRUND (7):
   packages\auth\db-schema\migrations\0009_arbeitsbereich-ordner.sql  —  deutsches Segment "arbeitsbereich"  [Schemafassung: der Dateiname ist die Version]
   packages\auth\db-schema\migrations\0010_zusatzordner-zugriff.sql  —  deutsches Segment "zusatzordner"  [Schemafassung: der Dateiname ist die Version]
 
-51 Verstöße:
+38 Verstöße:
 
   scripts\
     apischluessel.mjs  —  deutsches Segment "apischluessel"
@@ -54,20 +54,6 @@ Ausgenommen MIT GRUND (7):
     verlauf-reset.mjs  —  deutsches Segment "verlauf"
     verlauf-reset.test.mjs  —  deutsches Segment "verlauf"
     welt-adresse.mjs  —  deutsches Segment "welt"
-  scripts\tests\
-    install-teile.test.mjs  —  deutsches Segment "teile"
-    install-werkzeuge.test.mjs  —  deutsches Segment "werkzeuge"
-    plugin-metadaten-aufloeser.test.mjs  —  deutsches Segment "metadaten"
-    port-wahl.test.mjs  —  deutsches Segment "wahl"
-    quelltext-pruefung.test.mjs  —  deutsches Segment "pruefung"
-    readme-paarung.test.mjs  —  deutsches Segment "paarung"
-    sprachpaket.test.ts  —  deutsches Segment "sprachpaket"
-    sprachpruefer.test.mjs  —  deutsches Segment "sprachpruefer"
-    sprachtrichter.test.mjs  —  deutsches Segment "sprachtrichter"
-    sprachwaechter.test.mjs  —  deutsches Segment "sprachwaechter"
-    token-adresse.test.mjs  —  deutsches Segment "adresse"
-    werkzeug-folgen.test.mjs  —  deutsches Segment "werkzeug"
-    wsl-lage.test.mjs  —  deutsches Segment "lage"
 
 Dieser Wächter benennt NICHTS um. Er nennt den Zustand. Jede Umbenennung ist eine eigene
 Tat mit eigener Messung (docs/status/naming-plan.md).

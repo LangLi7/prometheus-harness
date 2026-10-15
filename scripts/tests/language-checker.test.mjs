@@ -9,7 +9,7 @@
  * gemessen vollständig gegen `docs/status/sprachquelle.json`).
  *
  * ```powershell
- * bun test scripts/tests/sprachpruefer.test.mjs
+ * bun test scripts/tests/language-checker.test.mjs
  * ```
  *
  * @module scripts/tests/sprachpruefer.test
