@@ -29,7 +29,7 @@ import {
   listeOrdner,
   setzeZugriff,
   type Abruf,
-} from '../src/wege.ts'
+} from '../src/paths.ts'
 
 /** Was ein Aufruf gesendet hat. */
 interface Gesendet {

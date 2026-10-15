@@ -81,7 +81,7 @@
       "version": "0.0.0",
     },
     "packages/ai/directory-curator": {
-      "name": "@prometheus-harness/verwalter",
+      "name": "@prometheus-harness/directory-curator",
       "version": "0.0.0",
     },
     "packages/ai/einstellungen": {
@@ -174,12 +174,12 @@
       "name": "@prometheus-harness/client-locale",
       "version": "0.1.0",
     },
-    "packages/client/quellordner": {
-      "name": "@prometheus-harness/client-quellordner",
-      "version": "0.1.0",
-    },
     "packages/client/select-contrast": {
       "name": "@prometheus-harness/client-select-contrast",
+      "version": "0.1.0",
+    },
+    "packages/client/source-folders": {
+      "name": "@prometheus-harness/client-source-folders",
       "version": "0.1.0",
     },
     "packages/client/world-switch": {
@@ -981,15 +981,17 @@
 
     "@prometheus-harness/client-locale": ["@prometheus-harness/client-locale@workspace:packages/client/locale"],
 
-    "@prometheus-harness/client-quellordner": ["@prometheus-harness/client-quellordner@workspace:packages/client/quellordner"],
-
     "@prometheus-harness/client-select-contrast": ["@prometheus-harness/client-select-contrast@workspace:packages/client/select-contrast"],
+
+    "@prometheus-harness/client-source-folders": ["@prometheus-harness/client-source-folders@workspace:packages/client/source-folders"],
 
     "@prometheus-harness/client-world-switch": ["@prometheus-harness/client-world-switch@workspace:packages/client/world-switch"],
 
     "@prometheus-harness/composition": ["@prometheus-harness/composition@workspace:packages/ai/composition"],
 
     "@prometheus-harness/db-schema": ["@prometheus-harness/db-schema@workspace:packages/auth/db-schema"],
+
+    "@prometheus-harness/directory-curator": ["@prometheus-harness/directory-curator@workspace:packages/ai/directory-curator"],
 
     "@prometheus-harness/einstellungen": ["@prometheus-harness/einstellungen@workspace:packages/ai/einstellungen"],
 
@@ -1040,8 +1042,6 @@
     "@prometheus-harness/token-meter": ["@prometheus-harness/token-meter@workspace:packages/llm/token-meter"],
 
     "@prometheus-harness/unit-export": ["@prometheus-harness/unit-export@workspace:packages/units/unit-export"],
-
-    "@prometheus-harness/verwalter": ["@prometheus-harness/verwalter@workspace:packages/ai/directory-curator"],
 
     "@prometheus-harness/verzeichnis": ["@prometheus-harness/verzeichnis@workspace:packages/ai/verzeichnis"],
 

@@ -3,7 +3,7 @@
  *
  * ## Der Vertrag, nachgesehen statt erfunden
  *
- * Alle Angaben stammen aus `packages/api/auth-http/src/ordner.ts` und `wege.ts`:
+ * Alle Angaben stammen aus `packages/api/auth-http/src/ordner.ts` und `paths.ts`:
  *
  * | Weg | Körper | Antwort |
  * |---|---|---|
@@ -26,7 +26,7 @@
  * Damit diese Datei **ohne** Server prüfbar ist: die Prüfung schiebt einen Abruf unter, der
  * mitschreibt, was gesendet wurde. Was hier geprüft wird, ist genau das — der gesendete Auftrag.
  *
- * @module @prometheus-harness/client-quellordner/wege
+ * @module @prometheus-harness/client-source-folders/wege
  */
 
 import type { Ordner } from './dialog.tsx'

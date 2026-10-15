@@ -29,7 +29,7 @@
  * Prüfungen). Daß sie hier noch einmal in der Form stehen, ist Absicht: die Datenbank wehrt ab, die
  * Oberfläche **erklärt**.
  *
- * @module @prometheus-harness/client-quellordner
+ * @module @prometheus-harness/client-source-folders
  */
 
 /** Ein Quellordner, wie ihn der Weg `/api/pmh/ordner` liefert. */

@@ -26,11 +26,11 @@
  * **Was das nicht beweist:** wie es im Browser **aussieht**. Hier ist kein Browser installiert.
  *
  * ```powershell
- * bun run packages/client/quellordner/bauen.mjs            # bauen + prüfen + schreiben
- * bun run packages/client/quellordner/bauen.mjs --pruefen  # nur die vorhandene Datei prüfen
+ * bun run packages/client/source-folders/build.mjs            # bauen + prüfen + schreiben
+ * bun run packages/client/source-folders/build.mjs --pruefen  # nur die vorhandene Datei prüfen
  * ```
  *
- * @module @prometheus-harness/client-quellordner/bauen
+ * @module @prometheus-harness/client-source-folders/bauen
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -44,7 +44,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 const HIER = dirname(fileURLToPath(import.meta.url))
 
 /** Die Kennung, unter der der Kern das Bündel lädt — sie MUSS dem Paketnamen entsprechen. */
-const KENNUNG = '@prometheus-harness/client-quellordner'
+const KENNUNG = '@prometheus-harness/client-source-folders'
 
 /**
  * Die Baseline der Shell — **gemessen**, nicht geraten.
@@ -171,7 +171,7 @@ function pruefe(text) {
 
   const plugin = geladen.factory(require)
 
-  if (plugin.name !== 'quellordner') befunde.push(`name ist „${String(plugin.name)}".`)
+  if (plugin.name !== 'source-folders') befunde.push(`name ist „${String(plugin.name)}".`)
   if (!Array.isArray(plugin.inject)) befunde.push('inject ist keine Liste.')
   if (typeof plugin.apply !== 'function') befunde.push('apply ist keine Funktion.')
   if (befunde.length > 0) return befunde

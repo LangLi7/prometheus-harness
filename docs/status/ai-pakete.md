@@ -16,7 +16,7 @@ bun test   in jedem Paketverzeichnis einzeln
 | `ai/directory-curator` | **42** | Der Katalog, der Ausleger, der Lauf: Widerspruchsprüfung in **beide** Richtungen |
 | `ai/composition` | **10** | Das Zusammenfügen: der Mensch **zuletzt**, unbekannter Anbieter **gemeldet** |
 | `ai/local` | **20** | Gewichte holen, **prüfen**, ablegen — ohne Prüfsumme kein „heil" |
-| `client/quellordner` | **47** | Der Ordnerdialog: Oberfläche, vier Wege, Keks + Arbeitsbereich, Bündel |
+| `client/source-folders` | **47** | Der Ordnerdialog: Oberfläche, vier Wege, Keks + Arbeitsbereich, Bündel |
 | **zusammen** | **292** | **0 rot** |
 
 Dazu: **`bun run scripts/typecheck.mjs` → 37 Pakete grün, 0 rot.**

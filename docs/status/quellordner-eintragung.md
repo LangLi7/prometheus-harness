@@ -19,7 +19,7 @@ daneben sagt ausdrücklich *„Diese Datei nicht von Hand bearbeiten"*; der Patc
 ## 2. Und eine Korrektur: es GIBT längst einen allgemeinen Bündler
 
 Ich habe `scripts/client-buendel.mjs` für ein Werkzeug **nur für das Sprachpaket** gehalten — nach
-seinem Dateikopf geurteilt — und deshalb ein eigenes `bauen.mjs` geschrieben.
+seinem Dateikopf geurteilt — und deshalb ein eigenes `build.mjs` geschrieben.
 
 **Der Dateikopf täuscht.** In der Tabelle stehen **drei** Pakete, und die Datei sagt selbst, warum:
 
@@ -29,21 +29,21 @@ seinem Dateikopf geurteilt — und deshalb ein eigenes `bauen.mjs` geschrieben.
 > bleiben **je Art** verschieden, weil ein Sprachpaket etwas anderes beweisen muß als eine
 > Stilregel."*
 
-**Der Hausbau hatte also genau das Problem gelöst, das ich mit `bauen.mjs` noch einmal gelöst
+**Der Hausbau hatte also genau das Problem gelöst, das ich mit `build.mjs` noch einmal gelöst
 habe.** Das ist der **vierte** Fall desselben Fehlers an einem Tag (Regel 40): nach einer Stelle
 urteilen statt nach allen.
 
-**Was daraus folgt.** `packages/client/quellordner/bauen.mjs` ist eine **zweite Wahrheit** und
+**Was daraus folgt.** `packages/client/source-folders/build.mjs` ist eine **zweite Wahrheit** und
 gehört **weg** — sobald der Eintrag in `PAKETE` steht. Die Prüfung, die es zusätzlich kann (das
 Gebaute ausführen und die Komponente **rendern**), gehört als **neue Art** in das Hauswerkzeug,
 nicht in ein Nebenwerkzeug.
 
 ## 3. Was zu tun ist — drei Schritte, in dieser Reihenfolge
 
-1. **`PAKETE` erweitern** um `{dir: 'packages/client/quellordner', kennung:
-   '@prometheus-harness/client-quellordner', art: <neu>}` und die Prüfart im Werkzeug ergänzen
+1. **`PAKETE` erweitern** um `{dir: 'packages/client/source-folders', kennung:
+   '@prometheus-harness/client-source-folders', art: <neu>}` und die Prüfart im Werkzeug ergänzen
    (das Gebaute ausführen, `name`/`inject`/`apply` befragen, die Eintragung prüfen, die Komponente
-   **rendern** — genau das, was `bauen.mjs` heute tut).
+   **rendern** — genau das, was `build.mjs` heute tut).
 2. **`EIGENE_PAKETE` erweitern** in `scripts/profile-patch.mjs`.
 3. **`bun scripts/client-buendel.mjs`** laufen lassen und danach den **Host neu laden** — erst dann
    ist „installiert" gemessen und nicht behauptet.
@@ -57,7 +57,7 @@ Zusammenhangs, sondern mit voller Aufmerksamkeit und einer Prüfung danach.
 | Stufe (Regel 2) | Zustand | Beleg |
 |---|---|---|
 | komponiert | **ja** | 47 Prüfungen im Paket |
-| Bündel geprüft | **ja** | `bauen.mjs`: Umschlag, `name`, `inject`, `apply`, Eintragung, Rendering |
+| Bündel geprüft | **ja** | `build.mjs`: Umschlag, `name`, `inject`, `apply`, Eintragung, Rendering |
 | **installiert** | **NEIN** | steht in keiner der drei Tabellen |
 | aktiv | nein | folgt aus „installiert" |
 | wirkt | nein | kein Browser auf diesem Rechner |
@@ -79,7 +79,7 @@ Zusammenhangs, sondern mit voller Aufmerksamkeit und einer Prüfung danach.
    `dsh.client.external`"*. Für React ist das **falsch** — React ist Baseline und wird von der
    festen Modultafel beantwortet.
 
-**Warum mein `bauen.mjs` das nicht gesehen hat.** Es reicht einen **echten** `require` durch, also
+**Warum mein `build.mjs` das nicht gesehen hat.** Es reicht einen **echten** `require` durch, also
 lädt React wirklich und **nichts fällt auf**. Das Hauswerkzeug reicht eine **Attrappe** durch und
 sieht den Wunsch. **Beide Prüfungen sind für sich grün — und nur die schärfere findet den
 Unterschied.** Das ist der Grund, warum ein zweites Werkzeug neben dem Hauswerkzeug gefährlich ist:
@@ -159,7 +159,7 @@ daß es **jetzt** grün ist — nicht, daß es im Commit grün war.
    parallelen Strang klären, wer sie bearbeitet.
 2. Dann den Prüfer um die Baseline ergänzen (Liste oben, mit Fundstelle).
 3. Dann `PAKETE` und `EIGENE_PAKETE` erweitern, `bun scripts/client-buendel.mjs` laufen lassen,
-   `bauen.mjs` entfernen.
+   `build.mjs` entfernen.
 4. Erst danach den Host neu laden — das ist die Messung für „installiert".
 
 

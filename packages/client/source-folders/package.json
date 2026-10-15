@@ -1,13 +1,13 @@
 {
-  "name": "@prometheus-harness/client-quellordner",
+  "name": "@prometheus-harness/client-source-folders",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "Der Quellordner-Dialog: die reine Komponente, die vier Wege als Datenschicht, und die Einhängung in shell.overlay als gebautes lib/client.js. Der Bündelbau prüft das Gebaute, indem er es ausführt.",
   "exports": {
     "./dialog": "./src/dialog.tsx",
-    "./wege": "./src/wege.ts",
-    "./stand": "./src/stand.ts",
+    "./paths": "./src/paths.ts",
+    "./state": "./src/state.ts",
     "./client": "./lib/client.js",
     "./package.json": "./package.json"
   },
@@ -21,7 +21,7 @@
     "lib/client.js"
   ],
   "scripts": {
-    "build": "bun run bauen.mjs",
+    "build": "bun run build.mjs",
     "typecheck": "tsgo --noEmit -p tsconfig.json",
     "test": "bun test"
   }

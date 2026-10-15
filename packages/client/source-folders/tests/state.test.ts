@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { CSRF_KEKS, arbeitsbereichId, csrfWert, wertAusKeks, type Arbeitsbereichsstand } from '../src/stand.ts'
+import { CSRF_KEKS, arbeitsbereichId, csrfWert, wertAusKeks, type Arbeitsbereichsstand } from '../src/state.ts'
 
 // ---------------------------------------------------------------------------
 // 1. Der Keks

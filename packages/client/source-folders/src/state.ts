@@ -23,7 +23,7 @@
  * **Server**-Paket; es in ein Browser-Bündel zu ziehen brächte Server-Code in die Seite. Der Name
  * ist deshalb abgeschrieben — mit der Fundstelle daneben, damit er nachprüfbar bleibt.
  *
- * @module @prometheus-harness/client-quellordner/stand
+ * @module @prometheus-harness/client-source-folders/stand
  */
 
 /** Der Keks, in dem der CSRF-Wert steht — gemessen, siehe Dateikopf. */

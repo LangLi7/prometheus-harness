@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: "@prometheus-harness/client-quellordner",
+  id: "@prometheus-harness/client-source-folders",
   factory: (require) => {
     var module = { exports: {} };
     var exports = module.exports;
@@ -42,7 +42,7 @@ var __export = (target, all) => {
     });
 };
 
-// packages/client/quellordner/src/client.tsx
+// packages/client/source-folders/src/client.tsx
 var exports_client = {};
 __export(exports_client, {
   QuellordnerSchicht: () => QuellordnerSchicht,
@@ -53,7 +53,7 @@ __export(exports_client, {
 module.exports = __toCommonJS(exports_client);
 var import_react = require("react");
 
-// packages/client/quellordner/src/dialog.tsx
+// packages/client/source-folders/src/dialog.tsx
 var jsx_runtime = require("react/jsx-runtime");
 var TEXTE = {
   titel: "Quellordner",
@@ -201,7 +201,7 @@ function QuellordnerDialog(eigenschaften) {
   });
 }
 
-// packages/client/quellordner/src/stand.ts
+// packages/client/source-folders/src/state.ts
 var CSRF_KEKS = "pmh_csrf";
 function wertAusKeks(kekse, name) {
   for (const stueck of kekse.split(";")) {
@@ -236,7 +236,7 @@ function arbeitsbereichId(bereiche, sitzung) {
   return bereiche[0]?.workspaceId;
 }
 
-// packages/client/quellordner/src/wege.ts
+// packages/client/source-folders/src/paths.ts
 var PFAD_ORDNER = "/api/pmh/ordner";
 var PFAD_ORDNER_ANLEGEN = "/api/pmh/ordner/anlegen";
 var PFAD_ORDNER_ZUGRIFF = "/api/pmh/ordner/zugriff";
@@ -316,9 +316,9 @@ async function entferneOrdner(id, optionen) {
   await liesHuelle(antwort, PFAD_ORDNER_ENTFERNEN);
 }
 
-// packages/client/quellordner/src/client.tsx
+// packages/client/source-folders/src/client.tsx
 var jsx_runtime2 = require("react/jsx-runtime");
-var name = "quellordner";
+var name = "source-folders";
 var inject = ["slots", "workspaces", "sessions"];
 function QuellordnerSchicht({
   optionen,
@@ -407,7 +407,7 @@ function apply(ctx) {
   const kern = ctx;
   kern.slots.inject("shell.overlay", () => kern.slots.register({
     name: "shell.overlay",
-    id: "quellordner",
+    id: "source-folders",
     label: "Quellordner",
     inject: () => ({
       optionen: { csrf: csrfWert },

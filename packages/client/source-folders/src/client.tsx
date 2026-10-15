@@ -39,17 +39,17 @@
  * Beweis für Abwesenheit.** Dasselbe habe ich an diesem Tag schon zweimal falsch gemacht (die
  * Modellliste von OpenRouter; die Parameterliste von granite). Jetzt ist es verdrahtet.
  *
- * @module @prometheus-harness/client-quellordner/client
+ * @module @prometheus-harness/client-source-folders/client
  */
 
 import type { Context } from '@deepseek-ai/cordis'
 import { useEffect, useState } from 'react'
 import { QuellordnerDialog, type Ordner } from './dialog.tsx'
-import { arbeitsbereichId, csrfWert, type Arbeitsbereichsstand } from './stand.ts'
-import { listeOrdner, legeOrdnerAn, entferneOrdner, setzeZugriff, type WegeOptionen } from './wege.ts'
+import { arbeitsbereichId, csrfWert, type Arbeitsbereichsstand } from './state.ts'
+import { listeOrdner, legeOrdnerAn, entferneOrdner, setzeZugriff, type WegeOptionen } from './paths.ts'
 
 /** Kennung des Plugins. */
-export const name = 'quellordner'
+export const name = 'source-folders'
 
 /**
  * Was der Client-Kern bereitstellen muß.
@@ -238,7 +238,7 @@ export function apply(ctx: Context): void {
       {
         name: 'shell.overlay',
         // Ein Listeneintrag BRAUCHT eine eigene id — ohne sie wirft die Registratur.
-        id: 'quellordner',
+        id: 'source-folders',
         label: 'Quellordner',
         // **Die Fabrik schließt über `ctx`.** Der Vertrag sagt: *„Business data access happens
         // through the apply closure's ctx — no binding object parameter exists."* Deshalb bekommt
