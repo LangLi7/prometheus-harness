@@ -1,5 +1,5 @@
 /**
- * `scripts/subprozess-argv-ergaenzung.mjs` — der `--`-Trenner, den Bun verschluckt.
+ * `scripts/subprocess-argv-patch.mjs` — der `--`-Trenner, den Bun verschluckt.
  *
  * ## Der Befund, gemessen mit beiden Laufzeiten
  *
@@ -50,7 +50,7 @@
  * Zeile nicht, **wirft sie** und der Host startet nicht: lieber laut scheitern als
  * eine Ergänzung, die ins Leere greift und den Fehler bestehen läßt.
  *
- * @module scripts/subprozess-argv-ergaenzung
+ * @module scripts/subprocess-argv-patch
  */
 
 /** Die Datei, deren Prüfung erweitert wird — **Muster**, weil der Name einen Hash trägt. */
@@ -77,7 +77,7 @@ export const ERSATZ =
 export function erweiterePrufung(alt) {
   if (!alt.includes(PRUEFZEILE)) {
     throw new Error(
-      'subprozess-argv-ergaenzung: die Prüfzeile steht nicht mehr in der Runner-Datei. ' +
+      'subprocess-argv-patch: die Prüfzeile steht nicht mehr in der Runner-Datei. ' +
         'Der Core hat sie umgebaut — der Anker muß nachgezogen werden, sonst bliebe Shell ' +
         'und Suche unter Bun stumm.',
     )

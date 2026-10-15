@@ -10,7 +10,7 @@
  * Diese Datei macht es ausdrücklich und prüfbar: sie öffnet einen **echten
  * TCP-Listener**, gibt aus, dass sie lauscht, und bleibt.
  *
- * Aufruf:  bun scripts/port-halter.mjs <port>
+ * Aufruf:  bun scripts/port-holder.mjs <port>
  * Beenden: Strg+C oder Prozess beenden.
  */
 
@@ -18,7 +18,7 @@ import { createServer } from 'node:net'
 
 const port = Number.parseInt(process.argv[2] ?? '', 10)
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
-  process.stderr.write('Aufruf: bun scripts/port-halter.mjs <port>\n')
+  process.stderr.write('Aufruf: bun scripts/port-holder.mjs <port>\n')
   process.exit(2)
 }
 

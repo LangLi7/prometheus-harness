@@ -1,5 +1,5 @@
 /**
- * Prüfungen für {@link module:scripts/readme-paarung}.
+ * Prüfungen für {@link module:scripts/readme-pairing}.
  *
  * **Warum diese Datei mehr prüft als „zwei Dateien haben gleich viele
  * Überschriften".** Der Prüfer ist die einzige Maschine, die merkt, wenn die
@@ -19,7 +19,7 @@ import {
   pruefeSprungmarken,
   vergleiche,
   zerlege,
-} from '../readme-paarung.mjs'
+} from '../readme-pairing.mjs'
 
 const WURZEL = join(import.meta.dir, '..', '..')
 

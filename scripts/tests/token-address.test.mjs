@@ -1,5 +1,5 @@
 /**
- * Prüfungen für {@link module:scripts/token-adresse}.
+ * Prüfungen für {@link module:scripts/token-address}.
  *
  * Der Anlass ist gemessen: die Startausgabe nennt `http://127.0.0.1:3081/`, und
  * der Aufruf dieser Adresse antwortet mit **401**. Wer die Anleitung befolgt,
@@ -18,7 +18,7 @@ import {
   announceAuthUrl,
   findAuthUrl,
   tokenOf,
-} from '../token-adresse.mjs'
+} from '../token-address.mjs'
 
 /** Die gemessene Ausgabezeile des Hosts (13.10.2026, Port 3081). */
 const TOKEN = 'jWQ3mZm0Qk9Xv1pR7sT2bN4cL6hG8dF5aE3zY1uI0oP'

@@ -237,7 +237,7 @@ function ZeigeProtokoll($r, [int]$n) {
 function BelegePort([int]$port) {
   $log = Join-Path $env:TEMP "halter-$port.log"
   Remove-Item $log, "$log.err" -ErrorAction SilentlyContinue
-  $proc = Start-Process -FilePath $BUN -ArgumentList @('scripts/port-halter.mjs', "$port") -WorkingDirectory $repo `
+  $proc = Start-Process -FilePath $BUN -ArgumentList @('scripts/port-holder.mjs', "$port") -WorkingDirectory $repo `
     -RedirectStandardOutput $log -RedirectStandardError "$log.err" -PassThru -NoNewWindow
   $script:gestartet.Add($proc.Id)
   # **Auf den Nachweis warten, nicht auf die Zeit hoffen.** Ohne diese Zeile
@@ -249,7 +249,7 @@ function BelegePort([int]$port) {
     }
     if ($proc.HasExited) {
       # **Die Begruendung vollstaendig ausgeben.** Hier stand nur die erste Zeile
-      # von `.err` - und die war leer, weil `port-halter.mjs` seinen Fehler nach
+      # von `.err` - und die war leer, weil `port-holder.mjs` seinen Fehler nach
       # **stdout** schreibt. Eine Meldung "Halter beendet sich - " ohne Grund
       # sagt niemandem etwas.
       Write-Host ("  FEHLER: Halter beendet sich (exit {0})" -f $proc.ExitCode)

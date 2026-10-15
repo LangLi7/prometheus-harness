@@ -36,7 +36,7 @@ import { ergaenzungNoetig as ptcNoetig, richteEin as ptcEin } from './ptc-typent
 import {
   ergaenzungNoetig as argvNoetig,
   richteEin as argvEin,
-} from './subprozess-argv-ergaenzung.mjs'
+} from './subprocess-argv-patch.mjs'
 import {
   ergaenzungNoetig as metadatenNoetig,
   richteEin as metadatenEin,

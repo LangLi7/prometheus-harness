@@ -44,7 +44,7 @@
  * des Hosts, damit die Adresse auch **ohne** abschließende Zeile sofort erscheint.
  * Trifft die Annahme nicht mehr, wird die Meldung **später** — nie falsch.
  *
- * @module scripts/token-adresse
+ * @module scripts/token-address
  */
 
 /**

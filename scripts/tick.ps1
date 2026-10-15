@@ -6,8 +6,8 @@
 # den Ablauf wiederholbar und schreibt das Audit selbst.
 #
 # Aufruf:
-#   pwsh -ExecutionPolicy Bypass -File scripts/takt.ps1 -Message "Kurzbeschreibung"
-#   pwsh -ExecutionPolicy Bypass -File scripts/takt.ps1 -Message "..." -DryRun
+#   pwsh -ExecutionPolicy Bypass -File scripts/tick.ps1 -Message "Kurzbeschreibung"
+#   pwsh -ExecutionPolicy Bypass -File scripts/tick.ps1 -Message "..." -DryRun
 #
 # Es committet NUR, was ausdrücklich genannt ist (Standard: Doku und Host).
 # Halbfertige Arbeit laufender Arbeitspakete wird bewusst NICHT mitgenommen
@@ -53,7 +53,7 @@ if ((git status --porcelain | Measure-Object).Count -eq 0) {
 
 Step 'Ausgewählte Pfade stagen'
 $paths = @('docs/') + $Include
-if ($IncludeSelf) { $paths += 'scripts/takt.ps1' }
+if ($IncludeSelf) { $paths += 'scripts/tick.ps1' }
 foreach ($p in $paths) {
   if (Test-Path $p) {
     git add -- $p

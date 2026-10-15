@@ -1,5 +1,5 @@
 /**
- * `scripts/readme-paarung.mjs` — hält die beiden README-Fassungen beieinander.
+ * `scripts/readme-pairing.mjs` — hält die beiden README-Fassungen beieinander.
  *
  * ## Warum es das geben muß
  *
@@ -34,7 +34,7 @@
  * **Was es nicht kann.** Ob die deutsche Fassung **dasselbe sagt**. Das kann
  * keine Maschine. Was sie kann: zeigen, **wo** nachzusehen ist.
  *
- * @module scripts/readme-paarung
+ * @module scripts/readme-pairing
  */
 
 import { existsSync, readFileSync } from 'node:fs'
