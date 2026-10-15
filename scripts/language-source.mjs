@@ -37,12 +37,12 @@
  * die Ausgabe aussieht.
  *
  * ```powershell
- * bun scripts/sprachquelle.mjs                 # Übersicht je Namensraum
- * bun scripts/sprachquelle.mjs --json <datei>  # Quelltext-Datei schreiben
- * bun scripts/sprachquelle.mjs --fach chat     # ein Fach vollständig ausgeben
+ * bun scripts/language-source.mjs                 # Übersicht je Namensraum
+ * bun scripts/language-source.mjs --json <datei>  # Quelltext-Datei schreiben
+ * bun scripts/language-source.mjs --fach chat     # ein Fach vollständig ausgeben
  * ```
  *
- * @module scripts/sprachquelle
+ * @module scripts/language-source
  */
 
 import { readdirSync, readFileSync, existsSync, writeFileSync } from 'node:fs'
@@ -327,7 +327,7 @@ function haupt() {
   if (jsonZiel !== undefined) {
     const inhalt = {
       _hinweis:
-        'Quelltexte der englischen Wörterbücher, gelesen aus den Registrierungsaufrufen der Kern-Bündel. Erzeugt von scripts/sprachquelle.mjs.',
+        'Quelltexte der englischen Wörterbücher, gelesen aus den Registrierungsaufrufen der Kern-Bündel. Erzeugt von scripts/language-source.mjs.',
       faecher: Object.fromEntries(
         sortiert.map(([ns, f]) => [ns, { paket: f.paket, englisch: Object.fromEntries(f.schluessel) }]),
       ),

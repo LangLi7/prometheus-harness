@@ -33,7 +33,7 @@
  * Der Kern verlangt es: `fallback` zeigt auf die nächste Sprache, und Englisch ist die
  * letzte. Fehlt in `de` ein Schlüssel, wird englischer Text gezeigt — **nie** ein leerer
  * Platz und **nie** der Schlüsselname. Deshalb ist die Vollständigkeit meßbar und nicht
- * Geschmack: `bun scripts/sprachtrichter.mjs --pruefen packages/client/locale/de.json`
+ * Geschmack: `bun scripts/language-funnel.mjs --pruefen packages/client/locale/de.json`
  *
  * @module @prometheus-harness/locale/de
  */

@@ -24,13 +24,13 @@
  * Paket — für sie liefert die Quelle die Texte trotzdem (sie liest die Bündel).
  *
  * ```powershell
- * bun scripts/sprachpruefer.mjs --paket packages/client/locale/de.json
- * bun scripts/sprachpruefer.mjs --paket teil-3.json --nur dsh-client-ui-chat,chat
+ * bun scripts/language-checker.mjs --paket packages/client/locale/de.json
+ * bun scripts/language-checker.mjs --paket teil-3.json --nur dsh-client-ui-chat,chat
  * ```
  *
  * Exit: 0 sauber, 1 nur Verdachtsfälle, 2 Fehler (oder Vorbedingung verletzt).
  *
- * @module scripts/sprachpruefer
+ * @module scripts/language-checker
  */
 
 import { readFileSync } from 'node:fs'
@@ -163,7 +163,7 @@ function haupt() {
   const nur = args.includes('--nur') ? (args[args.indexOf('--nur') + 1] ?? '').split(',') : undefined
 
   if (paketPfad === undefined) {
-    console.log('Aufruf: bun scripts/sprachpruefer.mjs --paket <datei.json> [--nur ns1,ns2]')
+    console.log('Aufruf: bun scripts/language-checker.mjs --paket <datei.json> [--nur ns1,ns2]')
     process.exit(2)
   }
 
@@ -174,7 +174,7 @@ function haupt() {
     paket = JSON.parse(readFileSync(paketPfad, 'utf8'))
   } catch (f) {
     console.log(`ABBRUCH: Datei nicht lesbar — ${f instanceof Error ? f.message : String(f)}`)
-    console.log(`  Quelle: ${QUELLE}  (anlegen: bun scripts/sprachquelle.mjs --json ${QUELLE})`)
+    console.log(`  Quelle: ${QUELLE}  (anlegen: bun scripts/language-source.mjs --json ${QUELLE})`)
     process.exit(2)
   }
 

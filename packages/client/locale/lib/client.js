@@ -123,7 +123,7 @@ window.__ModuleLoader__.load({
 		    "settings.locale": "1 von 1 — VOLLSTÄNDIG",
 		    "shortcuts.layout": "1 von 1 — VOLLSTÄNDIG"
 		  },
-		  _pruefen: "bun scripts/sprachpruefer.mjs --paket packages/client/locale/de.json",
+		  _pruefen: "bun scripts/language-checker.mjs --paket packages/client/locale/de.json",
 		  conversation: {
 		    "shortcut.newline": "Neue Zeile",
 		    "shortcut.complementary": "Die jeweils andere Aktion Warteschlange / Steuern verwenden",

@@ -21,7 +21,7 @@
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { lesePluginWoerterbuecher } from '../sprachtrichter.mjs'
+import { lesePluginWoerterbuecher } from '../language-funnel.mjs'
 import { faecher, RUECKFALL, SPRACHE } from '../../packages/client/locale/src/index.ts'
 
 const WURZEL = join(import.meta.dir, '..', '..')

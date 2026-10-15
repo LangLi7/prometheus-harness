@@ -53,11 +53,11 @@
  * ## Aufruf
  *
  * ```powershell
- * bun scripts/sprachwaechter.mjs            # prüfen; Exit 1 bei Zunahme
- * bun scripts/sprachwaechter.mjs --basis    # die Sprachbasis neu schreiben
+ * bun scripts/language-guard.mjs            # prüfen; Exit 1 bei Zunahme
+ * bun scripts/language-guard.mjs --basis    # die Sprachbasis neu schreiben
  * ```
  *
- * @module scripts/sprachwaechter
+ * @module scripts/language-guard
  */
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -256,7 +256,7 @@ function haupt() {
     console.log('')
     console.log(`KEINE Sprachbasis: ${BASIS_DATEI} fehlt oder ist unlesbar.`)
     console.log('Ohne Basis ist nichts vergleichbar — es wird NICHTS gemeldet und NICHTS behauptet.')
-    console.log('Anlegen mit:  bun scripts/sprachwaechter.mjs --basis')
+    console.log('Anlegen mit:  bun scripts/language-guard.mjs --basis')
     process.exitCode = 2
     return
   }
@@ -283,7 +283,7 @@ function haupt() {
   console.log('Diese Dateien sind anzusehen. Zwei Wege:')
   console.log('  1. Den Text über den Sprachtrichter führen (das Ziel).')
   console.log('  2. Wenn er so bleiben soll: die Basis bewußt erneuern —')
-  console.log('     bun scripts/sprachwaechter.mjs --basis   (und die Zunahme im Commit nennen)')
+  console.log('     bun scripts/language-guard.mjs --basis   (und die Zunahme im Commit nennen)')
   process.exitCode = 1
 }
 

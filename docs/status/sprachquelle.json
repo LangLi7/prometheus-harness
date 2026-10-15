@@ -1,5 +1,5 @@
 {
-  "_hinweis": "Quelltexte der englischen Wörterbücher, gelesen aus den Registrierungsaufrufen der Kern-Bündel. Erzeugt von scripts/sprachquelle.mjs.",
+  "_hinweis": "Quelltexte der englischen Wörterbücher, gelesen aus den Registrierungsaufrufen der Kern-Bündel. Erzeugt von scripts/language-source.mjs.",
   "faecher": {
     "conversation": {
       "paket": "dsh-client-ui-conversation",

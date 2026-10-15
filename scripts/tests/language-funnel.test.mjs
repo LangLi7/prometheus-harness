@@ -1,5 +1,5 @@
 /**
- * Prüfung des Sprachtrichters `scripts/sprachtrichter.mjs`.
+ * Prüfung des Sprachtrichters `scripts/language-funnel.mjs`.
  *
  * ## Warum die Gegenprobe hier das Wichtigste ist
  *
@@ -18,7 +18,7 @@ import {
   lesePluginWoerterbuecher,
   leseSchluessel,
   pruefeWoerterbuchPaarung,
-} from '../sprachtrichter.mjs'
+} from '../language-funnel.mjs'
 
 describe('leseSchluessel — beide Formen', () => {
   it('Form A: das Wörterbuch als Objekttyp', () => {

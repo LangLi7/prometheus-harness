@@ -12,12 +12,12 @@
  * bun test scripts/tests/language-checker.test.mjs
  * ```
  *
- * @module scripts/tests/sprachpruefer.test
+ * @module scripts/tests/language-checker.test
  */
 
 import { readFileSync } from 'node:fs'
 import { describe, expect, test } from 'bun:test'
-import { pruefe } from '../sprachpruefer.mjs'
+import { pruefe } from '../language-checker.mjs'
 
 const quelle = JSON.parse(readFileSync('docs/status/sprachquelle.json', 'utf8'))
 const paket = JSON.parse(readFileSync('packages/client/locale/de.json', 'utf8'))

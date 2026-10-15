@@ -3,7 +3,7 @@
  *
  * ## Warum es das gibt
  *
- * `sprachpruefer.mjs` prüft **Struktur**: Schlüssel, Platzhalter, Leerzeichen. Es prüft
+ * `language-checker.mjs` prüft **Struktur**: Schlüssel, Platzhalter, Leerzeichen. Es prüft
  * **nicht**, ob der deutsche Text gut ist — das kann es nicht, und ein Werkzeug, das es
  * behauptet, wäre eine Attrappe.
  *
@@ -12,11 +12,11 @@
  * wird **jeder n-te** gezeigt — ein systematischer Ausschnitt, kein Zufall.
  *
  * ```powershell
- * bun scripts/sprachvergleich.mjs teil-6            # jeder 20. Schlüssel
- * bun scripts/sprachvergleich.mjs teil-6 --jeder 5  # dichter
- * bun scripts/sprachvergleich.mjs teil-6 --nur chat
- * bun scripts/sprachvergleich.mjs --alle            # alle vorhandenen Teile
- * bun scripts/sprachvergleich.mjs --alle --begriffe Workspace,Session
+ * bun scripts/language-compare.mjs teil-6            # jeder 20. Schlüssel
+ * bun scripts/language-compare.mjs teil-6 --jeder 5  # dichter
+ * bun scripts/language-compare.mjs teil-6 --nur chat
+ * bun scripts/language-compare.mjs --alle            # alle vorhandenen Teile
+ * bun scripts/language-compare.mjs --alle --begriffe Workspace,Session
  * ```
  *
  * ## `--begriffe`: englische Wörter im deutschen Text finden
@@ -32,7 +32,7 @@
  * „Workspace-Liste" steckt das Wort anders). Deshalb **zeigt** dieses Werkzeug jede Stelle
  * einzeln, damit sie angesehen und dann einzeln entschieden wird.
  *
- * @module scripts/sprachvergleich
+ * @module scripts/language-compare
  */
 
 import { existsSync, readFileSync } from 'node:fs'
@@ -59,7 +59,7 @@ function haupt() {
     : args.filter((a) => /^teil-\d+$/u.test(a)).map((a) => Number(a.slice(5)))
 
   if (teile.length === 0 && paketPfad === undefined) {
-    console.log('Aufruf: bun scripts/sprachvergleich.mjs teil-6   |   --alle   |   --paket packages/client/locale/de.json')
+    console.log('Aufruf: bun scripts/language-compare.mjs teil-6   |   --alle   |   --paket packages/client/locale/de.json')
     process.exit(2)
   }
 

@@ -3,7 +3,7 @@
  *
  * ## Warum diese Sonde nötig war
  *
- * Der Trichter (`scripts/sprachtrichter.mjs`) liest die Schlüssel aus den
+ * Der Trichter (`scripts/language-funnel.mjs`) liest die Schlüssel aus den
  * `locales*.d.ts`-Dateien des Kerns und nennt ein Fach nach `export declare const NS`.
  * **Fehlt** diese Zeile, fällt er auf den **Paketnamen** zurück — und der Paketname ist
  * **kein** Laufzeit-Namensraum.
@@ -175,7 +175,7 @@ export function namensraeumeAusBuendel(text) {
 function haupt() {
   const wurzel = process.cwd()
   if (!existsSync(join(wurzel, FACH_DATEI))) {
-    console.log(`BEFUND: ${FACH_DATEI} fehlt — erst \`bun scripts/sprachtrichter.mjs --umfang\` laufen lassen.`)
+    console.log(`BEFUND: ${FACH_DATEI} fehlt — erst \`bun scripts/language-funnel.mjs --umfang\` laufen lassen.`)
     process.exit(1)
   }
   const umfang = JSON.parse(readFileSync(join(wurzel, FACH_DATEI), 'utf8'))

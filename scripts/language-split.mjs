@@ -11,15 +11,15 @@
  * Deshalb rechnet dieses Werkszeug die Aufteilung **und** die Vereinigung:
  *
  * ```powershell
- * bun scripts/sprachaufteilung.mjs --schreiben      # Teile anlegen + Aufteilung.json
- * bun scripts/sprachaufteilung.mjs --vereinigen     # Teile zu de.json zusammensetzen
- * bun scripts/sprachaufteilung.mjs --nachsehen      # nur prüfen, was fehlt (ohne Schreiben)
+ * bun scripts/language-split.mjs --schreiben      # Teile anlegen + Aufteilung.json
+ * bun scripts/language-split.mjs --vereinigen     # Teile zu de.json zusammensetzen
+ * bun scripts/language-split.mjs --nachsehen      # nur prüfen, was fehlt (ohne Schreiben)
  * ```
  *
  * Die Vereinigung prüft **jeden** Schlüssel der Quelle gegen die Teile und nennt fehlende
  * beim Namen. Sie schreibt nur, wenn **nichts** fehlt.
  *
- * @module scripts/sprachaufteilung
+ * @module scripts/language-split
  */
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
@@ -197,7 +197,7 @@ function haupt() {
         'Sprachpaket Deutsch. Ein Fach je LAUFZEIT-Namensraum (gemessen aus den Registrierungsaufrufen der Kern-Bündel, siehe docs/status/sprachquelle.json). Die Schlüssel sind die des Kerns und dürfen NICHT umbenannt werden. Platzhalter in geschweiften Klammern müssen erhalten bleiben.',
       _stand: new Date().toISOString().slice(0, 10),
       _faecher: faecherStand,
-      _pruefen: 'bun scripts/sprachpruefer.mjs --paket packages/client/locale/de.json',
+      _pruefen: 'bun scripts/language-checker.mjs --paket packages/client/locale/de.json',
       ...Object.fromEntries(Object.entries(ergebnis).filter(([, v]) => Object.keys(v).length > 0)),
     }
     writeFileSync(ZIEL, `${JSON.stringify(inhalt, null, 2)}\n`, 'utf8')

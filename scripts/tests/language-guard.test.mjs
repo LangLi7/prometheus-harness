@@ -1,5 +1,5 @@
 /**
- * Prüfung des Sprachwächters `scripts/sprachwaechter.mjs`.
+ * Prüfung des Sprachwächters `scripts/language-guard.mjs`.
  *
  * ## Warum die Gegenprobe hier das Wichtigste ist
  *
@@ -12,7 +12,7 @@ import { describe, expect, it } from 'bun:test'
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { NICHT_BENUTZERNAH, sammle, siehtDeutschAus, trenne, zuwachs } from '../sprachwaechter.mjs'
+import { NICHT_BENUTZERNAH, sammle, siehtDeutschAus, trenne, zuwachs } from '../language-guard.mjs'
 
 describe('Der Umfang: was zählt als Benutzerausgabe?', () => {
   it('Meßsonden und fremde Momentaufnahmen werden abgetrennt', () => {

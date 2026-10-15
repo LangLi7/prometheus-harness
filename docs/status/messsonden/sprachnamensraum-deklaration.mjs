@@ -42,7 +42,7 @@
 
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { registrierungen } from '../../../scripts/sprachquelle.mjs'
+import { registrierungen } from '../../../scripts/language-source.mjs'
 
 const KERN = 'node_modules/@deepseek-ai'
 const QUELLE = 'docs/status/sprachquelle.json'
@@ -147,7 +147,7 @@ function haupt() {
   }
 
   if (!existsSync(join(wurzel, QUELLE))) {
-    console.log(`Ohne ${QUELLE} kein Vergleich. Anlegen: bun scripts/sprachquelle.mjs --json ${QUELLE}`)
+    console.log(`Ohne ${QUELLE} kein Vergleich. Anlegen: bun scripts/language-source.mjs --json ${QUELLE}`)
     process.exit(2)
   }
   const quelle = JSON.parse(readFileSync(join(wurzel, QUELLE), 'utf8'))

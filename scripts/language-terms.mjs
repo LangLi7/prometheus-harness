@@ -20,14 +20,14 @@
  * still nichts zu tun — ein Ersetzungslauf, der nichts trifft, sieht sonst aus wie Erfolg.
  *
  * ```powershell
- * bun scripts/sprachbegriffe.mjs                  # nur nachsehen
- * bun scripts/sprachbegriffe.mjs --anwenden       # auf die Teile schreiben
+ * bun scripts/language-terms.mjs                  # nur nachsehen
+ * bun scripts/language-terms.mjs --anwenden       # auf die Teile schreiben
  * ```
  *
- * Nach dem Anwenden wird **vereinigt** (`sprachaufteilung.mjs --vereinigen`), damit Teile und
+ * Nach dem Anwenden wird **vereinigt** (`language-split.mjs --vereinigen`), damit Teile und
  * Paket nicht auseinanderlaufen.
  *
- * @module scripts/sprachbegriffe
+ * @module scripts/language-terms
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
@@ -163,7 +163,7 @@ function haupt() {
   }
   console.log(
     anwenden
-      ? `BEFUND: ${String(gesamt.angewendet)} Stellen vereinheitlicht. Jetzt vereinigen: bun scripts/sprachaufteilung.mjs --vereinigen`
+      ? `BEFUND: ${String(gesamt.angewendet)} Stellen vereinheitlicht. Jetzt vereinigen: bun scripts/language-split.mjs --vereinigen`
       : `BEFUND: ${String(gesamt.angewendet)} Stellen zu ändern. Mit --anwenden schreiben.`,
   )
   process.exit(0)

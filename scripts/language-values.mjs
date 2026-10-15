@@ -18,12 +18,12 @@
  * über mehrere Zeilen laufen. Gemessen in Runde 70: **14 statt 41** Schlüssel. Deshalb wird
  * der Block über die **Klammerntiefe** gelesen und nur die **erste Ebene** ausgewertet.
  *
- * @module scripts/sprachwerte
+ * @module scripts/language-values
  */
 
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { findeSprachdateien, leseSchluessel, paketAus } from './sprachtrichter.mjs'
+import { findeSprachdateien, leseSchluessel, paketAus } from './language-funnel.mjs'
 
 const KERN = 'node_modules/@deepseek-ai'
 

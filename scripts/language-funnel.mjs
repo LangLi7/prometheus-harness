@@ -39,11 +39,11 @@
  * ## Aufruf
  *
  * ```powershell
- * bun scripts/sprachtrichter.mjs            # Umfang messen
- * bun scripts/sprachtrichter.mjs --pruefen <datei.json>   # ein Paket gegen den Umfang prüfen
+ * bun scripts/language-funnel.mjs            # Umfang messen
+ * bun scripts/language-funnel.mjs --pruefen <datei.json>   # ein Paket gegen den Umfang prüfen
  * ```
  *
- * @module scripts/sprachtrichter
+ * @module scripts/language-funnel
  */
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -471,7 +471,7 @@ function haupt() {
     } catch {
       console.log('')
       console.log('ABBRUCH: keine Vergleichsmaßlatte: docs/status/sprachquelle.json fehlt.')
-      console.log('  Anlegen mit:  bun scripts/sprachquelle.mjs --json docs/status/sprachquelle.json')
+      console.log('  Anlegen mit:  bun scripts/language-source.mjs --json docs/status/sprachquelle.json')
       console.log('  (NICHT mit sprachumfang.json — dessen Fächer sind großenteils Paketnamen.)')
       process.exitCode = 2
       return
