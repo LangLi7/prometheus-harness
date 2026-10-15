@@ -24,7 +24,7 @@ import {
   type EntscheidungsEingabe,
   type Faehigkeit,
   type Urteil,
-} from '@prometheus-harness/faehigkeiten'
+} from '@prometheus-harness/capabilities'
 import { VORGABE, mitStufen, mitWahl, type Einstellungen } from '@prometheus-harness/settings'
 import { STUFEN_VORSICHTIG, baueAuf } from '../src/index.ts'
 

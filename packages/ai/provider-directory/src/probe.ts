@@ -30,7 +30,7 @@
  */
 
 import { entschaerfeText, findeBekannte } from '@prometheus-harness/guard'
-import type { Faehigkeit } from '@prometheus-harness/faehigkeiten'
+import type { Faehigkeit } from '@prometheus-harness/capabilities'
 import type { Familie, Weg, Wegart } from './families.ts'
 
 /** Ein austauschbarer Netzzugriff — für die Prüfung. */

@@ -1,5 +1,5 @@
 /**
- * `@prometheus-harness/faehigkeiten` — der **Vertrag** für alles, was ein Modell tun kann.
+ * `@prometheus-harness/capabilities` — der **Vertrag** für alles, was ein Modell tun kann.
  *
  * ## Die Wörter, und warum sie so heißen
  *
@@ -33,7 +33,7 @@
  * „irgendeinen" Anbieter. Ein stiller Rückfall auf ein Urteil, das niemand gefällt hat, wäre der
  * schlimmste Fall: er sieht aus wie eine Antwort.
  *
- * @module @prometheus-harness/faehigkeiten
+ * @module @prometheus-harness/capabilities
  */
 
 // ---------------------------------------------------------------------------

@@ -22,7 +22,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import type { Entscheider, EntscheidungsEingabe, Urteil } from '@prometheus-harness/faehigkeiten'
+import type { Entscheider, EntscheidungsEingabe, Urteil } from '@prometheus-harness/capabilities'
 import { waechter, type Eintrag } from '../src/index.ts'
 
 // ---------------------------------------------------------------------------

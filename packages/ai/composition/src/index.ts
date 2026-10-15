@@ -29,7 +29,7 @@ import {
   type Anbieter,
   type Faehigkeit,
   type Stufen,
-} from '@prometheus-harness/faehigkeiten'
+} from '@prometheus-harness/capabilities'
 import type { Einstellungen } from '@prometheus-harness/settings'
 
 /**

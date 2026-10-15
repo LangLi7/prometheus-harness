@@ -8,7 +8,7 @@ bun test   in jedem Paketverzeichnis einzeln
 
 | Paket | Prüfungen | Was es beweist |
 |---|---|---|
-| `ai/faehigkeiten` | **31** | Der Vertrag: sechs Fähigkeiten, die Registratur, die drei Stufen (`handeln`/`rueckfrage`/`mensch`), der Mensch als letzter Anbieter |
+| `ai/capabilities` | **31** | Der Vertrag: sechs Fähigkeiten, die Registratur, die drei Stufen (`handeln`/`rueckfrage`/`mensch`), der Mensch als letzter Anbieter |
 | `ai/openrouter` | **50** | Ein Anbieter, **vier** Fähigkeiten über **vier** Wege — über einen echten Socket; dazu die **Denkstufe** |
 | `ai/guard` | **20** | Die Kontrolle **vor** der Tat: neun Formregeln + eingetragene Werte; bei einem Fund **kein** Modellaufruf |
 | `ai/provider-directory` | **32** | Das Verzeichnis **als Daten**: sieben Anbieter, je Fähigkeit der Weg, mit drei Zuständen statt Ja/Nein |

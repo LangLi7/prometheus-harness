@@ -16,7 +16,7 @@
  * @module @prometheus-harness/directory-curator/katalog
  */
 
-import type { Faehigkeit, Herkunft } from '@prometheus-harness/faehigkeiten'
+import type { Faehigkeit, Herkunft } from '@prometheus-harness/capabilities'
 import type { Sondebefund, Wegbefund } from '@prometheus-harness/provider-directory'
 
 /** Die Fassung dieses Formats. Eine unbekannte wird **abgelehnt**, nicht gedeutet. */

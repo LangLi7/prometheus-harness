@@ -25,7 +25,7 @@
  * @module @prometheus-harness/openrouter/schema
  */
 
-import type { Feld, Schema } from '@prometheus-harness/faehigkeiten'
+import type { Feld, Schema } from '@prometheus-harness/capabilities'
 
 /** JSON-Schema, so weit wir es brauchen — absichtlich winzig und ohne Bibliothek. */
 export interface JsonSchema {

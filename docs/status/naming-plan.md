@@ -1,9 +1,8 @@
 # Der Umbenennungsplan — Regel 42 zu Ende bringen
 
 Stand: 15.10.2026. **Regel 42:** Ordnernamen und Dateinamen englisch; Kommentare und Dokumente
-deutsch. **Sieben der acht Umbenennungen sind vollzogen**, jede mit Commit belegt (§5). **Offen ist
-genau eine: `ai/faehigkeiten` → `ai/capabilities`** — absichtlich zuletzt, weil **sechs** Pakete
-daran hängen.
+deutsch. **Alle acht Umbenennungen sind vollzogen** — zuletzt `ai/faehigkeiten` → `ai/capabilities`,
+das Fundament, auf dem sechs Pakete stehen. Jede ist mit Commit und Messung belegt (§5).
 
 Diese Datei ist der **Plan** — mit den Zielnamen, damit die nächste Runde mechanisch ist und nicht
 nachdenken muß.
@@ -19,7 +18,7 @@ nachdenken muß.
 | `client/quellordner` | `client/source-folders` | vollzogen | Der Dialog für die Quellordner |
 | `ai/einstellungen` | `ai/settings` | vollzogen | Die Wahl des Endnutzers |
 | `ai/verzeichnis` | `ai/provider-directory` | vollzogen | Die **Tabelle** der Anbieter als Daten |
-| `ai/faehigkeiten` | `ai/capabilities` | **OFFEN** | Der Vertrag: was ein Modell tun kann |
+| `ai/faehigkeiten` | `ai/capabilities` | vollzogen | Der Vertrag: was ein Modell tun kann |
 
 **`verzeichnis` und `verwalter` bekommen ABSICHTLICH verschiedene Wörter:** das eine ist die
 **Tabelle**, das andere der **Vorgang**. Auf Deutsch war das „Verzeichnis" gegen „Verwalter" —
@@ -37,7 +36,7 @@ der die beiden Pakete trennt.
 | `directory-curator` | `katalog.ts`, `ausleger.ts`, `verwalter.ts` | `catalog.ts`, `interpreter.ts`, `curator.ts` | vollzogen |
 | `source-folders` | `wege.ts`, `stand.ts`, `bauen.mjs` | `paths.ts`, `state.ts`, `build.mjs` | vollzogen |
 | `source-folders` | `dialog.tsx`, `client.tsx` | *(schon englisch)* | — |
-| `capabilities` | `faehigkeiten.ts`, `eskalation.ts` | *(offen, siehe §4)* | **OFFEN** |
+| `capabilities` | `faehigkeiten.test.ts`, `eskalation.test.ts` | `capabilities.test.ts`, `escalation.test.ts` | vollzogen |
 
 **Die Prüfdateien heißen wie ihr Paket** — `capabilities.test.ts`, `rules.test.ts`,
 `provider-directory.test.ts`, `settings.test.ts`, `curator.test.ts`, `paths.test.ts`,
@@ -103,3 +102,34 @@ der Fehler — sie ist nur dann ein Fehler, wenn sie **unbegründet** bleibt.
 `VerzeichnisFehler`, `FAMILIEN` bleiben deutsch: Regel 42 verlangt englische **Ordner- und
 Dateinamen**, und ein deutscher Bezeichner in deutschem Kommentarwerk ist Hausstil, kein Verstoß.
 Wer das anders will, sagt es — dann ist es ein eigener Zug mit eigener Messung.
+
+**Die achte und letzte: `ai/faehigkeiten` → `ai/capabilities`** (neben `faehigkeiten.test.ts` →
+`capabilities.test.ts`, `eskalation.test.ts` → `escalation.test.ts`, Paketname
+`@prometheus-harness/faehigkeiten` → `@prometheus-harness/capabilities`).
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Wer hängt daran? | `grep 'prometheus-harness/faehigkeiten'` über den Baum | **17 Zeilen** in **12 fremden Dateien** — sechs Pakete plus zwei eigene Modulköpfe |
+| Umbenennen | `git mv` ×3 | `R` für 5 Pfade |
+| Ersetzen | 15 Dateien, **17** Vorkommen | `SUMME=17` — Zeile **und** Vorkommen stimmen hier überein, jede Zeile trug genau eines |
+| Gegenprobe | `grep "faehigkeiten['\"/]\|prometheus-harness/faehigkeiten"` über `packages` | **kein Treffer** (die 75 übrigen Treffer sind der deutsche Bezeichner `faehigkeiten` als Feldname — er bleibt) |
+| Tote Verknüpfung | `Get-Item node_modules/@prometheus-harness/faehigkeiten` | Junction → `packages\ai\faehigkeiten`; entfernt, dann `bun install` exit **0**, *„Removed: 1"*, neue Junction → `packages\ai\capabilities` |
+| Tests | `bun test` über **alle neun** Pakete der Übersicht | **292 pass, 0 fail**, jedes Paket exit 0 — Zahl **und** verteilung unverändert |
+| Baum | `bun run scripts/typecheck.mjs` | **37 Pakete grün, 0 rot**, exit 0 |
+
+**Was absichtlich NICHT umgeschrieben wurde — und warum das eine Grenze ist, keine Nachlässigkeit.**
+Ein **Adreßverweis** muß auflösen, eine **Geschichtserzählung** darf den alten Namen behalten:
+
+* Umgeschrieben wurden Adressen: `import … from '@prometheus-harness/…'` und Sätze der Form
+  „`sonde` aus `@prometheus-harness/verzeichnis`" — sie zeigen auf ein Modul, das es nicht mehr gibt.
+* Geblieben sind Erzählungen: `composition/src/index.ts` §„Nach dem Bau der Teile standen sie
+  **nebeneinander**: `einstellungen` … `faehigkeiten` … `waechter` … `verwalter`" beschreibt den
+  **Bauzustand von damals**, nicht die Adresse von heute.
+* Geblieben sind auch die **historischen Berichte** unter `docs/status/` (`anbieter-kern.md`,
+  `entscheiden-und-waechter.md`): sie sind datierte Messungen. Sie werden nicht rückwirkend
+  umgeschrieben — **dieselbe Regel wie bei einer widerlegten Aussage: stehen lassen, daneben
+  richtigstellen.**
+
+**Regel 42 ist damit auf der Ordner- und Dateiebene durchgesetzt.** Was bleibt, ist keine
+Umbenennung mehr, sondern eine **Prüfung**: ein Wächter, der einen neuen deutschen Ordner- oder
+Dateinamen im Baum rot macht — sonst ist der nächste Verstoß nur eine Frage der Zeit.

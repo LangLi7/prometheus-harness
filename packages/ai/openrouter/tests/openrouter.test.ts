@@ -25,7 +25,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import type { Schema } from '@prometheus-harness/faehigkeiten'
+import type { Schema } from '@prometheus-harness/capabilities'
 import { OpenrouterFehler, VORSCHLAEGE, entschaerfe, openrouter } from '../src/index.ts'
 import { UrteilFehler, liesUrteil, zuJsonSchema } from '../src/schema.ts'
 

@@ -44,7 +44,7 @@ import {
   type Schema,
   type Stufen,
   type Umgang,
-} from '@prometheus-harness/faehigkeiten'
+} from '@prometheus-harness/capabilities'
 import {
   entschaerfeText,
   findeBekannte,

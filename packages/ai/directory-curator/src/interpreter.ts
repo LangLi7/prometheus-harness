@@ -37,7 +37,7 @@ import {
   type Herkunft,
   type Schema,
   type Stufen,
-} from '@prometheus-harness/faehigkeiten'
+} from '@prometheus-harness/capabilities'
 import type { Waechter } from '@prometheus-harness/guard'
 import type { Wegbefund } from '@prometheus-harness/provider-directory'
 

@@ -29,7 +29,7 @@
  * @module @prometheus-harness/provider-directory/families
  */
 
-import type { Faehigkeit } from '@prometheus-harness/faehigkeiten'
+import type { Faehigkeit } from '@prometheus-harness/capabilities'
 
 /** Wie ein Weg den Auftrag entgegennimmt. */
 export type Wegart =

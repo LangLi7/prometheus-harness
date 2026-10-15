@@ -28,7 +28,7 @@
  * @module @prometheus-harness/settings/einstellungen
  */
 
-import { FAEHIGKEITEN, NAME_DER_FAEHIGKEIT, type Faehigkeit, type Stufen } from '@prometheus-harness/faehigkeiten'
+import { FAEHIGKEITEN, NAME_DER_FAEHIGKEIT, type Faehigkeit, type Stufen } from '@prometheus-harness/capabilities'
 
 /** Die Fassung dieses Formats. Eine unbekannte Fassung wird **abgelehnt**, nicht gedeutet. */
 export const FASSUNG = 1

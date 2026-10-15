@@ -76,16 +76,16 @@
         "@prometheus-harness/session-format": "workspace:*",
       },
     },
+    "packages/ai/capabilities": {
+      "name": "@prometheus-harness/capabilities",
+      "version": "0.0.0",
+    },
     "packages/ai/composition": {
       "name": "@prometheus-harness/composition",
       "version": "0.0.0",
     },
     "packages/ai/directory-curator": {
       "name": "@prometheus-harness/directory-curator",
-      "version": "0.0.0",
-    },
-    "packages/ai/faehigkeiten": {
-      "name": "@prometheus-harness/faehigkeiten",
       "version": "0.0.0",
     },
     "packages/ai/guard": {
@@ -975,6 +975,8 @@
 
     "@prometheus-harness/auth-http": ["@prometheus-harness/auth-http@workspace:packages/api/auth-http"],
 
+    "@prometheus-harness/capabilities": ["@prometheus-harness/capabilities@workspace:packages/ai/capabilities"],
+
     "@prometheus-harness/claim": ["@prometheus-harness/claim@workspace:packages/auth/claim"],
 
     "@prometheus-harness/cli": ["@prometheus-harness/cli@workspace:apps/cli"],
@@ -992,8 +994,6 @@
     "@prometheus-harness/db-schema": ["@prometheus-harness/db-schema@workspace:packages/auth/db-schema"],
 
     "@prometheus-harness/directory-curator": ["@prometheus-harness/directory-curator@workspace:packages/ai/directory-curator"],
-
-    "@prometheus-harness/faehigkeiten": ["@prometheus-harness/faehigkeiten@workspace:packages/ai/faehigkeiten"],
 
     "@prometheus-harness/guard": ["@prometheus-harness/guard@workspace:packages/ai/guard"],
 

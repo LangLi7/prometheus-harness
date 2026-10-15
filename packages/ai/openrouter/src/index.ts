@@ -1,7 +1,7 @@
 /**
  * `@prometheus-harness/openrouter` — der **Anbieter** OpenRouter.
  *
- * Er erfüllt vier der sechs Fähigkeiten aus `@prometheus-harness/faehigkeiten`, jede über ihren
+ * Er erfüllt vier der sechs Fähigkeiten aus `@prometheus-harness/capabilities`, jede über ihren
  * **eigenen** Weg. Daß es nicht *ein* Weg ist, ist keine Unordnung, sondern gemessen: der
  * Chat-Weg **weist ein Sprachmodell ab** und nennt den richtigen Weg.
  *
@@ -45,7 +45,7 @@ import {
   type Hoerer,
   type Sprecher,
   type Urteil,
-} from '@prometheus-harness/faehigkeiten'
+} from '@prometheus-harness/capabilities'
 import { liesUrteil, zuJsonSchema, type JsonSchema } from './schema.ts'
 
 // ---------------------------------------------------------------------------
