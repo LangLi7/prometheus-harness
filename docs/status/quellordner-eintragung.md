@@ -90,3 +90,22 @@ bekommt **einen Fehlalarm** — nicht wegen des Bündels, sondern wegen der Prü
 Verteiler die **Baseline** kennen: `react`, `react-dom`, Cordis und die statischen UI-Bibliotheken
 sind **keine** Wünsche, die gemeldet werden dürfen. Erst dann ist ein neuer Eintrag sinnvoll.
 
+## 6. Die Ausgangslage für den Eingriff — gemessen am 15.10.2026
+
+Wer das Hauswerkzeug ändert, braucht eine **grüne Ausgangslage**: nur dann läßt sich ein roter Lauf
+**dieser** Änderung zuordnen. Vor dem Eingriff gemessen:
+
+| Netz | Befehl | Ergebnis |
+|---|---|---|
+| Das Hauswerkzeug | `bun test scripts/tests/client-buendel.test.mjs` | **16 pass, 0 fail** |
+| Die Eintragungstabelle | `bun test scripts/tests/profile-patch.test.mjs` | **25 pass, 0 fail** |
+| Der ganze Baum | `bun run scripts/typecheck.mjs` | **37 Pakete grün, 0 rot** |
+
+**Diese Zahlen gehören in die nächste Runde** — sie sind der Vergleichspunkt. Ein Lauf, der danach
+rot ist, ist **meine** Änderung und nicht ein alter Schaden.
+
+**Warum der Eingriff selbst noch aussteht.** Er berührt **fremdes, festgeschriebenes** Werkzeug
+(drei bestehende Prüfarten) — und Schritt 3 verändert einen **laufenden Host**. Beides mache ich mit
+vollem Zusammenhang und mit dem Netz oben, nicht am Ende eines erschöpften.
+
+
