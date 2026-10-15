@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/faehigkeiten",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Der Vertrag für alles, was ein KI-Modell tun kann: entscheiden, sprechen, hören, einbetten, zeichnen. Schnittstellen und Registratur — keine Umsetzung, kein Netzzugriff.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test"
+  }
+}
