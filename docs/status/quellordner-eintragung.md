@@ -108,4 +108,59 @@ rot ist, ist **meine** Änderung und nicht ein alter Schaden.
 (drei bestehende Prüfarten) — und Schritt 3 verändert einen **laufenden Host**. Beides mache ich mit
 vollem Zusammenhang und mit dem Netz oben, nicht am Ende eines erschöpften.
 
+## 7. Die Baseline ist gefunden — und der Eingriff ist blockiert (fremde Arbeit)
+
+### Die maßgebliche Liste, gemessen
+
+`deepseek-harness/packages/client/web/src/platform.ts`:
+
+```ts
+PLATFORM_MODULES = ['react', 'react/jsx-runtime', 'react-dom', 'react-dom/client',
+                    '@deepseek-ai/cordis', '@deepseek-ai/dsh-client-ui-slots',
+                    '@deepseek-ai/dsh-client-ui-primitives']
+PRELOADED_CLIENT_EXTERNALS = ['@deepseek-ai/dsh-client-runtime/client']
+```
+
+Laut `packages/client/AGENTS.md` ist sie *„the single source of truth for shell-seeded shared
+modules"*, und der Hausbau verbraucht sie in `packages/client/tsdown.client.ts:419` als
+External-Liste. **Diese sieben brauchen keinen Eintrag in `dsh.client.external`.**
+
+**Damit ist die Änderung am Prüfer präzise möglich** — sie lautet: nur **nicht**-Baseline-Wünsche
+melden, Baseline-Wünsche **berichten**. Die alte Meldung wäre an einem React-Plugin gescheitert.
+
+### Warum sie trotzdem NICHT gemacht wurde — gemeldet nach Regel 14
+
+Beim Versuch, sie zu schreiben, hat das Werkszeug abgebrochen:
+
+> *„cannot edit …: file changed since it was read — re-read the file, then retry"*
+
+Nachgesehen (15.10.2026, ~16:40):
+
+| Datei | Zustand im Baum | Zeitstempel |
+|---|---|---|
+| `scripts/client-buendel.mjs` | **` M` — uncommitted** | **16:35** |
+| `scripts/profile-patch.mjs` | **` M` — uncommitted** | **16:19** |
+
+Die letzten **Commits** darauf sind alt (`1ba8951`). **Der parallele Arbeitsstrang bearbeitet genau
+diese zwei Dateien — jetzt.** Beide sind Ziele meines geplanten Eingriffs (`PAKETE` und
+`EIGENE_PAKETE`).
+
+**Deshalb: nicht angefaßt, gemeldet.** Ein Eingriff in dieselben Tabellen, während jemand anders
+daran schreibt, ist kein Fortschritt, sondern ein Konflikt — und ein Datenverlust wäre hier
+teurer als ein späterer Schritt.
+
+**Auch die Ausgangslage aus §6 ist damit genauer zu lesen:** die 16 und 25 grünen Prüfungen wurden
+gegen den **veränderten** Arbeitsstand gemessen, nicht gegen den festgeschriebenen. Sie belegen,
+daß es **jetzt** grün ist — nicht, daß es im Commit grün war.
+
+### Was die nächste Runde tun muß — in dieser Reihenfolge
+
+1. **Warten, bis die beiden Dateien festgeschrieben sind** (`git status` sauber) — oder mit dem
+   parallelen Strang klären, wer sie bearbeitet.
+2. Dann den Prüfer um die Baseline ergänzen (Liste oben, mit Fundstelle).
+3. Dann `PAKETE` und `EIGENE_PAKETE` erweitern, `bun scripts/client-buendel.mjs` laufen lassen,
+   `bauen.mjs` entfernen.
+4. Erst danach den Host neu laden — das ist die Messung für „installiert".
+
+
 
