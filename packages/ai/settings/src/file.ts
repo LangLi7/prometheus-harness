@@ -17,7 +17,7 @@
  * Nachbardatei liegt in **demselben** Verzeichnis, weil ein Umbenennen über Datenträgergrenzen
  * hinweg nicht unteilbar ist.
  *
- * @module @prometheus-harness/einstellungen/datei
+ * @module @prometheus-harness/settings/datei
  */
 
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
@@ -28,7 +28,7 @@ import {
   leseEinstellungen,
   schreibeEinstellungen,
   type Einstellungen,
-} from './einstellungen.ts'
+} from './settings.ts'
 
 /** Der Name der Datei im Harness-Home. */
 export const DATEINAME = 'einstellungen.json'

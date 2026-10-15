@@ -18,7 +18,7 @@
  * ## Wo der Verwalter NICHT eingreift
  *
  * Er **wählt keine Modelle**. Welches Modell läuft, entscheidet der Endnutzer
- * (`@prometheus-harness/einstellungen`). Der Verwalter sagt nur, **was es gibt** — und ob er es
+ * (`@prometheus-harness/settings`). Der Verwalter sagt nur, **was es gibt** — und ob er es
  * gemessen oder nur ausgelegt hat. Die beiden zu vermischen hieße, dem Nutzer die Wahl
  * wegzunehmen, die er ausdrücklich haben soll.
  *

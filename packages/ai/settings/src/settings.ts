@@ -25,7 +25,7 @@
  * daneben): sie läse sich wie „nichts gewählt", und die Entscheidungen gingen zum Menschen, ohne
  * daß jemand erführe warum.
  *
- * @module @prometheus-harness/einstellungen/einstellungen
+ * @module @prometheus-harness/settings/einstellungen
  */
 
 import { FAEHIGKEITEN, NAME_DER_FAEHIGKEIT, type Faehigkeit, type Stufen } from '@prometheus-harness/faehigkeiten'

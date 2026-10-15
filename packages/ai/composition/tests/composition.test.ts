@@ -25,7 +25,7 @@ import {
   type Faehigkeit,
   type Urteil,
 } from '@prometheus-harness/faehigkeiten'
-import { VORGABE, mitStufen, mitWahl, type Einstellungen } from '@prometheus-harness/einstellungen'
+import { VORGABE, mitStufen, mitWahl, type Einstellungen } from '@prometheus-harness/settings'
 import { STUFEN_VORSICHTIG, baueAuf } from '../src/index.ts'
 
 /**

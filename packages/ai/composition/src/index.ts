@@ -30,7 +30,7 @@ import {
   type Faehigkeit,
   type Stufen,
 } from '@prometheus-harness/faehigkeiten'
-import type { Einstellungen } from '@prometheus-harness/einstellungen'
+import type { Einstellungen } from '@prometheus-harness/settings'
 
 /**
  * Die Vorgabe-Schwellen, wenn der Endnutzer keine gesetzt hat.

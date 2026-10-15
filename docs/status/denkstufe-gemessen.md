@@ -36,7 +36,7 @@ Die Stufe **`aus` wird entfernt**, aus beiden Paketen:
 | Paket | Was wegfällt |
 |---|---|
 | `ai/openrouter` | `'aus'` aus der Union und aus `DENKSTUFEN` (die Zeile `aus: 'minimal'`) |
-| `ai/einstellungen` | `'aus'` aus `Denkstufe` und aus `DENKSTUFEN` |
+| `ai/settings` | `'aus'` aus `Denkstufe` und aus `DENKSTUFEN` |
 
 Es bleiben **drei** Stufen — die drei, für die es einen gemessenen Dienstwert gibt: `niedrig`,
 `mittel`, `hoch` → `low`, `medium`, `high`.

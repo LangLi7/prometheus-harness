@@ -1,5 +1,5 @@
 /**
- * `@prometheus-harness/einstellungen` — die Einstellungen des Endnutzers als **Datei**.
+ * `@prometheus-harness/settings` — die Einstellungen des Endnutzers als **Datei**.
  *
  * ## Warum zuerst eine Datei und nicht eine Oberfläche
  *
@@ -20,7 +20,7 @@
  * Ohne Wahl ist der Anbieter für die Fähigkeit **nicht bereit**, und die Kette läuft weiter bis zum
  * Menschen.
  *
- * @module @prometheus-harness/einstellungen
+ * @module @prometheus-harness/settings
  */
 
 export {
@@ -41,7 +41,7 @@ export {
   type Denkstufe,
   type Einstellungen,
   type Wahl,
-} from './einstellungen.ts'
+} from './settings.ts'
 
 export {
   DATEINAME,
@@ -53,4 +53,4 @@ export {
   pfadDerEinstellungen,
   sichereEinstellungen,
   unserPfad,
-} from './datei.ts'
+} from './file.ts'

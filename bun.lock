@@ -84,10 +84,6 @@
       "name": "@prometheus-harness/directory-curator",
       "version": "0.0.0",
     },
-    "packages/ai/einstellungen": {
-      "name": "@prometheus-harness/einstellungen",
-      "version": "0.0.0",
-    },
     "packages/ai/faehigkeiten": {
       "name": "@prometheus-harness/faehigkeiten",
       "version": "0.0.0",
@@ -102,6 +98,10 @@
     },
     "packages/ai/openrouter": {
       "name": "@prometheus-harness/openrouter",
+      "version": "0.0.0",
+    },
+    "packages/ai/settings": {
+      "name": "@prometheus-harness/settings",
       "version": "0.0.0",
     },
     "packages/ai/verzeichnis": {
@@ -993,8 +993,6 @@
 
     "@prometheus-harness/directory-curator": ["@prometheus-harness/directory-curator@workspace:packages/ai/directory-curator"],
 
-    "@prometheus-harness/einstellungen": ["@prometheus-harness/einstellungen@workspace:packages/ai/einstellungen"],
-
     "@prometheus-harness/faehigkeiten": ["@prometheus-harness/faehigkeiten@workspace:packages/ai/faehigkeiten"],
 
     "@prometheus-harness/guard": ["@prometheus-harness/guard@workspace:packages/ai/guard"],
@@ -1028,6 +1026,8 @@
     "@prometheus-harness/session-format": ["@prometheus-harness/session-format@workspace:packages/agent/session-format"],
 
     "@prometheus-harness/session-persistence-jsonl": ["@prometheus-harness/session-persistence-jsonl@workspace:packages/agent/session-persistence-jsonl"],
+
+    "@prometheus-harness/settings": ["@prometheus-harness/settings@workspace:packages/ai/settings"],
 
     "@prometheus-harness/speech-local-base": ["@prometheus-harness/speech-local-base@workspace:packages/api/speech-local-base"],
 
