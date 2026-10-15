@@ -238,6 +238,10 @@ function arbeitsbereichId(bereiche, sitzung) {
 
 // packages/client/quellordner/src/wege.ts
 var PFAD_ORDNER = "/api/pmh/ordner";
+var PFAD_ORDNER_ZUGRIFF = "/api/pmh/ordner/zugriff";
+var PFAD_ORDNER_ENTFERNEN = "/api/pmh/ordner/entfernen";
+var CSRF_KOPF = "x-pmh-csrf";
+
 class QuellordnerFehler extends Error {
   code;
   status;
@@ -262,6 +266,13 @@ async function liesHuelle(antwort, weg) {
   const meldung = typeof huelle.error?.message === "string" ? huelle.error.message : `${weg}: Der Server hat abgelehnt.`;
   throw new QuellordnerFehler(meldung, code, antwort.status);
 }
+function kopfMitCsrf(optionen) {
+  const wert = optionen.csrf();
+  if (wert === undefined || wert.trim() === "") {
+    throw new QuellordnerFehler("Es ist kein CSRF-Wert da — der ändernde Aufruf wird GAR NICHT gesendet.", "csrf-fehlt", 0);
+  }
+  return { [CSRF_KOPF]: wert, "content-type": "application/json" };
+}
 async function listeOrdner(workspaceId, optionen) {
   const abruf = optionen.abruf ?? ((adresse, einstellung) => fetch(adresse, einstellung));
   const antwort = await abruf(`${PFAD_ORDNER}?workspace=${encodeURIComponent(workspaceId)}`, {
@@ -269,6 +280,24 @@ async function listeOrdner(workspaceId, optionen) {
   });
   const wert = await liesHuelle(antwort, PFAD_ORDNER);
   return { ordner: wert.ordner ?? [], wurzeln: wert.wurzeln ?? [] };
+}
+async function setzeZugriff(id, zugriff, optionen) {
+  const abruf = optionen.abruf ?? ((adresse, einstellung) => fetch(adresse, einstellung));
+  const antwort = await abruf(PFAD_ORDNER_ZUGRIFF, {
+    method: "POST",
+    headers: kopfMitCsrf(optionen),
+    body: JSON.stringify({ id, zugriff })
+  });
+  return await liesHuelle(antwort, PFAD_ORDNER_ZUGRIFF);
+}
+async function entferneOrdner(id, optionen) {
+  const abruf = optionen.abruf ?? ((adresse, einstellung) => fetch(adresse, einstellung));
+  const antwort = await abruf(PFAD_ORDNER_ENTFERNEN, {
+    method: "POST",
+    headers: kopfMitCsrf(optionen),
+    body: JSON.stringify({ id })
+  });
+  await liesHuelle(antwort, PFAD_ORDNER_ENTFERNEN);
 }
 
 // packages/client/quellordner/src/client.tsx
@@ -282,6 +311,7 @@ function QuellordnerSchicht({
   const [offen, setOffen] = import_react.useState(false);
   const [ordner, setOrdner] = import_react.useState([]);
   const [fehler, setFehler] = import_react.useState(undefined);
+  const [runde, setRunde] = import_react.useState(0);
   import_react.useEffect(() => {
     if (!offen)
       return;
@@ -303,7 +333,15 @@ function QuellordnerSchicht({
     return () => {
       gilt = false;
     };
-  }, [offen, arbeitsbereich, optionen]);
+  }, [offen, runde, arbeitsbereich, optionen]);
+  const aendern = (tu) => {
+    setFehler(undefined);
+    tu().then(() => {
+      setRunde((r) => r + 1);
+    }).catch((e) => {
+      setFehler(e instanceof Error ? e.message : "Die Änderung ließ sich nicht ausführen.");
+    });
+  };
   if (!offen) {
     return /* @__PURE__ */ jsx_dev_runtime2.jsxDEV("button", {
       type: "button",
@@ -321,6 +359,15 @@ function QuellordnerSchicht({
     name: "",
     ordner,
     ...fehler === undefined ? {} : { fehler },
+    beiZugriff: (id, zugriff) => {
+      aendern(() => setzeZugriff(id, zugriff, optionen));
+    },
+    beiEntfernen: (id) => {
+      aendern(() => entferneOrdner(id, optionen));
+    },
+    beiHinzufuegen: () => {
+      setFehler("Das Hinzufügen braucht den Verzeichniswähler des Hosts. Wie ein Plugin ihn öffnet, ist " + "noch nicht gemessen — dieser Knopf tut deshalb noch nichts.");
+    },
     beiSchliessen: () => {
       setOffen(false);
     }

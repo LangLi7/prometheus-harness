@@ -34,7 +34,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { useEffect, useState } from 'react'
 import { QuellordnerDialog, type Ordner } from './dialog.tsx'
 import { arbeitsbereichId, csrfWert, type Arbeitsbereichsstand } from './stand.ts'
-import { listeOrdner, type WegeOptionen } from './wege.ts'
+import { listeOrdner, entferneOrdner, setzeZugriff, type WegeOptionen } from './wege.ts'
 
 /** Kennung des Plugins. */
 export const name = 'quellordner'
@@ -80,6 +80,8 @@ export function QuellordnerSchicht({
   const [offen, setOffen] = useState(false)
   const [ordner, setOrdner] = useState<readonly Ordner[]>([])
   const [fehler, setFehler] = useState<string | undefined>(undefined)
+  /** Zählt die Ladevorgänge — jede Änderung erhöht ihn und lädt neu. */
+  const [runde, setRunde] = useState(0)
 
   // **Geladen wird beim Öffnen** — nicht beim Einbinden der Schicht. Die Schicht hängt dauerhaft
   // im Fenster; ohne diese Bedingung liefe bei jedem Aufbau ein Netzaufruf.
@@ -106,7 +108,28 @@ export function QuellordnerSchicht({
     return () => {
       gilt = false
     }
-  }, [offen, arbeitsbereich, optionen])
+  }, [offen, runde, arbeitsbereich, optionen])
+
+  /**
+   * Führt eine Änderung aus und lädt danach neu.
+   *
+   * **Warum neu geladen wird, statt den Zustand selbst fortzuschreiben.** Der Server ist die
+   * Wahrheit: er kennt Vorgaben (der primäre Ordner ist immer `schreiben`), die eine zweite,
+   * selbstgebaute Wahrheit im Fenster nicht kennt. Wer selbst fortschreibt, baut die Regeln des
+   * Servers ein zweites Mal — und irgendwann falsch.
+   *
+   * @param tu - was zu tun ist
+   */
+  const aendern = (tu: () => Promise<unknown>): void => {
+    setFehler(undefined)
+    tu()
+      .then(() => {
+        setRunde((r) => r + 1)
+      })
+      .catch((e: unknown) => {
+        setFehler(e instanceof Error ? e.message : 'Die Änderung ließ sich nicht ausführen.')
+      })
+  }
 
   if (!offen) {
     return (
@@ -133,6 +156,23 @@ export function QuellordnerSchicht({
       name=""
       ordner={ordner}
       {...(fehler === undefined ? {} : { fehler })}
+      beiZugriff={(id, zugriff) => {
+        aendern(() => setzeZugriff(id, zugriff, optionen))
+      }}
+      beiEntfernen={(id) => {
+        aendern(() => entferneOrdner(id, optionen))
+      }}
+      beiHinzufuegen={() => {
+        // **Ehrlich statt still.** Ein Knopf, der nichts tut, ist schlimmer als keiner: der Nutzer
+        // drückt und glaubt, es sei etwas geschehen. Das Hinzufügen braucht den
+        // **Verzeichniswähler des Hosts** — und dafür gibt es kein `pickDirectory()`; der Host
+        // bietet ein `directory-flow`-Loch (`conversation.hero.workspace.directoryFlow`). **Wie
+        // ein Plugin das von außen öffnet, ist NICHT gemessen.**
+        setFehler(
+          'Das Hinzufügen braucht den Verzeichniswähler des Hosts. Wie ein Plugin ihn öffnet, ist ' +
+            'noch nicht gemessen — dieser Knopf tut deshalb noch nichts.',
+        )
+      }}
       beiSchliessen={() => {
         setOffen(false)
       }}
