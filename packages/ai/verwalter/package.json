@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/verwalter",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Der Verwalter des Verzeichnisses: führt den Katalog beim Start, zu festen Zeitpunkten oder bei fehlendem Schlüssel selbst nach. Der Ausleger legt fremde Antworten aus — und zwar DURCH den Wächter, denn eine fremde Antwort zu einem Modell zu schicken heißt, sie hinauszuschicken.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}
