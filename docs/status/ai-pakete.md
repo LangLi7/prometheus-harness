@@ -9,15 +9,15 @@ bun test   in jedem Paketverzeichnis einzeln
 | Paket | Prüfungen | Was es beweist |
 |---|---|---|
 | `ai/faehigkeiten` | **31** | Der Vertrag: sechs Fähigkeiten, die Registratur, die drei Stufen (`handeln`/`rueckfrage`/`mensch`), der Mensch als letzter Anbieter |
-| `ai/openrouter` | **47** | Ein Anbieter, **vier** Fähigkeiten über **vier** Wege — über einen echten Socket, Mehrtelldaten eingeschlossen |
+| `ai/openrouter` | **50** | Ein Anbieter, **vier** Fähigkeiten über **vier** Wege — über einen echten Socket; dazu die **Denkstufe** |
 | `ai/waechter` | **20** | Die Kontrolle **vor** der Tat: neun Formregeln + eingetragene Werte; bei einem Fund **kein** Modellaufruf |
 | `ai/verzeichnis` | **32** | Das Verzeichnis **als Daten**: sieben Anbieter, je Fähigkeit der Weg, mit drei Zuständen statt Ja/Nein |
-| `ai/einstellungen` | **36** | Die Wahl des Endnutzers als Datei — ohne Schlüssel, ohne Vorgabemodell, mit Riegel gegen fremde Zuhause |
+| `ai/einstellungen` | **40** | Die Wahl des Endnutzers als Datei — ohne Schlüssel, ohne Vorgabemodell, mit der **Denkstufe** und dem Riegel gegen fremde Zuhause |
 | `ai/verwalter` | **42** | Der Katalog, der Ausleger, der Lauf: Widerspruchsprüfung in **beide** Richtungen |
 | `ai/aufbau` | **10** | Das Zusammenfügen: der Mensch **zuletzt**, unbekannter Anbieter **gemeldet** |
 | `ai/lokal` | **20** | Gewichte holen, **prüfen**, ablegen — ohne Prüfsumme kein „heil" |
 | `client/quellordner` | **47** | Der Ordnerdialog: Oberfläche, vier Wege, Keks + Arbeitsbereich, Bündel |
-| **zusammen** | **285** | **0 rot** |
+| **zusammen** | **292** | **0 rot** |
 
 Dazu: **`bun run scripts/typecheck.mjs` → 37 Pakete grün, 0 rot.**
 
