@@ -1511,3 +1511,18 @@ export function erzeugeSpeicher(sql: SqlZugang): AuthSpeicher {
 // stehen damit auch während des Ladens bereit — geprüft wird das von
 // `tests/wurzeln.test.ts`, das über den Paketeingang importiert.
 export { ladeWurzeln, schreibbareWurzeln, type Wurzeln } from './wurzeln.ts'
+
+// ---------------------------------------------------------------------------
+// Quellordner ändern
+// ---------------------------------------------------------------------------
+// **Auch nur ausgeführt.** `ordner.ts` benutzt die Regeln der Datenbank (genau ein
+// Arbeitsplatz, der Arbeitsplatz ist schreibbar) und die Naht `mitMandant`.
+export {
+  entferneOrdner,
+  ladeZugriffspfade,
+  legeOrdnerAn,
+  listeOrdner,
+  setzeZugriff,
+  type Ordner,
+  type Zugriff,
+} from './ordner.ts'

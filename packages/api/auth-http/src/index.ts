@@ -69,7 +69,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { Argon2PasswordHasher, DEFAULT_SESSION_POLICY, MemoryRateLimiter } from '@prometheus-harness/auth'
 import { resolveEigenesHome } from '@prometheus-harness/home-paths'
-import { erzeugeSpeicher, type SqlZugang } from '@prometheus-harness/store-postgres'
+import { erzeugeSpeicher, type SqlZugang, type TransaktionsZugang } from '@prometheus-harness/store-postgres'
 import { claimAblageImHome } from './claim-ablage.ts'
 import { wegAbmelden, wegAnmelden, wegIch, wegRegistrieren } from './http.ts'
 import { PFAD_ABMELDEN, PFAD_ANMELDEN, PFAD_ICH, PFAD_REGISTRIEREN, type Umgebung } from './wege.ts'
@@ -81,6 +81,8 @@ import { anmeldungsWege, bauVerzeichnis, bauVorhanden, PFAD_ANMELDUNG, PFAD_STAR
 // **Die Brücke zur Token-Tür**: aus der 401 des Kerns wird die Anmeldeseite, und ein
 // angemeldeter Administrator bekommt die Token-Adresse.
 import { PFAD_ZUGANG, sperreUmbiegen, verbindungAus, zugangsWege } from './zugang.ts'
+// **Die Quellordner**: lesen, anlegen, Zugriff setzen, entfernen — je Mandant aus der Sitzung.
+import { PFAD_ORDNER, ordnerWege } from './ordner.ts'
 
 export { ABLAGEDATEI, claimAblageImHome } from './claim-ablage.ts'
 
@@ -141,6 +143,18 @@ export {
 } from './anmeldung.ts'
 
 export { PFAD_ZUGANG, eigeneAdresse, sperreUmbiegen, verbindungAus, wegZugang, zugangsWege } from './zugang.ts'
+
+export {
+  PFAD_ORDNER,
+  PFAD_ORDNER_ANLEGEN,
+  PFAD_ORDNER_ENTFERNEN,
+  PFAD_ORDNER_ZUGRIFF,
+  ordnerWege,
+  wegOrdnerAnlegen,
+  wegOrdnerEntfernen,
+  wegOrdnerListe,
+  wegOrdnerZugriff,
+} from './ordner.ts'
 
 export const name = 'pmh-auth-http'
 
@@ -228,7 +242,7 @@ export function angabenAus(aussenwelt: Aussenwelt, protokoll: string): Angaben |
  * @param max - die größte Zahl gleichzeitiger Verbindungen
  * @returns der Zugang
  */
-export function macheSqlZugang(adresse: string, max = 4): SqlZugang {
+export function macheSqlZugang(adresse: string, max = 4): TransaktionsZugang {
   let verbindung: Promise<SqlZugang> | undefined
 
   const hole = async (): Promise<SqlZugang> => {
@@ -252,6 +266,28 @@ export function macheSqlZugang(adresse: string, max = 4): SqlZugang {
     async unsafe(anweisung: string, werte: readonly unknown[] = []): Promise<unknown> {
       const zugang = await hole()
       return zugang.unsafe(anweisung, werte)
+    },
+    /**
+     * **Die Transaktion — nachgereicht am 15.10.2026.**
+     *
+     * Der Zugang hatte sie nicht, und das fiel erst auf, als die Quellordner dazukamen: sie
+     * werden über `mitMandant` gelesen und geschrieben, und das **verlangt** eine Transaktion
+     * (sonst bliebe `set_config(…, true)` in der Verbindung stehen und die nächste Abfrage
+     * liefe unter einem anderen Benutzer). Der Treiber kann es; hier wird es nur
+     * durchgereicht — die innere Sicht ist genau die Form, die `mitMandant` erwartet.
+     */
+    async begin<T>(arbeit: (innerhalb: SqlZugang) => Promise<T>): Promise<T> {
+      const zugang = (await hole()) as unknown as {
+        begin<T2>(cb: (tx: { unsafe(a: string, w?: readonly unknown[]): Promise<unknown> }) => Promise<T2>): Promise<T2>
+      }
+      return await zugang.begin(
+        async (tx) =>
+          await arbeit({
+            async unsafe(anweisung: string, werte: readonly unknown[] = []): Promise<unknown> {
+              return await tx.unsafe(anweisung, werte)
+            },
+          }),
+      )
     },
   }
 }
@@ -313,7 +349,8 @@ export function apply(ctx: Context): void {
   // Sitzungen.
   const home = resolveEigenesHome()
 
-  const umgebung = umgebungAus(macheSqlZugang(angaben.adresse), angaben, home)
+  const zugang = macheSqlZugang(angaben.adresse)
+  const umgebung = umgebungAus(zugang, angaben, home)
 
   // **Die gebaute Anmeldeseite an **diesem** Ursprung.** Der Betreiber hat gefragt, ob die
   // Anmeldung nicht auf demselben Port liegen muß wie der Host — sie muß: unsere Kekse sind
@@ -349,6 +386,8 @@ export function apply(ctx: Context): void {
       ...anmeldungsWege(umgebung, bau),
       // **Die Brücke zur Token-Tür** — nur ein Weg: die Adresse für einen Administrator.
       ...zugangsWege(umgebung, ctx),
+      // **Die Quellordner** — vier Wege, je Mandant aus der Sitzung, die drei ändernden mit CSRF.
+      ...ordnerWege(umgebung, zugang),
     ]
     const ab = wege.map((weg) => ctx.webServer.register(weg))
 
@@ -401,7 +440,7 @@ export function apply(ctx: Context): void {
       sperreZurueck?.()
       for (const einer of ab.reverse()) einer()
     }
-  }, `${name} ${PFAD_REGISTRIEREN} ${PFAD_ANMELDEN} ${PFAD_ABMELDEN} ${PFAD_ICH} ${PFAD_SEITE} ${PFAD_SEITE_API} ${PFAD_SEITE_JS} ${PFAD_ANMELDUNG} ${PFAD_START} ${PFAD_ZUGANG}`)
+  }, `${name} ${PFAD_REGISTRIEREN} ${PFAD_ANMELDEN} ${PFAD_ABMELDEN} ${PFAD_ICH} ${PFAD_SEITE} ${PFAD_SEITE_API} ${PFAD_SEITE_JS} ${PFAD_ANMELDUNG} ${PFAD_START} ${PFAD_ZUGANG} ${PFAD_ORDNER}`)
 }
 
 export default apply

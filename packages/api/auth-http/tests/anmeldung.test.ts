@@ -42,6 +42,7 @@ import { join } from 'node:path'
 import postgres from 'postgres'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { Argon2PasswordHasher, MemoryRateLimiter } from '@prometheus-harness/auth'
+import { betriebsdatenbankNamen } from '@prometheus-harness/db-schema'
 import { KEKS_SPRACHE, VORGABE_SPRACHE, SPRACHEN, texteFuer } from '@prometheus-harness/sprachen'
 import { erzeugeSpeicher, type SqlZugang } from '@prometheus-harness/store-postgres'
 import { claimAblageImHome } from '../src/claim-ablage.ts'
@@ -471,10 +472,12 @@ const DA = AUS_ENV !== undefined && AUS_ENV.trim() !== '' ? AUS_ENV : undefined
  */
 function zeigtAufBetriebsdatenbank(): boolean {
   if (DA === undefined) return false
-  const betrieb = process.env.DATABASE_URL
-  if (betrieb === undefined || betrieb.trim() === '') return false
+  // **Die Datei, nicht die Sitzung.** Der erste Entwurf verglich `DATABASE_URL` aus der
+  // Umgebung mit der Prüfadresse — dieselbe Schwäche, die am 15.10.2026 den zerstörenden
+  // Schematest durchgelassen hat (siehe `packages/auth/db-schema/src/betriebsdatenbank.ts`).
   try {
-    return new URL(betrieb).pathname === new URL(DA).pathname
+    const hier = new URL(DA).pathname.replace(/^\//u, '')
+    return hier !== '' && betriebsdatenbankNamen(new URL('.', import.meta.url)).includes(hier)
   } catch {
     // Eine unlesbare Adresse ist kein Grund zu schreiben — im Zweifel überspringen.
     return true
