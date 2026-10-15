@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/verzeichnis",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Das Verzeichnis der KI-Anbieter: je API-Familie die Basisadresse, der Kopf und JE FÄHIGKEIT DER WEG — Pfad, Feldnamen, Antwortfeld. Dazu die Sonde, die einen Eintrag gegen die lebende Schnittstelle prüft und 'gemessen' von 'unbestätigt' trennt.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

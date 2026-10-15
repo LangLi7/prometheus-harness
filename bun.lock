@@ -84,6 +84,10 @@
       "name": "@prometheus-harness/openrouter",
       "version": "0.0.0",
     },
+    "packages/ai/verzeichnis": {
+      "name": "@prometheus-harness/verzeichnis",
+      "version": "0.0.0",
+    },
     "packages/ai/waechter": {
       "name": "@prometheus-harness/waechter",
       "version": "0.0.0",
@@ -1000,6 +1004,8 @@
     "@prometheus-harness/token-meter": ["@prometheus-harness/token-meter@workspace:packages/llm/token-meter"],
 
     "@prometheus-harness/unit-export": ["@prometheus-harness/unit-export@workspace:packages/units/unit-export"],
+
+    "@prometheus-harness/verzeichnis": ["@prometheus-harness/verzeichnis@workspace:packages/ai/verzeichnis"],
 
     "@prometheus-harness/waechter": ["@prometheus-harness/waechter@workspace:packages/ai/waechter"],
 

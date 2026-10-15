@@ -631,4 +631,26 @@ anderen Schlösser.
 **Der Merksatz für Muster mit deutschen Bezeichnern.** `\b` vor einem Namen, dem ein `_` vorangeht,
 ist **keine** Grenze. Wo Unterstriche im Spiel sind, ist `(?<![A-Za-z0-9])` gemeint — nicht `\b`.
 
+## 37. „Der Weg ist da" ist nicht „die Fähigkeit wirkt"
+
+**Der Fall.** Meine Sonde prüft, ob ein Weg **existiert**: sie schickt einen leeren Auftrag und
+deutet den Status. Am 15.10.2026 lief sie lebend gegen OpenRouter — und meldete für **alle sechs**
+Wege „vorhanden", auch für `bild` über `/images/generations`. Die Gegenprobe bewies, daß die
+Unterscheidung echt ist: ein **erfundener** Pfad gibt bei beiden Diensten **404**.
+
+Trotzdem ist damit **nicht** gemessen, daß Bilder erzeugt werden können. Gemessen ist: der Pfad
+antwortet. Wie der Auftrag aussehen muß, welches Feld den Text trägt, welche Kennung ein Bild
+liefert — **nichts davon**. Hätte ich „vorhanden" in die Fähigkeitsliste übernommen, stünde dort
+ein Anbieter, der `bild` nennt und beim ersten Aufruf scheitert.
+
+**Die Regel.** Eine Prüfung, die nur die **Anwesenheit** feststellt, darf nur die Anwesenheit
+behaupten. Die Auskunft „vorhanden" gehört in den Zustand des **Weges** — die Fähigkeit selbst
+gehört erst dann in die Tabelle, wenn ein **echter Aufruf** sie belegt hat.
+
+**Warum das eng mit Regel 5 verwandt ist.** Dort ging es darum, daß eine Gegenprobe **rot** werden
+muß, sonst mißt sie nichts. Hier wurde sie rot (404 für den erfundenen Pfad) — und trotzdem war die
+Aussage kleiner als sie klang. Ein rot werdender Wächter beweist, **daß** er mißt; nicht, **was**
+gemessen wurde.
+
+
 

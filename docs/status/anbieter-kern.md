@@ -92,3 +92,35 @@ Ein Paket **`packages/ai/verzeichnis`** — das Verzeichnis der Anbieter. Vier T
 
 **Reihenfolge bleibt:** `verzeichnis` baut auf `faehigkeiten` und `openrouter` auf, die stehen. Es
 ist der Schritt vor den Einstellungen — denn was eingestellt werden kann, bestimmt der Katalog.
+
+## 6. Gebaut und lebend gelaufen (15.10.2026)
+
+`packages/ai/verzeichnis` steht: die Familien-Tabelle (OpenRouter, DeepSeek) mit **je Fähigkeit dem
+Weg**, die Models-API-Abfrage, und die **Sonde**. 27 Prüfungen über einen echten Socket, Typecheck
+über **31 Pakete** grün.
+
+Die Sonde ist **absichtlich kostenlos**: sie schickt einen leeren Auftrag und liest nur den Status.
+Ein abgewiesener Auftrag erzeugt keine Antwort und damit keine Rechnung. **Keine Fähigkeit wird
+wirklich aufgerufen.**
+
+Der lebende Lauf gegen beide Dienste:
+
+| Weg | OpenRouter | DeepSeek |
+|---|---|---|
+| Models-API | 462 Modelle | 2 Modelle |
+| `/chat/completions` | vorhanden | vorhanden (**422**, nicht 400) |
+| `/audio/speech` | vorhanden | **fehlt** |
+| `/audio/transcriptions` | vorhanden | **fehlt** |
+| `/embeddings` | vorhanden | **fehlt** |
+| `/images/generations` | **vorhanden** | **fehlt** |
+
+**Die Gegenprobe gehört dazu.** Ein erfundener Pfad `/gibtsnicht-abc123xyz` gibt bei **beiden**
+Diensten **404** — die Unterscheidung der Sonde ist also geprüft und nicht bloß behauptet.
+
+**Zwei neue Messungen:** DeepSeek weist einen leeren Chat-Auftrag mit **422** ab (nicht 400) — die
+Statusdeutung der Sonde fängt beides. Und `/images/generations` **existiert** bei OpenRouter.
+
+**Und die Unterscheidung, die dabei zu treffen war:** „der Weg ist da" ist **nicht** „die Fähigkeit
+wirkt". Die Sonde darf nur die Anwesenheit behaupten; `bild` steht deshalb weiterhin in **keiner**
+Fähigkeitsliste — die Form des Auftrags ist ungemessen. Als Regel 37 festgehalten.
+
