@@ -42,7 +42,12 @@ export {
 
 export {
   DATEINAME,
+  EIGENES_HAUS,
+  FREMDES_HAUS,
+  eigenesZuhause,
+  istFremdesZuhause,
   ladeEinstellungen,
   pfadDerEinstellungen,
   sichereEinstellungen,
+  unserPfad,
 } from './datei.ts'

@@ -21,6 +21,7 @@
  */
 
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import {
   VORGABE,
@@ -31,6 +32,64 @@ import {
 
 /** Der Name der Datei im Harness-Home. */
 export const DATEINAME = 'einstellungen.json'
+
+/** Der Name **unseres** Zuhauses. */
+export const EIGENES_HAUS = '.pmh'
+
+/**
+ * Der Name des Zuhauses von DSH — **dort schreiben wir NIE**.
+ *
+ * ## Der Fehler, der diesen Riegel erzwungen hat (15.10.2026)
+ *
+ * Ich habe die Einstellungen mit `resolvePmhHome()` aus `@prometheus-harness/home-paths` aufgelöst
+ * und geschrieben. Dort gilt die Kette `PMH_HOME → DSH_HOME → ~/.pmh`. In dieser Umgebung ist
+ * **`DSH_HOME` gesetzt** (`C:\Users\Chang\.dsh`) und `PMH_HOME` leer — die Datei landete also im
+ * **Zuhause von DSH**. Das ist ein Ort, den wir **niemals** verändern.
+ *
+ * Der Resolver hat also genau das getan, wofür er gebaut ist. **Der Fehler war, ihn für unseren
+ * Zustand zu benutzen:** ein Zuhause, das auf das eines **fremden** Programms zurückfallen kann,
+ * ist für unsere Dateien die falsche Auflösung.
+ *
+ * Die Datei wurde entfernt (nachweislich meine: Inhalt und Zeitstempel geprüft) — und jetzt steht
+ * hier ein **Riegel**, nicht nur eine Notiz. Eine Regel, die nur in einer Notiz steht, ist nicht
+ * entschärft.
+ */
+export const FREMDES_HAUS = '.dsh'
+
+/**
+ * Liegt dieser Pfad im Zuhause eines **fremden** Programms?
+ *
+ * @param pfad - der zu prüfende Pfad
+ * @returns ob dort NICHT geschrieben werden darf
+ */
+export function istFremdesZuhause(pfad: string): boolean {
+  return pfad.split(/[\\/]+/u).includes(FREMDES_HAUS)
+}
+
+/**
+ * **Unser** Zuhause.
+ *
+ * **Warum hier NICHT `resolvePmhHome()` steht.** Jene Auflösung fällt auf `DSH_HOME` zurück — und
+ * damit in ein fremdes Haus (siehe {@link FREMDES_HAUS}). Hier gilt nur: `PMH_HOME`, sonst `~/.pmh`.
+ *
+ * @param umgebung - die Umgebung; nur für die Prüfung austauschbar
+ * @returns der Pfad
+ */
+export function eigenesZuhause(umgebung: Readonly<Record<string, string | undefined>> = process.env): string {
+  const gesetzt = umgebung['PMH_HOME']
+  if (gesetzt !== undefined && gesetzt.trim() !== '') return gesetzt.trim()
+  return join(homedir(), EIGENES_HAUS)
+}
+
+/**
+ * Wo **unsere** Einstellungen liegen — im **eigenen** Zuhause.
+ *
+ * @param umgebung - die Umgebung; nur für die Prüfung austauschbar
+ * @returns der Pfad
+ */
+export function unserPfad(umgebung: Readonly<Record<string, string | undefined>> = process.env): string {
+  return pfadDerEinstellungen(eigenesZuhause(umgebung))
+}
 
 /**
  * Wo die Einstellungen liegen.
@@ -77,6 +136,16 @@ export async function ladeEinstellungen(pfad: string): Promise<Einstellungen> {
  * @throws Error - wenn das Verzeichnis nicht angelegt oder nicht geschrieben werden kann
  */
 export async function sichereEinstellungen(pfad: string, einstellungen: Einstellungen): Promise<void> {
+  // **Der Riegel.** Geschrieben wird nur in unser eigenes Haus. Am 15.10.2026 lag die Datei dort
+  // nicht — sie lag in `~/.dsh`, weil die Auflösung auf `DSH_HOME` zurückfiel. Eine Notiz hätte
+  // das nicht verhindert; diese Zeile tut es.
+  if (istFremdesZuhause(pfad)) {
+    throw new Error(
+      `Die Einstellungen sollen nach „${pfad}" — das liegt im Zuhause eines FREMDEN Programms ` +
+        `(„${FREMDES_HAUS}"). Dort wird nicht geschrieben. Unser Zuhause ist „${EIGENES_HAUS}" ` +
+        '(siehe eigenesZuhause()).',
+    )
+  }
   const text = schreibeEinstellungen(einstellungen)
   const verzeichnis = dirname(pfad)
   await mkdir(verzeichnis, { recursive: true })

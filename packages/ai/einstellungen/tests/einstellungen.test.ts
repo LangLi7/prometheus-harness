@@ -26,10 +26,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   DATEINAME,
+  EIGENES_HAUS,
   EinstellungenFehler,
   FASSUNG,
+  FREMDES_HAUS,
   VORGABE,
   denkhilfeAn,
+  eigenesZuhause,
+  istFremdesZuhause,
   ladeEinstellungen,
   leseEinstellungen,
   mitDenkhilfe,
@@ -40,6 +44,7 @@ import {
   pfadDerEinstellungen,
   schreibeEinstellungen,
   sichereEinstellungen,
+  unserPfad,
   wahlFuer,
 } from '../src/index.ts'
 
@@ -355,5 +360,62 @@ describe('Die Datei', () => {
     await sichereEinstellungen(pfad, GEFUELLT)
     expect(await ladeEinstellungen(pfad)).toEqual(GEFUELLT)
     expect(readdirSync(d)).toEqual([DATEINAME])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 6. Der Riegel gegen das fremde Zuhause
+// ---------------------------------------------------------------------------
+
+describe('Der Riegel gegen das fremde Zuhause', () => {
+  test('unser Zuhause ist ~/.pmh — auch wenn DSH_HOME gesetzt ist', () => {
+    // **Der Fehler vom 15.10.2026.** Damals löste ich über `resolvePmhHome()` auf; dort gilt
+    // `PMH_HOME → DSH_HOME → ~/.pmh`. Mit gesetztem `DSH_HOME` landete die Datei im Haus von DSH.
+    // Diese Funktion liest `DSH_HOME` **gar nicht**.
+    const mitDsh = { DSH_HOME: 'C:\\irgendwo\\.dsh' }
+    expect(eigenesZuhause(mitDsh).endsWith(EIGENES_HAUS)).toBe(true)
+    expect(eigenesZuhause(mitDsh)).not.toContain(FREMDES_HAUS)
+    expect(eigenesZuhause({})).not.toContain(FREMDES_HAUS)
+  })
+
+  test('PMH_HOME schlägt alles andere', () => {
+    expect(eigenesZuhause({ PMH_HOME: 'D:\\meins', DSH_HOME: 'C:\\x\\.dsh' })).toBe('D:\\meins')
+  })
+
+  test('ein leeres PMH_HOME zählt nicht als gesetzt', () => {
+    expect(eigenesZuhause({ PMH_HOME: '   ' }).endsWith(EIGENES_HAUS)).toBe(true)
+  })
+
+  test('ein Pfad im fremden Haus wird erkannt — auch mit anderem Trenner', () => {
+    expect(istFremdesZuhause('C:\\Users\\Chang\\.dsh\\einstellungen.json')).toBe(true)
+    expect(istFremdesZuhause('C:/Users/Chang/.dsh/einstellungen.json')).toBe(true)
+    expect(istFremdesZuhause('C:\\Users\\Chang\\.pmh\\einstellungen.json')).toBe(false)
+    // Ein Verzeichnis, das den Namen nur ENTHÄLT, ist nicht gemeint.
+    expect(istFremdesZuhause('C:\\x\\.dsh-backup\\einstellungen.json')).toBe(false)
+  })
+
+  test('DER RIEGEL: in ein fremdes Zuhause wird NICHT geschrieben', async () => {
+    const d = wegwerf()
+    const fremd = join(d, FREMDES_HAUS)
+    const pfad = pfadDerEinstellungen(fremd)
+    const fehler = await sichereEinstellungen(pfad, GEFUELLT).catch((e: unknown) => e)
+    expect(fehler).toBeInstanceOf(Error)
+    expect((fehler as Error).message).toContain('FREMDEN Programms')
+    // **Und es wurde wirklich nichts angelegt** — nicht einmal das Verzeichnis.
+    expect(existsSync(fremd)).toBe(false)
+  })
+
+  test('unserPfad zeigt in unser Zuhause', () => {
+    const p = unserPfad({})
+    expect(p.endsWith(DATEINAME)).toBe(true)
+    expect(p).toContain(EIGENES_HAUS)
+    expect(istFremdesZuhause(p)).toBe(false)
+  })
+
+  test('in unser EIGENES Zuhause wird geschrieben', async () => {
+    const d = wegwerf()
+    const pfad = pfadDerEinstellungen(join(d, EIGENES_HAUS))
+    await sichereEinstellungen(pfad, GEFUELLT)
+    expect(await ladeEinstellungen(pfad)).toEqual(GEFUELLT)
   })
 })

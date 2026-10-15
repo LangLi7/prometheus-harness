@@ -661,6 +661,36 @@ Wenn nein, wird **nicht** geurteilt — es wird gesagt, was fehlt.
 **Der Satz, der bleibt.** „Ich habe es geprüft und verworfen" klingt gründlich und ist manchmal
 nur die Beschreibung davon, daß man etwas gefragt hat, das man nicht hätte fragen dürfen.
 
+## 39. Ein Auflöser, der auf ein **fremdes Haus** zurückfällt, ist der falsche Auflöser
+
+**Der Fall.** Ich habe die Einstellungen mit `resolvePmhHome()` aus `@prometheus-harness/home-paths`
+aufgelöst und **geschrieben**. Dort gilt die Kette `PMH_HOME → DSH_HOME → ~/.pmh`. In dieser
+Umgebung ist **`DSH_HOME` gesetzt** (`C:\Users\Chang\.dsh`), `PMH_HOME` leer — und die Datei landete
+**im Zuhause von DSH**, einem Ort, den wir **niemals** verändern.
+
+Der Resolver hat nichts falsch gemacht: er hat genau getan, wofür er gebaut ist. **Falsch war, ihn
+für unseren Zustand zu benutzen.**
+
+**Was ich getan habe, in dieser Reihenfolge:**
+
+1. **Melden, sofort** — nicht schönreden, nicht später.
+2. **Nachsehen, was dort liegt** (19 Dateien; alle bis auf meine älter). Damit war belegt, **was**
+   von mir ist.
+3. **Zurücknehmen** — die Datei entfernt, nach Prüfung von **Inhalt und Zeitstempel**: sie war
+   nachweislich meine. Löschen ist erlaubt, wenn es nachweislich unser ist; der Nachweis gehört
+   dazu.
+4. **Einen Riegel bauen, keine Notiz.** `sichereEinstellungen` **weigert sich** jetzt, in ein
+   Verzeichnis namens `.dsh` zu schreiben, und `eigenesZuhause()` liest `DSH_HOME` **gar nicht**.
+
+**Die Regel.** Wo unser Zustand liegt, entscheidet **unser** Haus — nicht eine Kette, die auf das
+Haus eines **fremden** Programms zurückfallen kann. Und: eine Regel, die nur in einer Notiz steht,
+ist **nicht** entschärft (Regel 33). Was zählt, ist der Riegel im Code — und eine Prüfung, die ihn
+rot werden läßt.
+
+**Die Gegenprobe, die dazugehört.** `eigenesZuhause({ DSH_HOME: '…\\.dsh' })` muß `.pmh` liefern —
+sonst prüft die Prüfung nichts.
+
+
 
 ## 37. „Der Weg ist da" ist nicht „die Fähigkeit wirkt"
 
