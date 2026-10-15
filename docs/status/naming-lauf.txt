@@ -13,20 +13,8 @@ Ausgenommen MIT GRUND (7):
   packages\auth\db-schema\migrations\0009_arbeitsbereich-ordner.sql  —  deutsches Segment "arbeitsbereich"  [Schemafassung: der Dateiname ist die Version]
   packages\auth\db-schema\migrations\0010_zusatzordner-zugriff.sql  —  deutsches Segment "zusatzordner"  [Schemafassung: der Dateiname ist die Version]
 
-50 Verstöße:
+51 Verstöße:
 
-  docker\
-    rechtprobe.sql  —  deutsches Segment "rechtprobe"
-  packages\ai\local\tests\
-    lokal.test.ts  —  deutsches Segment "lokal"
-  packages\auth\db-schema\src\
-    betriebsdatenbank.ts  —  deutsches Segment "betriebsdatenbank"
-  packages\auth\secrets\src\
-    krypto.ts  —  deutsches Segment "krypto"
-    schluesselgeber.ts  —  deutsches Segment "schluesselgeber"
-  packages\auth\secrets\tests\
-    krypto.test.ts  —  deutsches Segment "krypto"
-    schluesselkette.test.ts  —  deutsches Segment "schluesselkette"
   scripts\
     apischluessel.mjs  —  deutsches Segment "apischluessel"
     apischluessel.test.mjs  —  deutsches Segment "apischluessel"
@@ -37,11 +25,17 @@ Ausgenommen MIT GRUND (7):
     install-teile.mjs  —  deutsches Segment "teile"
     leck-haken.mjs  —  deutsches Segment "leck"
     leck-haken.test.mjs  —  deutsches Segment "leck"
+    ledger-nachziehen.mjs  —  deutsches Segment "nachziehen"
+    ledger-nachziehen.test.mjs  —  deutsches Segment "nachziehen"
     maschinenpfade.mjs  —  deutsches Segment "maschinenpfade"
     maschinenpfade.test.mjs  —  deutsches Segment "maschinenpfade"
+    plugin-metadaten-aufloeser.mjs  —  deutsches Segment "metadaten"
+    port-halter.mjs  —  deutsches Segment "halter"
     port-wahl.mjs  —  deutsches Segment "wahl"
+    ptc-typentfernung.mjs  —  deutsches Segment "typentfernung"
     ptc-vorladen.mjs  —  deutsches Segment "vorladen"
     quelltext-pruefung.mjs  —  deutsches Segment "pruefung"
+    readme-paarung.mjs  —  deutsches Segment "paarung"
     schema-stand.mjs  —  deutsches Segment "stand"
     schema-stand.test.mjs  —  deutsches Segment "stand"
     schluessel.mjs  —  deutsches Segment "schluessel"
@@ -63,8 +57,10 @@ Ausgenommen MIT GRUND (7):
   scripts\tests\
     install-teile.test.mjs  —  deutsches Segment "teile"
     install-werkzeuge.test.mjs  —  deutsches Segment "werkzeuge"
+    plugin-metadaten-aufloeser.test.mjs  —  deutsches Segment "metadaten"
     port-wahl.test.mjs  —  deutsches Segment "wahl"
     quelltext-pruefung.test.mjs  —  deutsches Segment "pruefung"
+    readme-paarung.test.mjs  —  deutsches Segment "paarung"
     sprachpaket.test.ts  —  deutsches Segment "sprachpaket"
     sprachpruefer.test.mjs  —  deutsches Segment "sprachpruefer"
     sprachtrichter.test.mjs  —  deutsches Segment "sprachtrichter"

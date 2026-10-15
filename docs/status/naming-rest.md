@@ -422,3 +422,81 @@ Moduladresse.
 Umbenennungszügen davor hatte ich jedes Mal *„kein Treffer"* gemeldet und **zehn** Stellen
 übersehen. Diesmal lief die Gegenprobe gegen die **Liste der alten Namen** — und der zweite Wächter
 bestätigt sie: **die Zahl der toten Verweise im Code ist nicht gestiegen.**
+
+## 12. Zug 5, der letzte Block: `scripts/` — 51 Namen, **noch offen**
+
+**Was steht: der ganze Baum außer `scripts/` ist englisch benannt.** In `scripts/` liegen noch
+**51** deutsche Dateinamen. Der Wächter meldete **43** — **acht** standen in keiner Liste:
+
+| nie gemeldet, weil das Wort fehlte | Suffix |
+|---|---|
+| `ledger-nachziehen.mjs`, `ledger-nachziehen.test.mjs` | `nachziehen` |
+| `plugin-metadaten-aufloeser.mjs`, `plugin-metadaten-aufloeser.test.mjs` | `metadaten`, `aufloeser` |
+| `port-halter.mjs` | `halter` |
+| `ptc-typentfernung.mjs` | `typentfernung` |
+| `readme-paarung.mjs`, `tests/readme-paarung.test.mjs` | `paarung` |
+
+**Vierter Fall derselben Sorte in vier Zügen.** Gefunden nicht vom Wächter, sondern beim
+**Aufzählen** von `scripts/`. Die sechs Wörter sind nachgetragen; der Wächter sagt jetzt **51**.
+
+**Warum dieser Block NICHT in derselben Runde fiel — mit Zahl.** Ein Skriptname ist keine Adresse in
+einem Import, sondern ein **Text an vielen Stellen**. Für die **`sprach*`-Familie allein** (11
+Dateien) gemessen:
+
+```
+126 Fundstellen in 24 Dateien — darunter
+  scripts/sprachtrichter.mjs (19), scripts/tests/client-buendel.test.mjs (14),
+  scripts/client-buendel.mjs (12), scripts/sprachvergleich.mjs (9),
+  scripts/sprachpruefer.mjs (8), scripts/sprachaufteilung.mjs (7),
+  packages/client/select-contrast/src/index.ts (4), packages/client/locale/src/index.ts (3),
+  apps/login_web/src/language.ts (2), packages/client/locale/de.json (2) …
+```
+
+**Nicht jede dieser 126 Stellen ist ein Dateiname.** Viele sind das deutsche **Wort**
+(`sprachpaket` als Bezeichner, als JSON-Schlüssel, in Übersetzungstexten) — und das bleibt deutsch.
+Bei jedem Zug muß also **nach dem ganzen Dateinamen** ersetzt werden, nie nach dem Wort: **breit
+suchen, eng ersetzen** (§9, wo genau diese Grenze schon einmal einen Schaden verhindert hat).
+
+### Die Zielnamen — damit der nächste Zug mechanisch ist
+
+| heute | englisch |
+|---|---|
+| `apischluessel.mjs` · `.test.mjs` | `api-key.mjs` · `.test.mjs` |
+| `bun-luecken-vorladen.mjs` | `bun-gap-preload.mjs` |
+| `geheimnis.mjs` · `geheimnis-scan.mjs` · `.test.mjs` | `secret.mjs` · `secret-scan.mjs` · `.test.mjs` |
+| `install-teile.mjs` · `tests/install-teile.test.mjs` | `install-parts.mjs` · `tests/install-parts.test.mjs` |
+| `tests/install-werkzeuge.test.mjs` | `tests/install-tools.test.mjs` |
+| `leck-haken.mjs` · `.test.mjs` | `leak-hook.mjs` · `.test.mjs` |
+| `ledger-nachziehen.mjs` · `.test.mjs` | `ledger-catchup.mjs` · `.test.mjs` |
+| `maschinenpfade.mjs` · `.test.mjs` | `machine-paths.mjs` · `.test.mjs` |
+| `plugin-metadaten-aufloeser.mjs` · `.test.mjs` | `plugin-metadata-resolver.mjs` · `.test.mjs` |
+| `port-halter.mjs` | `port-holder.mjs` |
+| `port-wahl.mjs` · `tests/port-wahl.test.mjs` | `port-choice.mjs` · `tests/port-choice.test.mjs` |
+| `ptc-typentfernung.mjs` | `ptc-type-stripping.mjs` |
+| `ptc-vorladen.mjs` | `ptc-preload.mjs` |
+| `quelltext-pruefung.mjs` · `tests/…` | `source-check.mjs` · `tests/source-check.test.mjs` |
+| `readme-paarung.mjs` · `tests/…` | `readme-pairing.mjs` · `tests/readme-pairing.test.mjs` |
+| `schema-stand.mjs` · `.test.mjs` | `schema-version.mjs` · `.test.mjs` |
+| `schluessel.mjs` · `.test.mjs` | `key.mjs` · `.test.mjs` |
+| `sprachaufteilung.mjs` | `language-split.mjs` |
+| `sprachbegriffe.mjs` | `language-terms.mjs` |
+| `sprachpaket.test.ts` | `language-package.test.ts` |
+| `sprachpruefer.mjs` · `.test.mjs` | `language-checker.mjs` · `.test.mjs` |
+| `sprachquelle.mjs` | `language-source.mjs` |
+| `sprachtrichter.mjs` · `.test.mjs` | `language-funnel.mjs` · `.test.mjs` |
+| `sprachvergleich.mjs` | `language-compare.mjs` |
+| `sprachwaechter.mjs` · `.test.mjs` | `language-guard.mjs` · `.test.mjs` |
+| `sprachwerte.mjs` | `language-values.mjs` |
+| `subprozess-argv-ergaenzung.mjs` | `subprocess-argv-patch.mjs` |
+| `takt.ps1` | `tick.ps1` |
+| `token-adresse.mjs` · `.test.mjs` | `token-address.mjs` · `.test.mjs` |
+| `verlauf-reset.mjs` · `.test.mjs` | `history-reset.mjs` · `.test.mjs` |
+| `welt-adresse.mjs` | `world-address.mjs` |
+| `tests/werkzeug-folgen.test.mjs` | `tests/tool-consequences.test.mjs` |
+| `tests/wsl-lage.test.mjs` | `tests/wsl-state.test.mjs` |
+
+**Die Reihenfolge, nach Risiko:** erst die **Testdateien** (`scripts/tests/`, 13) — sie werden von
+nichts aufgerufen; dann die **Familie `sprach*`** (11) als geschlossener Block, weil ihre 126
+Fundstellen **eine** Ersetzung sind; dann der Rest einzeln, jeweils mit `reference-guard` als
+Gegenprobe. **Ein Skriptname darf erst fallen, wenn der Wächter für tote Verweise vorher und
+nachher dieselbe Zahl zeigt.**

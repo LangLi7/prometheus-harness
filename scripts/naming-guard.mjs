@@ -104,6 +104,11 @@ export const DEUTSCHE_WOERTER = [
   // Zug 3b, derselbe Fall zum dritten Mal: `rls-verhalten.sql` stand in keiner Liste, weil
   // „verhalten" fehlte. Gefunden nicht vom Wächter, sondern beim AUFZÄHLEN der Dateien.
   'verhalten',
+  // Zug 5, derselbe Fall zum VIERTEN Mal, und diesmal SIEBEN Namen auf einmal: beim Aufzählen von
+  // `scripts/` standen `ledger-nachziehen` (2), `plugin-metadaten-aufloeser`, `port-halter`,
+  // `ptc-typentfernung` und `readme-paarung` (2) in keiner Liste. **Der Wächter meldete 43; es
+  // sind 50.** Wer nur den Wächter fragt, kennt den Umfang nicht — er kennt den Stand der Liste.
+  'nachziehen', 'metadaten', 'aufloeser', 'halter', 'typentfernung', 'paarung',
 ]
 
 /**
