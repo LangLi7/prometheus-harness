@@ -96,3 +96,54 @@ kein Wert.**
 
 **Erst der dritte Versuch hat gemessen:** das Zustandswort aus der **Ausgabe selbst** ablesen,
 statt es zu erwarten. `ABHÖREN` als Filter ergab **59** Einträge.
+
+## 5. Zwei weitere Anweisungen des Betreibers — und eine WARNUNG vor der Ausführung
+
+> „es sollte auch jetzt im ordner app befinden oder so, ich denke in eigenem ordner beim app
+> anstatt in snappshoot folder"
+
+> „die Insel-Einträge der Gruppe Ansichten sollen dieselbe Verknüpfung benutzen. […] danach das
+> alte beispiel dinger löschen"
+
+**1. Der Welt-Prototyp gehört nach `apps/`, nicht nach `snapshots/`.** Ein eigener Ordner bei den
+Anwendungen. **2. Die Insel-Einträge der Gruppe „Ansichten" benutzen dieselbe Verknüpfung** — das
+ist die Eine-Port-Regel aus §2, angewandt auf die Einträge selbst. **3. Danach die alten
+Beispiel-Sachen löschen.**
+
+### Was gemessen ist — und warum „löschen" jetzt NICHT geht
+
+```
+snapshots/web                     143 Dateien, 21,75 MB, davon 51 .png, 64 .ts, 21 .js
+git ls-files snapshots/web        0     <-- KEINE EINZIGE DATEI IST VERFOLGT
+git add -n snapshots/web          149 Einträge -- darunter snapshots/web/dist/assets/*
+git check-ignore                   nur node_modules/ ist ignoriert, dist/ NICHT
+```
+
+**Der ganze Prototyp ist unverfolgte Arbeit.** „die alten Beispiel-Dinger löschen" hieße heute:
+**21,75 MB Arbeit endgültig vernichten**, denn in git steht keine einzige Zeile davon — es gibt
+keine Sicherung, aus der man sie zurückholen könnte. **Erst umziehen und festschreiben, dann
+löschen.** Die Reihenfolge ist keine Vorsicht, sie ist die Bedingung dafür, daß „löschen"
+überhaupt ein Wort mit Bedeutung ist.
+
+**Und `dist/` ist nicht ignoriert.** Ein `git add snapshots/web` nähme **149** Einträge mit, also
+den gebauten Stand samt Schriftdateien. Beim Umzug wird **ausdrücklich** eingestuft: Quellen,
+Tests, Werkzeuge — **nicht** `dist/`, **nicht** `node_modules/`.
+
+### Die Reihenfolge, die daraus folgt
+
+1. **Umziehen** `snapshots/web` → `apps/<name>/` (Vorschlag: `apps/world`), ohne `dist/` und
+   `node_modules/`.
+2. **Festschreiben** — damit die 143 Dateien eine Geschichte haben. Im Commit **melden**, daß dies
+   fremde, nicht festgeschriebene Arbeit war, die hier übernommen wird (Regel 14).
+3. **Verknüpfungen nachziehen**: `scripts/welt-adresse.mjs`, `scripts/start.mjs`,
+   `scripts/client-buendel.mjs`, `packages/client/world-switch` — und dabei **denselben Pfad** für
+   die Insel-Einträge der Gruppe „Ansichten" benutzen.
+4. **Erst danach** die alten Beispiel-Sachen löschen — und vorher **namentlich aufzählen**, was
+   gelöscht wird, damit nachvollziehbar bleibt, was verschwunden ist.
+
+**Was die „Insel-Einträge der Gruppe Ansichten" sind, ist gemessen:** sie stehen in
+`snapshots/web/src/main.ts` (**48** Nennungen), `src/dock-view.ts` (24), `src/docking.ts` (15),
+`tools/panels.js` (13), `src/eingang.ts` (8), und geprüft werden sie von
+`tests/andockstellen.test.ts` (44) und `tests/umschalter.test.ts` (30) — also **derselbe Ort, der
+umziehen soll.** Die zwei Anweisungen greifen ineinander: derselbe Pfad, den §2 für den Port
+fordert, ist auch der Pfad, den die Inseln benutzen sollen.
