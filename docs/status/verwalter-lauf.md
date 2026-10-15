@@ -69,3 +69,57 @@ gekostet hat, ist daraus nicht zu trennen** — ich nenne die Zahl deshalb nicht
    Sonde** — dann beurteilt er nicht ins Leere, sondern prüft.
 3. **Die Frist muß großzügiger sein** (oder das Modell ein anderes): 120 s reichen für 200 Kennungen
    nicht.
+
+## Zweiter Lauf, 13:09 UTC — nach den beiden Änderungen
+
+Geändert wurde: der Ausleger bekommt die **Wegbefunde der Sonde** als Eingabe, und jede Auslegung
+wird **gegen die Messung** geprüft (`widerspruchZwischen`). Die Frist steht auf **300 s**.
+
+| Familie | Modelle | Wege (Sonde) | Ergebnis der Auslegung |
+|---|---|---|---|
+| OpenRouter | 461 | 6 | nicht übernommen (0,60) |
+| DeepSeek | 2 | 2 | nicht übernommen (0,00) |
+| Anthropic | 14 | 2 | nicht übernommen (0,30) |
+| Z.ai | 11 | **6** | nicht übernommen (**0,00**) |
+| ZenMux | 208 | keine | nicht übernommen (0,85) |
+| **Nous Research** | 422 | 2 | **WIDERSPRUCH** |
+| OpenCode Zen | 86 | keine | nicht übernommen (0,00) |
+
+### Was die Änderung geleistet hat
+
+**Der Widerspruch fing einen echten Fall — bei einer ANDEREN Familie.** Nous Research: das Modell
+behauptete **Sprache, Ton, Einbetten und Bild**, während die Sonde für alle vier **404** gemessen
+hatte. Im Katalog steht jetzt der Widerspruch, nicht die Behauptung:
+
+> „Text zu Sprache": der Weg gibt 404, die Auslegung sagt „gibt es"; „Sprache zu Text": …;
+> „Einbetten": …; „Bild": …
+
+**Und Z.ai ist nicht wieder falsch geworden — sondern ehrlich.** Im ersten Lauf legte das Modell
+hier mit **0,93** fest, der Dienst biete nichts. Jetzt sagt es **0,00**. Die verbesserte Frage hat
+aus einer **sicheren falschen** Antwort eine **unsichere** gemacht — und eine unsichere Antwort
+wird nicht eingetragen. Das ist der Unterschied, auf den es ankommt.
+
+### Und die unbequeme Messung dazu
+
+**Keine der sieben Auslegungen wurde übernommen.** Sechs waren zu unsicher, eine widersprach der
+Messung. Der Ausleger hat in diesem Lauf **nichts** zum Katalog beigetragen — und dafür
+
+**628 Sekunden** gebraucht (87,5 · 75,4 · **139,4** · 55,2 · 101,5 · 129,3 · 37,6 s), also gut zehn
+Minuten. Die Sonden brauchten zusammen **17,2 s**.
+
+**Das ist kein Fehler der Schwellen.** Das Modell antwortet mit niedriger Sicherheit, weil die Frage
+**nicht beantwortbar** ist: aus Modellnamen folgt keine Fähigkeit. Die niedrige Sicherheit ist die
+**richtige** Antwort. Die Schwellen richtig zu stellen, indem man sie senkt, hieße: die falschen
+Antworten wieder durchlassen.
+
+**Zwei Änderungen am Katalog zwischen den Läufen, ohne Zutun:** OpenRouter 462 → **461** Kennungen,
+Nous 423 → **422**. Die Listen bewegen sich — der Grund, warum es diesen Verwalter gibt.
+
+### Der ehrliche Schluß
+
+Die **Sonde** ist der verläßliche Teil: schnell, kostenlos, geprüft, mit Gegenprobe. Der
+**Ausleger** trägt derzeit **nichts** bei und kostet zehn Minuten. Wer ihn behalten will, muß ihm
+eine **beantwortbare** Frage stellen — oder ein Modell nehmen, das sie beantworten kann. Beides ist
+**nicht** gemessen. Bis dahin gilt: der Katalog lebt von der Sonde, und die Auslegung steht als
+**offen** darin, mit Grund.
+
