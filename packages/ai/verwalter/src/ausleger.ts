@@ -39,6 +39,7 @@ import {
   type Stufen,
 } from '@prometheus-harness/faehigkeiten'
 import type { Waechter } from '@prometheus-harness/waechter'
+import type { Wegbefund } from '@prometheus-harness/verzeichnis'
 
 /** Was der Ausleger braucht. */
 export interface Auslegeauftrag {
@@ -48,12 +49,65 @@ export interface Auslegeauftrag {
   readonly dienst: string
   /** Die Kennungen, die die Models-API genannt hat. */
   readonly modelle: readonly string[]
+  /**
+   * Was die **Sonde** über die Wege gemessen hat.
+   *
+   * **Warum das hereingehört — gemessen am 15.10.2026.** Im ersten lebenden Lauf bekam das Modell
+   * nur die Kennungen und den Namen des Dienstes. Es legte für Z.ai mit Sicherheit **0,93** fest,
+   * der Dienst biete *„keine der bekannten Fähigkeiten"* — während die Sonde für **dieselbe**
+   * Familie im **selben** Lauf **alle sechs Wege** als antwortend gemessen hatte.
+   *
+   * Der Grund war nicht Nachlässigkeit, sondern **Unbeantwortbarkeit**: aus Modell**namen** läßt
+   * sich keine Fähigkeit ableiten. Ohne diese Angabe beurteilt der Ausleger ins Leere — und je
+   * sicherer er sich dabei fühlt, desto schlimmer.
+   */
+  readonly wege: Readonly<Record<string, Wegbefund>>
   /** Wer auslegt. */
   readonly entscheider: Entscheider
   /** Die Schwellen des Aufrufers. */
   readonly stufen: Stufen
   /** Der Wächter, der **vor** dem Modellaufruf prüft. */
   readonly waechter: Waechter
+}
+
+/**
+ * Prüft eine Auslegung **gegen die Messung**.
+ *
+ * ## Warum das die wichtigste Funktion dieser Datei ist
+ *
+ * Die Sonde **mißt** einen Weg: sie schickt einen leeren Auftrag und sieht nach, ob der Pfad
+ * antwortet. Der Ausleger **deutet**. Wo die Deutung der Messung widerspricht, hat die **Messung**
+ * recht — die Deutung ist dann keine Auskunft, sondern ein **Widerspruch**, und der gehört in den
+ * Katalog.
+ *
+ * **`unbekannt` widerspricht nichts.** Ein Tor (401/403) oder ein Netzfehler sagt nichts über den
+ * Weg; daraus läßt sich kein Widerspruch bauen. Nur `vorhanden` und `fehlt` sind Aussagen.
+ *
+ * @param wege - was die Sonde gemessen hat
+ * @param faehigkeiten - was der Ausleger behauptet
+ * @returns der Widerspruch oder `undefined`
+ */
+export function widerspruchZwischen(
+  wege: Readonly<Record<string, Wegbefund>>,
+  faehigkeiten: readonly Faehigkeit[],
+): string | undefined {
+  const maengel: string[] = []
+  for (const faehigkeit of FAEHIGKEITEN) {
+    const befund = wege[faehigkeit]
+    if (befund === undefined || befund === 'unbekannt') continue
+    const behauptet = faehigkeiten.includes(faehigkeit)
+    if (befund === 'vorhanden' && !behauptet) {
+      maengel.push(
+        `„${NAME_DER_FAEHIGKEIT[faehigkeit]}": der Weg antwortet, die Auslegung sagt „gibt es nicht"`,
+      )
+    }
+    if (befund === 'fehlt' && behauptet) {
+      maengel.push(
+        `„${NAME_DER_FAEHIGKEIT[faehigkeit]}": der Weg gibt 404, die Auslegung sagt „gibt es"`,
+      )
+    }
+  }
+  return maengel.length === 0 ? undefined : maengel.join('; ')
 }
 
 /** Was der Ausleger ergeben hat. */
@@ -66,6 +120,12 @@ export interface Auslegeergebnis {
   readonly sicherheit?: number
   /** Wer ausgelegt hat. */
   readonly herkunft?: Herkunft
+  /**
+   * Wo die Auslegung der **Messung** widerspricht.
+   *
+   * Steht hier etwas, ist `angenommen` **falsch** — die Messung hat recht, nicht die Deutung.
+   */
+  readonly widerspruch?: string
   /** Warum so entschieden wurde — und bei `angenommen: false`, warum nicht. */
   readonly wegen: string
 }
@@ -92,13 +152,37 @@ export function auslegeSchema(): Schema<Auslegeschema> {
 /** Der Auftrag an das Modell. */
 const FRAGE =
   'Welche Fähigkeiten bietet dieser KI-Dienst an? ' +
+  'Du bekommst zwei Angaben: die Kennungen der Modelle und die BEREITS GEMESSENEN Wege. ' +
+  'Die gemessenen Wege sind Tatsachen — ein Weg, der „vorhanden" ist, antwortet wirklich, ' +
+  'ein Weg, der „fehlt" ist, gibt 404. Deine Beurteilung darf ihnen NICHT widersprechen. ' +
   'Antworte für JEDE Fähigkeit mit wahr oder falsch und gib mit `sicherheit` an, ' +
   'wie sicher du bist (Zahl zwischen 0 und 1). ' +
-  'Beurteile nur, was die Liste der Modellkennungen und der Name des Dienstes hergeben. ' +
-  'Wenn die Liste nichts hergibt, sage das über die Sicherheit — rate nicht.'
+  'Wenn die Angaben nicht ausreichen, sage das über die Sicherheit — rate nicht.'
 
 /**
- * Legt eine fremde Models-API-Antwort aus — **durch den Wächter**.
+ * Schreibt die gemessenen Wege als Text.
+ *
+ * @param wege - die Befunde der Sonde
+ * @returns die Zeilen
+ */
+function wegeAlsText(wege: Readonly<Record<string, Wegbefund>>): string[] {
+  const zeilen: string[] = []
+  for (const faehigkeit of FAEHIGKEITEN) {
+    const befund = wege[faehigkeit]
+    if (befund === undefined) continue
+    const erklaerung =
+      befund === 'vorhanden'
+        ? 'vorhanden (der Pfad antwortet)'
+        : befund === 'fehlt'
+          ? 'fehlt (404)'
+          : 'unbekannt (Tor oder Netzfehler — sagt nichts über den Weg)'
+    zeilen.push(`- ${faehigkeit} (${NAME_DER_FAEHIGKEIT[faehigkeit]}): ${erklaerung}`)
+  }
+  return zeilen.length === 0 ? ['(kein Weg wurde gemessen)'] : zeilen
+}
+
+/**
+ * Legt eine fremde Models-API-Antwort aus — **durch den Wächter** und **gegen die Messung**.
  *
  * @param auftrag - was auszulegen ist und wer es tut
  * @returns das Ergebnis; bei einem Fund des Wächters **ohne** Modellaufruf
@@ -109,6 +193,9 @@ export async function legeAus(auftrag: Auslegeauftrag): Promise<Auslegeergebnis>
     `Anzahl der Kennungen: ${String(auftrag.modelle.length)}`,
     'Kennungen:',
     ...auftrag.modelle.map((m) => `- ${m}`),
+    '',
+    'Gemessene Wege:',
+    ...wegeAlsText(auftrag.wege),
   ].join('\n')
 
   // **Zuerst der Wächter.** Eine fremde Antwort kann alles enthalten — auch einen Schlüssel, den
@@ -158,6 +245,21 @@ export async function legeAus(auftrag: Auslegeauftrag): Promise<Auslegeergebnis>
   }
 
   const belegt = FAEHIGKEITEN.filter((f) => urteil.wert[f] === true)
+
+  // **Die Messung hat recht, nicht die Deutung.** Auch bei hoher Sicherheit: im ersten lebenden
+  // Lauf hat sich das Modell mit 0,93 geirrt. Eine Auslegung, die einem gemessenen Weg
+  // widerspricht, ist keine Auskunft — sie ist ein Widerspruch, und der gehört in den Katalog.
+  const widerspruch = widerspruchZwischen(auftrag.wege, belegt)
+  if (widerspruch !== undefined) {
+    return {
+      angenommen: false,
+      sicherheit,
+      ...(urteil.herkunft === undefined ? {} : { herkunft: urteil.herkunft }),
+      widerspruch,
+      wegen: `NICHT übernommen: die Auslegung widerspricht der MESSUNG. ${widerspruch}.`,
+    }
+  }
+
   return {
     angenommen: true,
     faehigkeiten: belegt,

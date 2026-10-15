@@ -56,6 +56,17 @@ export interface Katalogeintrag {
    * verschiedene Lagen — und wer den Katalog liest, muß sie unterscheiden können.
    */
   readonly auslegungOffen?: string
+  /**
+   * Wo die Auslegung der **Messung** widersprach.
+   *
+   * **Warum das ein eigenes Feld ist und kein Grund unter `auslegungOffen`.** Ein Widerspruch ist
+   * etwas anderes als eine fehlende Auskunft: hier hat jemand **etwas behauptet**, und die Messung
+   * sagt das Gegenteil. Im ersten lebenden Lauf (15.10.2026) hat sich das Modell für Z.ai mit
+   * Sicherheit 0,93 geirrt — es sagte „keine der bekannten Fähigkeiten", während die Sonde alle
+   * sechs Wege als antwortend gemessen hatte. Wer das später liest, soll sehen, **daß** und
+   * **wo** die Deutung danebenlag.
+   */
+  readonly widerspruch?: string
 }
 
 /** Der Katalog. */
@@ -169,6 +180,7 @@ export function leseKatalog(text: string): Katalog {
         bemerkung: e['bemerkung'] as string,
         ...(e['auslegung'] === undefined ? {} : { auslegung: e['auslegung'] as Auslegung }),
         ...(typeof e['auslegungOffen'] === 'string' ? { auslegungOffen: e['auslegungOffen'] } : {}),
+        ...(typeof e['widerspruch'] === 'string' ? { widerspruch: e['widerspruch'] } : {}),
       }
     }
   }
@@ -203,6 +215,7 @@ export function schreibeKatalog(katalog: Katalog): string {
       bemerkung: e.bemerkung,
       ...(e.auslegung === undefined ? {} : { auslegung: e.auslegung }),
       ...(e.auslegungOffen === undefined ? {} : { auslegungOffen: e.auslegungOffen }),
+      ...(e.widerspruch === undefined ? {} : { widerspruch: e.widerspruch }),
     }
   }
   return `${JSON.stringify({ fassung: FASSUNG, eintraege }, null, 2)}\n`

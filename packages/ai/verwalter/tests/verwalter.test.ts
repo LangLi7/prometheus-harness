@@ -35,6 +35,7 @@ import {
   schreibeKatalog,
   sollLaufen,
   verwalte,
+  widerspruchZwischen,
   type Katalogeintrag,
 } from '../src/index.ts'
 
@@ -285,6 +286,7 @@ describe('Der Ausleger', () => {
       familie: 'x',
       dienst: 'Prüfdienst',
       modelle: ['modell-geheim-abcdefghijkl-1', 'harmlos'],
+      wege: {},
       entscheider: a,
       stufen: STUFEN,
       waechter: w,
@@ -301,6 +303,7 @@ describe('Der Ausleger', () => {
       familie: 'x',
       dienst: 'Prüfdienst',
       modelle: [],
+      wege: {},
       entscheider: a,
       stufen: STUFEN,
       waechter: waechter(),
@@ -316,6 +319,7 @@ describe('Der Ausleger', () => {
       familie: 'x',
       dienst: 'Prüfdienst',
       modelle: ['a', 'b'],
+      wege: {},
       entscheider: a,
       stufen: STUFEN,
       waechter: waechter(),
@@ -332,6 +336,7 @@ describe('Der Ausleger', () => {
       familie: 'x',
       dienst: 'Prüfdienst',
       modelle: ['a'],
+      wege: {},
       entscheider: a,
       stufen: STUFEN,
       waechter: waechter(),
@@ -347,6 +352,7 @@ describe('Der Ausleger', () => {
       familie: 'x',
       dienst: 'Prüfdienst',
       modelle: ['a'],
+      wege: {},
       entscheider: a,
       stufen: STUFEN,
       waechter: waechter(),
@@ -363,6 +369,7 @@ describe('Der Ausleger', () => {
       familie: 'x',
       dienst: 'Prüfdienst',
       modelle: ['a'],
+      wege: {},
       entscheider: a,
       stufen: STUFEN,
       waechter: waechter(),
@@ -370,6 +377,138 @@ describe('Der Ausleger', () => {
     expect(ergebnis.angenommen).toBe(true)
     expect(ergebnis.faehigkeiten).toEqual([])
     expect(ergebnis.wegen).toContain('KEINE der bekannten')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 3b. Der Widerspruch gegen die Messung
+// ---------------------------------------------------------------------------
+
+describe('Der Widerspruch gegen die Messung', () => {
+  test('die Sonde maß einen Weg, die Auslegung streitet ihn ab — Widerspruch', () => {
+    expect(widerspruchZwischen({ einbetten: 'vorhanden' }, [])).toContain('Einbetten')
+    expect(widerspruchZwischen({ einbetten: 'vorhanden' }, [])).toContain('gibt es nicht')
+  })
+
+  test('die Sonde maß 404, die Auslegung behauptet den Weg — Widerspruch', () => {
+    expect(widerspruchZwischen({ 'text-zu-sprache': 'fehlt' }, ['text-zu-sprache'])).toContain('404')
+  })
+
+  test('`unbekannt` widerspricht NICHTS — ein Tor sagt nichts über den Weg', () => {
+    // Daraus läßt sich kein Widerspruch bauen: wir wissen es schlicht nicht.
+    expect(widerspruchZwischen({ einbetten: 'unbekannt' }, [])).toBeUndefined()
+    expect(widerspruchZwischen({ einbetten: 'unbekannt' }, ['einbetten'])).toBeUndefined()
+  })
+
+  test('wo beide einig sind, gibt es keinen Widerspruch', () => {
+    expect(widerspruchZwischen({ einbetten: 'vorhanden' }, ['einbetten'])).toBeUndefined()
+    expect(widerspruchZwischen({ einbetten: 'fehlt' }, [])).toBeUndefined()
+    expect(widerspruchZwischen({}, ['einbetten'])).toBeUndefined()
+  })
+
+  test('DER FALL AUS DEM LEBENDEN LAUF: Z.ai — sechs Wege antworten, die Auslegung sagt „keine"', async () => {
+    // Gemessen am 15.10.2026: die Sonde fand für Z.ai alle sechs Wege als antwortend, und das
+    // Modell legte mit Sicherheit **0,93** fest, der Dienst biete „keine der bekannten
+    // Fähigkeiten". Diese Prüfung ist der Fall, der damals durchging.
+    const a = attrappe({ wahr: [], sicherheit: 0.93 })
+    const wege = {
+      gespraech: 'vorhanden',
+      entscheiden: 'vorhanden',
+      'text-zu-sprache': 'vorhanden',
+      'sprache-zu-text': 'vorhanden',
+      einbetten: 'vorhanden',
+      bild: 'vorhanden',
+    } as const
+
+    const ergebnis = await legeAus({
+      familie: 'zai',
+      dienst: 'Z.ai',
+      modelle: ['glm-4.6'],
+      wege,
+      entscheider: a,
+      stufen: STUFEN,
+      waechter: waechter(),
+    })
+
+    // **Hohe Sicherheit schützt nicht.** 0,93 lag über jeder Schwelle — und die Antwort war falsch.
+    expect(ergebnis.angenommen).toBe(false)
+    expect(ergebnis.faehigkeiten).toBeUndefined()
+    expect(ergebnis.widerspruch).toBeDefined()
+    expect(ergebnis.wegen).toContain('widerspricht der MESSUNG')
+    expect(ergebnis.sicherheit).toBe(0.93)
+  })
+
+  test('ein Widerspruch entsteht NICHT, wenn die Auslegung den gemessenen Weg nennt', async () => {
+    const a = attrappe({ wahr: ['einbetten'], sicherheit: 0.99 })
+    const ergebnis = await legeAus({
+      familie: 'x',
+      dienst: 'Prüfdienst',
+      modelle: ['a'],
+      wege: { einbetten: 'vorhanden', 'text-zu-sprache': 'fehlt' },
+      entscheider: a,
+      stufen: STUFEN,
+      waechter: waechter(),
+    })
+    expect(ergebnis.widerspruch).toBeUndefined()
+    expect(ergebnis.angenommen).toBe(true)
+    expect(ergebnis.faehigkeiten).toEqual(['einbetten'])
+  })
+
+  test('die gemessenen Wege gehen in den Text an das Modell ein', async () => {
+    // Ohne sie beurteilt der Ausleger ins Leere — das war der Befund des ersten Laufs.
+    let gesehen = ''
+    const a: Entscheider = {
+      async entscheide<T>(eingabe: EntscheidungsEingabe<T>): Promise<Urteil<T>> {
+        gesehen = JSON.stringify(eingabe.lage)
+        return {
+          wert: { sicherheit: 0.99, gespraech: true } as unknown as T,
+          herkunft: { anbieter: 'deepseek', modell: 'deepseek-flash' },
+        }
+      },
+    }
+    await legeAus({
+      familie: 'x',
+      dienst: 'Prüfdienst',
+      modelle: ['a'],
+      wege: { gespraech: 'vorhanden' },
+      entscheider: a,
+      stufen: STUFEN,
+      waechter: waechter(),
+    })
+    expect(gesehen).toContain('kennungen')
+  })
+
+  test('der Verwalter schreibt den WIDERSPRUCH in den Katalog, nicht die Auslegung', async () => {
+    const lauf = await verwalte(LEER, {
+      familien: [familie('a')],
+      sonde: async (f) => befund(f.id, ['x']),
+      ausleger: async () => ({
+        angenommen: false,
+        sicherheit: 0.93,
+        widerspruch: '„Einbetten": der Weg antwortet, die Auslegung sagt „gibt es nicht"',
+        wegen: 'NICHT übernommen: die Auslegung widerspricht der MESSUNG.',
+      }),
+      jetzt: () => JETZT,
+      anlass: 'start',
+    })
+    const eintrag = eintragFuer(lauf.katalog, 'a')
+    expect(eintrag?.auslegung).toBeUndefined()
+    expect(eintrag?.widerspruch).toContain('Einbetten')
+    expect(eintrag?.auslegungOffen).toContain('MESSUNG')
+  })
+
+  test('ein Widerspruch überlebt den Weg durch die Datei', async () => {
+    const lauf = await verwalte(LEER, {
+      familien: [familie('a')],
+      sonde: async (f) => befund(f.id, ['x']),
+      ausleger: async () => ({ angenommen: false, widerspruch: 'hier stimmt etwas nicht', wegen: 'x' }),
+      jetzt: () => JETZT,
+      anlass: 'start',
+    })
+    expect(leseKatalog(schreibeKatalog(lauf.katalog))).toEqual(lauf.katalog)
+    expect(eintragFuer(leseKatalog(schreibeKatalog(lauf.katalog)), 'a')?.widerspruch).toBe(
+      'hier stimmt etwas nicht',
+    )
   })
 })
 

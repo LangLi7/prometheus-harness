@@ -178,17 +178,23 @@ export async function verwalte(
       } else {
         try {
           const ergebnis = await optionen.ausleger(familie, befund)
-          fertig =
-            ergebnis.faehigkeiten === undefined || !ergebnis.angenommen
-              ? { ...eintrag, auslegungOffen: ergebnis.wegen }
-              : {
-                  ...eintrag,
-                  auslegung: {
-                    faehigkeiten: ergebnis.faehigkeiten,
-                    ...(ergebnis.sicherheit === undefined ? {} : { sicherheit: ergebnis.sicherheit }),
-                    ...(ergebnis.herkunft === undefined ? {} : { herkunft: ergebnis.herkunft }),
-                  },
-                }
+          if (ergebnis.widerspruch !== undefined) {
+            // **Der Widerspruch steht im Katalog, nicht die Auslegung.** Hier hat jemand etwas
+            // behauptet und die Messung sagt das Gegenteil — das ist eine eigene Lage, und wer sie
+            // später liest, soll sie erkennen.
+            fertig = { ...eintrag, widerspruch: ergebnis.widerspruch, auslegungOffen: ergebnis.wegen }
+          } else if (ergebnis.faehigkeiten === undefined || !ergebnis.angenommen) {
+            fertig = { ...eintrag, auslegungOffen: ergebnis.wegen }
+          } else {
+            fertig = {
+              ...eintrag,
+              auslegung: {
+                faehigkeiten: ergebnis.faehigkeiten,
+                ...(ergebnis.sicherheit === undefined ? {} : { sicherheit: ergebnis.sicherheit }),
+                ...(ergebnis.herkunft === undefined ? {} : { herkunft: ergebnis.herkunft }),
+              },
+            }
+          }
           bericht.push(`  ${familie.name}: ${ergebnis.wegen}`)
         } catch (fehler) {
           const grund = fehler instanceof Error ? fehler.message : String(fehler)

@@ -42,7 +42,13 @@ export {
   type Takt,
 } from './katalog.ts'
 
-export { auslegeSchema, legeAus, type Auslegeauftrag, type Auslegeergebnis } from './ausleger.ts'
+export {
+  auslegeSchema,
+  legeAus,
+  widerspruchZwischen,
+  type Auslegeauftrag,
+  type Auslegeergebnis,
+} from './ausleger.ts'
 
 export {
   sollLaufen,
