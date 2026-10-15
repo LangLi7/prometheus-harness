@@ -716,6 +716,38 @@ nachgesehen".
 
 **Der Merksatz.** `grep` in einem Paket ist eine Frage an **ein** Paket, nicht an die Welt.
 
+## 41. Ein ECHTER Ersatz in der Prüfung sieht WENIGER als eine Attrappe
+
+**Der Fall — und er saß vier Runden lang in meinem eigenen Werkzeug.** Mein Bündelprüfer
+(`packages/client/quellordner/bauen.mjs`) rief die Plugin-Fabrik mit einem **echten** `require` auf
+— aus `node_modules`, wie im Betrieb. Das Hauswerkzeug (`scripts/client-buendel.mjs`) rief sie mit
+einer **Attrappe** auf, die **jeden Modulwunsch mitschreibt**.
+
+Beide Prüfungen waren **grün**. Aber die Attrappe sah etwas, das der echte Ersatz verbarg:
+
+> *„Die Fabrik verlangt Module außerhalb der Baseline: **`react/jsx-dev-runtime`**"*
+
+Bun hatte im **Entwicklungsmodus** gebaut. Im Browser steht diese Laufzeit **nicht** in der
+Modultafel des Kerns (`PLATFORM_MODULES`) — der Lader hätte geworfen, und **das Bündel wäre nicht
+geladen**. Der echte `require` löste die Dev-Laufzeit aus `node_modules` auf und **meldete nichts**.
+
+**Die Regel.** Wo geprüft wird, ob etwas **verlangt** wird, gehört eine **Attrappe** hin, die das
+Verlangen **festhält** — kein echter Ersatz, der es **befriedigt**. Ein erfüllter Wunsch ist kein
+sichtbarer Wunsch.
+
+**Warum das der Gemeinheit die Krone aufsetzt.** Ein fehlender Aufruf fällt auf. Ein **erfüllter**
+Wunsch sieht aus wie ein funktionierender. Mein Werkzeug meldete vier Runden lang „Bestanden" —
+und hätte im Browser versagt.
+
+**Der zweite Teil, der dazugehört.** Der Bau gehört in den **Produktionsmodus**
+(`define: {'process.env.NODE_ENV': '"production"'}`), sonst verlangt das Bündel
+`react/jsx-dev-runtime`. Gegengeprüft wird das **im Gebauten**: `jsx-dev-runtime` darf darin
+**nicht** vorkommen, `jsx-runtime` muß.
+
+**Verwandt mit Regel 5, aber nicht dasselbe.** Dort ging es darum, daß eine Gegenprobe **rot werden
+kann**. Hier konnte sie es — sie bekam nur **zu bereitwillige** Zutaten.
+
+
 
 
 
