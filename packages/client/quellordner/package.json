@@ -4,16 +4,17 @@
   "private": true,
   "type": "module",
   "description": "Der Quellordner-Dialog: die reine Komponente, die vier Wege als Datenschicht, und die Einhängung in shell.overlay als gebautes lib/client.js. Der Bündelbau prüft das Gebaute, indem er es ausführt.",
-  "main": "lib/client.js",
   "exports": {
-    ".": "./src/dialog.tsx",
+    "./dialog": "./src/dialog.tsx",
     "./wege": "./src/wege.ts",
+    "./stand": "./src/stand.ts",
     "./client": "./lib/client.js",
     "./package.json": "./package.json"
   },
   "dsh": {
     "client": {
-      "platform": "web"
+      "platform": "web",
+      "inject": []
     }
   },
   "files": [
