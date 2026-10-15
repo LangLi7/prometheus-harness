@@ -13,45 +13,20 @@ Ausgenommen MIT GRUND (7):
   packages\auth\db-schema\migrations\0009_arbeitsbereich-ordner.sql  —  deutsches Segment "arbeitsbereich"  [Schemafassung: der Dateiname ist die Version]
   packages\auth\db-schema\migrations\0010_zusatzordner-zugriff.sql  —  deutsches Segment "zusatzordner"  [Schemafassung: der Dateiname ist die Version]
 
-69 Verstöße:
+50 Verstöße:
 
-  apps\login_web\src\
-    sprache.ts  —  deutsches Segment "sprache"
-    weiter.ts  —  deutsches Segment "weiter"
-  apps\login_web\tests\
-    sprache.test.ts  —  deutsches Segment "sprache"
-    weiter.test.ts  —  deutsches Segment "weiter"
   docker\
     rechtprobe.sql  —  deutsches Segment "rechtprobe"
   packages\ai\local\tests\
     lokal.test.ts  —  deutsches Segment "lokal"
   packages\auth\db-schema\src\
     betriebsdatenbank.ts  —  deutsches Segment "betriebsdatenbank"
-  packages\auth\db-schema\tests\
-    arbeitsbereich-ordner.test.ts  —  deutsches Segment "arbeitsbereich"
-    sitzungsprotokoll.test.ts  —  deutsches Segment "sitzungsprotokoll"
-  packages\auth\db-schema\tests\proben\
-    proben  —  deutsches Segment "proben"
-    benutzerprofile.sql  —  deutsches Segment "benutzerprofile"
-    mandantentrennung.sql  —  deutsches Segment "mandantentrennung"
-    wissensspeicher.sql  —  deutsches Segment "wissensspeicher"
   packages\auth\secrets\src\
     krypto.ts  —  deutsches Segment "krypto"
     schluesselgeber.ts  —  deutsches Segment "schluesselgeber"
   packages\auth\secrets\tests\
     krypto.test.ts  —  deutsches Segment "krypto"
     schluesselkette.test.ts  —  deutsches Segment "schluesselkette"
-  packages\auth\store-postgres\src\
-    ordner.ts  —  deutsches Segment "ordner"
-    wurzeln.ts  —  deutsches Segment "wurzeln"
-    zerleger.ts  —  deutsches Segment "zerleger"
-  packages\auth\store-postgres\tests\
-    attrappe.test.ts  —  deutsches Segment "attrappe"
-    einmaltoken.test.ts  —  deutsches Segment "einmaltoken"
-    mandant.test.ts  —  deutsches Segment "mandant"
-    wissen.test.ts  —  deutsches Segment "wissen"
-    wurzeln.test.ts  —  deutsches Segment "wurzeln"
-    zerleger.test.ts  —  deutsches Segment "zerleger"
   scripts\
     apischluessel.mjs  —  deutsches Segment "apischluessel"
     apischluessel.test.mjs  —  deutsches Segment "apischluessel"
