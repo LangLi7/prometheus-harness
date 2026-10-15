@@ -22,10 +22,22 @@
  *
  * ## Was NOCH offen ist
  *
- * Der Container lädt **keine** Ordner. Dafür braucht er die **Arbeitsbereichs-Kennung**, und die
- * kommt aus den Client-Diensten `workspaces` und `sessions` — die müßte diese Datei erst
- * **einbinden** (`inject`), und **das ist nicht gemessen**. Die Regel selbst steht bereit und ist
- * geprüft: {@link arbeitsbereichId} in `stand.ts`, nachgebaut aus `ui-git/src/client/index.ts:204`.
+ * **KORREKTUR vom 15.10.2026.** Hier stand: *„es gibt kein `pickDirectory()`; der Host bietet ein
+ * `directory-flow`-Loch … wie ein Plugin das von außen öffnet, ist NICHT gemessen."*
+ *
+ * **Das war falsch.** `ctx.workspaces.pickDirectory()` **gibt es**:
+ *
+ * | Fundstelle | Was dort steht |
+ * |---|---|
+ * | `packages/client/runtime/src/client/contract/workspaces.ts:41` | `pickDirectory(): Promise<string \| null>` |
+ * | `packages/client/runtime/src/client/workspaces/service.ts:209` | ruft `api.host.pickDirectory({})` |
+ * | `ui-directory-picker-native/src/client/index.ts:27` | `pick: () => ctx.workspaces.pickDirectory()` |
+ *
+ * **Wie der Fehler entstand:** ich habe den Vertrag von **`ui-workspace`** gelesen, dort nur das
+ * `directory-flow`-**Loch** gefunden und daraus geschlossen, es gebe die Methode nicht. Sie steht
+ * im **`dsh-client-runtime`** — einem anderen Paket. **Eine Abwesenheit an einer Stelle ist kein
+ * Beweis für Abwesenheit.** Dasselbe habe ich an diesem Tag schon zweimal falsch gemacht (die
+ * Modellliste von OpenRouter; die Parameterliste von granite). Jetzt ist es verdrahtet.
  *
  * @module @prometheus-harness/client-quellordner/client
  */
@@ -34,7 +46,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { useEffect, useState } from 'react'
 import { QuellordnerDialog, type Ordner } from './dialog.tsx'
 import { arbeitsbereichId, csrfWert, type Arbeitsbereichsstand } from './stand.ts'
-import { listeOrdner, entferneOrdner, setzeZugriff, type WegeOptionen } from './wege.ts'
+import { listeOrdner, legeOrdnerAn, entferneOrdner, setzeZugriff, type WegeOptionen } from './wege.ts'
 
 /** Kennung des Plugins. */
 export const name = 'quellordner'
@@ -62,6 +74,16 @@ export interface QuellordnerDienste {
    * @returns die Kennung, oder `undefined`, wenn es keinen Bereich gibt
    */
   readonly arbeitsbereich: () => string | undefined
+  /**
+   * Öffnet den Verzeichniswähler des Rechners.
+   *
+   * **Gemessen:** `ctx.workspaces.pickDirectory(): Promise<string | null>`
+   * (`dsh-client-runtime`, Vertrag und Dienst). `null` heißt: der Nutzer hat **abgebrochen** —
+   * das ist **kein** Fehler und darf keine Meldung erzeugen.
+   *
+   * @returns der gewählte Pfad oder `null`
+   */
+  readonly waehleVerzeichnis: () => Promise<string | null>
 }
 
 /**
@@ -76,6 +98,7 @@ export interface QuellordnerDienste {
 export function QuellordnerSchicht({
   optionen,
   arbeitsbereich,
+  waehleVerzeichnis,
 }: QuellordnerDienste): React.ReactElement {
   const [offen, setOffen] = useState(false)
   const [ordner, setOrdner] = useState<readonly Ordner[]>([])
@@ -163,15 +186,24 @@ export function QuellordnerSchicht({
         aendern(() => entferneOrdner(id, optionen))
       }}
       beiHinzufuegen={() => {
-        // **Ehrlich statt still.** Ein Knopf, der nichts tut, ist schlimmer als keiner: der Nutzer
-        // drückt und glaubt, es sei etwas geschehen. Das Hinzufügen braucht den
-        // **Verzeichniswähler des Hosts** — und dafür gibt es kein `pickDirectory()`; der Host
-        // bietet ein `directory-flow`-Loch (`conversation.hero.workspace.directoryFlow`). **Wie
-        // ein Plugin das von außen öffnet, ist NICHT gemessen.**
-        setFehler(
-          'Das Hinzufügen braucht den Verzeichniswähler des Hosts. Wie ein Plugin ihn öffnet, ist ' +
-            'noch nicht gemessen — dieser Knopf tut deshalb noch nichts.',
-        )
+        const bereich = arbeitsbereich()
+        if (bereich === undefined) {
+          setFehler('Es gibt keinen Arbeitsbereich — es kann kein Ordner eingetragen werden.')
+          return
+        }
+        setFehler(undefined)
+        waehleVerzeichnis()
+          .then(async (pfad) => {
+            // **`null` heißt abgebrochen — kein Fehler, kein Neuladen.** Eine Meldung für einen
+            // bewußten Abbruch wäre eine Lüge: der Nutzer hat nichts falsch gemacht. Und neu zu
+            // laden, obwohl sich nichts geändert hat, wäre eine Fahrt zum Server umsonst.
+            if (pfad === null) return
+            await legeOrdnerAn({ workspaceId: bereich, pfad }, optionen)
+            setRunde((r) => r + 1)
+          })
+          .catch((e: unknown) => {
+            setFehler(e instanceof Error ? e.message : 'Der Ordner ließ sich nicht eintragen.')
+          })
       }}
       beiSchliessen={() => {
         setOffen(false)
@@ -194,7 +226,10 @@ export function apply(ctx: Context): void {
       inject: (key: string, f: () => unknown) => void
       register: (o: unknown, c: unknown) => unknown
     }
-    workspaces: { list: { getSnapshot: () => { items: readonly Arbeitsbereichsstand[] } } }
+    workspaces: {
+      list: { getSnapshot: () => { items: readonly Arbeitsbereichsstand[] } }
+      pickDirectory: () => Promise<string | null>
+    }
     sessions: { list: { getSnapshot: () => { current: string | undefined } } }
   }
 
@@ -215,6 +250,9 @@ export function apply(ctx: Context): void {
               kern.workspaces.list.getSnapshot().items,
               kern.sessions.list.getSnapshot().current,
             ),
+          // **Nicht gebunden, sondern durchgereicht.** Die Methode gehört dem Dienst; sie hier
+          // abzuschreiben hieße, sie an zwei Stellen zu pflegen.
+          waehleVerzeichnis: () => kern.workspaces.pickDirectory(),
         }),
       },
       QuellordnerSchicht,

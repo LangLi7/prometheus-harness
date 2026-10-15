@@ -238,6 +238,7 @@ function arbeitsbereichId(bereiche, sitzung) {
 
 // packages/client/quellordner/src/wege.ts
 var PFAD_ORDNER = "/api/pmh/ordner";
+var PFAD_ORDNER_ANLEGEN = "/api/pmh/ordner/anlegen";
 var PFAD_ORDNER_ZUGRIFF = "/api/pmh/ordner/zugriff";
 var PFAD_ORDNER_ENTFERNEN = "/api/pmh/ordner/entfernen";
 var CSRF_KOPF = "x-pmh-csrf";
@@ -281,6 +282,21 @@ async function listeOrdner(workspaceId, optionen) {
   const wert = await liesHuelle(antwort, PFAD_ORDNER);
   return { ordner: wert.ordner ?? [], wurzeln: wert.wurzeln ?? [] };
 }
+async function legeOrdnerAn(eingabe, optionen) {
+  const abruf = optionen.abruf ?? ((adresse, einstellung) => fetch(adresse, einstellung));
+  const koerper = { workspaceId: eingabe.workspaceId, pfad: eingabe.pfad };
+  if (eingabe.zugriff !== undefined)
+    koerper["zugriff"] = eingabe.zugriff;
+  if (eingabe.bezeichnung !== undefined && eingabe.bezeichnung.trim() !== "") {
+    koerper["bezeichnung"] = eingabe.bezeichnung.trim();
+  }
+  const antwort = await abruf(PFAD_ORDNER_ANLEGEN, {
+    method: "POST",
+    headers: kopfMitCsrf(optionen),
+    body: JSON.stringify(koerper)
+  });
+  return await liesHuelle(antwort, PFAD_ORDNER_ANLEGEN);
+}
 async function setzeZugriff(id, zugriff, optionen) {
   const abruf = optionen.abruf ?? ((adresse, einstellung) => fetch(adresse, einstellung));
   const antwort = await abruf(PFAD_ORDNER_ZUGRIFF, {
@@ -306,7 +322,8 @@ var name = "quellordner";
 var inject = ["slots", "workspaces", "sessions"];
 function QuellordnerSchicht({
   optionen,
-  arbeitsbereich
+  arbeitsbereich,
+  waehleVerzeichnis
 }) {
   const [offen, setOffen] = import_react.useState(false);
   const [ordner, setOrdner] = import_react.useState([]);
@@ -366,7 +383,20 @@ function QuellordnerSchicht({
       aendern(() => entferneOrdner(id, optionen));
     },
     beiHinzufuegen: () => {
-      setFehler("Das Hinzufügen braucht den Verzeichniswähler des Hosts. Wie ein Plugin ihn öffnet, ist " + "noch nicht gemessen — dieser Knopf tut deshalb noch nichts.");
+      const bereich = arbeitsbereich();
+      if (bereich === undefined) {
+        setFehler("Es gibt keinen Arbeitsbereich — es kann kein Ordner eingetragen werden.");
+        return;
+      }
+      setFehler(undefined);
+      waehleVerzeichnis().then(async (pfad) => {
+        if (pfad === null)
+          return;
+        await legeOrdnerAn({ workspaceId: bereich, pfad }, optionen);
+        setRunde((r) => r + 1);
+      }).catch((e) => {
+        setFehler(e instanceof Error ? e.message : "Der Ordner ließ sich nicht eintragen.");
+      });
     },
     beiSchliessen: () => {
       setOffen(false);
@@ -381,7 +411,8 @@ function apply(ctx) {
     label: "Quellordner",
     inject: () => ({
       optionen: { csrf: csrfWert },
-      arbeitsbereich: () => arbeitsbereichId(kern.workspaces.list.getSnapshot().items, kern.sessions.list.getSnapshot().current)
+      arbeitsbereich: () => arbeitsbereichId(kern.workspaces.list.getSnapshot().items, kern.sessions.list.getSnapshot().current),
+      waehleVerzeichnis: () => kern.workspaces.pickDirectory()
     })
   }, QuellordnerSchicht));
 }

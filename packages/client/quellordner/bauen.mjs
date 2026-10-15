@@ -145,7 +145,11 @@ function pruefe(text) {
         return () => undefined
       },
     },
-    workspaces: { list: { getSnapshot: () => ({ items: [] }) } },
+    workspaces: {
+      list: { getSnapshot: () => ({ items: [] }) },
+      // Gemessen: `ctx.workspaces.pickDirectory(): Promise<string | null>` (dsh-client-runtime).
+      pickDirectory: () => Promise.resolve(null),
+    },
     sessions: { list: { getSnapshot: () => ({ current: undefined }) } },
   }
   plugin.apply(ctx)
@@ -185,6 +189,11 @@ function pruefe(text) {
       // Ohne Bereiche im Stand muß `undefined` herauskommen — nicht ein leerer Text, der wie eine
       // Kennung aussähe.
       befunde.push('Ohne Arbeitsbereiche liefert `arbeitsbereich()` etwas anderes als undefined.')
+    }
+    if (typeof dienste.waehleVerzeichnis !== 'function') {
+      // Der Verzeichniswähler ist der Weg, den ein echtes Plugin geht
+      // (ui-directory-picker-native/src/client/index.ts:27).
+      befunde.push('Die inject-Fabrik liefert keinen `waehleVerzeichnis`-Weg.')
     }
     const html = renderToStaticMarkup(createElement(eintragung.komponente, dienste))
     if (html.trim() === '') befunde.push('Die Komponente rendert NICHTS.')

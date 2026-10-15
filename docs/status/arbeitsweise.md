@@ -690,6 +690,33 @@ rot werden läßt.
 **Die Gegenprobe, die dazugehört.** `eigenesZuhause({ DSH_HOME: '…\\.dsh' })` muß `.pmh` liefern —
 sonst prüft die Prüfung nichts.
 
+## 40. Eine Abwesenheit an EINER Stelle ist kein Beweis für Abwesenheit
+
+**Der Fall — und er ist an einem Tag DREIMAL passiert.** Immer dieselbe Form: ich habe an **einer**
+Stelle nachgesehen, nichts gefunden, und daraus geschlossen, daß es etwas nicht gibt.
+
+| Was ich behauptet habe | Wo ich nachsah | Wo es wirklich stand |
+|---|---|---|
+| „OpenRouter hat kein TTS, keine Transkription, kein Einbetten" | `GET /api/v1/models` (462 Einträge) | `/models/<kennung>/endpoints` — **und der Dienst, der es mir sagte** |
+| „granite-4.0-h-micro kann kein `json_schema`" | `supported_parameters` in der Modellliste | Der **Aufruf** — er lieferte ein schema-konformes Urteil |
+| „es gibt kein `pickDirectory()`" | der Vertrag von **`ui-workspace`** | der Vertrag von **`dsh-client-runtime`** — und ein echtes Plugin benutzt es |
+
+Bei allen dreien war die Schlussfolgerung **logisch falsch**: aus „ich habe es hier nicht gefunden"
+folgt „es gibt es nicht" **nur**, wenn man **alle** Orte kennt. Und das weiß man vorher nicht.
+
+**Die Regel.** Eine Abwesenheit wird **nur** behauptet, wenn man **alle** in Frage kommenden Orte
+durchgesehen hat — oder, besser: wenn man **gefragt hat**. Wo fragen geht (ein Aufruf, eine
+Suche über den ganzen Baum), wird gefragt. Und wo eine Suche nur **einen** Namensraum abdeckt, steht
+das in der Meldung: *„im Vertrag von X steht es nicht"* — nicht *„es gibt es nicht"*.
+
+**Warum das die teuerste Sorte Fehler ist.** Eine falsche Behauptung über das **Vorhandene** kostet
+einen Versuch. Eine falsche Behauptung über das **Fehlende** kostet die **ganze Arbeit** — man baut,
+was schon da ist, oder läßt weg, was es gibt. Und sie sieht dabei **gründlich** aus: „ich habe
+nachgesehen".
+
+**Der Merksatz.** `grep` in einem Paket ist eine Frage an **ein** Paket, nicht an die Welt.
+
+
 
 
 ## 37. „Der Weg ist da" ist nicht „die Fähigkeit wirkt"
