@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/aufbau",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Der Aufbau: aus Einstellungen und Anbietern eine EINSATZBEREITE Registratur bauen. Der Mensch wird zuletzt eingetragen, eine Wahl auf einen unbekannten Anbieter wird gemeldet statt verschwiegen.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

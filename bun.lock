@@ -76,6 +76,10 @@
         "@prometheus-harness/session-format": "workspace:*",
       },
     },
+    "packages/ai/aufbau": {
+      "name": "@prometheus-harness/aufbau",
+      "version": "0.0.0",
+    },
     "packages/ai/einstellungen": {
       "name": "@prometheus-harness/einstellungen",
       "version": "0.0.0",
@@ -958,6 +962,8 @@
     "@prometheus-harness/apikey": ["@prometheus-harness/apikey@workspace:packages/auth/apikey"],
 
     "@prometheus-harness/atomic-write": ["@prometheus-harness/atomic-write@workspace:packages/util/atomic-write"],
+
+    "@prometheus-harness/aufbau": ["@prometheus-harness/aufbau@workspace:packages/ai/aufbau"],
 
     "@prometheus-harness/auth": ["@prometheus-harness/auth@workspace:packages/auth/auth"],
 
