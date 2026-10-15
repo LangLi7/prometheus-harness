@@ -61,3 +61,32 @@ Zusammenhangs, sondern mit voller Aufmerksamkeit und einer Prüfung danach.
 | **installiert** | **NEIN** | steht in keiner der drei Tabellen |
 | aktiv | nein | folgt aus „installiert" |
 | wirkt | nein | kein Browser auf diesem Rechner |
+
+## 5. Nachtrag: React ist Baseline — und das Hauswerkzeug weiß es nicht
+
+**Gemessen** in `node_modules/@deepseek-ai/dsh-client-modules/README.md`:
+
+> *„The shell seeds a frozen module table (`PLATFORM_MODULES`: **React**, Cordis, and static UI
+> libraries); every dynamic bundle resolves its externals against exactly that baseline.
+> `dsh.client.external` adds only **exact non-baseline** requests."*
+
+**Was daraus folgt:**
+
+1. **Mein Bündel ist richtig, wie es ist.** Es verlangt `react` und `react/jsx-runtime` — beides
+   **Baseline**. Es braucht **keinen** Eintrag in `dsh.client.external`.
+2. **Aber unser Hauswerkzeug würde es fälschlich anmeckern.** `pruefeBuendel` (Zeile 208–212) wertet
+   **jeden** `require`-Wunsch als Fehler: *„Die Fabrik verlangt Module: … — dann gehören sie in
+   `dsh.client.external`"*. Für React ist das **falsch** — React ist Baseline und wird von der
+   festen Modultafel beantwortet.
+
+**Warum mein `bauen.mjs` das nicht gesehen hat.** Es reicht einen **echten** `require` durch, also
+lädt React wirklich und **nichts fällt auf**. Das Hauswerkzeug reicht eine **Attrappe** durch und
+sieht den Wunsch. **Beide Prüfungen sind für sich grün — und nur die schärfere findet den
+Unterschied.** Das ist der Grund, warum ein zweites Werkzeug neben dem Hauswerkzeug gefährlich ist:
+es sieht weniger und meldet trotzdem „bestanden".
+
+**Die Folge für Schritt 1.** Wer mein Paket in `PAKETE` einträgt und `art: 'verhalten'` nimmt,
+bekommt **einen Fehlalarm** — nicht wegen des Bündels, sondern wegen der Prüfung. Vorher muß der
+Verteiler die **Baseline** kennen: `react`, `react-dom`, Cordis und die statischen UI-Bibliotheken
+sind **keine** Wünsche, die gemeldet werden dürfen. Erst dann ist ein neuer Eintrag sinnvoll.
+
