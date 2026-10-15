@@ -45,7 +45,7 @@
   "scripts/naming-guard.mjs": 4,
   "scripts/port-test.ps1": 24,
   "scripts/ps1-parser.mjs": 10,
-  "scripts/quelltext-pruefung.mjs": 1,
+  "scripts/source-check.mjs": 1,
   "scripts/reference-guard.mjs": 5,
   "scripts/stack-test.ps1": 6,
   "scripts/start.mjs": 1,

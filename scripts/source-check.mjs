@@ -1,5 +1,5 @@
 /**
- * `scripts/quelltext-pruefung.mjs` — findet Zeichen im Quelltext, die niemand sieht.
+ * `scripts/source-check.mjs` — findet Zeichen im Quelltext, die niemand sieht.
  *
  * ## Warum es diese Datei gibt
  *
@@ -28,7 +28,7 @@
  * Nullbyte, Klingel, Escape, Seitenvorschub, geschütztes Leerzeichen als
  * Steuerzeichen und so weiter. Keines davon gehört in Quelltext.
  *
- * @module scripts/quelltext-pruefung
+ * @module scripts/source-check
  */
 
 import { readdirSync, readFileSync } from 'node:fs'

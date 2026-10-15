@@ -1,5 +1,5 @@
 /**
- * Prüfungen für {@link module:scripts/quelltext-pruefung}.
+ * Prüfungen für {@link module:scripts/source-check}.
  *
  * **Warum es diese Datei gibt.** Im Quelltext standen **zwei** Zeichen, die kein
  * Mensch sieht: an der Stelle des `f` in `flushEvery` stand ein **Seitenvorschub**
@@ -19,7 +19,7 @@
  */
 import { describe, expect, test } from 'bun:test'
 
-import { findeSteuerzeichen, pruefeQuelltext } from '../quelltext-pruefung.mjs'
+import { findeSteuerzeichen, pruefeQuelltext } from '../source-check.mjs'
 
 describe('findeSteuerzeichen', () => {
   test('findet Zeichen 12 und nennt Datei, Zeile und Umfeld', () => {
