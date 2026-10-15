@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    // **Die Basiskonfiguration kennt kein DOM.** Sie ist für den Rechner geschrieben
+    // (`lib: ["ES2022"]`). Eine Browser-Komponente braucht die DOM-Typen — ohne sie ist
+    // `HTMLInputElement.value` unbekannt, und `e.target.value` wird zum Fehler.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["bun", "react", "react-dom"]
+  },
+  "include": ["src", "tests"]
+}

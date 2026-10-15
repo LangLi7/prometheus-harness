@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/client-quellordner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Der Quellordner-Dialog als reine Komponente: der Arbeitsplatz (primär, nicht entfernbar) und die Zusatzordner mit Lese- oder Schreibzugriff. Noch NICHT am Host eingehängt — die Einhängung ist der nächste Schritt.",
+  "exports": {
+    ".": "./src/dialog.tsx"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}
