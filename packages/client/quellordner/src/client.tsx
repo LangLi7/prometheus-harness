@@ -31,21 +31,37 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { QuellordnerDialog, type Ordner } from './dialog.tsx'
-import { csrfWert } from './stand.ts'
-import { type WegeOptionen } from './wege.ts'
+import { arbeitsbereichId, csrfWert, type Arbeitsbereichsstand } from './stand.ts'
+import { listeOrdner, type WegeOptionen } from './wege.ts'
 
 /** Kennung des Plugins. */
 export const name = 'quellordner'
 
-/** Was der Client-Kern bereitstellen muß. */
-export const inject: readonly string[] = ['slots']
+/**
+ * Was der Client-Kern bereitstellen muß.
+ *
+ * **Gemessen an `ui-git/src/client/index.ts:40`** — dort steht
+ * `['slots', 'sessions', 'workspaces', 'locale', 'connection']`. Die beiden mittleren sind die,
+ * die dieser Dialog braucht; `locale` und `connection` braucht er nicht.
+ */
+export const inject: readonly string[] = ['slots', 'workspaces', 'sessions']
 
 /** Was die Komponente an Diensten bekommt. */
 export interface QuellordnerDienste {
   /** Die Quellen für die Wege. */
   readonly optionen: WegeOptionen
+  /**
+   * Welcher Arbeitsbereich gemeint ist.
+   *
+   * **Warum das eine Funktion ist und kein Wert.** Der Bereich kann sich **ändern**, während die
+   * Schicht eingehängt bleibt. Ein beim Aufbau gelesener Wert wäre nach dem Wechsel falsch — und
+   * der Dialog zeigte die Ordner eines anderen Bereichs an.
+   *
+   * @returns die Kennung, oder `undefined`, wenn es keinen Bereich gibt
+   */
+  readonly arbeitsbereich: () => string | undefined
 }
 
 /**
@@ -57,10 +73,40 @@ export interface QuellordnerDienste {
  * @param eigenschaften - die eingehängten Dienste
  * @returns die Schicht
  */
-export function QuellordnerSchicht({ optionen }: QuellordnerDienste): React.ReactElement {
+export function QuellordnerSchicht({
+  optionen,
+  arbeitsbereich,
+}: QuellordnerDienste): React.ReactElement {
   const [offen, setOffen] = useState(false)
-  const [ordner] = useState<readonly Ordner[]>([])
+  const [ordner, setOrdner] = useState<readonly Ordner[]>([])
   const [fehler, setFehler] = useState<string | undefined>(undefined)
+
+  // **Geladen wird beim Öffnen** — nicht beim Einbinden der Schicht. Die Schicht hängt dauerhaft
+  // im Fenster; ohne diese Bedingung liefe bei jedem Aufbau ein Netzaufruf.
+  useEffect(() => {
+    if (!offen) return
+    const bereich = arbeitsbereich()
+    if (bereich === undefined) {
+      setFehler('Es gibt keinen Arbeitsbereich — es kann nichts angezeigt werden.')
+      return
+    }
+    let gilt = true
+    listeOrdner(bereich, optionen)
+      .then((liste) => {
+        // **Nur setzen, wenn dieser Aufruf noch gilt.** Sonst überschriebe eine späte Antwort
+        // eine neuere — und der Dialog zeigte etwas Veraltetes.
+        if (gilt) {
+          setOrdner(liste.ordner)
+          setFehler(undefined)
+        }
+      })
+      .catch((e: unknown) => {
+        if (gilt) setFehler(e instanceof Error ? e.message : 'Die Ordner ließen sich nicht laden.')
+      })
+    return () => {
+      gilt = false
+    }
+  }, [offen, arbeitsbereich, optionen])
 
   if (!offen) {
     return (
@@ -72,7 +118,7 @@ export function QuellordnerSchicht({ optionen }: QuellordnerDienste): React.Reac
           // zur Seite. Sonst könnte die Warnung hier ausbleiben, während der ändernde Aufruf
           // später mit 403 scheitert.
           if (optionen.csrf() === undefined) {
-            setFehler('Kein CSRF-Wert in der Seite (meta name="pmh-csrf") — es kann nichts geändert werden.')
+            setFehler('Kein CSRF-Wert in der Seite (Keks pmh_csrf) — es kann nichts geändert werden.')
           }
           setOffen(true)
         }}
@@ -100,15 +146,36 @@ export function QuellordnerSchicht({ optionen }: QuellordnerDienste): React.Reac
  * @param ctx - der Client-Kontext des Kerns
  */
 export function apply(ctx: Context): void {
-  const slots = (ctx as unknown as { slots: { inject: (key: string, f: () => unknown) => void; register: (o: unknown, c: unknown) => unknown } }).slots
-  slots.inject('shell.overlay', () =>
-    slots.register(
+  // Der Kontext, wie er hier gebraucht wird. **Als Typ ausgeschrieben**, weil `slots`,
+  // `workspaces` und `sessions` erst durch die Einbindung entstehen und der Vertrag dafür in
+  // `dsh-client-ui-slots` bzw. `dsh-client-ui-workspace` liegt.
+  const kern = ctx as unknown as {
+    slots: {
+      inject: (key: string, f: () => unknown) => void
+      register: (o: unknown, c: unknown) => unknown
+    }
+    workspaces: { list: { getSnapshot: () => { items: readonly Arbeitsbereichsstand[] } } }
+    sessions: { list: { getSnapshot: () => { current: string | undefined } } }
+  }
+
+  kern.slots.inject('shell.overlay', () =>
+    kern.slots.register(
       {
         name: 'shell.overlay',
         // Ein Listeneintrag BRAUCHT eine eigene id — ohne sie wirft die Registratur.
         id: 'quellordner',
         label: 'Quellordner',
-        inject: (): QuellordnerDienste => ({ optionen: { csrf: csrfWert } }),
+        // **Die Fabrik schließt über `ctx`.** Der Vertrag sagt: *„Business data access happens
+        // through the apply closure's ctx — no binding object parameter exists."* Deshalb bekommt
+        // sie keine Parameter, sondern liest die Dienste hier.
+        inject: (): QuellordnerDienste => ({
+          optionen: { csrf: csrfWert },
+          arbeitsbereich: () =>
+            arbeitsbereichId(
+              kern.workspaces.list.getSnapshot().items,
+              kern.sessions.list.getSnapshot().current,
+            ),
+        }),
       },
       QuellordnerSchicht,
     ),

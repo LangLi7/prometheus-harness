@@ -227,22 +227,90 @@ function csrfWert(kekse) {
     return;
   return wertAusKeks(quelle, CSRF_KEKS);
 }
+function arbeitsbereichId(bereiche, sitzung) {
+  if (sitzung !== undefined) {
+    const eigener = bereiche.find((b) => b.sessionIds.includes(sitzung));
+    if (eigener !== undefined)
+      return eigener.workspaceId;
+  }
+  return bereiche[0]?.workspaceId;
+}
+
+// packages/client/quellordner/src/wege.ts
+var PFAD_ORDNER = "/api/pmh/ordner";
+class QuellordnerFehler extends Error {
+  code;
+  status;
+  constructor(meldung, code, status) {
+    super(meldung);
+    this.code = code;
+    this.status = status;
+    this.name = "QuellordnerFehler";
+  }
+}
+async function liesHuelle(antwort, weg) {
+  let koerper;
+  try {
+    koerper = await antwort.json();
+  } catch {
+    throw new QuellordnerFehler(`${weg}: Die Antwort war kein JSON.`, "kein-json", antwort.status);
+  }
+  const huelle = koerper;
+  if (huelle.ok === true)
+    return huelle.value;
+  const code = typeof huelle.error?.code === "string" ? huelle.error.code : "unbekannt";
+  const meldung = typeof huelle.error?.message === "string" ? huelle.error.message : `${weg}: Der Server hat abgelehnt.`;
+  throw new QuellordnerFehler(meldung, code, antwort.status);
+}
+async function listeOrdner(workspaceId, optionen) {
+  const abruf = optionen.abruf ?? ((adresse, einstellung) => fetch(adresse, einstellung));
+  const antwort = await abruf(`${PFAD_ORDNER}?workspace=${encodeURIComponent(workspaceId)}`, {
+    method: "GET"
+  });
+  const wert = await liesHuelle(antwort, PFAD_ORDNER);
+  return { ordner: wert.ordner ?? [], wurzeln: wert.wurzeln ?? [] };
+}
 
 // packages/client/quellordner/src/client.tsx
 var jsx_dev_runtime2 = require("react/jsx-dev-runtime");
 var name = "quellordner";
-var inject = ["slots"];
-function QuellordnerSchicht({ optionen }) {
+var inject = ["slots", "workspaces", "sessions"];
+function QuellordnerSchicht({
+  optionen,
+  arbeitsbereich
+}) {
   const [offen, setOffen] = import_react.useState(false);
-  const [ordner] = import_react.useState([]);
+  const [ordner, setOrdner] = import_react.useState([]);
   const [fehler, setFehler] = import_react.useState(undefined);
+  import_react.useEffect(() => {
+    if (!offen)
+      return;
+    const bereich = arbeitsbereich();
+    if (bereich === undefined) {
+      setFehler("Es gibt keinen Arbeitsbereich — es kann nichts angezeigt werden.");
+      return;
+    }
+    let gilt = true;
+    listeOrdner(bereich, optionen).then((liste) => {
+      if (gilt) {
+        setOrdner(liste.ordner);
+        setFehler(undefined);
+      }
+    }).catch((e) => {
+      if (gilt)
+        setFehler(e instanceof Error ? e.message : "Die Ordner ließen sich nicht laden.");
+    });
+    return () => {
+      gilt = false;
+    };
+  }, [offen, arbeitsbereich, optionen]);
   if (!offen) {
     return /* @__PURE__ */ jsx_dev_runtime2.jsxDEV("button", {
       type: "button",
       className: "pmh-quellordner-knopf",
       onClick: () => {
         if (optionen.csrf() === undefined) {
-          setFehler('Kein CSRF-Wert in der Seite (meta name="pmh-csrf") — es kann nichts geändert werden.');
+          setFehler("Kein CSRF-Wert in der Seite (Keks pmh_csrf) — es kann nichts geändert werden.");
         }
         setOffen(true);
       },
@@ -259,12 +327,15 @@ function QuellordnerSchicht({ optionen }) {
   }, undefined, false, undefined, this);
 }
 function apply(ctx) {
-  const slots = ctx.slots;
-  slots.inject("shell.overlay", () => slots.register({
+  const kern = ctx;
+  kern.slots.inject("shell.overlay", () => kern.slots.register({
     name: "shell.overlay",
     id: "quellordner",
     label: "Quellordner",
-    inject: () => ({ optionen: { csrf: csrfWert } })
+    inject: () => ({
+      optionen: { csrf: csrfWert },
+      arbeitsbereich: () => arbeitsbereichId(kern.workspaces.list.getSnapshot().items, kern.sessions.list.getSnapshot().current)
+    })
   }, QuellordnerSchicht));
 }
 

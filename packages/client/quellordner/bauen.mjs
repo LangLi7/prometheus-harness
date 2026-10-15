@@ -127,6 +127,11 @@ function pruefe(text) {
   if (befunde.length > 0) return befunde
 
   // Den Erweiterungspunkt mitschreiben.
+  //
+  // **Die Dienste werden nachgebildet, nicht erfunden:** `workspaces.list.getSnapshot().items`
+  // und `sessions.list.getSnapshot().current` stehen so in `ui-git/src/client/index.ts:205-206`.
+  // Ohne sie ließe sich die `inject`-Fabrik nicht aufrufen — und die Prüfung liefe an dem Weg
+  // vorbei, den der Kern geht.
   const gerufen = []
   let eintragung
   const ctx = {
@@ -140,6 +145,8 @@ function pruefe(text) {
         return () => undefined
       },
     },
+    workspaces: { list: { getSnapshot: () => ({ items: [] }) } },
+    sessions: { list: { getSnapshot: () => ({ current: undefined }) } },
   }
   plugin.apply(ctx)
 
@@ -172,6 +179,13 @@ function pruefe(text) {
   // direkter Aufruf umgeht ihn. Der Fehler lag im Werkszeug, nicht im Gebauten.
   try {
     const dienste = o.inject()
+    if (typeof dienste.arbeitsbereich !== 'function') {
+      befunde.push('Die inject-Fabrik liefert keine `arbeitsbereich`-Funktion.')
+    } else if (dienste.arbeitsbereich() !== undefined) {
+      // Ohne Bereiche im Stand muß `undefined` herauskommen — nicht ein leerer Text, der wie eine
+      // Kennung aussähe.
+      befunde.push('Ohne Arbeitsbereiche liefert `arbeitsbereich()` etwas anderes als undefined.')
+    }
     const html = renderToStaticMarkup(createElement(eintragung.komponente, dienste))
     if (html.trim() === '') befunde.push('Die Komponente rendert NICHTS.')
     if (!html.includes('pmh-quellordner-knopf')) {
