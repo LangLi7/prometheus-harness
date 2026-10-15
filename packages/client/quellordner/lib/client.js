@@ -1,0 +1,258 @@
+window.__ModuleLoader__.load({
+  id: "@prometheus-harness/client-quellordner",
+  factory: (require) => {
+    var module = { exports: {} };
+    var exports = module.exports;
+    Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+function __accessProp(key) {
+  return this[key];
+}
+var __toCommonJS = (from) => {
+  var entry = (__moduleCache ??= new WeakMap).get(from), desc;
+  if (entry)
+    return entry;
+  entry = __defProp({}, "__esModule", { value: true });
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (var key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(entry, key))
+        __defProp(entry, key, {
+          get: __accessProp.bind(from, key),
+          enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+        });
+  }
+  __moduleCache.set(from, entry);
+  return entry;
+};
+var __moduleCache;
+var __returnValue = (v) => v;
+function __exportSetter(name, newValue) {
+  this[name] = __returnValue.bind(null, newValue);
+}
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, {
+      get: all[name],
+      enumerable: true,
+      configurable: true,
+      set: __exportSetter.bind(all, name)
+    });
+};
+
+// packages/client/quellordner/src/client.tsx
+var exports_client = {};
+__export(exports_client, {
+  QuellordnerSchicht: () => QuellordnerSchicht,
+  apply: () => apply,
+  csrfAusSeite: () => csrfAusSeite,
+  inject: () => inject,
+  name: () => name
+});
+module.exports = __toCommonJS(exports_client);
+var import_react = require("react");
+
+// packages/client/quellordner/src/dialog.tsx
+var jsx_dev_runtime = require("react/jsx-dev-runtime");
+var TEXTE = {
+  titel: "Quellordner",
+  name: "Name",
+  quellordner: "Quellordner",
+  primaer: "Primär",
+  hinzufuegen: "Ordner hinzufügen",
+  entfernen: "Entfernen",
+  schliessen: "Schließen",
+  lesen: "Nur lesen",
+  schreiben: "Lesen und schreiben",
+  arbeitsplatzHinweis: 'Der Arbeitsplatz läßt sich weder entfernen noch auf „nur lesen" stellen.'
+};
+function Ordnerzeile({
+  ordner,
+  beiEntfernen,
+  beiZugriff,
+  beschaeftigt
+}) {
+  return /* @__PURE__ */ jsx_dev_runtime.jsxDEV("li", {
+    className: "pmh-ordner-zeile",
+    "data-primaer": ordner.istPrimaer ? "ja" : "nein",
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime.jsxDEV("span", {
+        className: "pmh-ordner-pfad",
+        title: ordner.pfad,
+        children: ordner.pfad
+      }, undefined, false, undefined, this),
+      ordner.bezeichnung === undefined ? null : /* @__PURE__ */ jsx_dev_runtime.jsxDEV("span", {
+        className: "pmh-ordner-bezeichnung",
+        children: ordner.bezeichnung
+      }, undefined, false, undefined, this),
+      ordner.istPrimaer ? /* @__PURE__ */ jsx_dev_runtime.jsxDEV("span", {
+        className: "pmh-ordner-primaer",
+        "aria-label": TEXTE.primaer,
+        children: TEXTE.primaer
+      }, undefined, false, undefined, this) : /* @__PURE__ */ jsx_dev_runtime.jsxDEV("span", {
+        className: "pmh-ordner-zugriff",
+        children: ordner.zugriff === "schreiben" ? TEXTE.schreiben : TEXTE.lesen
+      }, undefined, false, undefined, this),
+      ordner.istPrimaer ? null : /* @__PURE__ */ jsx_dev_runtime.jsxDEV(jsx_dev_runtime.Fragment, {
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("button", {
+            type: "button",
+            className: "pmh-ordner-zugriff-schalten",
+            disabled: beschaeftigt,
+            onClick: () => {
+              beiZugriff?.(ordner.id, ordner.zugriff === "schreiben" ? "lesen" : "schreiben");
+            },
+            children: ordner.zugriff === "schreiben" ? TEXTE.lesen : TEXTE.schreiben
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("button", {
+            type: "button",
+            className: "pmh-ordner-entfernen",
+            "aria-label": `${TEXTE.entfernen}: ${ordner.pfad}`,
+            disabled: beschaeftigt,
+            onClick: () => {
+              beiEntfernen?.(ordner.id);
+            },
+            children: "×"
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+function QuellordnerDialog(eigenschaften) {
+  const beschaeftigt = eigenschaften.beschaeftigt === true;
+  const sortiert = [...eigenschaften.ordner].sort((a, b) => Number(b.istPrimaer) - Number(a.istPrimaer));
+  return /* @__PURE__ */ jsx_dev_runtime.jsxDEV("div", {
+    className: "pmh-quellordner",
+    role: "dialog",
+    "aria-label": TEXTE.titel,
+    children: [
+      /* @__PURE__ */ jsx_dev_runtime.jsxDEV("div", {
+        className: "pmh-quellordner-kopf",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("h2", {
+            className: "pmh-quellordner-titel",
+            children: TEXTE.titel
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("button", {
+            type: "button",
+            className: "pmh-quellordner-schliessen",
+            "aria-label": TEXTE.schliessen,
+            disabled: beschaeftigt,
+            onClick: () => {
+              eigenschaften.beiSchliessen?.();
+            },
+            children: "×"
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      eigenschaften.fehler === undefined ? null : /* @__PURE__ */ jsx_dev_runtime.jsxDEV("p", {
+        className: "pmh-quellordner-fehler",
+        role: "alert",
+        children: eigenschaften.fehler
+      }, undefined, false, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime.jsxDEV("label", {
+        className: "pmh-quellordner-name",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("span", {
+            children: TEXTE.name
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("input", {
+            type: "text",
+            value: eigenschaften.name,
+            disabled: beschaeftigt,
+            onChange: (e) => {
+              eigenschaften.beiName?.(e.target.value);
+            }
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this),
+      /* @__PURE__ */ jsx_dev_runtime.jsxDEV("div", {
+        className: "pmh-quellordner-liste",
+        children: [
+          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("h3", {
+            children: TEXTE.quellordner
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("ul", {
+            children: sortiert.map((ordner) => /* @__PURE__ */ jsx_dev_runtime.jsxDEV(Ordnerzeile, {
+              ordner,
+              beiEntfernen: eigenschaften.beiEntfernen,
+              beiZugriff: eigenschaften.beiZugriff,
+              beschaeftigt
+            }, ordner.id, false, undefined, this))
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("p", {
+            className: "pmh-quellordner-hinweis",
+            children: TEXTE.arbeitsplatzHinweis
+          }, undefined, false, undefined, this),
+          /* @__PURE__ */ jsx_dev_runtime.jsxDEV("button", {
+            type: "button",
+            className: "pmh-quellordner-hinzufuegen",
+            disabled: beschaeftigt,
+            onClick: () => {
+              eigenschaften.beiHinzufuegen?.();
+            },
+            children: TEXTE.hinzufuegen
+          }, undefined, false, undefined, this)
+        ]
+      }, undefined, true, undefined, this)
+    ]
+  }, undefined, true, undefined, this);
+}
+
+// packages/client/quellordner/src/client.tsx
+var jsx_dev_runtime2 = require("react/jsx-dev-runtime");
+var name = "quellordner";
+var inject = ["slots"];
+function csrfAusSeite() {
+  const dokument = globalThis.document;
+  if (dokument === undefined)
+    return;
+  const feld = dokument.querySelector('meta[name="pmh-csrf"]');
+  const wert = feld?.getAttribute("content");
+  return wert === null || wert === undefined || wert.trim() === "" ? undefined : wert;
+}
+function QuellordnerSchicht({ optionen }) {
+  const [offen, setOffen] = import_react.useState(false);
+  const [ordner] = import_react.useState([]);
+  const [fehler, setFehler] = import_react.useState(undefined);
+  if (!offen) {
+    return /* @__PURE__ */ jsx_dev_runtime2.jsxDEV("button", {
+      type: "button",
+      className: "pmh-quellordner-knopf",
+      onClick: () => {
+        if (optionen.csrf() === undefined) {
+          setFehler('Kein CSRF-Wert in der Seite (meta name="pmh-csrf") — es kann nichts geändert werden.');
+        }
+        setOffen(true);
+      },
+      children: "Quellordner"
+    }, undefined, false, undefined, this);
+  }
+  return /* @__PURE__ */ jsx_dev_runtime2.jsxDEV(QuellordnerDialog, {
+    name: "",
+    ordner,
+    ...fehler === undefined ? {} : { fehler },
+    beiSchliessen: () => {
+      setOffen(false);
+    }
+  }, undefined, false, undefined, this);
+}
+function apply(ctx) {
+  const slots = ctx.slots;
+  slots.inject("shell.overlay", () => slots.register({
+    name: "shell.overlay",
+    id: "quellordner",
+    label: "Quellordner",
+    inject: () => ({ optionen: { csrf: csrfAusSeite } })
+  }, QuellordnerSchicht));
+}
+
+    exports.name = name;
+    exports.inject = inject;
+    exports.apply = apply;
+    return module.exports;
+  }
+});

@@ -3,11 +3,27 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Der Quellordner-Dialog als reine Komponente: der Arbeitsplatz (primär, nicht entfernbar) und die Zusatzordner mit Lese- oder Schreibzugriff. Noch NICHT am Host eingehängt — die Einhängung ist der nächste Schritt.",
+  "description": "Der Quellordner-Dialog: die reine Komponente, die vier Wege als Datenschicht, und die Einhängung in shell.overlay als gebautes lib/client.js. Der Bündelbau prüft das Gebaute, indem er es ausführt.",
+  "main": "lib/client.js",
   "exports": {
-    ".": "./src/dialog.tsx"
+    ".": "./src/dialog.tsx",
+    "./wege": "./src/wege.ts",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
   },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    }
+  },
+  "files": [
+    "lib/client.js"
+  ],
   "scripts": {
+    "build": "bun run bauen.mjs",
     "typecheck": "tsgo --noEmit -p tsconfig.json",
     "test": "bun test"
   }
