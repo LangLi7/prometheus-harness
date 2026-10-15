@@ -573,3 +573,37 @@ jede Zeile trug den Zeitstempel des Laufs.
 Betriebsdatenbank, verschiedene Zeichenketten — URL-vergleichende Sicherungen lassen durch") und
 bin hineingelaufen. Eine Gefahr, die in einer Notiz steht, ist **nicht** entschärft. Was zählt,
 ist der Riegel im Code — und ein Lauf, der ihn beweist.
+
+## 34. Ein Geheimwert wird **nie** ausgegeben — auch nicht „maskiert"
+
+**Der Fall.** Ich wollte vom Schlüsselspeicher `~/.dsh/.credentials.yaml` nur die **Namen** zeigen.
+Mein Filter maskierte Zeilen der Form `secret: <wert>`. Die Schlüssel stehen in dieser Datei aber
+unter `refs:` als `NAME: <wert>` — **unmaskiert**. Ein Befehl, ein Bildschirmauszug, und **alle 14
+Schlüssel** standen im Klartext im Gesprächsverlauf.
+
+**Die Regel.** Bei Geheimnissen gibt es **keine** Ausgabe des Wertes, in **keiner** Form:
+
+1. **Nur Länge und Fingerabdruck**, nie ein Anfang, nie ein Ende, nie „maskiert". Eine Maske ist
+   eine Ausgabe mit einer Annahme darüber, wo das Geheimnis aufhört — und die Annahme ist der
+   Fehler.
+2. **Die Maske wird gegen die echte Form der Datei geprüft, bevor sie läuft.** Ich habe die
+   Struktur *vermutet* (`secret:`) statt sie *anzusehen*. Erst der zweite Blick zeigte `refs:`.
+3. **Nach einem solchen Vorfall wird geprüft, wohin es gelangt ist** — nicht beteuert, daß nichts
+   passiert sei. Gemessen: `git grep -F` über meine 15 Commits und den Arbeitsbaum, 23 Werte,
+   **kein Treffer**. Das Leck war der Verlauf, nicht das Repository.
+
+**Der Satz, der bleibt.** Eine Maskierung, die nicht gegen die Wirklichkeit geprüft wurde, ist
+keine Maskierung, sondern ein gutes Gefühl.
+
+## 35. Eine Behauptung im Dokument wird im **selben Zug** wahr gemacht
+
+**Der Fall.** In `docs/status/entscheiden-und-waechter.md` schrieb ich, die Regel gegen
+Geheimnis-Ausgaben „steht in `arbeitsweise.md`" — und hatte sie dort **nicht** eingetragen. Ein
+Verweis auf eine Regel, die es nicht gibt, ist schlimmer als kein Verweis: der Leser sucht, findet
+nichts, und mißt von da an **allen** Verweisen des Dokuments weniger zu.
+
+**Die Regel.** Ein Dokument, das auf etwas zeigt, wird **vor** dem Weglegen abgeglichen: zeigt jeder
+Verweis auf etwas, das es wirklich gibt? Das gilt für Regelwerke, für Dateipfade in Belegen und für
+Zahlen („47 Prüfungen") — eine Zahl in einem Dokument ist eine Behauptung wie jede andere und muß
+aus einem Lauf stammen, nicht aus der Erinnerung.
+
