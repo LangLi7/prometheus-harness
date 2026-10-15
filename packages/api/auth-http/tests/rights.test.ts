@@ -31,9 +31,9 @@ import {
   type ClaimRegel,
   type Maschinenbindung,
 } from '@prometheus-harness/claim'
-import { akteurAus, darfBenutzerAnlegen, isolationAnsicht } from '../src/rechte.ts'
+import { akteurAus, darfBenutzerAnlegen, isolationAnsicht } from '../src/rights.ts'
 import { normalisiere } from '@prometheus-harness/permissions'
-import { ABLAGEDATEI, claimAblageImHome } from '../src/claim-ablage.ts'
+import { ABLAGEDATEI, claimAblageImHome } from '../src/claim-store.ts'
 import type { UserRecord } from '@prometheus-harness/auth'
 
 // ---------------------------------------------------------------------------

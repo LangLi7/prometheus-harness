@@ -96,6 +96,11 @@ export const DEUTSCHE_WOERTER = [
   'ordner', 'proben', 'rechte', 'rechtprobe', 'schluessel', 'schluesselgeber', 'schluesselkette',
   'seite', 'sitzung', 'sitzungen', 'sitzungsprotokoll', 'takt', 'weiter', 'welt', 'wissen',
   'wissensspeicher', 'zerleger', 'zugang', 'zugriff', 'zusatzordner', 'gespraech', 'gespraeche',
+  // nachgetragen, als Zug 2 (`auth-http`) elf deutsche Dateinamen umbenannte — DREI davon standen
+  // in KEINER Liste: `claim-ablage.ts`, `erstlogin.test.ts`, `http-schicht.test.ts`. Der Wächter
+  // hatte sie nie gesehen. **Der Umfang wächst mit jedem Zug** — die Liste ist nachzuführen, sonst
+  // meldet sie weniger, als der Baum hergibt.
+  'ablage', 'erstlogin', 'schicht',
 ]
 
 /**

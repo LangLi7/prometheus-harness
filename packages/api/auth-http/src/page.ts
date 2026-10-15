@@ -24,7 +24,7 @@
  * ## Was diese Seite NICHT tut
  *
  * Sie **entscheidet nichts**. Jede Regel — schwaches Paßwort, vergebene Adresse,
- * gesperrtes Konto, fehlender Claim, CSRF — liegt in `wege.ts` und wird von dort
+ * gesperrtes Konto, fehlender Claim, CSRF — liegt in `paths.ts` und wird von dort
  * beantwortet. Die Seite zeigt nur, was zurückkommt. Eine Oberfläche, die eine
  * Regel selbst nachbaut, hat sie zweimal — und die zweite ist die falsche.
  *
@@ -32,7 +32,7 @@
  */
 
 import { CSRF_COOKIE_NAME } from '@prometheus-harness/auth'
-import { CSRF_KOPFZEILE, PFAD_ABMELDEN, PFAD_ANMELDEN, PFAD_ICH, PFAD_REGISTRIEREN } from './wege.ts'
+import { CSRF_KOPFZEILE, PFAD_ABMELDEN, PFAD_ANMELDEN, PFAD_ICH, PFAD_REGISTRIEREN } from './paths.ts'
 import { macheWeg, type Weg } from './http.ts'
 
 /** Der Pfad der Seite — für Menschen gedacht, deshalb nicht unter `/api`. */
@@ -305,7 +305,7 @@ function zeigeAngemeldet(wert) {
   $('erstbetrieb').hidden = true
   // **Der Verwaltungsbereich erscheint NUR einem Administrator.** Die Prüfung
   // hier ist **Bequemlichkeit, keine Sicherheit**: wer das im Browser umgeht,
-  // bekommt vom Weg ein 403 — die Entscheidung fällt in wege.ts, nicht hier.
+  // bekommt vom Weg ein 403 — die Entscheidung fällt in paths.ts, nicht hier.
   // Eine Oberfläche, die eine Regel selbst durchsetzt, hat sie zweimal.
   $('verwaltung').hidden = wert.role !== 'admin'
   $('a-email').textContent = wert.email
@@ -367,7 +367,7 @@ $('form-registrieren').addEventListener('submit', async (ereignis) => {
     setzeZustand('Lege Konto an …')
     // **Der Erstinbetriebnahme-Weg braucht keinen CSRF-Wert.** Es gibt noch keine
     // Sitzung, also kann es auch keinen fremden Willen geben, der mißbraucht
-    // würde; das Geheimnis ist hier der Claim (wege.ts begründet das).
+    // würde; das Geheimnis ist hier der Claim (paths.ts begründet das).
     const ergebnis = await rufe(PFAD_REGISTRIEREN, {
       email: daten.email,
       password: daten.password,
@@ -376,7 +376,7 @@ $('form-registrieren').addEventListener('submit', async (ereignis) => {
     })
     if (!ergebnis.ok) { setzeZustand(ergebnis.meldung, 'fehler'); return }
     ereignis.target.reset()
-    // **Kein stilles Anmelden.** wege.ts begruendet das: ein Konto anzulegen und
+    // **Kein stilles Anmelden.** paths.ts begruendet das: ein Konto anzulegen und
     // dabei anzumelden sind zwei Entscheidungen. Die Seite sagt nur, was zu tun ist.
     setzeZustand('Konto angelegt: ' + ergebnis.wert.email + ' (' + ergebnis.wert.role + '). Jetzt anmelden.', 'gut')
   })
@@ -387,7 +387,7 @@ $('form-registrieren').addEventListener('submit', async (ereignis) => {
 // ===========================================================================
 // **Was hier der Unterschied ist.** Ein Konto anzulegen ist auf diesem Weg eine
 // Zustandsänderung **im Namen eines Angemeldeten** — und dafür verlangt
-// wege.ts einen **CSRF-Nachweis** (register, Admin-Zweig). Ohne ihn kam
+// paths.ts einen **CSRF-Nachweis** (register, Admin-Zweig). Ohne ihn kam
 // 403 csrf-fehlt, und deshalb konnte ein angemeldeter Administrator ueber die
 // Oberfläche **kein** Konto anlegen: die Seite schickte den Wert einfach nicht
 // mit.
@@ -395,7 +395,7 @@ $('form-registrieren').addEventListener('submit', async (ereignis) => {
 // Der Wert steht im **lesbaren** CSRF-Cookie; das Sitzungscookie ist HttpOnly
 // und für dieses Skript unsichtbar. Genau dafür gibt es das zweite Cookie.
 // (Keine Backticks in diesem Kommentar: er steht in einem Template-Literal, und
-// ein Backtick beendet es — derselbe Fehler wie in seite.ts und postgres.test.ts.)
+// ein Backtick beendet es — derselbe Fehler wie in page.ts und postgres.test.ts.)
 $('form-verwalten').addEventListener('submit', async (ereignis) => {
   ereignis.preventDefault()
   const knopf = ereignis.target.querySelector('button')

@@ -77,7 +77,7 @@ import {
   pruefeClaim,
   type ClaimAblage,
 } from '@prometheus-harness/claim'
-import { akteurAus, darfBenutzerAnlegen, isolationAnsicht, type IsolationAnsicht } from './rechte.ts'
+import { akteurAus, darfBenutzerAnlegen, isolationAnsicht, type IsolationAnsicht } from './rights.ts'
 
 // ---------------------------------------------------------------------------
 // Die Wege

@@ -167,3 +167,61 @@ sieht und nicht bloß eine Zahl ausgibt.
 `packages/api/auth-http/src/anmeldung.ts`, `packages/api/auth-http/tests/anmeldung.test.ts`. Sie
 **importieren** jetzt aus `languages`, heißen aber weiter deutsch — sie gehören zu Zug 4 und Zug 2.
 **Eine Umbenennung zieht ihre Importe, nicht ihren Nachbarn.**
+
+## 7. Zug 2, vollzogen: `packages/api/auth-http` — 14 Dateien
+
+Sieben Quelldateien und sieben Prüfdateien. **Und drei Namen, die in KEINER Liste standen.**
+
+| heute | englisch |
+|---|---|
+| `src/anmeldung.ts` | `src/login.ts` |
+| `src/claim-ablage.ts` | `src/claim-store.ts` |
+| `src/ordner.ts` | `src/folders.ts` |
+| `src/rechte.ts` | `src/rights.ts` |
+| `src/seite.ts` | `src/page.ts` |
+| `src/wege.ts` | `src/paths.ts` |
+| `src/zugang.ts` | `src/access.ts` |
+| `tests/{anmeldung,erstlogin,http-schicht,ordner,rechte,seite,zugang}.test.ts` | `tests/{login,first-login,http-layer,folders,rights,page,access}.test.ts` |
+
+**Der Befund, der wichtiger ist als die Umbenennung.** `claim-ablage`, `erstlogin` und
+`http-schicht` standen **nicht** in der Wortliste des Wächters — er hatte sie nie gesehen. Der
+Umfang des Restbestands wächst also mit jedem Zug, weil **jeder Zug Namen sichtbar macht, die vorher
+im Rauschen lagen.** Die drei Wörter sind nachgetragen; die Gegenprobe dazu steht als eigene Prüfung
+in `naming-guard.test.mjs` (`pruefeName('claim-ablage.ts').segment === 'ablage'`).
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Wer hängt daran? | `grep` über `*.{ts,tsx,js,mjs,json,md,ps1,cmd,sh,yml}` | **86 Zeilen** — davon die meisten **Prosa in datierten Berichten** (bleibt stehen) |
+| Umbenennen | `git mv` ×14 | 14 `R`-Zeilen |
+| Ersetzen A: im Paket | 19 Dateien | **58** Vorkommen — relative Importe **und** Verweise in Kommentaren |
+| Ersetzen B: `scripts/claim.mjs` | 1 Import | **1** |
+| Ersetzen C: Adressen außerhalb | 8 Dateien (`apps/login_web`, `packages/client/source-folders`, `packages/util/languages`, `docs/status/anmeldeseite-proxy-sonde.mjs`) | **8** |
+| Gegenprobe | `grep` auf `anmeldung.ts\|claim-ablage.ts\|rechte.ts\|seite.ts\|wege.ts\|zugang.ts\|erstlogin.ts\|http-schicht.ts` in **Code** | **kein Treffer** |
+| Tests | `PMH_TEST_DATABASE_URL=''` + `bun test packages/api/auth-http` | **97 pass, 0 fail**, 37 skip, exit **0** — **dieselbe Zahl wie vor der Umbenennung** |
+| Baum | `bun run scripts/typecheck.mjs` | **37 Pakete grün, 0 rot**, exit 0 |
+| Wächter | `bun scripts/naming-guard.mjs` | **80 → 69** |
+
+### Der rote Lauf, den ich NICHT der Umbenennung zuschreibe
+
+`bun test packages/api/auth-http` aus der **Wurzel** ergab zuerst **107 pass, 5 skip, 4 fail**
+(exit 1). Alle vier Fehler waren **Haken** (`afterAll`), keine Zusicherung. Gemessen, nicht geraten:
+
+```
+PMH_TEST_DATABASE_URL=''  bun test packages/api/auth-http   ->  97 pass, 0 fail, exit 0
+                           bun test .../postgres.test.ts    ->  11 Tests, 11 skip
+(aus .env gesetzt)         bun test .../postgres.test.ts    ->   2 Tests, 2 fail
+```
+
+**Die Ursache:** `PMH_TEST_DATABASE_URL` steht in der Wurzel-`.env`, aber es läuft **kein**
+PostgreSQL. `postgres.test.ts` wählt mit `adresseGesetzt(URL_FROM_ENV) ? describe : describe.skip`
+nach der **Umgebung**; `folders.test.ts` und `login.test.ts` ebenso (`bereit`). Ist die Variable
+gesetzt und die Datenbank tot, bricht das `beforeAll` ab — und der `afterAll` schließt dann einen
+Server, den es nie gab: `TypeError: undefined is not an object (evaluating 'server.close')`.
+
+**Warum die Gesamtzahl dabei schwankt** (116 gegen 134): mit gesetzter Variable registriert
+`postgres.test.ts` nur **2** Haken statt **11** Tests. Nachgemessen an der Einzeldatei, nicht
+geschätzt.
+
+**Das ist nicht meine Umbenennung** (sie ändert Dateinamen, keine Objekte), es ist **alt** — und es
+ist **dieselbe Sorte Fehler wie Regel 33**: *ein Riegel, der die Umgebung fragt, ist kein Riegel.*
+Er wird als eigener Zug behoben, nicht in diesem.

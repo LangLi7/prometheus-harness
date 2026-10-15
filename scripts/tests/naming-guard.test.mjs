@@ -40,10 +40,20 @@ describe('Ein einzelner Name', () => {
       'naming-guard.mjs',
       'probe.ts',
       'build.mjs',
-      '0001_identitaet.sql'.replace('identitaet', 'identity'),
+      'login.test.ts',
+      '0001_identity.sql',
     ]) {
       expect(pruefeName(name)).toEqual({ ok: true })
     }
+  })
+
+  test('die drei Wörter, die Zug 2 nachgetragen hat — der Wächter hätte sie vorher NICHT gesehen', () => {
+    // Gemessen am 15.10.2026: `claim-ablage.ts`, `erstlogin.test.ts` und `http-schicht.test.ts`
+    // standen in keiner Liste. Sie sind inzwischen umbenannt; diese Prüfung hält fest, daß die
+    // LISTE sie jetzt kennt — sonst wäre der Nachtrag eine Behauptung ohne Gegenprobe.
+    expect(pruefeName('claim-ablage.ts').segment).toBe('ablage')
+    expect(pruefeName('erstlogin.test.ts').segment).toBe('erstlogin')
+    expect(pruefeName('http-schicht.test.ts').segment).toBe('schicht')
   })
 
   test('ein deutsches Segment wird rot — als ganzes Segment', () => {

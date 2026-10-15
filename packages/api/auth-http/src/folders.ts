@@ -45,7 +45,7 @@ import {
   type Zugriff,
 } from '@prometheus-harness/store-postgres'
 import { leseKoerper, macheWeg, sende, type Weg } from './http.ts'
-import { cookieWert, gut, schlecht, sitzungsCookieName, type Antwort, type Umgebung } from './wege.ts'
+import { cookieWert, gut, schlecht, sitzungsCookieName, type Antwort, type Umgebung } from './paths.ts'
 
 /** Die Sammlung der Ordner eines Arbeitsbereichs. */
 export const PFAD_ORDNER = '/api/pmh/ordner'

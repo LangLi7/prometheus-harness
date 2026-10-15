@@ -15,7 +15,7 @@
  *
  * ## Warum ein echter Server
  *
- * Dieselbe Begründung wie in `seite.test.ts`: ob Kopfzeilen wirklich auf dem Draht stehen, ob
+ * Dieselbe Begründung wie in `page.test.ts`: ob Kopfzeilen wirklich auf dem Draht stehen, ob
  * eine falsche Methode abgewiesen wird und ob eine Weiterleitung **wirklich** 303 mit `location`
  * ist, sieht man nur am Socket. Und die **Präfixauflösung** wird hier nachgebaut wie im Kern:
  * *„Longest-prefix-wins over the prefix table after an exact-table miss"*
@@ -45,7 +45,7 @@ import { Argon2PasswordHasher, MemoryRateLimiter } from '@prometheus-harness/aut
 import { betriebsdatenbankNamen } from '@prometheus-harness/db-schema'
 import { KEKS_SPRACHE, VORGABE_SPRACHE, SPRACHEN, texteFuer } from '@prometheus-harness/languages'
 import { erzeugeSpeicher, type SqlZugang } from '@prometheus-harness/store-postgres'
-import { claimAblageImHome } from '../src/claim-ablage.ts'
+import { claimAblageImHome } from '../src/claim-store.ts'
 import {
   ANGABE_BAU,
   PARAMETER_SPRACHE,
@@ -57,9 +57,9 @@ import {
   entschaerfe,
   schnittstelleHtml,
   wegBau,
-} from '../src/anmeldung.ts'
-import { PFAD_SEITE } from '../src/seite.ts'
-import { anmelden, type Umgebung } from '../src/wege.ts'
+} from '../src/login.ts'
+import { PFAD_SEITE } from '../src/page.ts'
+import { anmelden, type Umgebung } from '../src/paths.ts'
 
 // ---------------------------------------------------------------------------
 // Ein Bau zum Prüfen — und ein Geheimnis NEBEN ihm
@@ -526,7 +526,7 @@ mitDatenbank('Mit einem echten Konto', () => {
     umg = { ...umgebungOhneSpeicher(), speicher: erzeugeSpeicher(zugang) }
 
     // **Den Zustand direkt herstellen, nicht über den Weg.** Den Weg zu benutzen, den die
-    // Prüfung prüft, wäre ein Zirkel (dieselbe Begründung wie in `erstlogin.test.ts`).
+    // Prüfung prüft, wäre ein Zirkel (dieselbe Begründung wie in `first-login.test.ts`).
     await sql.unsafe('DELETE FROM users WHERE email = $1', [ADRESSE]).catch(() => undefined)
     const hash = await umg.hasher.hash(PASSWORT)
     const kennung = await umg.speicher.benutzer.create({

@@ -11,7 +11,7 @@
  *
  * | Auskunft | Wo sie steht | Was dort steht |
  * |---|---|---|
- * | Der CSRF-Wert | `packages/api/auth-http/src/seite.ts:274` | `cookieWert(CSRF_COOKIE)` — sie kommt aus einem **Keks**, nicht aus einem Meta-Feld |
+ * | Der CSRF-Wert | `packages/api/auth-http/src/page.ts:274` | `cookieWert(CSRF_COOKIE)` — sie kommt aus einem **Keks**, nicht aus einem Meta-Feld |
  * | Der Keksname | `packages/auth/auth/src/session.ts:450` | `CSRF_COOKIE_NAME = 'pmh_csrf'` |
  * | Der Arbeitsbereich | `ui-git/src/client/index.ts:204` | die **Sitzung** gewinnt, sonst der **erste**, sonst **nichts** |
  *

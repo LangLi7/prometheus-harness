@@ -48,7 +48,7 @@
 import { existsSync } from 'node:fs'
 import { resolveEigenesHome } from '../packages/util/home-paths/src/index.ts'
 import { erzeugeClaim, leseMaschinenbindung, leseOderErzeugeGeraeteId, CLAIM_GUELTIG_SEKUNDEN } from '../packages/auth/claim/src/index.ts'
-import { claimAblageImHome } from '../packages/api/auth-http/src/claim-ablage.ts'
+import { claimAblageImHome } from '../packages/api/auth-http/src/claim-store.ts'
 
 /**
  * Zählt die Administratoren über die Datenbank der Anwendung.

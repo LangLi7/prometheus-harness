@@ -49,7 +49,7 @@ export default defineConfig({
    * **Der Bau liegt unter dem Präfix, unter dem der Host ihn ausliefert.**
    *
    * Die Seite kommt im Betrieb **nicht** von diesem Entwicklungsserver, sondern vom Host
-   * selbst (`packages/api/auth-http/src/anmeldung.ts`, Weg `/anmeldung`). Damit die Adressen
+   * selbst (`packages/api/auth-http/src/login.ts`, Weg `/anmeldung`). Damit die Adressen
    * der Bündel dort stimmen, baut Vite sie mit diesem Präfix — und der Entwicklungsserver
    * liefert sie unter **demselben** Pfad aus. Beide Betriebsarten haben also dieselbe Form;
    * ein Unterschied könnte sonst einen Fehler verdecken, den es nur im Betrieb gibt.

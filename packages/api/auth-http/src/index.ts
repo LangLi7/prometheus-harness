@@ -70,28 +70,28 @@ import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { Argon2PasswordHasher, DEFAULT_SESSION_POLICY, MemoryRateLimiter } from '@prometheus-harness/auth'
 import { resolveEigenesHome } from '@prometheus-harness/home-paths'
 import { erzeugeSpeicher, type SqlZugang, type TransaktionsZugang } from '@prometheus-harness/store-postgres'
-import { claimAblageImHome } from './claim-ablage.ts'
+import { claimAblageImHome } from './claim-store.ts'
 import { wegAbmelden, wegAnmelden, wegIch, wegRegistrieren } from './http.ts'
-import { PFAD_ABMELDEN, PFAD_ANMELDEN, PFAD_ICH, PFAD_REGISTRIEREN, type Umgebung } from './wege.ts'
+import { PFAD_ABMELDEN, PFAD_ANMELDEN, PFAD_ICH, PFAD_REGISTRIEREN, type Umgebung } from './paths.ts'
 // **Die Anmeldeseite** — HTML und JavaScript, ausgeliefert von unserem eigenen Weg.
 // Sie ist additiv: sie entscheidet keine Regel, sie zeigt die Antworten der Wege.
-import { PFAD_SEITE, PFAD_SEITE_API, PFAD_SEITE_JS, seitenWege } from './seite.ts'
+import { PFAD_SEITE, PFAD_SEITE_API, PFAD_SEITE_JS, seitenWege } from './page.ts'
 // **Die gebaute Anmeldeseite und die Schnittstelle danach** — am Ursprung des Hosts.
-import { anmeldungsWege, bauVerzeichnis, bauVorhanden, PFAD_ANMELDUNG, PFAD_START } from './anmeldung.ts'
+import { anmeldungsWege, bauVerzeichnis, bauVorhanden, PFAD_ANMELDUNG, PFAD_START } from './login.ts'
 // **Die Brücke zur Token-Tür**: aus der 401 des Kerns wird die Anmeldeseite, und ein
 // angemeldeter Administrator bekommt die Token-Adresse.
-import { PFAD_ZUGANG, sperreUmbiegen, verbindungAus, zugangsWege } from './zugang.ts'
+import { PFAD_ZUGANG, sperreUmbiegen, verbindungAus, zugangsWege } from './access.ts'
 // **Die Quellordner**: lesen, anlegen, Zugriff setzen, entfernen — je Mandant aus der Sitzung.
-import { PFAD_ORDNER, ordnerWege } from './ordner.ts'
+import { PFAD_ORDNER, ordnerWege } from './folders.ts'
 
-export { ABLAGEDATEI, claimAblageImHome } from './claim-ablage.ts'
+export { ABLAGEDATEI, claimAblageImHome } from './claim-store.ts'
 
 export {
   akteurAus,
   darfBenutzerAnlegen,
   isolationAnsicht,
   type IsolationAnsicht,
-} from './rechte.ts'
+} from './rights.ts'
 
 export {
   PFAD_ABMELDEN,
@@ -110,7 +110,7 @@ export {
   type Antwort,
   type Herkunft,
   type Umgebung,
-} from './wege.ts'
+} from './paths.ts'
 
 export {
   CSRF_COOKIE,
@@ -140,9 +140,9 @@ export {
   wegBau,
   wegSprachen,
   wegStart,
-} from './anmeldung.ts'
+} from './login.ts'
 
-export { PFAD_ZUGANG, eigeneAdresse, sperreUmbiegen, verbindungAus, wegZugang, zugangsWege } from './zugang.ts'
+export { PFAD_ZUGANG, eigeneAdresse, sperreUmbiegen, verbindungAus, wegZugang, zugangsWege } from './access.ts'
 
 export {
   PFAD_ORDNER,
@@ -154,7 +154,7 @@ export {
   wegOrdnerEntfernen,
   wegOrdnerListe,
   wegOrdnerZugriff,
-} from './ordner.ts'
+} from './folders.ts'
 
 export const name = 'pmh-auth-http'
 
@@ -393,7 +393,7 @@ export function apply(ctx: Context): void {
 
     // **Die Sperre wird nachgeholt, bis sie greift.** Der Kern beantwortet `/` ohne Token mit
     // einer 401-Textzeile; wir biegen genau diese Antwort auf die Anmeldeseite um — ohne eine
-    // Datei in `node_modules` zu ändern (siehe `zugang.ts`).
+    // Datei in `node_modules` zu ändern (siehe `access.ts`).
     //
     // **Warum in Abständen und nicht einmal.** Zwei Live-Versuche sind gescheitert, und der
     // Grund war beide Male die **Zeit**, nicht der Zugriff: unser Paket lädt, bevor der

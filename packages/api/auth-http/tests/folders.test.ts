@@ -30,9 +30,9 @@ import { Argon2PasswordHasher, MemoryRateLimiter } from '@prometheus-harness/aut
 import { betriebsdatenbankNamen } from '@prometheus-harness/db-schema'
 import { erzeugeSpeicher, type SqlZugang, type TransaktionsZugang } from '@prometheus-harness/store-postgres'
 import postgres from 'postgres'
-import { claimAblageImHome } from '../src/claim-ablage.ts'
-import { PFAD_ORDNER, PFAD_ORDNER_ANLEGEN, PFAD_ORDNER_ENTFERNEN, PFAD_ORDNER_ZUGRIFF, ordnerWege } from '../src/ordner.ts'
-import { anmelden, type Umgebung } from '../src/wege.ts'
+import { claimAblageImHome } from '../src/claim-store.ts'
+import { PFAD_ORDNER, PFAD_ORDNER_ANLEGEN, PFAD_ORDNER_ENTFERNEN, PFAD_ORDNER_ZUGRIFF, ordnerWege } from '../src/folders.ts'
+import { anmelden, type Umgebung } from '../src/paths.ts'
 
 /** Ein Verzeichnis für die Claim-Ablage — es wird nichts hineingeschrieben. */
 const HOME = mkdtempSync(join(tmpdir(), 'pmh-ordner-'))

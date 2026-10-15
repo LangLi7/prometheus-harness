@@ -17,9 +17,9 @@
 import { describe, expect, test } from 'bun:test'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
-import { PFAD_ANMELDUNG } from '../src/anmeldung.ts'
-import { PFAD_ZUGANG, eigeneAdresse, sperreUmbiegen, wegZugang } from '../src/zugang.ts'
-import type { Umgebung } from '../src/wege.ts'
+import { PFAD_ANMELDUNG } from '../src/login.ts'
+import { PFAD_ZUGANG, eigeneAdresse, sperreUmbiegen, wegZugang } from '../src/access.ts'
+import type { Umgebung } from '../src/paths.ts'
 
 /** Ein Aufruf, wie ihn der Kern entgegennimmt. */
 function anfrage(url = '/'): IncomingMessage {

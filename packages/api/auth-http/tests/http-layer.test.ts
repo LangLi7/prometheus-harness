@@ -45,7 +45,7 @@ import {
   PFAD_ICH,
   cookieWert,
   type Umgebung,
-} from '../src/wege.ts'
+} from '../src/paths.ts'
 import type { AuthSpeicher } from '@prometheus-harness/store-postgres'
 import { Argon2PasswordHasher, CSRF_COOKIE_NAME as CSRF_AUS_DEM_KERN, MemoryRateLimiter } from '@prometheus-harness/auth'
 

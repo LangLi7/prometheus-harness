@@ -3,7 +3,7 @@
  *
  * ## Warum ein echter Server und keine gerufene Funktion
  *
- * Dieselbe Begründung wie in `http-schicht.test.ts`: `macheWeg` prüft
+ * Dieselbe Begründung wie in `http-layer.test.ts`: `macheWeg` prüft
  * `req.method` und schreibt auf `res`. Ob eine **falsche Methode** abgewiesen wird,
  * ob `HEAD` wie `GET` behandelt wird und ob die Kopfzeilen wirklich auf dem Draht
  * stehen, sieht man nur am Socket. Eine gerufene Funktion würde genau das
@@ -25,8 +25,8 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { CSRF_COOKIE_NAME } from '@prometheus-harness/auth'
-import { CSRF_KOPFZEILE, PFAD_ABMELDEN, PFAD_ANMELDEN, PFAD_ICH, PFAD_REGISTRIEREN } from '../src/wege.ts'
-import { HTML, JS, CSP, PFAD_SEITE, PFAD_SEITE_API, PFAD_SEITE_JS, seitenWege } from '../src/seite.ts'
+import { CSRF_KOPFZEILE, PFAD_ABMELDEN, PFAD_ANMELDEN, PFAD_ICH, PFAD_REGISTRIEREN } from '../src/paths.ts'
+import { HTML, JS, CSP, PFAD_SEITE, PFAD_SEITE_API, PFAD_SEITE_JS, seitenWege } from '../src/page.ts'
 
 let server: Server
 let basis: string
@@ -202,7 +202,7 @@ describe('Konten anlegen als Administrator — die Lücke, die geschlossen wurde
 
   test('der Bereich erscheint NUR für die Rolle admin', () => {
     // Die Prüfung im Browser ist **Bequemlichkeit, keine Sicherheit** — die
-    // Entscheidung fällt in `wege.ts`. Aber sie muß den richtigen Wert lesen:
+    // Entscheidung fällt in `paths.ts`. Aber sie muß den richtigen Wert lesen:
     // stünde hier `!== 'user'`, sähe ihn auch ein `undefined`.
     expect(JS).toContain("$('verwaltung').hidden = wert.role !== 'admin'")
   })
@@ -215,7 +215,7 @@ describe('Konten anlegen als Administrator — die Lücke, die geschlossen wurde
   })
 
   test('DIE ANFORDERUNG DES ADMIN-WEGS WIRD ERFÜLLT: der CSRF-Wert geht mit', () => {
-    // **Das war die Lücke.** `wege.ts` verlangt auf dem Admin-Zweig von
+    // **Das war die Lücke.** `paths.ts` verlangt auf dem Admin-Zweig von
     // `register` einen CSRF-Nachweis; die Seite schickte keinen, und das Ergebnis
     // war `403 csrf-fehlt`. Ein angemeldeter Administrator konnte deshalb über die
     // Oberfläche kein Konto anlegen.
@@ -265,7 +265,7 @@ describe('Konten anlegen als Administrator — die Lücke, die geschlossen wurde
   test('und die Oberfläche setzt keine Regel selbst durch — sie zeigt nur', () => {
     // **Der Grundsatz.** Eine Oberfläche, die eine Regel nachbaut, hat sie
     // zweimal — und die zweite ist die falsche. Was hier steht, ist Anzeige und
-    // Bequemlichkeit; entschieden wird in `wege.ts`.
+    // Bequemlichkeit; entschieden wird in `paths.ts`.
     // Geprüft wird die Abwesenheit eigener Regelprüfungen:
     for (const verboten of ['password.length', 'includes("@")', 'role ===', 'claimToken.length']) {
       // `wert.role !== 'admin'` ist erlaubt — das ist keine Regel, sondern eine

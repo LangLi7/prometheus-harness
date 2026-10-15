@@ -35,7 +35,7 @@ export const ZIEL_PARAMETER = 'weiter'
 /**
  * Das Ziel, wenn keines genannt ist.
  *
- * **Die Schnittstelle des Hosts**: `/start` (`packages/api/auth-http/src/anmeldung.ts`). Dort
+ * **Die Schnittstelle des Hosts**: `/start` (`packages/api/auth-http/src/login.ts`). Dort
  * steht, wer angemeldet ist, und von dort geht es weiter. Ohne gültige Sitzung leitet `/start`
  * auf die Anmeldeseite zurück — es gibt also keine Schleife, sondern einen Kreis, der sich
  * schließt, sobald die Anmeldung gelingt.

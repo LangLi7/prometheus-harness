@@ -4,7 +4,7 @@ Die Seite vor der Oberfläche: anmelden oder Konto anlegen. Sie spricht mit den 
 `/api/pmh/auth/*` und zeigt jede Meldung so, wie der Server sie schickt.
 
 **Sie liegt am Ursprung des Rechners**, nicht auf einem eigenen Port. Der Rechner liefert sie
-unter `/anmeldung/` aus (`packages/api/auth-http/src/anmeldung.ts`). Grund: unsere Kekse sind
+unter `/anmeldung/` aus (`packages/api/auth-http/src/login.ts`). Grund: unsere Kekse sind
 `SameSite=Strict`, und ein solcher Keks kommt nur bei derselben Herkunft an. Auf einem eigenen
 Port wäre die Anmeldung still wirkungslos.
 

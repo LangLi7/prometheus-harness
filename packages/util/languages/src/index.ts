@@ -5,7 +5,7 @@
  *
  * Dieselben Texte werden an **zwei** Stellen gebraucht: die Seite im Browser
  * (`apps/login_web`) und die Seiten, die der Rechner selbst ausliefert (`/start` in
- * `packages/api/auth-http/src/anmeldung.ts`). Zwei Abschriften wären zwei Wahrheiten —
+ * `packages/api/auth-http/src/login.ts`). Zwei Abschriften wären zwei Wahrheiten —
  * die englische Seite sagte dann irgendwann etwas anderes als die deutsche.
  *
  * Das Paket hat **keine** Abhängigkeiten: es ist eine Tabelle und drei Funktionen. Deshalb

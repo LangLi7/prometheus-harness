@@ -48,14 +48,14 @@ import { erzeugeClaim, erstinbetriebnahmeOffen, leseMaschinenbindung, leseOderEr
 import { migrate, betriebsdatenbankNamen, type MigrationTarget } from '@prometheus-harness/db-schema'
 import { erzeugeSpeicher, speichereProfil, type SqlZugang } from '@prometheus-harness/store-postgres'
 import { wegAbmelden, wegAnmelden, wegIch, wegRegistrieren, type Weg } from '../src/http.ts'
-import { claimAblageImHome } from '../src/claim-ablage.ts'
+import { claimAblageImHome } from '../src/claim-store.ts'
 import {
   PFAD_ABMELDEN,
   PFAD_ANMELDEN,
   PFAD_ICH,
   PFAD_REGISTRIEREN,
   type Umgebung,
-} from '../src/wege.ts'
+} from '../src/paths.ts'
 
 // ---------------------------------------------------------------------------
 // Zugang und Sicherung

@@ -4,8 +4,8 @@
  * ## Warum so dünn
  *
  * Hier wird **nichts entschieden**: kein Status, kein Grund, keine Regel. Diese
- * Datei liest einen Körper, holt die Herkunft, ruft einen Weg aus `wege.ts` und
- * schreibt die Antwort. Alle Entscheidungen liegen in `wege.ts` und sind dort
+ * Datei liest einen Körper, holt die Herkunft, ruft einen Weg aus `paths.ts` und
+ * schreibt die Antwort. Alle Entscheidungen liegen in `paths.ts` und sind dort
  * ohne Server prüfbar.
  *
  * ## Die zwei Fallen, die hier lauern
@@ -44,7 +44,7 @@ import {
   type Antwort,
   type Herkunft,
   type Umgebung,
-} from './wege.ts'
+} from './paths.ts'
 
 /** Liest die `Cookie`-Kopfzeile. */
 export function cookieKopf(req: IncomingMessage): string | undefined {
@@ -145,7 +145,7 @@ export function sende(res: ServerResponse, antwort: Antwort): void {
   res.end()
 }
 
-/** Ein Weg aus `wege.ts`, auf einen Socket gebracht. */
+/** Ein Weg aus `paths.ts`, auf einen Socket gebracht. */
 export type Weg = (req: IncomingMessage, res: ServerResponse) => Promise<void>
 
 /**

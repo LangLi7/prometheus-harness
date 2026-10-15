@@ -17,7 +17,7 @@
  *
  * **Meine erste Fassung las ihn aus einem Meta-Feld** (`meta[name="pmh-csrf"]`) und nannte das
  * ausdrücklich eine „Festlegung dieser Datei". Sie war **falsch**: die Anmeldeseite liest ihn seit
- * jeher aus dem **Keks** (`packages/api/auth-http/src/seite.ts:274`, Name in
+ * jeher aus dem **Keks** (`packages/api/auth-http/src/page.ts:274`, Name in
  * `packages/auth/auth/src/session.ts:450`). Jetzt steht hier {@link csrfWert} — aus dem Keks.
  *
  * ## Was NOCH offen ist

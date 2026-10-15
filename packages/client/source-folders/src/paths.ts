@@ -3,7 +3,7 @@
  *
  * ## Der Vertrag, nachgesehen statt erfunden
  *
- * Alle Angaben stammen aus `packages/api/auth-http/src/ordner.ts` und `paths.ts`:
+ * Alle Angaben stammen aus `packages/api/auth-http/src/folders.ts` und `paths.ts`:
  *
  * | Weg | Körper | Antwort |
  * |---|---|---|

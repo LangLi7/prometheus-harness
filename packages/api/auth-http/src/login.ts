@@ -32,7 +32,7 @@
  *
  * `displayName` und `email` sind **Benutzereingabe**. Wer sie ungeprüft in HTML setzt, baut
  * ein XSS-Einfallstor in genau die Seite, die vor der Anmeldung steht. Die bestehende Seite
- * (`seite.ts`) brauchte keinen Entschärfer, weil sie alles im Browser mit `textContent` setzt;
+ * (`page.ts`) brauchte keinen Entschärfer, weil sie alles im Browser mit `textContent` setzt;
  * diese hier rendert serverseitig und braucht einen ({@link entschaerfe}).
  *
  * ## Wenn kein Bau da ist
@@ -54,8 +54,8 @@ import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 // (es setzt die Kopfzeilen der Seite); `sende` aus `http.ts` schreibt eine JSON-Antwort.
 // Zwei Funktionen mit demselben Namen wären ein Namensstreit, den der Typlauf gewinnt.
 import { macheWeg, sende as sendeAntwort, type Weg } from './http.ts'
-import { PFAD_SEITE } from './seite.ts'
-import { gut, cookieWert, sitzungsCookieName, werBinIch, type Umgebung } from './wege.ts'
+import { PFAD_SEITE } from './page.ts'
+import { gut, cookieWert, sitzungsCookieName, werBinIch, type Umgebung } from './paths.ts'
 // **Die Sprachtabelle.** Dieselbe Tabelle benutzt die Seite im Browser (`apps/login_web`) —
 // eine Abschrift auf jeder Seite wäre eine zweite Wahrheit.
 import {

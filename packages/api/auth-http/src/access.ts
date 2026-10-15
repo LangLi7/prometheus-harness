@@ -44,8 +44,8 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { sende, macheWeg, type Weg } from './http.ts'
-import { PFAD_ANMELDUNG } from './anmeldung.ts'
-import { cookieWert, gut, schlecht, sitzungsCookieName, werBinIch, type Umgebung } from './wege.ts'
+import { PFAD_ANMELDUNG } from './login.ts'
+import { cookieWert, gut, schlecht, sitzungsCookieName, werBinIch, type Umgebung } from './paths.ts'
 
 /** Wo es nach der Anmeldung zur Oberfläche geht. */
 export const PFAD_ZUGANG = '/api/pmh/auth/zugang'

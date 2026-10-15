@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Die Anmeldung im Host: vier Wege unter /api/pmh/auth (register, login, logout, me) über den Regelkern @prometheus-harness/auth und den Speicher @prometheus-harness/store-postgres. Die Wege selbst liegen rein und socketfrei in wege.ts, das HTTP in http.ts, das Einhängen in index.ts.",
+  "description": "Die Anmeldung im Host: vier Wege unter /api/pmh/auth (register, login, logout, me) über den Regelkern @prometheus-harness/auth und den Speicher @prometheus-harness/store-postgres. Die Wege selbst liegen rein und socketfrei in paths.ts, das HTTP in http.ts, das Einhängen in index.ts.",
   "exports": {
     ".": "./src/index.ts"
   },

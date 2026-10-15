@@ -41,7 +41,7 @@ const BASIS = process.argv[2] ?? 'http://127.0.0.1:5180'
  *
  * **Seit dem 14.10.2026 unter einem Präfix**: `base: '/anmeldung/'` in `vite.config.ts`, weil
  * der **Host** sie im Betrieb unter genau diesem Pfad ausliefert
- * (`packages/api/auth-http/src/anmeldung.ts`). Entwicklungsserver und Host haben damit
+ * (`packages/api/auth-http/src/login.ts`). Entwicklungsserver und Host haben damit
  * **dieselbe Form** — ein Unterschied könnte sonst einen Fehler verdecken, den es nur im
  * Betrieb gibt.
  */

@@ -43,9 +43,9 @@ import { Argon2PasswordHasher, MemoryRateLimiter } from '@prometheus-harness/aut
 import { CLAIMDATEI, erzeugeClaim, leseMaschinenbindung, leseOderErzeugeGeraeteId } from '@prometheus-harness/claim'
 import { migrate } from '@prometheus-harness/db-schema'
 import { erzeugeSpeicher, zaehleAdmins, type SqlZugang } from '@prometheus-harness/store-postgres'
-import { claimAblageImHome } from '../src/claim-ablage.ts'
-import { registrieren } from '../src/wege.ts'
-import type { Umgebung } from '../src/wege.ts'
+import { claimAblageImHome } from '../src/claim-store.ts'
+import { registrieren } from '../src/paths.ts'
+import type { Umgebung } from '../src/paths.ts'
 
 const AUS_ENV = process.env.PMH_TEST_DATABASE_URL
 const DA = AUS_ENV !== undefined && AUS_ENV.trim() !== '' ? AUS_ENV : undefined
