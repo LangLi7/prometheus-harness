@@ -1498,3 +1498,16 @@ export function erzeugeSpeicher(sql: SqlZugang): AuthSpeicher {
     ladeProfil: (userId) => ladeProfil(sql, userId),
   }
 }
+
+// ---------------------------------------------------------------------------
+// Die Zugriffspfade eines Arbeitsbereichs
+// ---------------------------------------------------------------------------
+// **Eigene Datei, hier nur ausgeführt.** `ladeWurzeln` übersetzt `workspace_folders` in die
+// Form, die der Sandkasten versteht: **eine** Hauptwurzel und die Zusatzordner, getrennt nach
+// Lesen und Schreiben.
+//
+// **Der Ringbezug ist Absicht und harmlos.** `wurzeln.ts` holt `mitMandant` von hier, und hier
+// wird `ladeWurzeln` von dort geholt. In ES-Modulen sind **Funktionsdeklarationen** gehoben und
+// stehen damit auch während des Ladens bereit — geprüft wird das von
+// `tests/wurzeln.test.ts`, das über den Paketeingang importiert.
+export { ladeWurzeln, schreibbareWurzeln, type Wurzeln } from './wurzeln.ts'

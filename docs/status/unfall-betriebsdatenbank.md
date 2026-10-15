@@ -82,8 +82,40 @@ wiederherstellbar, die Konten nicht — sie stammten aus früheren Prüfläufen.
 Und die Betriebsdatenbank danach kontrolliert: **10 000 Nachrichten, 9 Migrationen** — sie hat
 den vierten Lauf überstanden.
 
-## Was offen ist
+## Der zweite Fund: der zerstörende Test ließ ein halb migriertes Schema zurück
 
+Beim Nachziehen der Riegel fielen zwei Prüfungen um — und die Ursache war ein **Fehler in der
+Streichliste** des zerstörenden Schematests, nicht in den Prüfungen.
+
+`DROP TABLE IF EXISTS …` zählte die Tabellen **einzeln auf**: `auth_events`, `messages`, `chats`,
+`workspaces`, … Die Liste war älter als die Migrationen 8 und 9: `session_events` und
+`workspace_folders` fehlten darin.
+
+**Was dann geschieht, ist schlimmer als ein Fehler.** `DROP TABLE workspaces CASCADE` nimmt der
+abhängigen Tabelle `workspace_folders` den **Fremdschlüssel** — und läßt sie **stehen**. Danach
+läuft `migrate()`, trifft auf `CREATE TABLE IF NOT EXISTS workspace_folders`, findet die Tabelle
+vor und legt sie **nicht** neu an. Zurück bleibt eine Tabelle **ohne** ihren Verweis: ohne
+Kaskade, ohne Schutz gegen einen fremden Mandanten.
+
+**Gemessen** in `pmh_wegwerf`:
+
+```
+pg_constraint … contype = 'f'   →  pmh: 1   pmh_test: 1   pmh_wegwerf: 0
+```
+
+Zwei Prüfungen fielen daraufhin um: „ein Ordner kann nicht am Arbeitsbereich eines fremden
+Mandanten hängen" war grün bei einem Einfügen, das hätte scheitern müssen (23503), und „mit dem
+Arbeitsbereich verschwinden seine Ordner" ließ eine Zeile stehen. **Die Prüfungen hatten recht.**
+
+**Die Reparatur.** Die Streichliste ist jetzt **abgeleitet**, nicht abgeschrieben: eine Schleife
+über `pg_tables` im Schema `pmh` löscht, was da ist. Sie kann nicht veralten. Nach dem nächsten
+Lauf nachgemessen: Fremdschlüssel wieder da (`1`), 16 Prüfungen bestanden.
+
+**Und die Lehre, die schon in Regel 26 steht** — diesmal in einer Streichliste: was wächst, wird
+nicht abgeschrieben. Eine Liste, die niemand nachzieht, wird nicht falsch, sie wird
+**gefährlich**: sie hinterläßt einen Zustand, der wie fertig aussieht.
+
+## Was offen ist
 - **Der Rettungsstand ist vom 14.10. 15:19** — älter als der Unfall, aber **nicht** identisch mit
   dem, was `pmh` zuletzt enthielt (er hat 39 Profile, `pmh` hatte 0). Ein Zurückspielen ist eine
   Entscheidung des Betreibers, keine Nebenbei-Aktion: ich habe **nichts** zurückgespielt.

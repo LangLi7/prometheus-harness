@@ -69,7 +69,7 @@ import {
   verifySession,
   type SessionRecord,
 } from '@prometheus-harness/auth'
-import { migrate, type MigrationTarget } from '@prometheus-harness/db-schema'
+import { migrate, betriebsdatenbankNamen, type MigrationTarget } from '@prometheus-harness/db-schema'
 import { erzeugeSpeicher, mitMandant, type SqlZugang } from '../src/index.ts'
 
 // ---------------------------------------------------------------------------
@@ -150,17 +150,17 @@ beforeAll(async () => {
   )
   const hier = angabe[0]?.db ?? '?'
 
-  const betrieb = process.env.DATABASE_URL
-  if (adresseGesetzt(betrieb)) {
-    const nameDerAnwendung = new URL(betrieb).pathname.replace(/^\//u, '')
-    if (nameDerAnwendung !== '' && nameDerAnwendung === hier) {
-      await sql.end({ timeout: 5 })
-      throw new Error(
-        `ABBRUCH: dieser Test schreibt Daten und zeigt auf „${hier}" — dieselbe Datenbank wie die Anwendung ` +
-          `(DATABASE_URL). Er ist für eine Wegwerf-Datenbank gedacht: ` +
-          `setze PMH_TEST_DATABASE_URL auf eine andere Datenbank (siehe docs/status/mandantentrennung.md §10).`,
-      )
-    }
+  // **Die Datei, nicht die Sitzung.** Siehe `packages/auth/db-schema/src/betriebsdatenbank.ts`:
+  // eine übersteuerte `DATABASE_URL` hat am 15.10.2026 den Riegel des zerstörenden Schematests
+  // entwaffnet. Ein Vergleich mit der Umgebung ist kein Riegel.
+  const betriebe = betriebsdatenbankNamen(new URL('.', import.meta.url))
+  if (betriebe.includes(hier)) {
+    await sql.end({ timeout: 5 })
+    throw new Error(
+      `ABBRUCH: dieser Test schreibt Daten und zeigt auf „${hier}" — dieselbe Datenbank wie die Anwendung ` +
+        `(DATABASE_URL in .env). Er ist für eine Wegwerf-Datenbank gedacht: ` +
+        `setze PMH_TEST_DATABASE_URL auf eine andere Datenbank (siehe docs/status/mandantentrennung.md §10).`,
+    )
   }
 
   zugang = {

@@ -151,7 +151,7 @@ export const MIGRATIONSTABELLE = 'schema_migrations'
  *
  * ```
  * $ docker exec pmh-postgres psql -U pmh_app -d pmh -t -c "select max(version) from schema_migrations;"
- *   9
+ *   10
  * ```
  *
  * **Warum hier zwischenzeitlich eine 7 stand.** Die Migrationen 0006, 0007 und 0008
@@ -171,7 +171,7 @@ export const MIGRATIONSTABELLE = 'schema_migrations'
  * weil ein Import am Typsystem scheitert (sechs `TS2307` — die `.sql`-Deklaration
  * von `db-schema` ist im Programm von `readiness` nicht enthalten).
  */
-export const ERWARTETE_SCHEMAFASSUNG = 9
+export const ERWARTETE_SCHEMAFASSUNG = 10
 
 /**
  * Die Tabellen, ohne die die Anwendung nicht arbeiten kann.

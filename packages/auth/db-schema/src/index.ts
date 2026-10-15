@@ -35,6 +35,11 @@ import m0006 from '../migrations/0006_wissensspeicher.sql' with { type: 'text' }
 import m0007 from '../migrations/0007_obsidian.sql' with { type: 'text' }
 import m0008 from '../migrations/0008_sitzungsprotokoll.sql' with { type: 'text' }
 import m0009 from '../migrations/0009_arbeitsbereich-ordner.sql' with { type: 'text' }
+import m0010 from '../migrations/0010_zusatzordner-zugriff.sql' with { type: 'text' }
+
+// **Wer ist die Betriebsdatenbank?** Der Riegel der Prüfungen — siehe die Datei selbst für die
+// zwei Messungen, die zu dieser Regel geführt haben.
+export { betriebsdatenbankNamen, betriebsdatenbankNamenAusDatei, datenbankNameAus } from './betriebsdatenbank.ts'
 
 // ---------------------------------------------------------------------------
 // Migrationstyp
@@ -89,6 +94,7 @@ export const MIGRATIONS: readonly Migration[] = [
   // `42704` wirft statt still null Zeilen zu liefern.
   { version: 8, name: 'sitzungsprotokoll-und-schreibherrschaft', sql: m0008 },
   { version: 9, name: 'arbeitsbereich-mit-mehreren-ordnern', sql: m0009 },
+  { version: 10, name: 'zusatzordner-lesen-oder-schreiben', sql: m0010 },
 ]
 
 /** Die Fassung, die dieses Paket erzeugt — die höchste Migrationsnummer. */

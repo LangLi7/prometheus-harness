@@ -138,11 +138,11 @@ describe.skipIf(!bereit)('Quellordner (Migration 9)', () => {
   test('genau EIN Primärordner — ein zweiter ist ein Verstoß', async () => {
     const ergebnis = await inTransaktion(eigentuemer!, async (tx) => {
       const m = await zweiMandanten(tx)
-      await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer)
-               values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\eins', true)`
+      await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer, zugriff)
+               values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\eins', true, 'schreiben')`
       return await fehlercode(async () => {
-        await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer)
-                 values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\zwei', true)`
+        await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer, zugriff)
+                 values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\zwei', true, 'schreiben')`
       })
     })
     // 23505 = eindeutiger Schlüssel verletzt (der Teilindex für den einen Primärordner).
@@ -152,10 +152,10 @@ describe.skipIf(!bereit)('Quellordner (Migration 9)', () => {
   test('mehrere NICHT-primäre Ordner sind erlaubt — das ist der Sinn der Migration', async () => {
     const n = await inTransaktion(eigentuemer!, async (tx) => {
       const m = await zweiMandanten(tx)
-      await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer, sortierung)
-               values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\haupt', true, 0),
-                      (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\zweite', false, 1),
-                      (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\dritte', false, 2)`
+      await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer, zugriff, sortierung)
+               values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\haupt', true, 'schreiben', 0),
+                      (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\zweite', false, 'schreiben', 1),
+                      (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\dritte', false, 'lesen', 2)`
       const r = await tx`select count(*)::int as n from pmh.workspace_folders where workspace_id = ${m.wa}`
       return r[0]?.n
     })
@@ -249,8 +249,8 @@ describe.skipIf(!bereit)('Quellordner (Migration 9)', () => {
       await tx`insert into pmh.users (id, email, password_hash, display_name, role)
                values (${a}, ${'ordner-a-' + a + '@probe.invalid'}, null, 'A', 'user')`
       await tx`insert into pmh.workspaces (id, user_id, name) values (${wa}, ${a}, 'Werkstatt A')`
-      await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer)
-               values (${crypto.randomUUID()}, ${wa}, ${a}, ${'C:\\ordner\\a'}, true)`
+      await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer, zugriff)
+               values (${crypto.randomUUID()}, ${wa}, ${a}, ${'C:\\ordner\\a'}, true, 'schreiben')`
 
       const meins = await tx`select count(*)::int as n from pmh.workspace_folders where pfad = ${'C:\\ordner\\a'}`
 
@@ -270,12 +270,71 @@ describe.skipIf(!bereit)('Quellordner (Migration 9)', () => {
   test('mit dem Arbeitsbereich verschwinden seine Ordner', async () => {
     const n = await inTransaktion(eigentuemer!, async (tx) => {
       const m = await zweiMandanten(tx)
-      await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer)
-               values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\kaskade', true)`
+      await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer, zugriff)
+               values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\kaskade', true, 'schreiben')`
       await tx`delete from pmh.workspaces where id = ${m.wa}`
       const r = await tx`select count(*)::int as n from pmh.workspace_folders where workspace_id = ${m.wa}`
       return r[0]?.n
     })
     expect(n).toBe(0)
+  })
+
+  test('die Zugriffsart gibt es, und die Vorgabe ist LESEN (Migration 10)', async () => {
+    const z = await inTransaktion(eigentuemer!, async (tx) => {
+      const m = await zweiMandanten(tx)
+      await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer, zugriff)
+               values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\haupt', true, 'schreiben')`
+      // **Ohne Angabe** — hier zählt die Vorgabe der Spalte.
+      await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad)
+               values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\ohne-angabe')`
+      const r = await tx`select zugriff from pmh.workspace_folders where pfad = 'C:\\ordner\\ohne-angabe'`
+      return r[0]?.zugriff
+    })
+    expect(z).toBe('lesen')
+  })
+
+  test('ein Arbeitsplatz, der nur LESEN darf, wird abgewiesen', async () => {
+    // Der Arbeitsplatz ist der Ort, an dem gearbeitet wird. Ein Arbeitsplatz ohne Schreiben wäre
+    // ein Widerspruch — die Prüfregel macht daraus einen Fehler statt einer Annahme.
+    const code = await inTransaktion(eigentuemer!, async (tx) => {
+      const m = await zweiMandanten(tx)
+      return await fehlercode(async () => {
+        await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer, zugriff)
+                 values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\gesperrt', true, 'lesen')`
+      })
+    })
+    expect(code).toBe('23514')
+  })
+
+  test('ein unbekannter Zugriffswert wird abgewiesen — kein stiller Freibrief', async () => {
+    const code = await inTransaktion(eigentuemer!, async (tx) => {
+      const m = await zweiMandanten(tx)
+      await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer, zugriff)
+               values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\haupt', true, 'schreiben')`
+      return await fehlercode(async () => {
+        await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, zugriff)
+                 values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\tippfehler', 'schreiben!')`
+      })
+    })
+    expect(code).toBe('23514')
+  })
+
+  test('ein Zusatzordner MIT Schreibrecht ist erlaubt — die Vorgabe bleibt LESEN', async () => {
+    const stand = await inTransaktion(eigentuemer!, async (tx) => {
+      const m = await zweiMandanten(tx)
+      await tx`insert into pmh.workspace_folders (id, workspace_id, user_id, pfad, ist_primaer, zugriff)
+               values (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\haupt', true, 'schreiben'),
+                      (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\mit-schreibrecht', false, 'schreiben'),
+                      (${crypto.randomUUID()}, ${m.wa}, ${m.a}, 'C:\\ordner\\nurlesen', false, 'lesen')`
+      const r = await tx`select
+                           count(*)::int as alle,
+                           count(*) filter (where zugriff = 'schreiben')::int as schreiben,
+                           count(*) filter (where zugriff = 'lesen')::int as lesen
+                         from pmh.workspace_folders where workspace_id = ${m.wa}`
+      return { alle: r[0]?.alle, schreiben: r[0]?.schreiben, lesen: r[0]?.lesen }
+    })
+    // Der Arbeitsplatz und ein ausdrücklich erlaubter Zusatzordner dürfen schreiben; der dritte
+    // nicht. **Schreiben wird einzeln vergeben, nicht als Paket.**
+    expect(stand).toEqual({ alle: 3, schreiben: 2, lesen: 1 })
   })
 })

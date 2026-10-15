@@ -29,7 +29,7 @@ import {
   register,
   tokenHash,
 } from '@prometheus-harness/auth'
-import { migrate, type MigrationTarget } from '@prometheus-harness/db-schema'
+import { migrate, betriebsdatenbankNamen, type MigrationTarget } from '@prometheus-harness/db-schema'
 import { erzeugeResetToken, loeseResetTokenEin, RESET_ZWECK } from '@prometheus-harness/reset'
 import { erzeugeSpeicher, erzeugeTokenAblage, type SqlZugang } from '../src/index.ts'
 
@@ -74,17 +74,15 @@ beforeAll(async () => {
 
   const angabe = await sql.unsafe<{ db: string }[]>('SELECT current_database() AS db')
   const hier = angabe[0]?.db ?? '?'
-  const betrieb = process.env.DATABASE_URL
-  if (adresseGesetzt(betrieb)) {
-    const nameDerAnwendung = new URL(betrieb).pathname.replace(/^\//u, '')
-    if (nameDerAnwendung !== '' && nameDerAnwendung === hier) {
-      await sql.end({ timeout: 5 })
-      throw new Error(
-        `ABBRUCH: dieser Test schreibt Daten und zeigt auf „${hier}" — dieselbe Datenbank wie die Anwendung ` +
-          `(DATABASE_URL). Er ist für eine Wegwerf-Datenbank gedacht: ` +
-          `setze PMH_TEST_DATABASE_URL auf eine andere Datenbank (siehe docs/status/mandantentrennung.md §10).`,
-      )
-    }
+  // **Die Datei, nicht die Sitzung.** Siehe `packages/auth/db-schema/src/betriebsdatenbank.ts`.
+  const betriebe = betriebsdatenbankNamen(new URL('.', import.meta.url))
+  if (betriebe.includes(hier)) {
+    await sql.end({ timeout: 5 })
+    throw new Error(
+      `ABBRUCH: dieser Test schreibt Daten und zeigt auf „${hier}" — dieselbe Datenbank wie die Anwendung ` +
+        `(DATABASE_URL in .env). Er ist für eine Wegwerf-Datenbank gedacht: ` +
+        `setze PMH_TEST_DATABASE_URL auf eine andere Datenbank (siehe docs/status/mandantentrennung.md §10).`,
+    )
   }
 
   zugang = {

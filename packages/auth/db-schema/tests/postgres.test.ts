@@ -19,14 +19,14 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import postgres from 'postgres'
 import {
   MIGRATIONS,
   MigrationError,
   SCHEMA_VERSION,
+  betriebsdatenbankNamen,
   checksumOf,
   currentSchemaVersion,
   migrate,
@@ -251,45 +251,14 @@ beforeAll(async () => {
   const angabe = await sql.unsafe<{ db: string }[]>('SELECT current_database() AS db')
   const hier = angabe[0]?.db ?? '?'
 
-  /** Der Datenbankname aus einer Adresse, oder `''`. */
-  const nameAus = (adresse: string | undefined): string => {
-    if (!adresseGesetzt(adresse)) return ''
-    try {
-      return new URL(adresse).pathname.replace(/^\//u, '')
-    } catch {
-      return ''
-    }
-  }
-
-  /**
-   * Der Datenbankname aus `DATABASE_URL` in der **Datei** `.env`.
-   *
-   * **Warum die Datei gelesen wird.** Eine Umgebungsvariable kann eine einzelne Sitzung
-   * setzen; die Datei ist die Angabe des Betreibers. Der Vergleich mit beiden macht die
-   * Sicherung unabhängig davon, was gerade in der Umgebung steht.
-   *
-   * @returns der Name, oder `''`, wenn die Datei nicht lesbar ist
-   */
-  const betriebAusDatei = (): string => {
-    try {
-      const wurzel = fileURLToPath(new URL('../../../../', import.meta.url))
-      const inhalt = readFileSync(join(wurzel, '.env'), 'utf8')
-      for (const zeile of inhalt.split(/\r?\n/u)) {
-        const treffer = /^\s*DATABASE_URL\s*=\s*(.+)$/u.exec(zeile)
-        if (treffer?.[1] !== undefined) return nameAus(treffer[1].trim())
-      }
-    } catch {
-      // Keine `.env` (etwa in einem Bau): dann gilt nur die Umgebung.
-    }
-    return ''
-  }
-
-  const betriebe = [nameAus(process.env.DATABASE_URL), betriebAusDatei()].filter((n) => n !== '')
+  // **Die Datei, nicht die Sitzung.** Siehe `src/betriebsdatenbank.ts` — dort stehen die zwei
+  // Messungen (der Unfall und der Fehlalarm danach), die zu dieser Regel geführt haben.
+  const betriebe = betriebsdatenbankNamen(dirname(fileURLToPath(import.meta.url)))
   if (betriebe.includes(hier)) {
     await sql.end({ timeout: 5 })
     throw new Error(
       `ABBRUCH: dieser Test LÖSCHT ALLE TABELLEN und zeigt auf „${hier}" — dieselbe Datenbank wie die ` +
-        `Anwendung (DATABASE_URL). Er ist für eine Wegwerf-Datenbank gedacht: ` +
+        `Anwendung (DATABASE_URL in .env). Er ist für eine Wegwerf-Datenbank gedacht: ` +
         `setze PMH_TEST_DATABASE_URL auf eine andere Datenbank (siehe docs/status/mandantentrennung.md §10).`,
     )
   }
@@ -303,20 +272,34 @@ afterAll(async () => {
 run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
   test('wendet das Schema auf eine frische Datenbank an', async () => {
     const target = targetOf(sql)
-    // Sauberer Anfang: die Tabellen dieses Schemas werden entfernt, damit der
-    // Test wiederholbar ist. `CASCADE` nimmt die Fremdschlüssel mit.
+    // Sauberer Anfang: **alle** Tabellen dieses Schemas werden entfernt, damit der
+    // Test wiederholbar ist.
+    //
+    // **Warum hier eine Schleife steht und keine ausgeschriebene Liste.** Bis zum
+    // 15.10.2026 stand hier eine Liste von Hand. Sie war **veraltet**: `session_events`
+    // (Migration 8) und `workspace_folders` (Migration 9) fehlten darin. Die Folge war
+    // nicht etwa ein Fehler, sondern etwas Schlimmeres: `DROP TABLE workspaces CASCADE`
+    // nimmt der abhängigen Tabelle den **Fremdschlüssel**, läßt sie aber **stehen** —
+    // und `CREATE TABLE IF NOT EXISTS` legt sie danach nicht neu an. Gemessen in
+    // `pmh_wegwerf`: `workspace_folders` ohne `workspace_folders_workspace_user_fkey`,
+    // also ohne Kaskade und ohne Schutz gegen fremde Mandanten. Eine Datenbank, die
+    // aussieht wie migriert und es nicht ist.
+    //
+    // Die Schleife kann nicht veralten: sie fragt, was da ist.
     await target.exec(`
-      DROP TABLE IF EXISTS auth_events, user_secrets, one_time_tokens, messages,
-        chats, workspaces, api_keys, auth_sessions, conversation_sessions, users, schema_migrations CASCADE;
-      -- Der Wissensspeicher haengt an users und faellt mit CASCADE mit; er steht
-      -- trotzdem ausdruecklich hier, damit die Liste vollstaendig ist und niemand
-      -- sie fuer abschliessend haelt. (Keine Backticks in diesem Kommentar: er
-      -- steht in einem Template-Literal, und ein Backtick beendet es.)
-      DROP TABLE IF EXISTS chunks, documents, note_tags, links, tags, notes, vaults CASCADE;
+      DO $$
+      DECLARE tabelle record;
+      BEGIN
+        FOR tabelle IN
+          SELECT tablename FROM pg_tables WHERE schemaname = 'pmh'
+        LOOP
+          EXECUTE format('DROP TABLE IF EXISTS pmh.%I CASCADE', tabelle.tablename);
+        END LOOP;
+      END $$;
     `)
 
     const report = await migrate(target)
-    expect(report.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
+    expect(report.applied).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     expect(report.version).toBe(SCHEMA_VERSION)
     expect(report.fresh).toBe(true)
   })
