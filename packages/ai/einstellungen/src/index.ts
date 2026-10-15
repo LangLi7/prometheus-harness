@@ -24,11 +24,13 @@
  */
 
 export {
+  DENKSTUFEN,
   FASSUNG,
   VORGABE,
   EinstellungenFehler,
   denkhilfeAn,
   leseEinstellungen,
+  mitDenken,
   mitDenkhilfe,
   mitStufen,
   mitWahl,
@@ -36,6 +38,7 @@ export {
   ohneWahl,
   schreibeEinstellungen,
   wahlFuer,
+  type Denkstufe,
   type Einstellungen,
   type Wahl,
 } from './einstellungen.ts'

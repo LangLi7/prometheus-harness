@@ -36,6 +36,7 @@ import {
   istFremdesZuhause,
   ladeEinstellungen,
   leseEinstellungen,
+  mitDenken,
   mitDenkhilfe,
   mitStufen,
   mitWahl,
@@ -223,6 +224,34 @@ describe('Was abgelehnt wird', () => {
   test('„denkhilfe" muß wahr oder falsch sein', () => {
     const fehler = fange(() => leseEinstellungen(JSON.stringify({ fassung: 1, wahl: {}, denkhilfe: 'ja' })))
     expect((fehler as EinstellungenFehler).maengel.join(' ')).toContain('denkhilfe')
+  })
+
+  test('die Denkstufe geht hin und zurück', () => {
+    const e = mitDenken(VORGABE, 'niedrig')
+    expect(e.denken).toBe('niedrig')
+    expect(leseEinstellungen(schreibeEinstellungen(e)).denken).toBe('niedrig')
+  })
+
+  test('ohne Denkstufe wird nichts geschrieben — und nichts gesendet', () => {
+    // Fehlt der Wert, entscheidet der Anbieter wie bisher. Etwas zu senden, das niemand gesetzt
+    // hat, hieße eine Entscheidung zu treffen, die nicht getroffen wurde.
+    expect(Object.hasOwn(JSON.parse(schreibeEinstellungen(VORGABE)) as object, 'denken')).toBe(false)
+    expect(VORGABE.denken).toBeUndefined()
+  })
+
+  test('ein unbekanntes Denk-Wort wird ABGELEHNT, nicht auf eine Stufe gerundet', () => {
+    // „sehr hoch" still als „hoch" zu lesen hieße, eine Einstellung zu erfinden.
+    const fehler = fange(() =>
+      leseEinstellungen(JSON.stringify({ fassung: 1, wahl: {}, denken: 'sehr hoch' })),
+    )
+    const maengel = (fehler as EinstellungenFehler).maengel.join(' ')
+    expect(maengel).toContain('sehr hoch')
+    // Und die Meldung nennt die erlaubten Wörter — der Leser soll nicht nachschlagen müssen.
+    expect(maengel).toContain('niedrig')
+  })
+
+  test('mitDenken weist ein fremdes Wort ab', () => {
+    expect(fange(() => mitDenken(VORGABE, 'gigantisch' as never))).toBeInstanceOf(EinstellungenFehler)
   })
 
   test('kein JSON, kein Objekt — beides fliegt auf', () => {

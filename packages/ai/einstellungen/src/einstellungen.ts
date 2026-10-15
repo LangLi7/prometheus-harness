@@ -41,6 +41,22 @@ export interface Wahl {
   readonly modell: string
 }
 
+/**
+ * Wie stark ein Modell **denken** darf.
+ *
+ * **Warum das eine EINSTELLUNG ist und kein Wert im Code.** Gemessen am 15.10.2026: bei zu kleinem
+ * Token-Budget kam ein **leerer** Inhalt zurück — die Zwischenschritte des Modells hatten das Budget
+ * aufgebraucht, und bezahlt war nichts Brauchbares. Wie stark ein Modell denken darf, hängt an der
+ * Aufgabe **und** am Geldbeutel — beides kennt nur der Endnutzer.
+ *
+ * **Die vier Wörter sind unsere.** Was der Dienst daraus macht, steht in
+ * `@prometheus-harness/openrouter` (`DENKSTUFEN`) — seine Werte sind seine Sache.
+ */
+export type Denkstufe = 'aus' | 'niedrig' | 'mittel' | 'hoch'
+
+/** Die vier Stufen in fester Reihenfolge — für Anzeige und Prüfung. */
+export const DENKSTUFEN: readonly Denkstufe[] = ['aus', 'niedrig', 'mittel', 'hoch']
+
 /** Die Einstellungen. */
 export interface Einstellungen {
   /** Die Fassung des Formats. */
@@ -56,6 +72,15 @@ export interface Einstellungen {
    * Angebot, keine Einstellung, die jemand still für ihn trifft.
    */
   readonly denkhilfe?: boolean
+  /**
+   * Wie stark gedacht werden darf.
+   *
+   * **Der Hebel gegen das volle Denk-Budget.** Gemessen: die Modelle `google/gemini-3.8-flash`,
+   * `openai/gpt-oss-20b` und `typesafe/jev-router` nehmen `reasoning_effort` an — **332 von 462**
+   * Modellen nennen `reasoning`. Fehlt der Wert, wird **nichts** gesendet und der Anbieter
+   * entscheidet wie bisher.
+   */
+  readonly denken?: Denkstufe
 }
 
 /** Die Vorgabe: **nichts gewählt**. */
@@ -75,7 +100,7 @@ export class EinstellungenFehler extends Error {
 }
 
 /** Die erlaubten Felder der obersten Ebene. */
-const ERLAUBT = ['fassung', 'wahl', 'stufen', 'denkhilfe'] as const
+const ERLAUBT = ['fassung', 'wahl', 'stufen', 'denkhilfe', 'denken'] as const
 
 /**
  * Prüft, ob ein Wert ein nichtleerer Text ist.
@@ -183,6 +208,18 @@ export function leseEinstellungen(text: string): Einstellungen {
     maengel.push('„denkhilfe" muß wahr oder falsch sein.')
   }
 
+  const denkenRoh = objekt['denken']
+  let denken: Denkstufe | undefined
+  if (denkenRoh !== undefined) {
+    if (typeof denkenRoh === 'string' && (DENKSTUFEN as readonly string[]).includes(denkenRoh)) {
+      denken = denkenRoh as Denkstufe
+    } else {
+      // **Ein unbekanntes Wort wird abgelehnt, nicht auf eine Stufe gerundet.** „sehr hoch" still
+      // als „hoch" zu lesen hieße, eine Einstellung zu erfinden, die niemand getroffen hat.
+      maengel.push(`„denken" war ${JSON.stringify(denkenRoh)} — erlaubt: ${DENKSTUFEN.join(', ')}.`)
+    }
+  }
+
   if (maengel.length > 0) throw new EinstellungenFehler(maengel)
 
   return {
@@ -190,6 +227,7 @@ export function leseEinstellungen(text: string): Einstellungen {
     wahl,
     ...(stufen === undefined ? {} : { stufen }),
     ...(denkhilfeRoh === undefined ? {} : { denkhilfe: denkhilfeRoh as boolean }),
+    ...(denken === undefined ? {} : { denken }),
   }
 }
 
@@ -218,7 +256,25 @@ export function schreibeEinstellungen(einstellungen: Einstellungen): string {
     }
   }
   if (einstellungen.denkhilfe !== undefined) inhalt['denkhilfe'] = einstellungen.denkhilfe
+  if (einstellungen.denken !== undefined) inhalt['denken'] = einstellungen.denken
   return `${JSON.stringify(inhalt, null, 2)}\n`
+}
+
+/**
+ * Setzt die Denkstufe.
+ *
+ * @param einstellungen - die Einstellungen
+ * @param stufe - wie stark gedacht werden darf
+ * @returns die neuen Einstellungen
+ * @throws EinstellungenFehler - wenn das Wort keine Stufe ist
+ */
+export function mitDenken(einstellungen: Einstellungen, stufe: Denkstufe): Einstellungen {
+  if (!(DENKSTUFEN as readonly string[]).includes(stufe)) {
+    throw new EinstellungenFehler([
+      `„${String(stufe)}" ist keine Denkstufe. Erlaubt: ${DENKSTUFEN.join(', ')}.`,
+    ])
+  }
+  return { ...einstellungen, denken: stufe }
 }
 
 /**
