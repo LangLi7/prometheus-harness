@@ -11,9 +11,9 @@
  *
  * Ein Dienst, der gerade nicht antwortet, hat nichts widerlegt. Seinen Eintrag zu löschen hieße,
  * Wissen wegen eines Netzfehlers wegzuwerfen. Der Verwalter behält den alten Eintrag und **sagt
- * es** — siehe `verwalter.ts`.
+ * es** — siehe `curator.ts`.
  *
- * @module @prometheus-harness/verwalter/katalog
+ * @module @prometheus-harness/directory-curator/katalog
  */
 
 import type { Faehigkeit, Herkunft } from '@prometheus-harness/faehigkeiten'

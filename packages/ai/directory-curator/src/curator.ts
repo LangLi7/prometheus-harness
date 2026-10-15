@@ -24,12 +24,12 @@
  * widerlegt. Der alte Eintrag bleibt, und der Bericht sagt, daß er alt ist. Wissen wegen eines
  * Aussetzers wegzuwerfen wäre der teuerste Fehler, den dieser Code machen könnte.
  *
- * @module @prometheus-harness/verwalter/verwalter
+ * @module @prometheus-harness/directory-curator/verwalter
  */
 
 import type { Familie, Sondebefund } from '@prometheus-harness/verzeichnis'
-import type { Auslegeergebnis } from './ausleger.ts'
-import { messbar } from './ausleger.ts'
+import type { Auslegeergebnis } from './interpreter.ts'
+import { messbar } from './interpreter.ts'
 import {
   TAKT_TAG,
   eintragAus,
@@ -39,7 +39,7 @@ import {
   type Katalog,
   type Katalogeintrag,
   type Takt,
-} from './katalog.ts'
+} from './catalog.ts'
 
 /** Warum der Verwalter läuft. */
 export type Anlass =

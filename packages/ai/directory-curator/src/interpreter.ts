@@ -25,7 +25,7 @@
  * einen Menschen (siehe `umgangFuer`). Eine unsichere Auslegung als Tatsache einzutragen wäre der
  * stille Fehler: sie stünde danach im Katalog wie eine Messung.
  *
- * @module @prometheus-harness/verwalter/ausleger
+ * @module @prometheus-harness/directory-curator/ausleger
  */
 
 import {

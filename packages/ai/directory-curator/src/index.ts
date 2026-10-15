@@ -1,5 +1,5 @@
 /**
- * `@prometheus-harness/verwalter` — der Verwalter des Verzeichnisses.
+ * `@prometheus-harness/directory-curator` — der Verwalter des Verzeichnisses.
  *
  * ## Die Lücke, die er schließt
  *
@@ -11,9 +11,9 @@
  *
  * | Teil | Aufgabe |
  * |---|---|
- * | `katalog.ts` | Das **dauerhafte** Ergebnis: was wann gemessen wurde, geprüft und abgelehnt |
- * | `ausleger.ts` | Legt **fremde** Antworten aus — durch den **Wächter**, mit Eskalation |
- * | `verwalter.ts` | Der Ablauf: wer läuft wann, was geschieht bei einem Aussetzer |
+ * | `catalog.ts` | Das **dauerhafte** Ergebnis: was wann gemessen wurde, geprüft und abgelehnt |
+ * | `interpreter.ts` | Legt **fremde** Antworten aus — durch den **Wächter**, mit Eskalation |
+ * | `curator.ts` | Der Ablauf: wer läuft wann, was geschieht bei einem Aussetzer |
  *
  * ## Wo der Verwalter NICHT eingreift
  *
@@ -22,7 +22,7 @@
  * gemessen oder nur ausgelegt hat. Die beiden zu vermischen hieße, dem Nutzer die Wahl
  * wegzunehmen, die er ausdrücklich haben soll.
  *
- * @module @prometheus-harness/verwalter
+ * @module @prometheus-harness/directory-curator
  */
 
 export {
@@ -40,7 +40,7 @@ export {
   type Katalog,
   type Katalogeintrag,
   type Takt,
-} from './katalog.ts'
+} from './catalog.ts'
 
 export {
   AUSLEGER_EMPFEHLUNG,
@@ -51,7 +51,7 @@ export {
   type Auslegeauftrag,
   type Auslegeergebnis,
   type Auslegepruefung,
-} from './ausleger.ts'
+} from './interpreter.ts'
 
 export {
   sollLaufen,
@@ -59,4 +59,4 @@ export {
   type Anlass,
   type Verwalterlauf,
   type Verwalteroptionen,
-} from './verwalter.ts'
+} from './curator.ts'
