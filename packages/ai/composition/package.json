@@ -1,5 +1,5 @@
 {
-  "name": "@prometheus-harness/aufbau",
+  "name": "@prometheus-harness/composition",
   "private": true,
   "version": "0.0.0",
   "type": "module",

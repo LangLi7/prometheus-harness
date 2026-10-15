@@ -1,5 +1,5 @@
 /**
- * `@prometheus-harness/aufbau` — die Teile zusammenfügen.
+ * `@prometheus-harness/composition` — die Teile zusammenfügen.
  *
  * ## Warum es dieses Paket gibt
  *
@@ -20,7 +20,7 @@
  * **Kein Netz, kein Dateisystem.** Die Anbieter werden **hereingereicht** — dieses Paket baut nur
  * zusammen. Damit ist es ohne Schlüssel und ohne Verbindung prüfbar.
  *
- * @module @prometheus-harness/aufbau
+ * @module @prometheus-harness/composition
  */
 
 import {

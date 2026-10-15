@@ -76,8 +76,8 @@
         "@prometheus-harness/session-format": "workspace:*",
       },
     },
-    "packages/ai/aufbau": {
-      "name": "@prometheus-harness/aufbau",
+    "packages/ai/composition": {
+      "name": "@prometheus-harness/composition",
       "version": "0.0.0",
     },
     "packages/ai/einstellungen": {
@@ -971,8 +971,6 @@
 
     "@prometheus-harness/atomic-write": ["@prometheus-harness/atomic-write@workspace:packages/util/atomic-write"],
 
-    "@prometheus-harness/aufbau": ["@prometheus-harness/aufbau@workspace:packages/ai/aufbau"],
-
     "@prometheus-harness/auth": ["@prometheus-harness/auth@workspace:packages/auth/auth"],
 
     "@prometheus-harness/auth-http": ["@prometheus-harness/auth-http@workspace:packages/api/auth-http"],
@@ -988,6 +986,8 @@
     "@prometheus-harness/client-select-contrast": ["@prometheus-harness/client-select-contrast@workspace:packages/client/select-contrast"],
 
     "@prometheus-harness/client-world-switch": ["@prometheus-harness/client-world-switch@workspace:packages/client/world-switch"],
+
+    "@prometheus-harness/composition": ["@prometheus-harness/composition@workspace:packages/ai/composition"],
 
     "@prometheus-harness/db-schema": ["@prometheus-harness/db-schema@workspace:packages/auth/db-schema"],
 

@@ -14,7 +14,7 @@ bun test   in jedem Paketverzeichnis einzeln
 | `ai/verzeichnis` | **32** | Das Verzeichnis **als Daten**: sieben Anbieter, je Fähigkeit der Weg, mit drei Zuständen statt Ja/Nein |
 | `ai/einstellungen` | **40** | Die Wahl des Endnutzers als Datei — ohne Schlüssel, ohne Vorgabemodell, mit der **Denkstufe** und dem Riegel gegen fremde Zuhause |
 | `ai/verwalter` | **42** | Der Katalog, der Ausleger, der Lauf: Widerspruchsprüfung in **beide** Richtungen |
-| `ai/aufbau` | **10** | Das Zusammenfügen: der Mensch **zuletzt**, unbekannter Anbieter **gemeldet** |
+| `ai/composition` | **10** | Das Zusammenfügen: der Mensch **zuletzt**, unbekannter Anbieter **gemeldet** |
 | `ai/local` | **20** | Gewichte holen, **prüfen**, ablegen — ohne Prüfsumme kein „heil" |
 | `client/quellordner` | **47** | Der Ordnerdialog: Oberfläche, vier Wege, Keks + Arbeitsbereich, Bündel |
 | **zusammen** | **292** | **0 rot** |
