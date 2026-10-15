@@ -1,0 +1,162 @@
+# Umzugsliste: snapshots/web -> apps/world
+
+Stand: 2026-10-15 18:58, gemessen mit Get-ChildItem (ohne node_modules/ und dist/)
+
+Dateien: 143
+Groesse: 21.24 MB
+
+## Nach Endung
+
+- .ts: 64
+- .png: 51
+- .js: 21
+- .css: 2
+- .json: 2
+- .ps1: 2
+- .html: 1
+
+## Die Dateien (vollstaendig)
+
+- snapshots/web/index.html
+- snapshots/web/package.json
+- snapshots/web/src/ansicht-wechsel.ts
+- snapshots/web/src/app.css
+- snapshots/web/src/bodies.ts
+- snapshots/web/src/builtin-plugins.ts
+- snapshots/web/src/camera.ts
+- snapshots/web/src/canvas-objects.ts
+- snapshots/web/src/canvas-view.ts
+- snapshots/web/src/chat-order.ts
+- snapshots/web/src/chat-placeholder.ts
+- snapshots/web/src/chat-types.ts
+- snapshots/web/src/control-settings.ts
+- snapshots/web/src/design-system.css
+- snapshots/web/src/dock-view.ts
+- snapshots/web/src/docking.ts
+- snapshots/web/src/eingang.ts
+- snapshots/web/src/i18n.ts
+- snapshots/web/src/labels.ts
+- snapshots/web/src/lighting.ts
+- snapshots/web/src/locale-plugins.ts
+- snapshots/web/src/locales/de.ts
+- snapshots/web/src/locales/en.ts
+- snapshots/web/src/main.ts
+- snapshots/web/src/plugins.ts
+- snapshots/web/src/room.ts
+- snapshots/web/src/rotation.ts
+- snapshots/web/src/scene.ts
+- snapshots/web/src/settings-modal.ts
+- snapshots/web/src/settings-screen.ts
+- snapshots/web/src/settings.ts
+- snapshots/web/src/terminal.ts
+- snapshots/web/src/universe.ts
+- snapshots/web/src/view-controls.ts
+- snapshots/web/tests/andockstellen.test.ts
+- snapshots/web/tests/ansicht-wechsel.test.ts
+- snapshots/web/tests/boot-once.ts
+- snapshots/web/tests/boot.test.ts
+- snapshots/web/tests/camera.test.ts
+- snapshots/web/tests/canvas-objects.test.ts
+- snapshots/web/tests/chat-dom.test.ts
+- snapshots/web/tests/docking.test.ts
+- snapshots/web/tests/dom-stub.ts
+- snapshots/web/tests/eingang.test.ts
+- snapshots/web/tests/i18n.test.ts
+- snapshots/web/tests/labels.test.ts
+- snapshots/web/tests/locale-keys.test.ts
+- snapshots/web/tests/massstab-pixel.test.ts
+- snapshots/web/tests/opening-view.test.ts
+- snapshots/web/tests/orbits.test.ts
+- snapshots/web/tests/plugins.test.ts
+- snapshots/web/tests/room.test.ts
+- snapshots/web/tests/rotation.test.ts
+- snapshots/web/tests/scene.test.ts
+- snapshots/web/tests/settings-modal.test.ts
+- snapshots/web/tests/settings.test.ts
+- snapshots/web/tests/terminal.test.ts
+- snapshots/web/tests/typo-skala.test.ts
+- snapshots/web/tests/umschalter.test.ts
+- snapshots/web/tests/universe.test.ts
+- snapshots/web/tools/_himmel_01.png
+- snapshots/web/tools/_himmel_02.png
+- snapshots/web/tools/_himmel_03.png
+- snapshots/web/tools/_himmel_04.png
+- snapshots/web/tools/_himmel_05.png
+- snapshots/web/tools/_himmel_06.png
+- snapshots/web/tools/_himmel_07.png
+- snapshots/web/tools/_himmel_08.png
+- snapshots/web/tools/_himmel_09.png
+- snapshots/web/tools/_himmel_10.png
+- snapshots/web/tools/_himmel_11.png
+- snapshots/web/tools/_himmel_12.png
+- snapshots/web/tools/_ueb_1_vor.png
+- snapshots/web/tools/_ueb_2_mitte.png
+- snapshots/web/tools/_ueb_3_nach.png
+- snapshots/web/tools/_uebergang.png
+- snapshots/web/tools/andocken.js
+- snapshots/web/tools/andockstellen.js
+- snapshots/web/tools/aufbau.js
+- snapshots/web/tools/aufbau.png
+- snapshots/web/tools/bild.js
+- snapshots/web/tools/bild.png
+- snapshots/web/tools/bild.ps1
+- snapshots/web/tools/boot-1.png
+- snapshots/web/tools/boot-140.png
+- snapshots/web/tools/boot-mit-zustand.js
+- snapshots/web/tools/diag-vorbelegung.js
+- snapshots/web/tools/diagnose.js
+- snapshots/web/tools/diagnose.png
+- snapshots/web/tools/ebene-1.png
+- snapshots/web/tools/ebene-5.png
+- snapshots/web/tools/ebene-7.png
+- snapshots/web/tools/ebene.js
+- snapshots/web/tools/ebene5.png
+- snapshots/web/tools/ebene7.png
+- snapshots/web/tools/ebenen-bilder.ts
+- snapshots/web/tools/ebenenbild.ts
+- snapshots/web/tools/fokus.js
+- snapshots/web/tools/fokus.png
+- snapshots/web/tools/groessenordnungen.ts
+- snapshots/web/tools/haengt.js
+- snapshots/web/tools/herausgezoomt.png
+- snapshots/web/tools/herauszoomen.js
+- snapshots/web/tools/himmel.js
+- snapshots/web/tools/massstab.ts
+- snapshots/web/tools/messen.js
+- snapshots/web/tools/messen.ps1
+- snapshots/web/tools/neu-3.png
+- snapshots/web/tools/neu-5.png
+- snapshots/web/tools/neu-7.png
+- snapshots/web/tools/oberflaeche.ts
+- snapshots/web/tools/objekte.js
+- snapshots/web/tools/panels.js
+- snapshots/web/tools/panels.png
+- snapshots/web/tools/raumgroesse.ts
+- snapshots/web/tools/schrift.js
+- snapshots/web/tools/schrift.png
+- snapshots/web/tools/seiten.js
+- snapshots/web/tools/steuerung.js
+- snapshots/web/tools/uebergang.js
+- snapshots/web/tools/ueberlappung.png
+- snapshots/web/tools/ueberlappung3.png
+- snapshots/web/tools/ui-ui-mv8m4mob.png
+- snapshots/web/tools/ui-ui-mv8m9sg5.png
+- snapshots/web/tools/ui-ui-mv8mavfp.png
+- snapshots/web/tools/ui-ui-mv8mbfpi.png
+- snapshots/web/tools/ui-ui-mv8mhvtq.png
+- snapshots/web/tools/ui-ui-mv8mtbh5.png
+- snapshots/web/tools/ui-ui-mv8mtw09.png
+- snapshots/web/tools/ui-ui-mv8mvj4k.png
+- snapshots/web/tools/ui-ui-mv8mx9j8.png
+- snapshots/web/tools/ui-ui-mv8mxuq4.png
+- snapshots/web/tools/ui-ui-mv8myu2c.png
+- snapshots/web/tools/ui-ui-mv8mzduq.png
+- snapshots/web/tools/ui-ui-mv8n0ila.png
+- snapshots/web/tools/ui-ui-mv8n1gmt.png
+- snapshots/web/tools/ui-ui-mv8n2fzb.png
+- snapshots/web/tools/ui-ui-mv8n3kk9.png
+- snapshots/web/tools/zentrum.ts
+- snapshots/web/tools/zoomtakt.js
+- snapshots/web/tools/zustand.js
+- snapshots/web/tsconfig.json
+- snapshots/web/vite.config.ts
