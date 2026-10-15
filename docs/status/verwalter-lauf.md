@@ -165,4 +165,53 @@ die System-One-Modelle gebaut sind.
 Die Empfehlung steht als `AUSLEGER_EMPFEHLUNG` im Code — **als Empfehlung, nicht als Vorgabe**:
 welches Modell läuft, entscheidet der Endnutzer.
 
+## Vierter Lauf, 13:35 UTC — die Empfehlung bestätigt, und ein Loch gefunden
+
+Mit `ibm-granite/granite-4.0-h-micro` (dem nichtdenkenden Modell). **Ergebnis der Geschwindigkeit:**
+
+| | DeepSeek Flash | granite-4.0-h-micro |
+|---|---|---|
+| Sieben Auslegungen zusammen | **628 s** | **20,3 s** |
+
+**31-mal schneller** — die Empfehlung ist mit einer zweiten Messung bestätigt (Regel 1).
+
+**Und zwei Auslegungen wurden angenommen**, die ersten überhaupt:
+
+| Familie | Auslegung | gedeckt durch die Sonde? |
+|---|---|---|
+| OpenRouter | alle sechs Fähigkeiten (0,95) | **ja** — sechs Wege gemessen |
+| Z.ai | alle sechs Fähigkeiten (0,95) | **ja** — sechs Wege gemessen |
+| DeepSeek, Anthropic, Nous, OpenCode | je vier Fähigkeiten | **nein** — die Wege geben dort 404 |
+| **ZenMux** | **alle sechs Fähigkeiten (0,95)** | **nein — die Sonde konnte GAR NICHTS messen** |
+
+### Das Loch
+
+**ZenMux wurde angenommen.** Das Modell behauptete alle sechs Fähigkeiten mit 0,95, die Sonde hatte
+dort **keinen** Weg messen können (403 auf jeden POST) — und `unbekannt` widerspricht ja nichts.
+Die Behauptung kam **ungeprüft** in den Katalog: genau der Fehlermodus, den ich fürchtete, durch
+eine andere Tür.
+
+## Fünfter Lauf, 13:52 UTC — nach dem Schließen beider Richtungen
+
+Die Prüfung `pruefeAuslegung` prüft jetzt **in beide Richtungen** und trennt **drei** Fälle:
+
+| Fall | Was die Messung sagt | Was die Deutung tut |
+|---|---|---|
+| `widerspruch` | 404 | behauptet den Weg |
+| `nichtBelegt` | unbekannt oder nichts | behauptet den Weg |
+| `engerAlsGemessen` | antwortet | streitet den Weg ab |
+
+In **allen drei** Fällen wird nicht übernommen. Ergebnis:
+
+| Familie | Modelle | Ergebnis |
+|---|---|---|
+| OpenRouter | 461 | **angenommen** (sechs Fähigkeiten, gedeckt) |
+| Z.ai | 11 | **angenommen** (sechs Fähigkeiten, gedeckt) |
+| DeepSeek · Anthropic · Nous · OpenCode | 2 · 14 · 425 · 86 | **Widerspruch** — die Wege geben 404 |
+| ZenMux | 208 | Ausleger gescheitert (Zeitüberschreitung) |
+
+**Zwei von sieben angenommen, fünf abgelehnt — und keine davon still.** Der Katalog trägt jetzt
+zum ersten Mal **Auslegungen**, die von einer Messung gedeckt sind.
+
+
 

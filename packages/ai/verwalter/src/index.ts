@@ -46,9 +46,11 @@ export {
   AUSLEGER_EMPFEHLUNG,
   auslegeSchema,
   legeAus,
-  widerspruchZwischen,
+  messbar,
+  pruefeAuslegung,
   type Auslegeauftrag,
   type Auslegeergebnis,
+  type Auslegepruefung,
 } from './ausleger.ts'
 
 export {

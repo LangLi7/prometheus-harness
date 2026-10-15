@@ -35,7 +35,8 @@ import {
   schreibeKatalog,
   sollLaufen,
   verwalte,
-  widerspruchZwischen,
+  messbar,
+  pruefeAuslegung,
   type Katalogeintrag,
 } from '../src/index.ts'
 
@@ -286,7 +287,7 @@ describe('Der Ausleger', () => {
       familie: 'x',
       dienst: 'Prüfdienst',
       modelle: ['modell-geheim-abcdefghijkl-1', 'harmlos'],
-      wege: {},
+      wege: { gespraech: 'vorhanden' },
       entscheider: a,
       stufen: STUFEN,
       waechter: w,
@@ -303,7 +304,7 @@ describe('Der Ausleger', () => {
       familie: 'x',
       dienst: 'Prüfdienst',
       modelle: [],
-      wege: {},
+      wege: { gespraech: 'vorhanden' },
       entscheider: a,
       stufen: STUFEN,
       waechter: waechter(),
@@ -313,13 +314,17 @@ describe('Der Ausleger', () => {
     expect(a.gefragt()).toBe(0)
   })
 
-  test('hohe Sicherheit: die Auslegung wird übernommen', async () => {
+  test('hohe Sicherheit: die Auslegung wird übernommen — WENN die Messung sie trägt', async () => {
+    // **Nachgezogen am 15.10.2026.** Diese Prüfung gab dem Ausleger vorher **keine** gemessenen
+    // Wege (`wege: {}`) und verlangte trotzdem, daß seine Behauptung angenommen wird. Genau das
+    // ist die Lücke, durch die ZenMux mit sechs erfundenen Fähigkeiten in den Katalog kam. Jetzt
+    // müssen die Wege gemessen sein — sonst ist die Behauptung unbelegt.
     const a = attrappe({ wahr: ['gespraech', 'einbetten'], sicherheit: 0.97 })
     const ergebnis = await legeAus({
       familie: 'x',
       dienst: 'Prüfdienst',
       modelle: ['a', 'b'],
-      wege: {},
+      wege: { gespraech: 'vorhanden', einbetten: 'vorhanden' },
       entscheider: a,
       stufen: STUFEN,
       waechter: waechter(),
@@ -330,13 +335,44 @@ describe('Der Ausleger', () => {
     expect(ergebnis.herkunft?.modell).toBe('deepseek-flash')
   })
 
+  test('dieselbe Behauptung OHNE Meßwert wird gar nicht erst gefragt — der Ausleger WIRFT', async () => {
+    // **Nachgezogen am 15.10.2026 auf Einwurf des Betreibers:** „man sollte immer messen,
+    // faktenbasiert." Vorher lief eine Auslegung ganz ohne Messung durch und wurde erst beim
+    // Auswerten abgelehnt — zu nachsichtig. Wer nichts gemessen hat, darf **gar nicht** fragen:
+    // `wege: {}` kann im echten Ablauf nicht vorkommen, die Sonde prüft immer alle sechs Wege.
+    const a = attrappe({ wahr: ['gespraech'], sicherheit: 0.97 })
+    const fehler = await legeAus({
+      familie: 'x',
+      dienst: 'Prüfdienst',
+      modelle: ['a'],
+      // **Nichts gemessen** — der Fall, der im echten Ablauf nicht vorkommen kann.
+      wege: {},
+      entscheider: a,
+      stufen: STUFEN,
+      waechter: waechter(),
+    }).catch((e: unknown) => e)
+    expect(fehler).toBeInstanceOf(Error)
+    expect((fehler as Error).message).toContain('OHNE MESSUNG')
+    // Und es wurde auch niemand gefragt — der Fehler kommt VOR dem Aufruf.
+    expect(a.gefragt()).toBe(0)
+  })
+
+  test('sechs ergebnislose Messungen sind KEIN Meßwert', async () => {
+    // Der echte Fall (ZenMux): geprüft wurde, aber jedes Tor war zu. `unbekannt` ist ein Befund —
+    // aber kein Meßwert, an dem eine Auslegung sich halten könnte.
+    expect(messbar({ einbetten: 'unbekannt' })).toBe(false)
+    expect(messbar({ einbetten: 'vorhanden' })).toBe(true)
+    expect(messbar({ einbetten: 'fehlt' })).toBe(true)
+    expect(messbar({})).toBe(false)
+  })
+
   test('mittlere Sicherheit: NICHT übernommen — und der Grund steht da', async () => {
     const a = attrappe({ wahr: ['gespraech'], sicherheit: 0.7 })
     const ergebnis = await legeAus({
       familie: 'x',
       dienst: 'Prüfdienst',
       modelle: ['a'],
-      wege: {},
+      wege: { gespraech: 'vorhanden' },
       entscheider: a,
       stufen: STUFEN,
       waechter: waechter(),
@@ -352,7 +388,7 @@ describe('Der Ausleger', () => {
       familie: 'x',
       dienst: 'Prüfdienst',
       modelle: ['a'],
-      wege: {},
+      wege: { gespraech: 'vorhanden' },
       entscheider: a,
       stufen: STUFEN,
       waechter: waechter(),
@@ -369,7 +405,8 @@ describe('Der Ausleger', () => {
       familie: 'x',
       dienst: 'Prüfdienst',
       modelle: ['a'],
-      wege: {},
+      // Gemessen — und der Dienst hat den Weg **nicht**. „Nichts davon" ist damit gedeckt.
+      wege: { einbetten: 'fehlt' },
       entscheider: a,
       stufen: STUFEN,
       waechter: waechter(),
@@ -385,25 +422,37 @@ describe('Der Ausleger', () => {
 // ---------------------------------------------------------------------------
 
 describe('Der Widerspruch gegen die Messung', () => {
-  test('die Sonde maß einen Weg, die Auslegung streitet ihn ab — Widerspruch', () => {
-    expect(widerspruchZwischen({ einbetten: 'vorhanden' }, [])).toContain('Einbetten')
-    expect(widerspruchZwischen({ einbetten: 'vorhanden' }, [])).toContain('gibt es nicht')
+  test('die Sonde maß einen Weg, die Auslegung streitet ihn ab — sie ist ENGER als die Messung', () => {
+    // **Der Fall aus dem ERSTEN lebenden Lauf:** das Modell sagte für Z.ai „keine der bekannten
+    // Fähigkeiten", während die Sonde alle sechs Wege als antwortend gemessen hatte.
+    const p = pruefeAuslegung({ einbetten: 'vorhanden' }, [])
+    expect(p.engerAlsGemessen).toContain('Einbetten')
+    expect(p.widerspruch).toBeUndefined()
+    expect(p.nichtBelegt).toBeUndefined()
   })
 
-  test('die Sonde maß 404, die Auslegung behauptet den Weg — Widerspruch', () => {
-    expect(widerspruchZwischen({ 'text-zu-sprache': 'fehlt' }, ['text-zu-sprache'])).toContain('404')
+  test('die Sonde maß 404, die Auslegung behauptet den Weg — WIDERSPRUCH', () => {
+    const p = pruefeAuslegung({ 'text-zu-sprache': 'fehlt' }, ['text-zu-sprache'])
+    expect(p.widerspruch).toContain('404')
+    expect(p.nichtBelegt).toBeUndefined()
   })
 
-  test('`unbekannt` widerspricht NICHTS — ein Tor sagt nichts über den Weg', () => {
-    // Daraus läßt sich kein Widerspruch bauen: wir wissen es schlicht nicht.
-    expect(widerspruchZwischen({ einbetten: 'unbekannt' }, [])).toBeUndefined()
-    expect(widerspruchZwischen({ einbetten: 'unbekannt' }, ['einbetten'])).toBeUndefined()
+  test('`unbekannt` widerspricht nichts — aber es BELEGT auch nichts', () => {
+    // Der ZenMux-Fall: auf jeden POST 403, also kein Befund. Eine Behauptung steht dann auf nichts.
+    const p = pruefeAuslegung({ einbetten: 'unbekannt' }, ['einbetten'])
+    expect(p.widerspruch).toBeUndefined()
+    expect(p.nichtBelegt).toContain('Einbetten')
   })
 
-  test('wo beide einig sind, gibt es keinen Widerspruch', () => {
-    expect(widerspruchZwischen({ einbetten: 'vorhanden' }, ['einbetten'])).toBeUndefined()
-    expect(widerspruchZwischen({ einbetten: 'fehlt' }, [])).toBeUndefined()
-    expect(widerspruchZwischen({}, ['einbetten'])).toBeUndefined()
+  test('eine Behauptung ohne jeden Befund ist ebenso unbelegt', () => {
+    const p = pruefeAuslegung({}, ['einbetten'])
+    expect(p.nichtBelegt).toContain('Einbetten')
+  })
+
+  test('wo beide einig sind, gibt es nichts zu beanstanden', () => {
+    expect(pruefeAuslegung({ einbetten: 'vorhanden' }, ['einbetten'])).toEqual({})
+    expect(pruefeAuslegung({ einbetten: 'fehlt' }, [])).toEqual({})
+    expect(pruefeAuslegung({}, [])).toEqual({})
   })
 
   test('DER FALL AUS DEM LEBENDEN LAUF: Z.ai — sechs Wege antworten, die Auslegung sagt „keine"', async () => {
@@ -433,9 +482,38 @@ describe('Der Widerspruch gegen die Messung', () => {
     // **Hohe Sicherheit schützt nicht.** 0,93 lag über jeder Schwelle — und die Antwort war falsch.
     expect(ergebnis.angenommen).toBe(false)
     expect(ergebnis.faehigkeiten).toBeUndefined()
-    expect(ergebnis.widerspruch).toBeDefined()
-    expect(ergebnis.wegen).toContain('widerspricht der MESSUNG')
+    expect(ergebnis.engerAlsGemessen).toBeDefined()
+    expect(ergebnis.wegen).toContain('ENGER als die Messung')
     expect(ergebnis.sicherheit).toBe(0.93)
+  })
+
+  test('DER ZWEITE FALL: ZenMux — kein Weg meßbar, die Auslegung behauptet alle sechs', async () => {
+    // Gemessen am 15.10.2026 im vierten Lauf: ZenMux gibt auf jeden POST 403, alles war
+    // `unbekannt` — und `granite-4.0-h-micro` behauptete mit 0,95 alle sechs Fähigkeiten. Das
+    // wurde ANGENOMMEN, weil `unbekannt` nichts widerspricht. Genau diese Lücke schließt die
+    // Prüfung.
+    const a = attrappe({ wahr: ['gespraech', 'entscheiden', 'text-zu-sprache', 'sprache-zu-text', 'einbetten', 'bild'], sicherheit: 0.95 })
+    const wege = {
+      gespraech: 'unbekannt',
+      entscheiden: 'unbekannt',
+      'text-zu-sprache': 'unbekannt',
+      'sprache-zu-text': 'unbekannt',
+      einbetten: 'unbekannt',
+      bild: 'unbekannt',
+    } as const
+
+    const ergebnis = await legeAus({
+      familie: 'zenmux',
+      dienst: 'ZenMux',
+      modelle: ['ein-modell'],
+      wege,
+      entscheider: a,
+      stufen: STUFEN,
+      waechter: waechter(),
+    })
+    expect(ergebnis.angenommen).toBe(false)
+    expect(ergebnis.nichtBelegt).toBeDefined()
+    expect(ergebnis.wegen).toContain('mehr, als gemessen ist')
   })
 
   test('ein Widerspruch entsteht NICHT, wenn die Auslegung den gemessenen Weg nennt', async () => {
@@ -450,6 +528,8 @@ describe('Der Widerspruch gegen die Messung', () => {
       waechter: waechter(),
     })
     expect(ergebnis.widerspruch).toBeUndefined()
+    expect(ergebnis.nichtBelegt).toBeUndefined()
+    expect(ergebnis.engerAlsGemessen).toBeUndefined()
     expect(ergebnis.angenommen).toBe(true)
     expect(ergebnis.faehigkeiten).toEqual(['einbetten'])
   })

@@ -631,6 +631,37 @@ anderen Schlösser.
 **Der Merksatz für Muster mit deutschen Bezeichnern.** `\b` vor einem Namen, dem ein `_` vorangeht,
 ist **keine** Grenze. Wo Unterstriche im Spiel sind, ist `(?<![A-Za-z0-9])` gemeint — nicht `\b`.
 
+## 38. Kein Urteil ohne Meßwert — und keine Prüfung für einen Zustand, den es nicht gibt
+
+**Der Fall, und der Betreiber hat mich darauf gestoßen.** Der Ausleger (das Modell, das fremde
+API-Antworten deutet) bekam seine Meßwerte — die Befunde der Sonde — als Eingabe. War die Liste
+**leer** (`wege: {}`), lief er trotzdem los, fragte das Modell, und die Prüfung lehnte das Ergebnis
+danach ab: „nicht belegt". Ich hielt das für gründlich.
+
+**Es war zu nachsichtig, und zwar an zwei Stellen:**
+
+1. **Wer nichts gemessen hat, darf gar nicht fragen.** Ein Urteil ohne Meßwert ist eine **Meinung** —
+   und der Weg dorthin gehört **versperrt**, nicht nachträglich bewertet. Ein Fehler, der erst beim
+   Auswerten auffällt, fällt zu spät auf. Jetzt **wirft** der Ausleger, wenn kein einziger Befund
+   vorliegt.
+2. **Sechs ergebnislose Messungen sind kein Meßwert.** `unbekannt` heißt: das Tor war zu oder das
+   Netz antwortete nicht. Gemessen an **ZenMux**, das auf **jeden** POST 403 gibt: das Modell wurde
+   gefragt, antwortete mit Sicherheit **0,95** „alle sechs Fähigkeiten" — und **ohne** die Prüfung
+   wäre das in den Katalog gekommen. Jetzt wird dort **gar nicht** gefragt, und der Grund steht im
+   Katalog.
+
+**Und der zweite Teil der Lehre: ich hatte eine Prüfung für einen Zustand geschrieben, den es nicht
+gibt.** `wege: {}` kann im echten Ablauf **nicht** vorkommen — die Sonde prüft immer alle sechs
+Wege. Die Prüfung war grün und bewies nichts über die Wirklichkeit. **Ein Zustand, den der Ablauf
+nicht erzeugt, gehört nicht geprüft, sondern ausgeschlossen.**
+
+**Die Regel.** Wo ein Urteil gefällt werden soll, wird zuerst gefragt: **gibt es einen Meßwert?**
+Wenn nein, wird **nicht** geurteilt — es wird gesagt, was fehlt.
+
+**Der Satz, der bleibt.** „Ich habe es geprüft und verworfen" klingt gründlich und ist manchmal
+nur die Beschreibung davon, daß man etwas gefragt hat, das man nicht hätte fragen dürfen.
+
+
 ## 37. „Der Weg ist da" ist nicht „die Fähigkeit wirkt"
 
 **Der Fall.** Meine Sonde prüft, ob ein Weg **existiert**: sie schickt einen leeren Auftrag und

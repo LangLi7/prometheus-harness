@@ -29,6 +29,7 @@
 
 import type { Familie, Sondebefund } from '@prometheus-harness/verzeichnis'
 import type { Auslegeergebnis } from './ausleger.ts'
+import { messbar } from './ausleger.ts'
 import {
   TAKT_TAG,
   eintragAus,
@@ -175,6 +176,19 @@ export async function verwalte(
       if (befund.modelle.length === 0) {
         fertig = { ...eintrag, auslegungOffen: 'Die Models-API hat keine Kennung genannt.' }
         bericht.push(`  ${familie.name}: nichts auszulegen (keine Kennung genannt).`)
+      } else if (!messbar(befund.wege)) {
+        // **Ohne Meßwert wird NICHT gefragt.** Alle Wege `unbekannt` heißt: das Tor war zu oder das
+        // Netz antwortete nicht. Ein Modell zu fragen, was ein Dienst könne, wenn nichts gemessen
+        // ist, heißt nach einer **Meinung** zu fragen — und Meinungen gehören nicht in einen
+        // Katalog, der sich als gemessen ausgibt.
+        //
+        // Gemessen am 15.10.2026 an ZenMux: 403 auf jeden POST, und das Modell behauptete mit 0,95
+        // alle sechs Fähigkeiten. Jetzt entfällt der Aufruf — und der Grund steht im Katalog.
+        const offen =
+          'KEIN Weg war meßbar (alle unbekannt: Tor oder Netzfehler). Es wurde deshalb GAR NICHT ' +
+          'ausgelegt — ohne Meßwert wäre jede Auslegung eine Meinung.'
+        fertig = { ...eintrag, auslegungOffen: offen }
+        bericht.push(`  ${familie.name}: ${offen}`)
       } else {
         try {
           const ergebnis = await optionen.ausleger(familie, befund)
@@ -183,7 +197,9 @@ export async function verwalte(
             // behauptet und die Messung sagt das Gegenteil — das ist eine eigene Lage, und wer sie
             // später liest, soll sie erkennen.
             fertig = { ...eintrag, widerspruch: ergebnis.widerspruch, auslegungOffen: ergebnis.wegen }
-          } else if (ergebnis.faehigkeiten === undefined || !ergebnis.angenommen) {
+          } else if (ergebnis.nichtBelegt !== undefined || ergebnis.faehigkeiten === undefined || !ergebnis.angenommen) {
+            // „Nicht belegt" ist **kein** Widerspruch: die Messung sagt nicht nein, sie sagt
+            // nichts. Beides gehört in `auslegungOffen`, aber die Begründung unterscheidet sich.
             fertig = { ...eintrag, auslegungOffen: ergebnis.wegen }
           } else {
             fertig = {

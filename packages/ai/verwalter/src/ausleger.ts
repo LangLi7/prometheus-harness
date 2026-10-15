@@ -71,43 +71,95 @@ export interface Auslegeauftrag {
 }
 
 /**
- * Prüft eine Auslegung **gegen die Messung**.
+ * Was eine Auslegung gegen die **Messung** wert ist.
  *
- * ## Warum das die wichtigste Funktion dieser Datei ist
+ * Alle drei Felder leer heißt: die Auslegung ist gedeckt.
+ */
+export interface Auslegepruefung {
+  /** Die Messung sagt **nein** (404), die Auslegung sagt **ja**. */
+  readonly widerspruch?: string
+  /**
+   * Die Auslegung behauptet **mehr, als gemessen ist**.
+   *
+   * **Warum das ein eigener Fall ist — lebend gemessen am 15.10.2026.** ZenMux gibt auf **jeden**
+   * POST 403; die Sonde konnte dort **keinen** Weg messen, alles war `unbekannt`. Das Modell
+   * behauptete trotzdem mit Sicherheit 0,95 **alle sechs** Fähigkeiten — und wurde **angenommen**,
+   * weil `unbekannt` ja nichts widerspricht.
+   *
+   * Die Lücke war: „widerspricht nicht" ist **nicht** dasselbe wie „ist belegt".
+   */
+  readonly nichtBelegt?: string
+  /**
+   * Die Auslegung ist **enger** als die Messung: sie streitet ab, was gemessen wurde.
+   *
+   * **Warum auch das nicht durchgehen darf.** Im ersten lebenden Lauf legte das Modell für Z.ai mit
+   * Sicherheit 0,93 fest, der Dienst biete „keine der bekannten Fähigkeiten" — während die Sonde
+   * **alle sechs** Wege als antwortend gemessen hatte. Ließe man das durch, stünde im Katalog
+   * `faehigkeiten: []` neben sechs gemessenen Wegen: ein Widerspruch im selben Eintrag, den eine
+   * Anzeige nicht auflösen kann.
+   *
+   * **Und die Regel dahinter:** wo Messung und Deutung **auseinandergehen** — in welche Richtung
+   * auch immer —, ist das ein Fall für einen **Menschen**. Das ist dieselbe Regel, die überall
+   * sonst in diesem Haus gilt.
+   */
+  readonly engerAlsGemessen?: string
+}
+
+/**
+ * Prüft eine Auslegung **gegen die Messung** — in **beide** Richtungen.
+ *
+ * ## Warum beide Richtungen
  *
  * Die Sonde **mißt** einen Weg: sie schickt einen leeren Auftrag und sieht nach, ob der Pfad
- * antwortet. Der Ausleger **deutet**. Wo die Deutung der Messung widerspricht, hat die **Messung**
- * recht — die Deutung ist dann keine Auskunft, sondern ein **Widerspruch**, und der gehört in den
- * Katalog.
+ * antwortet. Der Ausleger **deutet**. Damit gibt es drei Arten, wie die Deutung danebengehen kann,
+ * und **jede** wurde an einem echten Fall gemessen:
  *
- * **`unbekannt` widerspricht nichts.** Ein Tor (401/403) oder ein Netzfehler sagt nichts über den
- * Weg; daraus läßt sich kein Widerspruch bauen. Nur `vorhanden` und `fehlt` sind Aussagen.
+ * | Fall | Was die Messung sagt | Was die Deutung tut | Was daraus folgt |
+ * |---|---|---|---|
+ * | `widerspruch` | 404 | behauptet den Weg | Die Messung sagt **nein** |
+ * | `nichtBelegt` | unbekannt / nichts | behauptet den Weg | Es gibt **keine** Messung |
+ * | `engerAlsGemessen` | antwortet | streitet den Weg ab | Die Deutung geht gegen die Messung |
+ *
+ * In **allen drei** Fällen wird die Auslegung **nicht** übernommen. Das ist streng — und Absicht:
+ * ein Katalog, der sich als gemessen ausgibt, darf nur tragen, was Messung und Deutung **decken**.
  *
  * @param wege - was die Sonde gemessen hat
  * @param faehigkeiten - was der Ausleger behauptet
- * @returns der Widerspruch oder `undefined`
+ * @returns die Prüfung; alle Felder leer heißt „gedeckt"
  */
-export function widerspruchZwischen(
+export function pruefeAuslegung(
   wege: Readonly<Record<string, Wegbefund>>,
   faehigkeiten: readonly Faehigkeit[],
-): string | undefined {
-  const maengel: string[] = []
+): Auslegepruefung {
+  const widersprueche: string[] = []
+  const unbelegte: string[] = []
+  const enger: string[] = []
+
   for (const faehigkeit of FAEHIGKEITEN) {
+    const name = NAME_DER_FAEHIGKEIT[faehigkeit]
     const befund = wege[faehigkeit]
-    if (befund === undefined || befund === 'unbekannt') continue
     const behauptet = faehigkeiten.includes(faehigkeit)
-    if (befund === 'vorhanden' && !behauptet) {
-      maengel.push(
-        `„${NAME_DER_FAEHIGKEIT[faehigkeit]}": der Weg antwortet, die Auslegung sagt „gibt es nicht"`,
-      )
+
+    if (behauptet) {
+      if (befund === 'vorhanden') continue
+      if (befund === 'fehlt') {
+        widersprueche.push(`„${name}": der Weg gibt 404, die Auslegung sagt „gibt es"`)
+      } else {
+        unbelegte.push(`„${name}": kein Weg wurde als antwortend gemessen`)
+      }
+      continue
     }
-    if (befund === 'fehlt' && behauptet) {
-      maengel.push(
-        `„${NAME_DER_FAEHIGKEIT[faehigkeit]}": der Weg gibt 404, die Auslegung sagt „gibt es"`,
-      )
+    // Nicht behauptet — und trotzdem gemessen. Die Deutung geht gegen die Messung.
+    if (befund === 'vorhanden') {
+      enger.push(`„${name}": der Weg antwortet, die Auslegung sagt „gibt es nicht"`)
     }
   }
-  return maengel.length === 0 ? undefined : maengel.join('; ')
+
+  return {
+    ...(widersprueche.length === 0 ? {} : { widerspruch: widersprueche.join('; ') }),
+    ...(unbelegte.length === 0 ? {} : { nichtBelegt: unbelegte.join('; ') }),
+    ...(enger.length === 0 ? {} : { engerAlsGemessen: enger.join('; ') }),
+  }
 }
 
 /** Was der Ausleger ergeben hat. */
@@ -126,6 +178,19 @@ export interface Auslegeergebnis {
    * Steht hier etwas, ist `angenommen` **falsch** — die Messung hat recht, nicht die Deutung.
    */
   readonly widerspruch?: string
+  /**
+   * Wo die Auslegung **mehr behauptet, als gemessen ist**.
+   *
+   * Steht hier etwas, ist `angenommen` **falsch**: ohne Messung ist die Behauptung eine Meinung.
+   */
+  readonly nichtBelegt?: string
+  /**
+   * Wo die Auslegung **enger** ist als die Messung.
+   *
+   * Steht hier etwas, ist `angenommen` **falsch**: Messung und Deutung gehen auseinander, und das
+   * ist ein Fall für einen Menschen.
+   */
+  readonly engerAlsGemessen?: string
   /** Warum so entschieden wurde — und bei `angenommen: false`, warum nicht. */
   readonly wegen: string
 }
@@ -212,12 +277,43 @@ function wegeAlsText(wege: Readonly<Record<string, Wegbefund>>): string[] {
 }
 
 /**
+ * Ist unter den Befunden **ein Meßwert**, an dem eine Auslegung sich halten kann?
+ *
+ * **Warum das gefragt wird, bevor ein Modell gefragt wird.** Ein Befund von `unbekannt` ist **kein
+ * Meßwert**: er sagt, daß das Tor zu war oder das Netz nicht antwortete. Aus sechs `unbekannt`
+ * folgt **nichts** — und wer trotzdem ein Modell fragt, bekommt eine Meinung, die auf nichts steht.
+ *
+ * **Der Unterschied, den das macht:** ZenMux gibt auf **jeden** POST 403. Zuvor wurde das Modell
+ * dort gefragt, antwortete mit 0,95 „alle sechs Fähigkeiten" — und ohne die Prüfung wäre das in den
+ * Katalog gekommen. Jetzt wird dort **gar nicht** gefragt, und es steht der Grund im Katalog.
+ *
+ * @param wege - die Befunde der Sonde
+ * @returns ob mindestens ein Weg wirklich gemessen wurde
+ */
+export function messbar(wege: Readonly<Record<string, Wegbefund>>): boolean {
+  return Object.values(wege).some((befund) => befund === 'vorhanden' || befund === 'fehlt')
+}
+
+/**
  * Legt eine fremde Models-API-Antwort aus — **durch den Wächter** und **gegen die Messung**.
  *
  * @param auftrag - was auszulegen ist und wer es tut
  * @returns das Ergebnis; bei einem Fund des Wächters **ohne** Modellaufruf
+ * @throws Error - wenn **kein Weg gemessen** wurde. Das ist ein Fehler des Aufrufers: einen
+ *   Ausleger ohne Meßwert zu fragen heißt, nach einer Meinung zu fragen.
  */
 export async function legeAus(auftrag: Auslegeauftrag): Promise<Auslegeergebnis> {
+  if (Object.keys(auftrag.wege).length === 0) {
+    // **Hier stand vorher ein stiller Durchlauf.** Eine Auslegung ganz ohne Messung wurde
+    // entgegengenommen und dann an `pruefeAuslegung` weitergereicht — mit dem Ergebnis „nicht
+    // belegt". Das war zu nachsichtig: wer nichts gemessen hat, darf **gar nicht** fragen. Ein
+    // Fehler, der erst beim Auswerten auffällt, ist ein Fehler, der zu spät auffällt.
+    throw new Error(
+      'Der Ausleger wurde OHNE MESSUNG gefragt — es gibt keinen einzigen Wegbefund. ' +
+        'Erst sondieren, dann auslegen: ohne Meßwert ist jede Auslegung eine Meinung.',
+    )
+  }
+
   const text = [
     `Dienst: ${auftrag.dienst} (${auftrag.familie})`,
     `Anzahl der Kennungen: ${String(auftrag.modelle.length)}`,
@@ -277,16 +373,47 @@ export async function legeAus(auftrag: Auslegeauftrag): Promise<Auslegeergebnis>
   const belegt = FAEHIGKEITEN.filter((f) => urteil.wert[f] === true)
 
   // **Die Messung hat recht, nicht die Deutung.** Auch bei hoher Sicherheit: im ersten lebenden
-  // Lauf hat sich das Modell mit 0,93 geirrt. Eine Auslegung, die einem gemessenen Weg
-  // widerspricht, ist keine Auskunft — sie ist ein Widerspruch, und der gehört in den Katalog.
-  const widerspruch = widerspruchZwischen(auftrag.wege, belegt)
-  if (widerspruch !== undefined) {
+  // Lauf hat sich das Modell mit 0,93 geirrt. Und die Auslegung darf **enger** sein als die
+  // Messung, nicht **weiter** — sonst stünde eine Meinung im Katalog, der sich als gemessen ausgibt.
+  const pruefung = pruefeAuslegung(auftrag.wege, belegt)
+
+  if (pruefung.widerspruch !== undefined) {
     return {
       angenommen: false,
       sicherheit,
       ...(urteil.herkunft === undefined ? {} : { herkunft: urteil.herkunft }),
-      widerspruch,
-      wegen: `NICHT übernommen: die Auslegung widerspricht der MESSUNG. ${widerspruch}.`,
+      widerspruch: pruefung.widerspruch,
+      wegen: `NICHT übernommen: die Auslegung widerspricht der MESSUNG. ${pruefung.widerspruch}.`,
+    }
+  }
+
+  if (pruefung.nichtBelegt !== undefined) {
+    // **Der Fall, der am 15.10.2026 durchging.** ZenMux gibt auf jeden POST 403 — die Sonde konnte
+    // nichts messen, und das Modell behauptete trotzdem alle sechs Fähigkeiten mit 0,95. „Es
+    // widerspricht nichts" ist NICHT „es ist belegt".
+    return {
+      angenommen: false,
+      sicherheit,
+      ...(urteil.herkunft === undefined ? {} : { herkunft: urteil.herkunft }),
+      nichtBelegt: pruefung.nichtBelegt,
+      wegen:
+        `NICHT übernommen: die Auslegung behauptet mehr, als gemessen ist. ${pruefung.nichtBelegt}. ` +
+        'Ohne Messung ist eine Behauptung eine Meinung.',
+    }
+  }
+
+  if (pruefung.engerAlsGemessen !== undefined) {
+    // **Der Fall aus dem ERSTEN lebenden Lauf.** Das Modell legte für Z.ai mit 0,93 fest, der
+    // Dienst biete „keine der bekannten Fähigkeiten" — während die Sonde alle sechs Wege als
+    // antwortend gemessen hatte. Messung und Deutung gehen auseinander; das sieht ein Mensch an.
+    return {
+      angenommen: false,
+      sicherheit,
+      ...(urteil.herkunft === undefined ? {} : { herkunft: urteil.herkunft }),
+      engerAlsGemessen: pruefung.engerAlsGemessen,
+      wegen:
+        `NICHT übernommen: die Auslegung ist ENGER als die Messung. ${pruefung.engerAlsGemessen}. ` +
+        'Messung und Deutung gehen auseinander — das gehört einem Menschen vorgelegt.',
     }
   }
 
