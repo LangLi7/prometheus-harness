@@ -56,6 +56,13 @@ describe('Ein einzelner Name', () => {
     expect(pruefeName('http-schicht.test.ts').segment).toBe('schicht')
   })
 
+  test('dasselbe zum dritten Mal in Zug 3b: rls-verhalten', () => {
+    // Gefunden hat das nicht der Wächter, sondern das AUFZÄHLEN der Dateien im Fixture-Ordner.
+    // Genau deshalb steht in naming-rest.md: der Umfang wächst mit jedem Zug.
+    expect(pruefeName('rls-verhalten.sql').segment).toBe('verhalten')
+    expect(pruefeName('rls-behavior.sql')).toEqual({ ok: true })
+  })
+
   test('ein deutsches Segment wird rot — als ganzes Segment', () => {
     const befund = pruefeName('verzeichnis.ts')
     expect(befund.ok).toBe(false)

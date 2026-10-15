@@ -343,7 +343,7 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
       'user_profiles',
       // **Neu mit Migration 0006.** Der Wissensspeicher (D1). Beide Tabellen
       // tragen den Mandanten von Anfang an — siehe die Probe
-      // `tests/proben/wissensspeicher.sql`.
+      // `tests/fixtures/knowledge-store.sql`.
       'documents',
       'chunks',
       'vaults',
@@ -497,7 +497,7 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
 
   test('weist einen fremden Mandanten an der echten Datenbank ab (Migration 0004)', async () => {
     // **Warum das hier steht und nicht nur in der SQL-Probe.** Die Probe unter
-    // `tests/proben/mandantentrennung.sql` ist Handarbeit: sie muss jemand
+    // `tests/fixtures/tenant-isolation.sql` ist Handarbeit: sie muss jemand
     // aufrufen, und sie laeuft nicht mit der Suite. Eine Trennung, die niemand
     // nachprueft, ist eine Absicht — dieser Test macht aus der Absicht eine
     // Bedingung, die bei jeder Aenderung mitgeprueft wird.
@@ -563,7 +563,7 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
     }
   })
 
-  test('RLS filtert je Mandant — und ein fehlender Mandant ist LAUT (Probe: rls-verhalten.sql)', async () => {
+  test('RLS filtert je Mandant — und ein fehlender Mandant ist LAUT (Probe: rls-behavior.sql)', async () => {
     // ---------------------------------------------------------------------------
     // **Warum dieser Test existiert.**
     // ---------------------------------------------------------------------------

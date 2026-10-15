@@ -501,7 +501,7 @@ run('Anmeldung gegen die echte Datenbank', () => {
     //
     // **Was hier NICHT geprüft wird.** Daß Row Level Security danach filtert. Das ist
     // eine Eigenschaft von PostgreSQL und steht gemessen in
-    // `packages/auth/db-schema/tests/proben/rls-verhalten.sql` und in
+    // `packages/auth/db-schema/tests/fixtures/rls-behavior.sql` und in
     // `docs/status/mandantentrennung.md` §13.
     const A = 'aaaaaaaa-0000-4000-8000-0000000000c1'
 

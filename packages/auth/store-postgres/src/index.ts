@@ -120,7 +120,7 @@ export interface TransaktionsZugang extends SqlZugang {
  *
  * Die Mandantentrennung ist auf der Struktur belegt (zusammengesetzte Fremdschlüssel,
  * Migration 0004) und das **Verhalten** von Row Level Security ist gemessen
- * (`docs/status/mandantentrennung.md` §13, `tests/proben/rls-verhalten.sql`):
+ * (`docs/status/mandantentrennung.md` §13, `tests/fixtures/rls-behavior.sql`):
  * mit Mandant sieht eine Rolle **nur** ihre Zeilen, ohne Mandant **keine**.
  *
  * **Aber es gab keinen Aufrufer, der den Mandanten setzt.** Genau deshalb blieb RLS aus:
@@ -606,7 +606,7 @@ export async function ladeProfil(sql: SqlZugang, userId: string): Promise<Isolat
   // `user_profiles_dateizugriff_known` auf die drei Langformen festgelegt, die
   // `FileAccess::parse` annimmt. Ein `as` an dieser Stelle ist deshalb keine
   // Behauptung, sondern die Fortsetzung einer Zusicherung, die die Datenbank
-  // gibt — und die Probe `tests/proben/benutzerprofile.sql` weist nach, daß sie
+  // gibt — und die Probe `tests/fixtures/user-profiles.sql` weist nach, daß sie
   // wirklich greift.
   return {
     dateizugriff: zeile.dateizugriff as Dateizugriff,

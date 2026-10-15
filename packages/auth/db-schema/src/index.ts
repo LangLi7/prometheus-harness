@@ -69,7 +69,7 @@ export const MIGRATIONS: readonly Migration[] = [
   // Die Mandantentrennung sitzt in der STRUKTUR, nicht in einer Abfrage: jede
   // Zeile traegt einen Mandanten, und die Datenbank lehnt einen Widerspruch ab.
   // Begruendung und der Fallstrick mit `ON DELETE SET NULL` stehen im Kopf der
-  // Datei; die Probe ist `tests/proben/mandantentrennung.sql`.
+  // Datei; die Probe ist `tests/fixtures/tenant-isolation.sql`.
   { version: 4, name: 'mandantentrennung-an-fremdschluesseln', sql: m0004 },
   // Die Isolation je Benutzer wird dauerhaft. Die Bedingungen spiegeln
   // `SandboxPolicy::validate()` aus `services/pmh-sandbox` — ein hier

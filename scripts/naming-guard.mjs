@@ -101,6 +101,9 @@ export const DEUTSCHE_WOERTER = [
   // hatte sie nie gesehen. **Der Umfang wächst mit jedem Zug** — die Liste ist nachzuführen, sonst
   // meldet sie weniger, als der Baum hergibt.
   'ablage', 'erstlogin', 'schicht',
+  // Zug 3b, derselbe Fall zum dritten Mal: `rls-verhalten.sql` stand in keiner Liste, weil
+  // „verhalten" fehlte. Gefunden nicht vom Wächter, sondern beim AUFZÄHLEN der Dateien.
+  'verhalten',
 ]
 
 /**

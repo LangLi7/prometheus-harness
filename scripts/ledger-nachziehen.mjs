@@ -125,7 +125,7 @@ export function zieheNach(einheiten, heute) {
         'NACHGEZOGEN 14.10.2026 — der Befund hat sich GETEILT. ' +
         '(1) STRUKTUR: BEHOBEN durch Migration 0004. Gemessen in pmh: ' +
         `${String(heute.zusammengesetzteFk)} zusammengesetzte Fremdschluessel (UNIQUE (id, user_id) je Elterntabelle ` +
-        '+ zusammengesetzte FKs); die Probe tests/proben/mandantentrennung.sql weist 4 von 4 Uebergriffen mit 23503 ab ' +
+        '+ zusammengesetzte FKs); die Probe tests/fixtures/tenant-isolation.sql weist 4 von 4 Uebergriffen mit 23503 ab ' +
         '(dazu 2 Loeschfaelle). Der alte Wortlaut („ausschliesslich Fremdschluessel ohne Eigentuemerbezug") gilt NICHT MEHR. ' +
         '(2) VERHALTEN: OFFEN. Row Level Security ist auf keiner Tabelle an — ' +
         `gemessen policies=${String(heute.policies)}; das ist eine ENTSCHEIDUNG (docs/status/mandantentrennung.md §10). ` +
@@ -152,8 +152,8 @@ export function zieheNach(einheiten, heute) {
       { fassung: 7, name: 'obsidian-vaults-notizen-etiketten-verweise', wirkung: 'neu: vaults, notes, tags, note_tags, links' },
     ],
     neue_tabellengruppen: [
-      { tabellen: ['documents', 'chunks'], pruefung: 'tests/proben/wissensspeicher.sql (12 Faelle)', beleg: 'docs/status/wissensspeicher-d1.md' },
-      { tabellen: ['vaults', 'notes', 'tags', 'note_tags', 'links'], pruefung: 'tests/proben/obsidian.sql (11 Faelle)', beleg: 'docs/status/obsidian-schema.md' },
+      { tabellen: ['documents', 'chunks'], pruefung: 'tests/fixtures/knowledge-store.sql (12 Faelle)', beleg: 'docs/status/wissensspeicher-d1.md' },
+      { tabellen: ['vaults', 'notes', 'tags', 'note_tags', 'links'], pruefung: 'tests/fixtures/obsidian.sql (11 Faelle)', beleg: 'docs/status/obsidian-schema.md' },
     ],
     neue_angriffsflaechen: [
       { was: 'Anmeldeseite aus eigenem Host', pfade: ['/pmh/anmelden', '/api/pmh/auth/seite', '/api/pmh/auth/seite.js'] },

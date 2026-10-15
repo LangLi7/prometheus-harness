@@ -10,7 +10,7 @@
  * Sie prüft **nicht**, ob die Datenbank danach filtert. Das ist eine Eigenschaft von
  * Row Level Security und steht gemessen in
  * `docs/status/mandantentrennung.md` §13 und in
- * `packages/auth/db-schema/tests/proben/rls-verhalten.sql`. Und die
+ * `packages/auth/db-schema/tests/fixtures/rls-behavior.sql`. Und die
  * **Transaktionslokalität** am echten Treiber prüft
  * `packages/auth/store-postgres/tests/postgres.test.ts`.
  *

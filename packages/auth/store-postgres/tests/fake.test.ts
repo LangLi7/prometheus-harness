@@ -406,7 +406,7 @@ describe('Isolationsprofil lesen und schreiben', () => {
     // `dateizugriff` kommt als Text aus der Datenbank und wird zur `Dateizugriff`
     // genannten Aufzählung. Das ist keine Behauptung: die Spalte ist durch
     // `user_profiles_dateizugriff_known` auf die drei Werte festgelegt, und die
-    // Probe `tests/proben/benutzerprofile.sql` weist nach, daß die Regel greift.
+    // Probe `tests/fixtures/user-profiles.sql` weist nach, daß die Regel greift.
     for (const wert of ['none', 'read-only', 'read-write'] as const) {
       const sql = attrappe([
         [{ dateizugriff: wert, lesewurzeln: [], schreibwurzeln: [], netz: false, prozesse: false }],

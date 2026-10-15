@@ -120,7 +120,7 @@ gebaut; **das ist der nächste Schritt**, nicht die 43 Umbenennungen.
 |---|---|---|---|
 | ~~1~~ | `packages/util/sprachen` → `languages` | klein | **vollzogen** (§6) — der Prüfstein für den Umbenennungsweg abseits von `scripts/` |
 | 2 | `packages/api/auth-http/src` (6) + `tests` (5) | mittel | Nur Importe im eigenen Haus, aber **97 Prüfungen** hängen daran |
-| 3 | `packages/auth/store-postgres` (9) — **vollzogen** (§8) · `db-schema/tests/proben` (4) — **offen** | mittel | „Attrappen“, „Wurzeln“, „Zerleger“ sind Hausvokabular — die Bedeutung muß mitwandern |
+| 3 | `packages/auth/store-postgres` (9) — **vollzogen** (§8) · `db-schema/tests` + `fixtures` (7) — **vollzogen** (§9) | mittel | „Attrappen“, „Wurzeln“, „Zerleger“ sind Hausvokabular — die Bedeutung muß mitwandern |
 | 4 | `apps/login_web` (4) | klein | Zwei Dateien, je eine Prüfdatei |
 | 5 | `scripts/` (43) | **groß** | Erst **nach** dem Werkzeug für tote Verweise |
 
@@ -297,3 +297,54 @@ Diff so aus:
 Eine Löschung, eine Einfügung — **die Basis wird vollständig neu geschrieben und verliert dabei den
 alten Pfad.** Das war nicht bekannt; jetzt ist es gemessen. Eine Basis, die alte Pfade behielte,
 würde bei jeder Umbenennung stillschweigend wachsen.
+
+## 9. Zug 3b, vollzogen: `db-schema/tests` — 7 Namen
+
+Zwei Prüfdateien und der Fixture-Ordner mit vier seiner fünf `.sql`-Dateien. `obsidian.sql` bleibt:
+ein **Eigenname** ist nicht deutsch.
+
+| heute | englisch |
+|---|---|
+| `tests/arbeitsbereich-ordner.test.ts` | `tests/workspace-folders.test.ts` |
+| `tests/sitzungsprotokoll.test.ts` | `tests/session-log.test.ts` |
+| `tests/proben/` | `tests/fixtures/` |
+| `proben/benutzerprofile.sql` | `fixtures/user-profiles.sql` |
+| `proben/mandantentrennung.sql` | `fixtures/tenant-isolation.sql` |
+| `proben/wissensspeicher.sql` | `fixtures/knowledge-store.sql` |
+| `proben/rls-verhalten.sql` | `fixtures/rls-behavior.sql` |
+
+**`behavior`, nicht `behaviour` — nachgesehen, nicht entschieden.** Unsere eigene englische
+Übersetzung schreibt es so (`docs/status/uebersetzung/quelle-1.json`: *„Send behavior while busy"*),
+und der Upstream-Baum durchgehend ebenso. **Die erste Messung dafür war zu breit** — ein `grep` über
+`behaviour|behavior` im ganzen Baum lieferte **250 Treffer und 40 kB Ausgabe**, fast alles
+Upstream-Übersetzungen. Die Antwort stand in **einer** Datei unserer eigenen Ausgabe.
+
+**Der Beleg, daß die Abgrenzung gehalten hat** — und das ist der wichtigste Teil dieses Zuges:
+
+```
+Gegenprobe: alte Fixture-Namen in Code  ->  3 Treffer, ALLE drei:
+  packages/auth/db-schema/src/index.ts:32  import m0004 from '../migrations/0004_mandantentrennung.sql'
+  packages/auth/db-schema/src/index.ts:33  import m0005 from '../migrations/0005_benutzerprofile.sql'
+  packages/auth/db-schema/src/index.ts:34  import m0006 from '../migrations/0006_wissensspeicher.sql'
+```
+
+**Dieselben Wörter, zwei verschiedene Dinge.** `fixtures/user-profiles.sql` wurde ersetzt,
+`migrations/0005_benutzerprofile.sql` **nicht** — der Suchbegriff war der **ganze Pfad**, nicht das
+Wort. Wäre hier ein Wort ersetzt worden, hätte der Testlauf die **Schemageschichte** umgeschrieben.
+**Breit suchen, eng ersetzen** — die Regel hat hier zum ersten Mal einen Schaden verhindert, statt
+ihn zu melden.
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Wer hängt daran? | `grep` **auf `packages,apps,scripts`** (nicht auf den ganzen Baum) | **12 Codestellen** in 6 Dateien |
+| Umbenennen | `git mv` ×7 | 7 `R`-Zeilen |
+| Ersetzen | 11 ganzpfadige Vorkommen + **1** nackter Name in einer Testüberschrift | `SUMME=11`, dann `+1` |
+| Gegenprobe | `tests/proben/` in Code | **0** · alte Fixture-Namen: **3**, und zwar die drei Migrationen (Absicht) |
+| Tests | `bun test --cwd packages/auth/db-schema` · `--cwd packages/auth/store-postgres` | **23/0** und **71/0**, beide exit **0** (38 bzw. 25 übersprungen: keine Datenbank) |
+| Baum | `bun run scripts/typecheck.mjs` | **37 Pakete grün, 0 rot**, exit 0 |
+| Wächter | `bun scripts/naming-guard.mjs` | **60 → 54** — sechs, weil `rls-verhalten` in **keiner** Liste stand |
+
+**Zum dritten Mal dasselbe: ein Name, den keine Liste kannte.** `rls-verhalten.sql` fiel nicht dem
+Wächter auf, sondern dem **Aufzählen** der Dateien im Fixture-Ordner. Das Wort `verhalten` ist
+nachgetragen und hat eine eigene Gegenprobe. **Drei Züge, drei Fälle** — die Wortliste ist keine
+Wahrheit über den Baum, sie ist der **Stand** der bisherigen Blicke.
