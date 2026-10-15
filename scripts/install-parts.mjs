@@ -14,7 +14,7 @@
  * prüfbar — und genau das braucht sie, weil ein Fehler hier jede Installation
  * betrifft.
  *
- * @module scripts/install-teile
+ * @module scripts/install-parts
  */
 
 import { randomBytes } from 'node:crypto'

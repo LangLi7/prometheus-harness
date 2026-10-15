@@ -1,5 +1,5 @@
 /**
- * Prüfungen für {@link module:scripts/install-teile}.
+ * Prüfungen für {@link module:scripts/install-parts}.
  *
  * **Warum diese Datei die beiden anderen Dokumente mitliest.** Ein Installer, der
  * eine Variable setzt, die `docker-compose.yml` nicht kennt, ist wirkungslos —
@@ -28,7 +28,7 @@ import {
   neuesGeheimnis,
   setzeWerte,
   werkzeugBefehl,
-} from '../install-teile.mjs'
+} from '../install-parts.mjs'
 
 const WURZEL = join(import.meta.dir, '..', '..')
 const VORLAGE = readFileSync(join(WURZEL, '.env.example'), 'utf8')

@@ -87,7 +87,7 @@ import {
   umgebungsHinweise,
   werkzeugBefehl,
   wslLage,
-} from './install-teile.mjs'
+} from './install-parts.mjs'
 
 /** Wurzel des Projekts, abgeleitet aus dem Modulpfad. */
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')

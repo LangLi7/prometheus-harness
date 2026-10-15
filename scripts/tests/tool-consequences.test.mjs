@@ -10,7 +10,7 @@
 
 import { describe, expect, test } from 'bun:test'
 
-import { BENOETIGTE_WERKZEUGE, WERKZEUG_FOLGEN, werkzeugFolge } from '../install-teile.mjs'
+import { BENOETIGTE_WERKZEUGE, WERKZEUG_FOLGEN, werkzeugFolge } from '../install-parts.mjs'
 
 describe('Jedes gepruefte Werkzeug nennt seine Folge', () => {
   test('fuer jeden Eintrag der Pruefliste gibt es eine Folge', () => {

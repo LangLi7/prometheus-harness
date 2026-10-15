@@ -13,7 +13,7 @@
 
 import { describe, expect, test } from 'bun:test'
 
-import { wslLage } from '../install-teile.mjs'
+import { wslLage } from '../install-parts.mjs'
 
 /** Macht aus Text die UTF-16-Form, die `wsl.exe` wirklich liefert. */
 function alsUtf16(text) {
