@@ -133,3 +133,10 @@ Ein **Adreßverweis** muß auflösen, eine **Geschichtserzählung** darf den alt
 **Regel 42 ist damit auf der Ordner- und Dateiebene durchgesetzt.** Was bleibt, ist keine
 Umbenennung mehr, sondern eine **Prüfung**: ein Wächter, der einen neuen deutschen Ordner- oder
 Dateinamen im Baum rot macht — sonst ist der nächste Verstoß nur eine Frage der Zeit.
+
+> **RICHTIGSTELLUNG, noch am selben Tag.** Der Satz oben („auf der Ordner- und Dateiebene
+> durchgesetzt") ist **falsch** und bleibt trotzdem stehen. Richtig ist: die acht **Pakete** sind
+> umbenannt. Der Wächter `scripts/naming-guard.mjs` hat danach **1039** Namen geprüft und **82**
+> weitere Verstöße gefunden — **43** in `scripts/`, **34** in `packages/`, **4** in `apps/`, **1**
+> in `docker/`. **Der volle Befund steht in [`naming-rest.md`](naming-rest.md).** Wer nur diesen
+> Plan liest, hielte die Arbeit für getan; wer die Messung liest, weiß, wo sie steht.

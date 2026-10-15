@@ -1,0 +1,119 @@
+Wächter für Regel 42 — Ordnernamen und Dateinamen englisch.
+
+Gegenprobe: schmutziger Baum wird rot (ja), sauberer Baum bleibt grün (ja), Ausnahme greift statt Verstoß (ja).
+
+Geprüft: 1039 Namen in 7 Wurzeln (5 Pfade übersprungen: node_modules, .git, docs, snapshots, dist, coverage, .turbo, .pmh).
+
+Ausgenommen MIT GRUND (7):
+  packages\auth\db-schema\migrations\0003_sitzungen_und_gespraeche.sql  —  deutsches Segment "sitzungen"  [Schemafassung: der Dateiname ist die Version]
+  packages\auth\db-schema\migrations\0004_mandantentrennung.sql  —  deutsches Segment "mandantentrennung"  [Schemafassung: der Dateiname ist die Version]
+  packages\auth\db-schema\migrations\0005_benutzerprofile.sql  —  deutsches Segment "benutzerprofile"  [Schemafassung: der Dateiname ist die Version]
+  packages\auth\db-schema\migrations\0006_wissensspeicher.sql  —  deutsches Segment "wissensspeicher"  [Schemafassung: der Dateiname ist die Version]
+  packages\auth\db-schema\migrations\0008_sitzungsprotokoll.sql  —  deutsches Segment "sitzungsprotokoll"  [Schemafassung: der Dateiname ist die Version]
+  packages\auth\db-schema\migrations\0009_arbeitsbereich-ordner.sql  —  deutsches Segment "arbeitsbereich"  [Schemafassung: der Dateiname ist die Version]
+  packages\auth\db-schema\migrations\0010_zusatzordner-zugriff.sql  —  deutsches Segment "zusatzordner"  [Schemafassung: der Dateiname ist die Version]
+
+82 Verstöße:
+
+  apps\login_web\src\
+    sprache.ts  —  deutsches Segment "sprache"
+    weiter.ts  —  deutsches Segment "weiter"
+  apps\login_web\tests\
+    sprache.test.ts  —  deutsches Segment "sprache"
+    weiter.test.ts  —  deutsches Segment "weiter"
+  docker\
+    rechtprobe.sql  —  deutsches Segment "rechtprobe"
+  packages\ai\local\tests\
+    lokal.test.ts  —  deutsches Segment "lokal"
+  packages\api\auth-http\src\
+    anmeldung.ts  —  deutsches Segment "anmeldung"
+    ordner.ts  —  deutsches Segment "ordner"
+    rechte.ts  —  deutsches Segment "rechte"
+    seite.ts  —  deutsches Segment "seite"
+    wege.ts  —  deutsches Segment "wege"
+    zugang.ts  —  deutsches Segment "zugang"
+  packages\api\auth-http\tests\
+    anmeldung.test.ts  —  deutsches Segment "anmeldung"
+    ordner.test.ts  —  deutsches Segment "ordner"
+    rechte.test.ts  —  deutsches Segment "rechte"
+    seite.test.ts  —  deutsches Segment "seite"
+    zugang.test.ts  —  deutsches Segment "zugang"
+  packages\auth\db-schema\src\
+    betriebsdatenbank.ts  —  deutsches Segment "betriebsdatenbank"
+  packages\auth\db-schema\tests\
+    arbeitsbereich-ordner.test.ts  —  deutsches Segment "arbeitsbereich"
+    sitzungsprotokoll.test.ts  —  deutsches Segment "sitzungsprotokoll"
+  packages\auth\db-schema\tests\proben\
+    proben  —  deutsches Segment "proben"
+    benutzerprofile.sql  —  deutsches Segment "benutzerprofile"
+    mandantentrennung.sql  —  deutsches Segment "mandantentrennung"
+    wissensspeicher.sql  —  deutsches Segment "wissensspeicher"
+  packages\auth\secrets\src\
+    krypto.ts  —  deutsches Segment "krypto"
+    schluesselgeber.ts  —  deutsches Segment "schluesselgeber"
+  packages\auth\secrets\tests\
+    krypto.test.ts  —  deutsches Segment "krypto"
+    schluesselkette.test.ts  —  deutsches Segment "schluesselkette"
+  packages\auth\store-postgres\src\
+    ordner.ts  —  deutsches Segment "ordner"
+    wurzeln.ts  —  deutsches Segment "wurzeln"
+    zerleger.ts  —  deutsches Segment "zerleger"
+  packages\auth\store-postgres\tests\
+    attrappe.test.ts  —  deutsches Segment "attrappe"
+    einmaltoken.test.ts  —  deutsches Segment "einmaltoken"
+    mandant.test.ts  —  deutsches Segment "mandant"
+    wissen.test.ts  —  deutsches Segment "wissen"
+    wurzeln.test.ts  —  deutsches Segment "wurzeln"
+    zerleger.test.ts  —  deutsches Segment "zerleger"
+  packages\util\sprachen\
+    sprachen  —  deutsches Segment "sprachen"
+  packages\util\sprachen\tests\
+    sprachen.test.ts  —  deutsches Segment "sprachen"
+  scripts\
+    apischluessel.mjs  —  deutsches Segment "apischluessel"
+    apischluessel.test.mjs  —  deutsches Segment "apischluessel"
+    bun-luecken-vorladen.mjs  —  deutsches Segment "luecken"
+    geheimnis-scan.mjs  —  deutsches Segment "geheimnis"
+    geheimnis-scan.test.mjs  —  deutsches Segment "geheimnis"
+    geheimnis.mjs  —  deutsches Segment "geheimnis"
+    install-teile.mjs  —  deutsches Segment "teile"
+    leck-haken.mjs  —  deutsches Segment "leck"
+    leck-haken.test.mjs  —  deutsches Segment "leck"
+    maschinenpfade.mjs  —  deutsches Segment "maschinenpfade"
+    maschinenpfade.test.mjs  —  deutsches Segment "maschinenpfade"
+    port-wahl.mjs  —  deutsches Segment "wahl"
+    ptc-vorladen.mjs  —  deutsches Segment "vorladen"
+    quelltext-pruefung.mjs  —  deutsches Segment "pruefung"
+    schema-stand.mjs  —  deutsches Segment "stand"
+    schema-stand.test.mjs  —  deutsches Segment "stand"
+    schluessel.mjs  —  deutsches Segment "schluessel"
+    schluessel.test.mjs  —  deutsches Segment "schluessel"
+    sprachaufteilung.mjs  —  deutsches Segment "sprachaufteilung"
+    sprachbegriffe.mjs  —  deutsches Segment "sprachbegriffe"
+    sprachpruefer.mjs  —  deutsches Segment "sprachpruefer"
+    sprachquelle.mjs  —  deutsches Segment "sprachquelle"
+    sprachtrichter.mjs  —  deutsches Segment "sprachtrichter"
+    sprachvergleich.mjs  —  deutsches Segment "sprachvergleich"
+    sprachwaechter.mjs  —  deutsches Segment "sprachwaechter"
+    sprachwerte.mjs  —  deutsches Segment "sprachwerte"
+    subprozess-argv-ergaenzung.mjs  —  deutsches Segment "ergaenzung"
+    takt.ps1  —  deutsches Segment "takt"
+    token-adresse.mjs  —  deutsches Segment "adresse"
+    verlauf-reset.mjs  —  deutsches Segment "verlauf"
+    verlauf-reset.test.mjs  —  deutsches Segment "verlauf"
+    welt-adresse.mjs  —  deutsches Segment "welt"
+  scripts\tests\
+    install-teile.test.mjs  —  deutsches Segment "teile"
+    install-werkzeuge.test.mjs  —  deutsches Segment "werkzeuge"
+    port-wahl.test.mjs  —  deutsches Segment "wahl"
+    quelltext-pruefung.test.mjs  —  deutsches Segment "pruefung"
+    sprachpaket.test.ts  —  deutsches Segment "sprachpaket"
+    sprachpruefer.test.mjs  —  deutsches Segment "sprachpruefer"
+    sprachtrichter.test.mjs  —  deutsches Segment "sprachtrichter"
+    sprachwaechter.test.mjs  —  deutsches Segment "sprachwaechter"
+    token-adresse.test.mjs  —  deutsches Segment "adresse"
+    werkzeug-folgen.test.mjs  —  deutsches Segment "werkzeug"
+    wsl-lage.test.mjs  —  deutsches Segment "lage"
+
+Dieser Wächter benennt NICHTS um. Er nennt den Zustand. Jede Umbenennung ist eine eigene
+Tat mit eigener Messung (docs/status/naming-plan.md).
