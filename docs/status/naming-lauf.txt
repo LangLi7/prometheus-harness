@@ -2,7 +2,7 @@ Wächter für Regel 42 — Ordnernamen und Dateinamen englisch.
 
 Gegenprobe: schmutziger Baum wird rot (ja), sauberer Baum bleibt grün (ja), Ausnahme greift statt Verstoß (ja).
 
-Geprüft: 1042 Namen in 7 Wurzeln (5 Pfade übersprungen: node_modules, .git, docs, snapshots, dist, coverage, .turbo, .pmh).
+Geprüft: 1745 Namen in 8 Wurzeln (1032 Pfade übersprungen: node_modules, .git, snapshots, dist, coverage, .turbo, .pmh).
 
 Ausgenommen MIT GRUND (7):
   packages\auth\db-schema\migrations\0003_sitzungen_und_gespraeche.sql  —  deutsches Segment "sitzungen"  [Schemafassung: der Dateiname ist die Version]
@@ -13,8 +13,47 @@ Ausgenommen MIT GRUND (7):
   packages\auth\db-schema\migrations\0009_arbeitsbereich-ordner.sql  —  deutsches Segment "arbeitsbereich"  [Schemafassung: der Dateiname ist die Version]
   packages\auth\db-schema\migrations\0010_zusatzordner-zugriff.sql  —  deutsches Segment "zusatzordner"  [Schemafassung: der Dateiname ist die Version]
 
-38 Verstöße:
+64 Verstöße:
 
+  docs\protokoll\
+    protokoll  —  deutsches Segment "protokoll"
+  docs\protokoll\aufsicht\hilfen\
+    anbieter-rauchtest.mjs  —  deutsches Segment "anbieter"
+    b1-nachziehen.mjs  —  deutsches Segment "nachziehen"
+    mandantentrennung-probe.sql  —  deutsches Segment "mandantentrennung"
+    rechte-probe-assertion.sql  —  deutsches Segment "rechte"
+    zugang-bereitstellen.mjs  —  deutsches Segment "zugang"
+  docs\protokoll\aufsicht\werkzeuge\
+    werkzeuge  —  deutsches Segment "werkzeuge"
+    bun-faehigkeiten.mjs  —  deutsches Segment "faehigkeiten"
+    geheimnis-historie.mjs  —  deutsches Segment "geheimnis"
+    leck-pruefung.mjs  —  deutsches Segment "leck"
+    protokoll-pruefung.mjs  —  deutsches Segment "protokoll"
+    stand-abgleich.mjs  —  deutsches Segment "stand"
+    takt-pruefung.mjs  —  deutsches Segment "takt"
+    zugangs-lage.mjs  —  deutsches Segment "lage"
+  docs\status\
+    anmeldeseite-proxy-sonde.mjs  —  deutsches Segment "sonde"
+    sprachquelle.json  —  deutsches Segment "sprachquelle"
+  docs\status\messsonden\
+    messsonden  —  deutsches Segment "messsonden"
+    api-sonde.ts  —  deutsches Segment "sonde"
+    befehl-sonde.mjs  —  deutsches Segment "sonde"
+    client-komposition-sonde.mjs  —  deutsches Segment "sonde"
+    protokoll-offenlegung.mjs  —  deutsches Segment "protokoll"
+    sprach-anbieter-pruefstand.mjs  —  deutsches Segment "sprach"
+    sprachnamensraum-sonde.mjs  —  deutsches Segment "sonde"
+    sprachpaket-laufzeit-sonde.mjs  —  deutsches Segment "sprachpaket"
+    sse-sonde.mjs  —  deutsches Segment "sonde"
+    strom-last-sonde.mjs  —  deutsches Segment "sonde"
+    strom-lauf-sonde.mjs  —  deutsches Segment "sonde"
+    strom-neustart-sonde.mjs  —  deutsches Segment "sonde"
+    strom-sonde.mjs  —  deutsches Segment "sonde"
+    strom-subagent-sonde.mjs  —  deutsches Segment "sonde"
+    strom-wiederaufnahme-sonde.mjs  —  deutsches Segment "sonde"
+    verdichtung-sonde.mjs  —  deutsches Segment "sonde"
+    werkzeug-paarung.mjs  —  deutsches Segment "werkzeug"
+    werkzeug-wecken.mjs  —  deutsches Segment "werkzeug"
   scripts\
     apischluessel.mjs  —  deutsches Segment "apischluessel"
     apischluessel.test.mjs  —  deutsches Segment "apischluessel"
@@ -40,14 +79,6 @@ Ausgenommen MIT GRUND (7):
     schema-stand.test.mjs  —  deutsches Segment "stand"
     schluessel.mjs  —  deutsches Segment "schluessel"
     schluessel.test.mjs  —  deutsches Segment "schluessel"
-    sprachaufteilung.mjs  —  deutsches Segment "sprachaufteilung"
-    sprachbegriffe.mjs  —  deutsches Segment "sprachbegriffe"
-    sprachpruefer.mjs  —  deutsches Segment "sprachpruefer"
-    sprachquelle.mjs  —  deutsches Segment "sprachquelle"
-    sprachtrichter.mjs  —  deutsches Segment "sprachtrichter"
-    sprachvergleich.mjs  —  deutsches Segment "sprachvergleich"
-    sprachwaechter.mjs  —  deutsches Segment "sprachwaechter"
-    sprachwerte.mjs  —  deutsches Segment "sprachwerte"
     subprozess-argv-ergaenzung.mjs  —  deutsches Segment "ergaenzung"
     takt.ps1  —  deutsches Segment "takt"
     token-adresse.mjs  —  deutsches Segment "adresse"

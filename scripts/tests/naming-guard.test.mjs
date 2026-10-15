@@ -19,7 +19,8 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
@@ -28,6 +29,7 @@ import {
   gegenprobe,
   pruefeBaum,
   pruefeName,
+  sammleVerstoesse,
 } from '../naming-guard.mjs'
 
 const WURZEL = join(import.meta.dir, '..', '..')
@@ -108,6 +110,58 @@ describe('Die Gegenprobe im Speicher', () => {
     const g = gegenprobe()
     expect(g.schmutzig.mitGrund).toHaveLength(1)
     expect(g.schmutzig.mitGrund[0]?.warum).toContain('Schemafassung')
+  })
+})
+
+describe('Unter docs/ zählt CODE, eine Notiz nicht', () => {
+  /** Baut einen künstlichen docs-Baum. @param teile - Pfadteile, die angelegt werden */
+  function mitDocs(teile) {
+    const haus = mkdtempSync(join(tmpdir(), 'pmh-docs-'))
+    for (const t of teile) {
+      const pfad = join(haus, 'docs', t)
+      mkdirSync(join(pfad, '..'), { recursive: true })
+      writeFileSync(pfad, '')
+    }
+    return haus
+  }
+
+  test('eine Codedatei mit deutschem Namen wird rot, eine Notiz NICHT', () => {
+    const haus = mitDocs(['status/sonde.mjs', 'status/arbeitsweise.md'])
+    try {
+      const b = sammleVerstoesse(join(haus, 'docs'), { nurCode: true, ausgenommen: [] })
+      expect(b.verstoesse.map((v) => v.name)).toEqual(['sonde.mjs'])
+    } finally {
+      rmSync(haus, { recursive: true, force: true })
+    }
+  })
+
+  test('ein CODeordner zählt, ein Notizordner nicht', () => {
+    const haus = mitDocs(['messsonden/strom-sonde.mjs', 'notizen/aufsatz.md'])
+    try {
+      const b = sammleVerstoesse(join(haus, 'docs'), { nurCode: true, ausgenommen: [] })
+      const namen = b.verstoesse.map((v) => v.name)
+      expect(namen).toContain('messsonden')
+      expect(namen).toContain('strom-sonde.mjs')
+      expect(namen).not.toContain('notizen')
+    } finally {
+      rmSync(haus, { recursive: true, force: true })
+    }
+  })
+
+  test('OHNE den Code-Modus zählt dieselbe Notiz sehr wohl — der Unterschied ist die Einstellung', () => {
+    // Die Gegenprobe zur Gegenprobe: ohne `nurCode` wäre die Notiz ein Verstoß, und der Wächter
+    // würde jede Notiz melden. **Der Name muß ein Wort aus der LISTE tragen** — `arbeitsweise.md`
+    // wäre ein schlechtes Beispiel: „arbeitsweise" steht nicht in der Liste, die Notiz wäre also
+    // auch ohne den Code-Modus grün. (Das war der erste Fehler dieser Prüfung.)
+    const haus = mitDocs(['status/protokoll.md'])
+    try {
+      const mit = sammleVerstoesse(join(haus, 'docs'), { nurCode: true, ausgenommen: [] })
+      const ohne = sammleVerstoesse(join(haus, 'docs'), { ausgenommen: [] })
+      expect(mit.verstoesse).toHaveLength(0)
+      expect(ohne.verstoesse.map((v) => v.name)).toEqual(['protokoll.md'])
+    } finally {
+      rmSync(haus, { recursive: true, force: true })
+    }
   })
 })
 

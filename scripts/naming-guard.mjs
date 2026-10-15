@@ -48,7 +48,19 @@ import { tmpdir } from 'node:os'
 import { join, relative, sep } from 'node:path'
 
 /** Die Wurzeln, die geprüft werden — relativ zur Repository-Wurzel. */
-export const WURZELN = ['packages', 'apps', 'scripts', 'services', 'benchmarks', 'docker', 'native']
+export const WURZELN = [
+  'packages',
+  'apps',
+  'scripts',
+  'services',
+  'benchmarks',
+  'docker',
+  'native',
+  // `docs` ist dabei — aber im **Code-Modus**: geprüft werden dort nur ausführbare und erzeugte
+  // Dateien, keine Notizen. Ohne diesen Eintrag lief die Erkennung nie, und der Wächter meldete
+  // weiter 30, obwohl 28 Codenamen dort lagen.
+  'docs',
+]
 
 /**
  * Ordner, die übersprungen werden. **Jeder Eintrag ist eine Entscheidung, keine Bequemlichkeit:**
@@ -58,13 +70,34 @@ export const WURZELN = ['packages', 'apps', 'scripts', 'services', 'benchmarks',
 export const AUSGENOMMEN = [
   'node_modules',
   '.git',
-  'docs',
   'snapshots',
   'dist',
   'coverage',
   '.turbo',
   '.pmh',
 ]
+
+/**
+ * Endungen, die auch unter `docs/` als **Code** gelten. Alles andere dort ist **Notiz** und darf
+ * deutsch heißen.
+ *
+ * **Warum das nachgetragen wurde.** Der Wächter übersprang `docs/` als Ganzes, begründet mit den
+ * Notizen. Nachgezählt am 15.10.2026 lagen dort aber **28 ausführbare oder erzeugte Dateien** —
+ * `docs/status/messsonden/strom-sonde.mjs`, `docs/protokoll/aufsicht/werkzeuge/leck-pruefung.mjs`
+ * und so weiter. **Eine Ausnahme, die mit „das sind doch alles Dokumente" begründet wird, verdeckt
+ * alles, was dort kein Dokument ist.**
+ */
+export const DOCS_CODE_ENDUNGEN = new Set([
+  'ts', 'tsx', 'mts', 'cts', 'js', 'mjs', 'cjs', 'json', 'yml', 'yaml', 'toml', 'sql', 'ps1', 'cmd',
+  'sh', 'bat', 'go', 'rs', 'py',
+])
+
+/** Ist die Endung unter `docs/` Code? @param name - der Dateiname */
+function istDocsCode(name) {
+  const punkt = name.lastIndexOf('.')
+  if (punkt < 0) return false
+  return DOCS_CODE_ENDUNGEN.has(name.slice(punkt + 1).toLowerCase())
+}
 
 /**
  * Deutsche Wortstämme, die als **ganzes Segment** verboten sind.
@@ -171,10 +204,37 @@ export function pruefeName(name) {
 export function sammleVerstoesse(wurzel, optionen = {}) {
   const ausgenommen = new Set(optionen.ausgenommen ?? AUSGENOMMEN)
   const pfadAusnahmen = optionen.pfadAusnahmen ?? AUSGENOMMENE_PFADE
+  const nurCode = optionen.nurCode === true
   const verstoesse = []
   const uebersprungen = []
   const mitGrund = []
   let geprueft = 0
+
+  /**
+   * Liegt unter diesem Ordner **irgendeine** Codedatei? Ein Ordner unter `docs/` ist dann ein
+   * **Codeordner** und sein Name zählt; ein Ordner voller Notizen nicht.
+   *
+   * @param ordner - der zu prüfende Ordner
+   * @param tiefe - Rekursionstiefe
+   */
+  function hatCode(ordner, tiefe = 0) {
+    if (tiefe > 20) return false
+    let eintraege
+    try {
+      eintraege = readdirSync(ordner, { withFileTypes: true })
+    } catch {
+      return false
+    }
+    for (const e of eintraege) {
+      if (ausgenommen.has(e.name)) continue
+      if (e.isDirectory()) {
+        if (hatCode(join(ordner, e.name), tiefe + 1)) return true
+      } else if (istDocsCode(e.name)) {
+        return true
+      }
+    }
+    return false
+  }
 
   /** @param ordner - der aktuelle Ordner @param tiefe - Rekursionstiefe */
   function gehe(ordner, tiefe) {
@@ -201,21 +261,31 @@ export function sammleVerstoesse(wurzel, optionen = {}) {
           continue
         }
       }
-      geprueft += 1
-      const befund = pruefeName(eintrag.name)
-      if (!befund.ok) {
-        const ausnahme = pfadAusnahmen.find((a) => a.muster.test(pfad))
-        if (ausnahme) {
-          mitGrund.push({ pfad, name: eintrag.name, grund: befund.grund, warum: ausnahme.grund })
-        } else {
-          verstoesse.push({
-            pfad,
-            name: eintrag.name,
-            art: befund.art,
-            segment: befund.segment,
-            grund: befund.grund,
-            istOrdner,
-          })
+      // Unter `docs/` zählt nur Code: eine Notizdatei wird übersprungen, ein Codeordner geprüft.
+      if (nurCode && !istOrdner && !istDocsCode(eintrag.name)) {
+        uebersprungen.push(pfad)
+        continue
+      }
+      // Zählt dieser Eintrag? Unter `docs/` zählt eine Datei nur als Code, ein Ordner nur dann,
+      // wenn in ihm Code liegt (ein Notizordner ist der Titel eines Bestands, kein Codename).
+      const zaehlt = !nurCode || (istOrdner ? hatCode(pfad) : true)
+      if (zaehlt) {
+        geprueft += 1
+        const befund = pruefeName(eintrag.name)
+        if (!befund.ok) {
+          const ausnahme = pfadAusnahmen.find((a) => a.muster.test(pfad))
+          if (ausnahme) {
+            mitGrund.push({ pfad, name: eintrag.name, grund: befund.grund, warum: ausnahme.grund })
+          } else {
+            verstoesse.push({
+              pfad,
+              name: eintrag.name,
+              art: befund.art,
+              segment: befund.segment,
+              grund: befund.grund,
+              istOrdner,
+            })
+          }
         }
       }
       if (istOrdner) gehe(pfad, tiefe + 1)
@@ -284,7 +354,7 @@ export function pruefeBaum(wurzel) {
       fehlend.push(name) // Eine Wurzel, die fehlt, wird GENANNT — nicht verschwiegen.
       continue
     }
-    const lauf = sammleVerstoesse(pfad)
+    const lauf = sammleVerstoesse(pfad, { nurCode: name === 'docs' })
     alle.push(...lauf.verstoesse)
     mitGrund.push(...lauf.mitGrund)
     geprueft += lauf.geprueft
