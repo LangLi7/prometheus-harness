@@ -46,7 +46,17 @@ function anbieter(eingabe: {
     faehigkeiten: eingabe.faehigkeiten,
     schluessel: 'kein-schluessel',
     modelle: () => ['ein-modell'],
-    async bereit(): Promise<Bereitschaft> {
+    /**
+     * Die Bereitschaft — **je Fähigkeit gefragt**, wie es der Vertrag verlangt.
+     *
+     * Der Parameter wird mitgezählt, nicht ausgewertet: diese Attrappe ist für **jede** Fähigkeit
+     * gleich bereit. Eine Attrappe, die je Fähigkeit etwas anderes antwortet, wäre eine eigene
+     * Prüfung — und die steht in `bereitschaft.test.ts`.
+     *
+     * @param _faehigkeit - die gefragte Fähigkeit
+     * @returns der eingestellte Stand
+     */
+    async bereit(_faehigkeit: Faehigkeit): Promise<Bereitschaft> {
       gefragt += 1
       return stand
     },

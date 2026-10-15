@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/openrouter",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Der Anbieter OpenRouter: erfüllt entscheiden, text-zu-sprache, sprache-zu-text und einbetten über die vier gemessenen Wege. Der Schlüssel wird hineingereicht, nie mitgeführt. bild wird NICHT genannt, weil der Weg nicht gemessen ist.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

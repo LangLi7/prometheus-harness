@@ -80,6 +80,10 @@
       "name": "@prometheus-harness/faehigkeiten",
       "version": "0.0.0",
     },
+    "packages/ai/openrouter": {
+      "name": "@prometheus-harness/openrouter",
+      "version": "0.0.0",
+    },
     "packages/api/auth-http": {
       "name": "@prometheus-harness/auth-http",
       "version": "0.1.0",
@@ -962,6 +966,8 @@
     "@prometheus-harness/llm-retry": ["@prometheus-harness/llm-retry@workspace:packages/llm/llm-retry"],
 
     "@prometheus-harness/login-web": ["@prometheus-harness/login-web@workspace:apps/login_web"],
+
+    "@prometheus-harness/openrouter": ["@prometheus-harness/openrouter@workspace:packages/ai/openrouter"],
 
     "@prometheus-harness/permissions": ["@prometheus-harness/permissions@workspace:packages/auth/permissions"],
 
