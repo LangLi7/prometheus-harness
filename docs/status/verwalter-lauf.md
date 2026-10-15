@@ -123,3 +123,46 @@ eine **beantwortbare** Frage stellen — oder ein Modell nehmen, das sie beantwo
 **nicht** gemessen. Bis dahin gilt: der Katalog lebt von der Sonde, und die Auslegung steht als
 **offen** darin, mit Grund.
 
+## Dritter Lauf, 13:30 UTC — welches Modell taugt als Ausleger?
+
+Dieselbe Frage, derselbe Weg (`legeAus`), zwei Familien, **drei Modelle**. Alle über OpenRouter,
+alle billig (0,02 $ je Million Eingabe).
+
+| Modell | Z.ai (11 Kennungen) | Nous (422 Kennungen) |
+|---|---|---|
+| `deepseek/deepseek-v4-flash-0731` (denkt) | 40,4 s · Sicherheit **0,00** | 176,4 s · Sicherheit **0,00** |
+| **`ibm-granite/granite-4.0-h-micro`** (denkt **nicht**) | **2,2 s** · 0,95 · **angenommen, und richtig** | **3,4 s** · 0,95 · **Widerspruch** |
+| `openai/gpt-oss-20b` (denkt) | 56,4 s · Sicherheit 0,02 | **300 s** · Zeitüberschreitung |
+
+### Die denkenden Modelle antworten NICHT
+
+`deepseek-v4-flash` und `gpt-oss-20b` melden **0,00 bis 0,02** Sicherheit und werden damit nicht
+übernommen. Sie sind nicht „vorsichtig" — sie sind **unbrauchbar** für diese Frage, und sie
+brauchen dafür 40 bis 300 Sekunden.
+
+Das **nichtdenkende** Modell antwortet in **2,2 und 3,4 Sekunden** mit **0,95**.
+
+**Für Z.ai war es RICHTIG:** es nannte alle sechs Fähigkeiten, und die Sonde hatte für Z.ai alle
+sechs Wege als antwortend gemessen. Die beiden denkenden Modelle sagten hier 0,00 und 0,02 — also
+nichts.
+
+### Und es irrt sich — der Wächter ist der Grund, warum das tragbar ist
+
+Beim **selben** Lauf behauptete dasselbe Modell für **Nous Research** Sprache, Ton, Einbetten und
+Bild — während die Sonde für alle vier **404** gemessen hatte. `widerspruchZwischen` fing es auf;
+im Katalog steht der Widerspruch.
+
+**Ein schnell antwortendes Modell, das sich irren kann, ist nur zusammen mit der
+Widerspruchsprüfung brauchbar.** Ohne sie stünde die falsche Behauptung im Katalog.
+
+### Zwei Ergebnisse, ein Schluß
+
+**„Denken" ist hier kein Vorteil, sondern ein Hindernis.** Bei `denkhilfe` war das Denken zu
+**teuer**; hier ist es zu **langsam** und liefert am Ende gar keine Antwort. Beides sind zwei
+Seiten derselben Sache: ein enges, typisiertes Urteil braucht kein Nachdenken — genau die Form, für
+die System-One-Modelle gebaut sind.
+
+Die Empfehlung steht als `AUSLEGER_EMPFEHLUNG` im Code — **als Empfehlung, nicht als Vorgabe**:
+welches Modell läuft, entscheidet der Endnutzer.
+
+

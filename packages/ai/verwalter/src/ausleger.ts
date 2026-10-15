@@ -160,6 +160,36 @@ const FRAGE =
   'Wenn die Angaben nicht ausreichen, sage das über die Sicherheit — rate nicht.'
 
 /**
+ * Die **gemessene** Empfehlung für das Auslegermodell.
+ *
+ * ## Warum ein nichtdenkendes Modell
+ *
+ * Gemessen am 15.10.2026 mit **derselben** Frage, **demselben** Weg (`legeAus`), zwei Familien:
+ *
+ * | Modell | Z.ai (11 Kennungen) | Nous (422 Kennungen) |
+ * |---|---|---|
+ * | `deepseek/deepseek-v4-flash-0731` (denkt) | 40,4 s · Sicherheit **0,00** | 176,4 s · Sicherheit **0,00** |
+ * | **`ibm-granite/granite-4.0-h-micro`** (denkt **nicht**) | **2,2 s** · 0,95 · **angenommen und richtig** | **3,4 s** · 0,95 |
+ * | `openai/gpt-oss-20b` (denkt) | 56,4 s · Sicherheit 0,02 | **300 s** · Zeitüberschreitung |
+ *
+ * **Die denkenden Modelle antworten nicht.** Sie melden 0,00 bis 0,02 Sicherheit und werden damit
+ * nicht übernommen — der Ausleger trägt nichts bei. Das nichtdenkende Modell antwortet in
+ * **Sekunden**, mit 0,95.
+ *
+ * ## Und es irrt sich — der Wächter ist der Grund, warum das geht
+ *
+ * Beim selben Lauf behauptete `granite-4.0-h-micro` für Nous Research Sprache, Ton, Einbetten und
+ * Bild — während die Sonde für alle vier **404** gemessen hatte. `widerspruchZwischen` fing es auf.
+ *
+ * **Ein schnell antwortendes Modell, das sich irren kann, ist nur zusammen mit der
+ * Widerspruchsprüfung brauchbar.** Ohne sie stünde die falsche Behauptung im Katalog; mit ihr
+ * steht dort der Widerspruch.
+ *
+ * **Es bleibt eine Empfehlung, keine Vorgabe.** Welches Modell läuft, entscheidet der Endnutzer.
+ */
+export const AUSLEGER_EMPFEHLUNG = 'ibm-granite/granite-4.0-h-micro'
+
+/**
  * Schreibt die gemessenen Wege als Text.
  *
  * @param wege - die Befunde der Sonde

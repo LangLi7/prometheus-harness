@@ -43,6 +43,7 @@ export {
 } from './katalog.ts'
 
 export {
+  AUSLEGER_EMPFEHLUNG,
   auslegeSchema,
   legeAus,
   widerspruchZwischen,
