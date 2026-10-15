@@ -243,8 +243,8 @@
       "name": "@prometheus-harness/home-paths",
       "version": "0.0.0",
     },
-    "packages/util/sprachen": {
-      "name": "@prometheus-harness/sprachen",
+    "packages/util/languages": {
+      "name": "@prometheus-harness/languages",
       "version": "0.0.0",
     },
   },
@@ -1001,6 +1001,8 @@
 
     "@prometheus-harness/home-paths": ["@prometheus-harness/home-paths@workspace:packages/util/home-paths"],
 
+    "@prometheus-harness/languages": ["@prometheus-harness/languages@workspace:packages/util/languages"],
+
     "@prometheus-harness/llm": ["@prometheus-harness/llm@workspace:packages/llm/llm"],
 
     "@prometheus-harness/llm-http": ["@prometheus-harness/llm-http@workspace:packages/llm/llm-http"],
@@ -1036,8 +1038,6 @@
     "@prometheus-harness/speech-nemo-de-local": ["@prometheus-harness/speech-nemo-de-local@workspace:packages/api/speech-nemo-de-local"],
 
     "@prometheus-harness/speech-whisper-local": ["@prometheus-harness/speech-whisper-local@workspace:packages/api/speech-whisper-local"],
-
-    "@prometheus-harness/sprachen": ["@prometheus-harness/sprachen@workspace:packages/util/sprachen"],
 
     "@prometheus-harness/store-postgres": ["@prometheus-harness/store-postgres@workspace:packages/auth/store-postgres"],
 

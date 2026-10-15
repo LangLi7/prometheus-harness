@@ -1,5 +1,5 @@
 /**
- * `@prometheus-harness/sprachen` — die Sprachtabelle der Anmeldung.
+ * `@prometheus-harness/languages` — die Sprachtabelle der Anmeldung.
  *
  * ## Warum ein eigenes Paket
  *
@@ -22,7 +22,7 @@
  * `<strong>` — eine Auszeichnung in der Tabelle wäre in jeder Sprache ein eigenes Problem
  * und in einer HTML-Seite ein Einfallstor.
  *
- * @module @prometheus-harness/sprachen
+ * @module @prometheus-harness/languages
  */
 
 /** Der Name des Kekses, in dem die gewählte Sprache liegt. */

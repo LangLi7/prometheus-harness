@@ -2,7 +2,7 @@ Wächter für Regel 42 — Ordnernamen und Dateinamen englisch.
 
 Gegenprobe: schmutziger Baum wird rot (ja), sauberer Baum bleibt grün (ja), Ausnahme greift statt Verstoß (ja).
 
-Geprüft: 1039 Namen in 7 Wurzeln (5 Pfade übersprungen: node_modules, .git, docs, snapshots, dist, coverage, .turbo, .pmh).
+Geprüft: 1040 Namen in 7 Wurzeln (5 Pfade übersprungen: node_modules, .git, docs, snapshots, dist, coverage, .turbo, .pmh).
 
 Ausgenommen MIT GRUND (7):
   packages\auth\db-schema\migrations\0003_sitzungen_und_gespraeche.sql  —  deutsches Segment "sitzungen"  [Schemafassung: der Dateiname ist die Version]
@@ -13,7 +13,7 @@ Ausgenommen MIT GRUND (7):
   packages\auth\db-schema\migrations\0009_arbeitsbereich-ordner.sql  —  deutsches Segment "arbeitsbereich"  [Schemafassung: der Dateiname ist die Version]
   packages\auth\db-schema\migrations\0010_zusatzordner-zugriff.sql  —  deutsches Segment "zusatzordner"  [Schemafassung: der Dateiname ist die Version]
 
-82 Verstöße:
+80 Verstöße:
 
   apps\login_web\src\
     sprache.ts  —  deutsches Segment "sprache"
@@ -65,10 +65,6 @@ Ausgenommen MIT GRUND (7):
     wissen.test.ts  —  deutsches Segment "wissen"
     wurzeln.test.ts  —  deutsches Segment "wurzeln"
     zerleger.test.ts  —  deutsches Segment "zerleger"
-  packages\util\sprachen\
-    sprachen  —  deutsches Segment "sprachen"
-  packages\util\sprachen\tests\
-    sprachen.test.ts  —  deutsches Segment "sprachen"
   scripts\
     apischluessel.mjs  —  deutsches Segment "apischluessel"
     apischluessel.test.mjs  —  deutsches Segment "apischluessel"

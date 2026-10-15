@@ -14,7 +14,7 @@
  *
  * ## Die Sprache
  *
- * Die Texte kommen aus `@prometheus-harness/sprachen` — **demselben** Paket, aus dem der
+ * Die Texte kommen aus `@prometheus-harness/languages` — **demselben** Paket, aus dem der
  * Rechner seine Seite `/start` baut. Keine Abschrift, also keine zweite Wahrheit. Der
  * Umschalter schreibt den Keks `pmh_sprache`; dieselbe Wahl gilt danach auch für `/start`.
  *

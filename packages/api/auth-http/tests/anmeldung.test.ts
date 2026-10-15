@@ -43,7 +43,7 @@ import postgres from 'postgres'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { Argon2PasswordHasher, MemoryRateLimiter } from '@prometheus-harness/auth'
 import { betriebsdatenbankNamen } from '@prometheus-harness/db-schema'
-import { KEKS_SPRACHE, VORGABE_SPRACHE, SPRACHEN, texteFuer } from '@prometheus-harness/sprachen'
+import { KEKS_SPRACHE, VORGABE_SPRACHE, SPRACHEN, texteFuer } from '@prometheus-harness/languages'
 import { erzeugeSpeicher, type SqlZugang } from '@prometheus-harness/store-postgres'
 import { claimAblageImHome } from '../src/claim-ablage.ts'
 import {

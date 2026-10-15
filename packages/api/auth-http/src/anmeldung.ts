@@ -66,7 +66,7 @@ import {
   spracheAusKeks,
   texteFuer,
   type Texte,
-} from '@prometheus-harness/sprachen'
+} from '@prometheus-harness/languages'
 
 /** Der Ort der gebauten Anmeldeseite — **am Ursprung des Hosts**, nicht auf einem eigenen Port. */
 export const PFAD_ANMELDUNG = '/anmeldung'

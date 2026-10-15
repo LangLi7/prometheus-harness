@@ -24,8 +24,10 @@ Hilfsdateien, den Attrappen.
 bun scripts/naming-guard.mjs        # exit 1
 ```
 
-Beleg: `docs/status/naming-lauf.txt` (119 Zeilen, vollständig, nicht gefiltert — Regel 13:
-`Select-Object -First N` tötet den Erzeuger, bevor er seinen Beleg schreibt).
+Beleg: `docs/status/naming-lauf.txt` — beim Lauf zu diesem Commit **119 Zeilen**, vollständig und
+ungefiltert (Regel 13: `Select-Object -First N` tötet den Erzeuger, bevor er seinen Beleg schreibt).
+**Die Datei wird bei jedem Aufruf überschrieben**; die datierten Zahlen stehen hier im Text, und
+§6 nennt den nächsten Lauf (**115** Zeilen, **80** Verstöße).
 
 | Zahl | Wert |
 |---|---|
@@ -116,7 +118,7 @@ gebaut; **das ist der nächste Schritt**, nicht die 43 Umbenennungen.
 
 | Zug | Umfang | Risiko | Warum diese Stelle |
 |---|---|---|---|
-| 1 | `packages/util/sprachen` → `languages` | klein | Ein Ordner, wenige Importe — der Prüfstein für den Umbenennungsweg abseits von `scripts/` |
+| ~~1~~ | `packages/util/sprachen` → `languages` | klein | **vollzogen** (§6) — der Prüfstein für den Umbenennungsweg abseits von `scripts/` |
 | 2 | `packages/api/auth-http/src` (6) + `tests` (5) | mittel | Nur Importe im eigenen Haus, aber **97 Prüfungen** hängen daran |
 | 3 | `packages/auth/store-postgres` (9), `db-schema/tests/proben` (4) | mittel | „Attrappen“, „Wurzeln“, „Zerleger“ sind Hausvokabular — die Bedeutung muß mitwandern |
 | 4 | `apps/login_web` (4) | klein | Zwei Dateien, je eine Prüfdatei |
@@ -128,7 +130,7 @@ gebaut; **das ist der nächste Schritt**, nicht die 43 Umbenennungen.
 |---|---|
 | `scripts/naming-guard.mjs` | Der Prüflauf. `exit 0` sauber · **1** Verstoß · **2** der Wächter ist selbst kaputt |
 | `scripts/tests/naming-guard.test.mjs` | **13** Prüfungen, **0 rot**: rot wo rot, grün wo grün, und der Baum wird befragt statt der Wächter geglaubt |
-| `docs/status/naming-lauf.txt` | Der ungefilterte Beleg des Laufs |
+| `docs/status/naming-lauf.txt` | Der ungefilterte Beleg — **der jeweils letzte Lauf**, von jedem Aufruf überschrieben. Die datierten Zahlen stehen im Text, nicht in der Datei |
 
 **Die Prüfungen, die den Baum befragen** (und nicht den Wächter):
 
@@ -140,3 +142,28 @@ gebaut; **das ist der nächste Schritt**, nicht die 43 Umbenennungen.
 **Und die eine Prüfung, die keine Erwartung „null" Behauptet:** `verstoesse.length > 0`. Sie hält
 fest, daß der Wächter die 82 **findet**. Wenn der Baum sauber wird, muß **diese** Prüfung fallen —
 und zwar durch eine Tat, nicht durch ein Nachlassen.
+
+## 6. Zug 1, vollzogen: `packages/util/sprachen` → `packages/util/languages`
+
+Am selben Tag, Commit `HEAD~1`: der kleinste Posten der Reihenfolge — **ein Ordner, vier Dateien,
+sieben abhängige Stellen.**
+
+| Schritt | Befehl | Ergebnis |
+|---|---|---|
+| Wer hängt daran? | `grep 'prometheus-harness/sprachen'` über den Baum | **8 Vorkommen** in 7 Dateien (4 Importe, 2 eigene Modulköpfe, 1 Prosa in `App.tsx`) |
+| Umbenennen | `git mv` ×2 | Ordner + `sprachen.test.ts` → `languages.test.ts` |
+| Ersetzen | 7 Dateien | `SUMME=8` — Vorkommen **und** Zeilen stimmen überein |
+| Gegenprobe | `Select-String 'prometheus-harness/sprachen'` über `apps`, `packages` | **0 Zeilen** |
+| Tote Verknüpfung | Junction → `packages\util\sprachen` | entfernt, dann `bun install` exit **0**, *„Removed: 1"*, neu → `packages\util\languages` |
+| Tests | `bun test` je Paket | `languages` **14/0** · `auth-http` **97/0** · `login_web` **15/0**, alle exit 0 |
+| **Der Wächter bestätigt es** | `bun scripts/naming-guard.mjs` | **82 → 80**, geprüfte Namen **1039 → 1040** — der Wächter folgt der Wirklichkeit, nicht meinem Bericht |
+
+**Warum der letzte Punkt der wichtigste ist.** Daß ein Wächter 82 sagt, beweist nur, daß er **etwas**
+sagt. Daß er nach **genau dieser** Umbenennung **80** sagt — und zwar zwei weniger, weil ein Ordner
+und eine Prüfdatei ihren Namen gewechselt haben —, das ist der Beweis, daß er **diesen** Verstoß
+sieht und nicht bloß eine Zahl ausgibt.
+
+**Was hier NICHT mit umbenannt wurde:** `apps/login_web/src/sprache.ts`, `apps/login_web/tests/sprache.test.ts`,
+`packages/api/auth-http/src/anmeldung.ts`, `packages/api/auth-http/tests/anmeldung.test.ts`. Sie
+**importieren** jetzt aus `languages`, heißen aber weiter deutsch — sie gehören zu Zug 4 und Zug 2.
+**Eine Umbenennung zieht ihre Importe, nicht ihren Nachbarn.**

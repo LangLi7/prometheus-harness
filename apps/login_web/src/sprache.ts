@@ -30,7 +30,7 @@ import {
   texteFuer,
   type Sprache,
   type Texte,
-} from '@prometheus-harness/sprachen'
+} from '@prometheus-harness/languages'
 import { keksWert } from './api.ts'
 
 export { KEKS_SPRACHE, SPRACHEN, texteFuer, type Sprache, type Texte }

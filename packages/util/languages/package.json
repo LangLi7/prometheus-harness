@@ -1,5 +1,5 @@
 {
-  "name": "@prometheus-harness/sprachen",
+  "name": "@prometheus-harness/languages",
   "private": true,
   "version": "0.0.0",
   "type": "module",
