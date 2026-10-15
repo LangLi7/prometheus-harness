@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/lokal",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Gewichte für ein lokales Modell: Herkunft, festgenagelte Revision, erwartete Größe und SHA-256. Sie werden geprüft, BEVOR sie gelten — eine halbe oder falsche Datei wird nie zu einem Modell. Ein Modell ohne bekannte Prüfsumme gilt als NICHT geprüft.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

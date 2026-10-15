@@ -84,6 +84,10 @@
       "name": "@prometheus-harness/faehigkeiten",
       "version": "0.0.0",
     },
+    "packages/ai/lokal": {
+      "name": "@prometheus-harness/lokal",
+      "version": "0.0.0",
+    },
     "packages/ai/openrouter": {
       "name": "@prometheus-harness/openrouter",
       "version": "0.0.0",
@@ -984,6 +988,8 @@
     "@prometheus-harness/llm-retry": ["@prometheus-harness/llm-retry@workspace:packages/llm/llm-retry"],
 
     "@prometheus-harness/login-web": ["@prometheus-harness/login-web@workspace:apps/login_web"],
+
+    "@prometheus-harness/lokal": ["@prometheus-harness/lokal@workspace:packages/ai/lokal"],
 
     "@prometheus-harness/openrouter": ["@prometheus-harness/openrouter@workspace:packages/ai/openrouter"],
 
