@@ -107,7 +107,7 @@ export const HAUPTSSCHLUESSELDATEI = 'master.key'
  * [dateiQuelle(join(home, HAUPTSSCHLUESSELDATEI)), umgebungsQuelle(umgebung)]
  * ```
  *
- * stand **zweimal** im Baum (`scripts/geheimnis.mjs`, `scripts/apischluessel.mjs`) —
+ * stand **zweimal** im Baum (`scripts/geheimnis.mjs`, `scripts/api-key.mjs`) —
  * und mit der Docker-Stufe wäre sie **dreimal** dagestanden. Drei Kopien einer
  * Reihenfolge sind drei Gelegenheiten, sie verschieden zu ändern: dann liest ein
  * Skript den Schlüssel aus der Datei und das andere aus der Umgebung, und **beide

@@ -1,5 +1,5 @@
 /**
- * `scripts/apischluessel.mjs` gegen eine echte Datenbank.
+ * `scripts/api-key.mjs` gegen eine echte Datenbank.
  *
  * ## Die drei Zusicherungen, die nur hier zu haben sind
  *
@@ -24,14 +24,14 @@ import { createHmac } from 'node:crypto'
 import postgres from 'postgres'
 import { migrate } from '../packages/auth/db-schema/src/index.ts'
 import { zerlegeToken } from '../packages/auth/apikey/src/index.ts'
-import { fuehreAus } from './apischluessel.mjs'
+import { fuehreAus } from './api-key.mjs'
 
 const AUS_ENV = process.env.PMH_TEST_DATABASE_URL
 const DA = AUS_ENV !== undefined && AUS_ENV.trim() !== '' ? AUS_ENV : undefined
 
 if (DA === undefined) {
   process.stderr.write(
-    'HINWEIS: Prüfungen von scripts/apischluessel.mjs übersprungen — PMH_TEST_DATABASE_URL ist nicht gesetzt.\n' +
+    'HINWEIS: Prüfungen von scripts/api-key.mjs übersprungen — PMH_TEST_DATABASE_URL ist nicht gesetzt.\n' +
       '  Die Regeln des Schlüssels sind davon unberührt (packages/auth/apikey, 20 Prüfungen).\n' +
       '  Was hier fehlt, ist der Beweis gegen echte Spalten und den echten Pfeffer.\n',
   )
@@ -130,7 +130,7 @@ function hmac(hauptschluesselHex, token) {
   return createHmac('sha256', pfeffer(hauptschluesselHex)).update(token, 'utf8').digest('hex')
 }
 
-run('scripts/apischluessel.mjs', () => {
+run('scripts/api-key.mjs', () => {
   test('ohne Befehl: Aufrufhinweis und Exit 1', async () => {
     const { code, text } = await fahre([])
     expect(code).toBe(1)

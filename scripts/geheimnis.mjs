@@ -77,7 +77,7 @@ async function aufbau(umgebung) {
   const version = Number(umgebung.PMH_MASTER_KEY_VERSION?.trim() ?? '1')
   // **Die Leiter steht an einer Stelle** (`standardQuellen`): Datei im Home →
   // Docker-Secret → Umgebungsvariable. Vorher stand die Reihenfolge hier und in
-  // `scripts/apischluessel.mjs` — zwei Kopien einer Sicherheitsaussage.
+  // `scripts/api-key.mjs` — zwei Kopien einer Sicherheitsaussage.
   const haupt = holeHauptschluessel(
     standardQuellen(umgebung, home),
     Number.isInteger(version) && version > 0 ? version : 1,

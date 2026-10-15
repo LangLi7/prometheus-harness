@@ -1,5 +1,5 @@
 /**
- * `scripts/apischluessel.mjs` — API-Schlüssel anlegen, auflisten, widerrufen, prüfen.
+ * `scripts/api-key.mjs` — API-Schlüssel anlegen, auflisten, widerrufen, prüfen.
  *
  * ## Warum es das geben muß
  *
@@ -24,7 +24,7 @@
  * kein alter Schlüssel mehr prüfen. Das ist der Preis dafür, daß der Pfeffer
  * nicht in der Datenbank liegt — und es steht auch in `packages/auth/apikey`.
  *
- * @module scripts/apischluessel
+ * @module scripts/api-key
  */
 
 import { join } from 'node:path'
@@ -103,10 +103,10 @@ export async function fuehreAus(argv, umgebung = process.env, schreibe = (t) => 
   if (befehl === undefined || !['anlegen', 'liste', 'widerrufen', 'pruefe'].includes(befehl)) {
     schreibe(
       'Aufruf:\n' +
-        '  bun scripts/apischluessel.mjs anlegen --benutzer <email> [--name Text] [--tage 90] [--scopes chat,search]\n' +
-        '  bun scripts/apischluessel.mjs liste --benutzer <email>\n' +
-        '  bun scripts/apischluessel.mjs widerrufen <key_id> [--grund Text]\n' +
-        '  bun scripts/apischluessel.mjs pruefe <token>\n' +
+        '  bun scripts/api-key.mjs anlegen --benutzer <email> [--name Text] [--tage 90] [--scopes chat,search]\n' +
+        '  bun scripts/api-key.mjs liste --benutzer <email>\n' +
+        '  bun scripts/api-key.mjs widerrufen <key_id> [--grund Text]\n' +
+        '  bun scripts/api-key.mjs pruefe <token>\n' +
         '\n' +
         '  Das Token wird beim Anlegen EINMAL ausgegeben. Danach gibt es nur noch\n' +
         '  den Hash — es läßt sich nicht erneut anzeigen, auch nicht von einem\n' +
@@ -231,7 +231,7 @@ export async function fuehreAus(argv, umgebung = process.env, schreibe = (t) => 
         schreibe('FEHLER: widerrufen braucht eine key_id (die 12 Zeichen aus `liste`).\n')
         return 1
       }
-      const grund = schalter(argv, '--grund') ?? 'widerrufen über scripts/apischluessel.mjs'
+      const grund = schalter(argv, '--grund') ?? 'widerrufen über scripts/api-key.mjs'
       const getroffen = await widerrufeApiSchluessel(zugang, keyId.trim(), grund, jetzt)
       if (!getroffen) {
         // **Zwei Möglichkeiten, und beide werden genannt.** „Gibt es nicht" und
@@ -275,6 +275,6 @@ export async function fuehreAus(argv, umgebung = process.env, schreibe = (t) => 
   }
 }
 
-if (process.argv[1] !== undefined && process.argv[1].endsWith('apischluessel.mjs')) {
+if (process.argv[1] !== undefined && process.argv[1].endsWith('api-key.mjs')) {
   process.exitCode = await fuehreAus(process.argv.slice(2))
 }
