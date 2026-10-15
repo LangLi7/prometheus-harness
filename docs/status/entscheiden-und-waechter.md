@@ -127,4 +127,4 @@ APIs und paßt Formate an, wenn der Harness einen Aufbau nicht kennt — beim St
 Zeitpunkten, oder wenn ein Schlüssel fehlt (Vorbild: `github.com/tashfeenahmed/freellmapi`).
 Damit wird aus „ein Anbieter je API von Hand" ein **Verzeichnis**, das sich selbst nachführt.
 
-**D. Später:** Tev lokal (`packages/ai/lokal`), der 1:1-Ordnerdialog, das Admin-Konto.
+**D. Später:** Tev lokal (`packages/ai/local`), der 1:1-Ordnerdialog, das Admin-Konto.

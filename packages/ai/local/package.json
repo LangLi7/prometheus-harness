@@ -1,5 +1,5 @@
 {
-  "name": "@prometheus-harness/lokal",
+  "name": "@prometheus-harness/local",
   "private": true,
   "version": "0.0.0",
   "type": "module",

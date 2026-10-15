@@ -88,8 +88,8 @@
       "name": "@prometheus-harness/faehigkeiten",
       "version": "0.0.0",
     },
-    "packages/ai/lokal": {
-      "name": "@prometheus-harness/lokal",
+    "packages/ai/local": {
+      "name": "@prometheus-harness/local",
       "version": "0.0.0",
     },
     "packages/ai/openrouter": {
@@ -180,6 +180,10 @@
     },
     "packages/client/select-contrast": {
       "name": "@prometheus-harness/client-select-contrast",
+      "version": "0.1.0",
+    },
+    "packages/client/world-switch": {
+      "name": "@prometheus-harness/client-world-switch",
       "version": "0.1.0",
     },
     "packages/core/agent-loop": {
@@ -983,6 +987,8 @@
 
     "@prometheus-harness/client-select-contrast": ["@prometheus-harness/client-select-contrast@workspace:packages/client/select-contrast"],
 
+    "@prometheus-harness/client-world-switch": ["@prometheus-harness/client-world-switch@workspace:packages/client/world-switch"],
+
     "@prometheus-harness/db-schema": ["@prometheus-harness/db-schema@workspace:packages/auth/db-schema"],
 
     "@prometheus-harness/einstellungen": ["@prometheus-harness/einstellungen@workspace:packages/ai/einstellungen"],
@@ -999,9 +1005,9 @@
 
     "@prometheus-harness/llm-retry": ["@prometheus-harness/llm-retry@workspace:packages/llm/llm-retry"],
 
-    "@prometheus-harness/login-web": ["@prometheus-harness/login-web@workspace:apps/login_web"],
+    "@prometheus-harness/local": ["@prometheus-harness/local@workspace:packages/ai/local"],
 
-    "@prometheus-harness/lokal": ["@prometheus-harness/lokal@workspace:packages/ai/lokal"],
+    "@prometheus-harness/login-web": ["@prometheus-harness/login-web@workspace:apps/login_web"],
 
     "@prometheus-harness/openrouter": ["@prometheus-harness/openrouter@workspace:packages/ai/openrouter"],
 

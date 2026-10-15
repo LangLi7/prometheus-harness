@@ -1,5 +1,5 @@
 /**
- * `@prometheus-harness/lokal` — Gewichte für ein **lokales** Modell.
+ * `@prometheus-harness/local` — Gewichte für ein **lokales** Modell.
  *
  * ## Was ein lokales Modell von einem Dienst unterscheidet
  *
@@ -29,7 +29,7 @@
  * sind **nicht gemessen** — und eine erfundene Adresse wäre schlimmer als eine fehlende. Der
  * Bauplan steht in {@link fehlendeAngaben}: er sagt, **was** noch fehlt.
  *
- * @module @prometheus-harness/lokal
+ * @module @prometheus-harness/local
  */
 
 import { createHash } from 'node:crypto'

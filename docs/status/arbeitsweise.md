@@ -747,6 +747,35 @@ und hätte im Browser versagt.
 **Verwandt mit Regel 5, aber nicht dasselbe.** Dort ging es darum, daß eine Gegenprobe **rot werden
 kann**. Hier konnte sie es — sie bekam nur **zu bereitwillige** Zutaten.
 
+## 42. Namen von Ordnern und Dateien sind **englisch** — Kommentare und Dokumente deutsch
+
+**Die Anweisung des Betreibers (15.10.2026):** *„naming folder und datei typen sollte immer auf
+englisch sein; ein kommentar im code ect oder md file ist legitim und in ordnung auf deutsch zu
+machen."*
+
+**Die Trennung, und warum sie Sinn hat.** Ein **Name** ist eine Adresse: er steht in Importen, in
+Konfigurationen, in Befehlen, in Fehlermeldungen — an Stellen, die **Maschinen und fremde
+Programme** lesen. Deutsch dort ist eine Hürde für jeden, der nicht deutsch spricht, und es
+kollidiert mit dem, was im Ökosystem üblich ist (`build`, `test`, `types`, `client`).
+Ein **Kommentar** und ein **Dokument** sind für **Menschen** — und für diesen Betreiber ist Deutsch
+die Sprache, in der er denkt. Sie zu übersetzen nähme ihm die Klarheit, die sie tragen soll.
+
+**Was das konkret heißt:**
+
+| Englisch | Deutsch erlaubt |
+|---|---|
+| Ordnernamen (`packages/ai/watcher`, nicht `waechter`) | Kommentare im Code |
+| Dateinamen (`rules.ts`, nicht `regeln.ts`) | Dokumente (`docs/status/*.md`) |
+| Skripte (`build.mjs`, nicht `bauen.mjs`) | Bezeichner im Code (`regel`, `befund`, `urteil`) |
+| Paketnamen (`@prometheus-harness/watcher`) | Meldungen und Ausgaben |
+| Erweiterungen (`node/watcher/node.spec.ts`) | |
+
+**Und die Folge, die dazugehört:** eine Regel, die nur für **neue** Arbeit gilt, läßt den Bestand
+**gemischt** zurück — und gemischt ist schlechter als einheitlich falsch, weil niemand mehr weiß,
+welche Regel gilt. **Bestehende Verstöße werden mitgezogen**, in einem Zug und mit grüner Prüfung
+danach.
+
+
 
 
 

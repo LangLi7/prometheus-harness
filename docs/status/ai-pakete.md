@@ -15,7 +15,7 @@ bun test   in jedem Paketverzeichnis einzeln
 | `ai/einstellungen` | **40** | Die Wahl des Endnutzers als Datei — ohne Schlüssel, ohne Vorgabemodell, mit der **Denkstufe** und dem Riegel gegen fremde Zuhause |
 | `ai/verwalter` | **42** | Der Katalog, der Ausleger, der Lauf: Widerspruchsprüfung in **beide** Richtungen |
 | `ai/aufbau` | **10** | Das Zusammenfügen: der Mensch **zuletzt**, unbekannter Anbieter **gemeldet** |
-| `ai/lokal` | **20** | Gewichte holen, **prüfen**, ablegen — ohne Prüfsumme kein „heil" |
+| `ai/local` | **20** | Gewichte holen, **prüfen**, ablegen — ohne Prüfsumme kein „heil" |
 | `client/quellordner` | **47** | Der Ordnerdialog: Oberfläche, vier Wege, Keks + Arbeitsbereich, Bündel |
 | **zusammen** | **292** | **0 rot** |
 
@@ -37,7 +37,7 @@ Dazu: **`bun run scripts/typecheck.mjs` → 37 Pakete grün, 0 rot.**
 |---|---|
 | Der Ordnerdialog ist **nicht eingetragen** | `scripts/client-buendel.mjs` und `scripts/profile-patch.mjs` sind **uncommitted von fremder Arbeit verändert**; der Weg steht in `quellordner-eintragung.md` §7 |
 | **Sichtprüfung** des Dialogs | Auf diesem Rechner ist **kein Browser** (Chrome, Edge, Firefox fehlen) |
-| Die **Laufzeit** eines lokalen Modells | `ai/lokal` prüft und verwahrt Gewichte; die Ausführung ist nicht gebaut |
+| Die **Laufzeit** eines lokalen Modells | `ai/local` prüft und verwahrt Gewichte; die Ausführung ist nicht gebaut |
 | **Tevs** Adresse und Prüfsumme | **nicht ermittelt** — eine erfundene wäre schlimmer als eine fehlende |
 | Der **Ausleger** trägt wenig bei | Er antwortet nur, wenn die Messung ihn deckt; sonst steht die Auslegung als *offen* im Katalog |
 | `denkhilfe` (Denken auslagern) | Entworfen und gemessen, **nicht gebaut** — der Hebel `reasoning_effort` ist einfacher und noch nicht gesetzt |
