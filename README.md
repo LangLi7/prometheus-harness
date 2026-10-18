@@ -91,6 +91,8 @@ cd prometheus-harness
 ```
 
 ```sh
+cd prometheus-harness
+$env:PATH = "$env:USERPROFILE\.bun\bin;$env:PATH"
 bun run start
 ```
 
