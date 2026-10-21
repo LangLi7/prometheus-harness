@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git",
+    "description": "Review per workspace: branch, working-tree, branch and last-run changes, commits, remote and pull requests. Actions: stage, commit, fetch, pull, push."
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Git",
+    "description": "Überprüfung je Workspace: Zweig, Änderungen des Arbeitsbaums, des Branches und der letzten Runde, Commits, Remote und Pull Requests. Aktionen: bereitstellen, committen, fetch, pull, push."
+  }
+}

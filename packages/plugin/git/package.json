@@ -1,0 +1,44 @@
+{
+  "name": "@prometheus-harness/git",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Git als eigenes DSH-Plugin: Sidebar-Eintrag, Panel mit Repostand je Workspace (Zweig, Änderungen, Commits, Remote), Aktionen stage/commit/pull/push und lesender Blick auf Pull Requests und Issues bei GitHub, GitLab, Forgejo und Gitea.",
+  "icon": "./icon.svg",
+  "main": "src/server.ts",
+  "exports": {
+    ".": "./src/server.ts",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
+      ]
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "files": [
+    "src",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "icon.svg",
+    "install.mjs",
+    "locale/*.json"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "setup": "bun run install.mjs",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.client.json",
+    "test": "bun test"
+  }
+}

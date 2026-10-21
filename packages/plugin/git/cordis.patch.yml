@@ -1,0 +1,16 @@
+# Das Git-Plugin als eigenes Bündel.
+#
+# Es bringt **beides** mit: die Host-Routen (Stand, Aktionen, Cloud) und das
+# Browser-Panel. Wer nur Git will, installiert nur dieses Paket.
+#
+# `workspaceRegistry` ist der Grund für die Workspace-Gruppierung: das Panel
+# zeigt je Workspace einen Repostand, und die Liste der Workspaces gehört dem
+# Host — nicht dem Browser.
+#
+# `subprocess` fehlt bewusst: der Job-Runner dieses Dienstes starb unter Windows
+# mit Exit 127, danach lieferte jeder `spawn` ein Handle ohne Kind (gemessen am
+# 21.10.2026). Das Plugin führt git deshalb selbst über Bun aus.
+- insert:
+    - id: pmh-git
+      name: '@prometheus-harness/git'
+      inject: [webServer, workspaceRegistry]
