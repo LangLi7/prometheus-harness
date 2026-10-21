@@ -29,7 +29,8 @@
 | **P3.1** | Blast-Radius prüfen | 3 | — | Abfrage | offen |
 | **P3.2** | Learnings-Datei für Obsidian | 3 | — | Verfahren | offen |
 | **P3.3** | Verfall für den pgvector-Speicher | 3 | — | Konzept | offen |
-| **P3.4** | Entscheidung: ein Wissensspeicher | 3 | — | Entscheidung | offen |
+| **P3.4** | Entscheidung: Rollenverteilung | 3 | — | Entscheidung | offen |
+| **P3.5** | `Trail-Code` als Pilot | 3 | — | Werkzeug | offen |
 | **P4.1** | `OpenMontage` (Video) | 4 | **L5** | Werkzeug | **gesperrt** (AGPL) |
 | **P4.2** | `strix` als Sicherheits-Werkzeug | 4 | — | Werkzeug | **gesperrt** (Allowlist) |
 | **P4.3** | `ocr scan` für `security-audit` | 4 | — | Skill-Ergänzung | offen |
@@ -155,7 +156,12 @@ nicht über die vierte Wurzel.
 
 ---
 
-## 5. Phase 3 — Die Wissensschicht als Verfahren
+## 5. Phase 3 — Die Wissensschicht: Rollen, nicht Speicher
+
+> **Die Regel seit 21.10.2026:** Graphify und Obsidian sind **komplementär**. Die Frage ist
+> nicht „wie viele Speicher", sondern **welche Rolle fehlt**. Ein Werkzeug ist kein Duplikat,
+> wenn es eine andere Frage beantwortet — es ist eines, wenn es dieselbe Frage mit einer
+> zweiten Datenbank beantwortet.
 
 ### P3.1 · Blast-Radius prüfen
 
@@ -163,11 +169,14 @@ nicht über die vierte Wurzel.
   `codebase-memory-mcp` (`detect_changes`) zusätzlich kann. **Nicht** den Server einbauen.
 - **Nachweis:** eine Änderung nennt ihre betroffenen Stellen aus dem Graphen — mit Quelle.
 
-### P3.2 · Learnings-Datei für Obsidian
+### P3.2 · Learnings-Datei für Obsidian — und `Trail-Code` als Werkzeug prüfen
 
 - **Was zu tun ist:** das `Trail-Code`-Verfahren übernehmen: kurze Markdown-Datei je
   Entscheidung, `touches`-Feld auf Dateien, im Repo, durch Git geteilt — und eine Prüfung vor
   dem Commit, die eine frühere Entscheidung **nennt**, wenn der Diff ihr widerspricht.
+- **Die Ergänzung nach der Richtigstellung:** `Trail-Code` ist **kein Duplikat**, sondern die
+  fehlende Rolle. Es bringt keinen Server mit (Markdown in `.trail/`, MCP optional) und ist
+  MIT-lizenziert. Der Graph-Teil fällt weg, die Learnings nicht.
 - **Warum das die eigentliche Lücke ist:** `docs/decisions/` ist gut, aber von Hand und nicht
   maschinell geprüft; Obsidian ist gut, aber nicht im Repo und nicht an Dateien gebunden. Die
   Verbindung fehlt.
@@ -180,13 +189,27 @@ nicht über die vierte Wurzel.
   Auto-Forget auf das eigene Schema übertragen — als **Konzept**, nicht als Dienst.
 - **Nachweis:** ein Dokument mit Regeln und einer Zahl: was nach 30/90/365 Tagen passiert.
 
-### P3.4 · Entscheidung: ein Wissensspeicher
+### P3.4 · Entscheidung: Rollenverteilung, nicht „ein Speicher"
 
-- **Was zu tun ist:** die Entscheidung schriftlich festhalten (in `docs/decisions/`):
-  Graphify + Obsidian + PostgreSQL bleiben, **kein** zweiter Speicher; `universe` bekommt später
-  eine Notiz-Ansicht auf **denselben** Speicher.
-- **Nachweis:** die Entscheidung liegt als Datei vor und widerspricht keiner bestehenden
-  (`obsidian-gedaechtnis-oder-ansicht.md` prüfen).
+- **Was zu tun ist:** die Entscheidung schriftlich festhalten (in `docs/decisions/`): **welche
+  Frage beantwortet welches Werkzeug** — Graphify (Codefakten), Obsidian (Absicht), PostgreSQL
+  (Bestand), `Trail-Code` (Entscheidung mit Dateibezug), `codebase-memory-mcp` (Infra-Kanten).
+  Jede Rolle **genau einmal**.
+- **Nicht** die Entscheidung: „nur ein Werkzeug". Die Regel sagt komplementär. Die Entscheidung
+  ist die **Grenze** zwischen den Rollen.
+- **Nachweis:** die Entscheidung liegt als Datei vor, nennt je Rolle einen Ort, und keine Rolle
+  hat zwei Orte (`obsidian-gedaechtnis-oder-ansicht.md` prüfen, damit kein Widerspruch entsteht).
+
+### P3.5 · `Trail-Code` als Pilot
+
+- **Was zu tun ist:** `trail init` in einem **Kopie-Verzeichnis** prüfen, nicht im Hauptbaum —
+  der Befehl schreibt außerhalb des Repos (`~/.claude`, `~/.codex`). Telemetrie abschalten
+  (`trail telemetry disable`). Nur die Learnings-Hälfte bewerten, nicht den Graph.
+- **Nachweis:** `trail check` erkennt einen Diff, der einer gespeicherten Entscheidung
+  widerspricht, und nennt Autor, Datum und Grund. Kein Schreibzugriff außerhalb des
+  Prüfverzeichnisses.
+- **Warum als Pilot und nicht als Einbau:** es ist der billigste Kandidat (MIT, Dateien statt
+  Server) — und der einzige, der eine **fehlende** Rolle abdeckt.
 
 ---
 

@@ -101,21 +101,27 @@ davon existiert ein Eval mit Schwelle; die leeren Ordner sind entschieden, nicht
 
 ---
 
-### Phase 3 — Die Wissensschicht als Verfahren, nicht als Dienst
+### Phase 3 — Die Wissensschicht: Rollen ergänzen, nicht Speicher stapeln
 
-**Ziel:** aus `agentmemory`, `Trail-Code`, `codebase-memory-mcp` und `flowsint` **Verfahren**
-übernehmen, ohne einen zweiten Speicher zu bauen.
+**Ziel:** die **Rollen** ergänzen, die heute fehlen — Entscheidung mit Dateibezug
+(`Trail-Code`), Sitzungsgedächtnis (`agentmemory`), Infra-Kanten (`codebase-memory-mcp`) — ohne
+eine **zweite Datenbank für dieselbe Frage** zu bauen.
 
-| # | Vorhaben | Quelle des Verfahrens |
-|---|---|---|
-| 3.1 | **Blast-Radius** als eigene Abfrage prüfen (was hängt an dieser Änderung?) | `codebase-memory-mcp` |
-| 3.2 | **Learnings als Datei mit `touches`** für Obsidian-Notizen | `Trail-Code` |
-| 3.3 | **Verfall und Konsolidierung** für den pgvector-Speicher konzipieren | `agentmemory` |
-| 3.4 | Entscheidung: bleibt es bei Graphify + Obsidian + PostgreSQL? | diese Phase beantwortet sie |
+**Die Regel, die seit dem 21.10.2026 gilt:** Graphify und Obsidian sind **komplementär**, keine
+Alternativen. Daraus folgt nicht „mehr ist besser", sondern die Frage: *welche Rolle fehlt, und
+deckt das Werkzeug genau diese?*
+
+| # | Vorhaben | Quelle | Rolle |
+|---|---|---|---|
+| 3.1 | **Blast-Radius** prüfen (was hängt an dieser Änderung?) | `codebase-memory-mcp` | Codefakten, tiefer |
+| 3.2 | **Learnings mit `touches`** — Entscheidung vor dem Commit prüfen | `Trail-Code` | **fehlt heute** |
+| 3.3 | **Verfall und Konsolidierung** für den pgvector-Speicher konzipieren | `agentmemory` | Gedächtnis |
+| 3.4 | **Rollenverteilung entscheiden** — nicht „ein Speicher", sondern: welche Frage beantwortet welches Werkzeug? | diese Phase | Entscheidung |
+| 3.5 | **`Trail-Code` als Pilot** — MIT, TypeScript, Dateien statt Server | `Trail-Code` | erster echter Zusatz |
 
 **Abnahme Phase 3:** eine Änderung nennt ihre betroffenen Stellen aus dem Graphen; eine
-Obsidian-Notiz verweist auf Code und wird beim nächsten Lauf wiedergefunden; es gibt **genau
-einen** Wissensspeicher.
+Entscheidung wird **vor dem Commit** gegen den Diff geprüft und nennt Autor und Grund; jede
+Rolle hat **genau einen** Ort — und keine zwei Werkzeuge beantworten dieselbe Frage.
 
 **Die Entscheidung, die diese Phase verlangt:** `universe` bekommt später eine Notiz-Ansicht auf
 **denselben** Speicher — kein vierter Dienst. Das ist die Anmerkung des Betreibers, in eine

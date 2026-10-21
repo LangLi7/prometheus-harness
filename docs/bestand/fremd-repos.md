@@ -29,7 +29,7 @@ vollständig gelesen, Sterne/Push/Lizenz über die GitHub-API. Wo eine Angabe fe
 | 7 | `rohitg00/agentmemory` | Apache-2.0 | Referenz + evtl. MCP | **prüfen** — dupliziert unseren Wissensspeicher |
 | 8 | `reconurge/flowsint` | Apache-2.0 | Referenz | **nein** — Anwendung mit eigener Datenbank |
 | 9 | `trailhq/Trail-Code` | MIT | Referenz | **nein** — dupliziert Graphify **und** Obsidian |
-| 10 | `DeusData/codebase-memory-mcp` | MIT | Referenz, evtl. MCP | **prüfen** — stärker als Graphify, aber zweite Wahrheit |
+| 10 | `DeusData/codebase-memory-mcp` | MIT | Referenz, evtl. MCP | **prüfen** — tiefer als Graphify (LSP, Infra-Kanten), aber eigener Daemon |
 | 11 | `k-dense-ai/scientific-agent-skills` | MIT (je Skill abweichend) | selektiver Import | **selektiv** — Vorbild für Skill-Tests |
 | 12 | `cathrynlavery/diagram-design` | MIT | **Skill** | **ja** — schließt Lücke L4, Aufwand ein Nachmittag |
 | 13 | `mukul975/anthropic-cybersecurity-skills` | Apache-2.0 | selektiver Import | **selektiv** — 3–5 defensive Skills |
@@ -147,15 +147,32 @@ Hier liegt der wichtigste Teil, weil der Betreiber dazu eigene Anmerkungen gemac
 | **`codebase-memory-mcp`** | Ein MCP-Server in C mit **17 Werkzeugen**, 162 Sprachen, Hybrid-LSP-Typprüfung, Cypher-Teilmenge, Blast-Radius, Architektur-ADR, Infrastruktur (Docker/K8s/Terraform). | **Graphify** — aber deutlich tiefer (Typauflösung statt Textsuche) |
 | **`flowsint`** | Eine **fertige OSINT-Anwendung**: Neo4j-Graph, FastAPI, React, Docker-Compose, Enricher für Domains, IPs, E-Mails, Wallets. | **Die Graph-Idee**, aber als App mit eigener Datenbank |
 
-### 3.1 Der Befund, ehrlich
+### 3.1 Die Richtigstellung: komplementär heißt nicht deckungsgleich
 
-**Alle vier lösen dasselbe Problem wie Graphify + Obsidian — und keiner löst es mit unserem
-Bestand.** Wer eines davon einbaut, hat **zwei** Wissensspeicher: den in PostgreSQL (Migration
-0007, `documents`/`chunks`/`vector(768)`) und den des Fremdprojekts. Zwei Wahrheiten über
-denselben Gegenstand sind genau das, was dieses Projekt an anderen Stellen schon als Fehler
-geführt hat.
+**Meine erste Fassung war zu pauschal.** Sie sagte „alle vier lösen dasselbe Problem" und schloss
+daraus „keiner wird Speicher". Die Projektregel sagt seit dem 21.10.2026 das Gegenteil:
+**Graphify und Obsidian sind komplementär, keine Alternativen.** Also ist die richtige Frage
+nicht „wie viele Speicher?", sondern **„welche Rolle fehlt, und deckt das Werkzeug genau diese?"**
 
-**Deshalb: keines wird als Speicher eingebaut.** Was übernommen wird, ist das **Verfahren**:
+| Rolle | Wer sie heute hat | Wer sie zusätzlich könnte |
+|---|---|---|
+| **Codefakten** — wo wird X benutzt, was bricht | Graphify | `codebase-memory-mcp` (tiefer: LSP, Infra-Kanten) |
+| **Absicht und Verlauf** — warum ist es so | Obsidian, `docs/decisions/` | — |
+| **Entscheidung mit Dateibezug, geprüft vor dem Commit** | **fehlt** | **`Trail-Code`** (`touches`, `trail check`) |
+| **Sitzungsgedächtnis** — was wurde letzte Woche getan | **fehlt** (Sitzungen liegen als JSONL, nicht als durchsuchbarer Bestand) | `agentmemory` |
+| **Service- und Infra-Kanten** — K8s, Terraform, Deploy-Pfade | **fehlt** (Graphify sieht Code, nicht Deployment) | `codebase-memory-mcp` |
+
+**Die Unterscheidung, die zählt:** Ein Werkzeug ist dann kein Duplikat, wenn es eine **andere
+Frage** beantwortet. Es ist eines, wenn es dieselbe Frage mit einer zweiten Datenbank beantwortet.
+
+| Projekt | Urteil nach dieser Prüfung |
+|---|---|
+| **`Trail-Code`** | **Ergänzung, kein Duplikat.** Die Learnings-Rolle fehlt. Es bringt **keinen Server** mit: Markdown in `.trail/`, durch Git geteilt. Der Graph-Teil fällt weg. |
+| **`codebase-memory-mcp`** | **Ergänzung für Infra-Fragen, kein Ersatz.** Der Preis ist ein Daemon mit exklusivem Cache-Root und ein großes Binary — eine eigene Entscheidung, keine Beiläufigkeit. |
+| **`agentmemory`** | **Vorbild, nicht Dienst.** Es bringt eine eigene Datenbank und vier Ports; das wäre der zweite Speicher im engeren Sinne. Die **Verfahren** (RRF-Fusion, Verfall, Provenienz) sind wertvoll. |
+| **`flowsint`** | **Referenz.** Fertige OSINT-Anwendung mit Neo4j; fachlich nichts für PMH. |
+
+**Was aus den Verfahren übernommen wird:**
 
 | Von | Übernehmen wir | Wohin |
 |---|---|---|
