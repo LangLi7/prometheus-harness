@@ -55,6 +55,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { choosePort, describePortChoice, portFromEnv } from './port-wahl.mjs'
 import { EIGENE_PAKETE, patchPfad, verdrahte } from './profile-patch.mjs'
+import { vorratBereitstellen } from './skill-vorrat.mjs'
 import { ergaenzungNoetig } from './ptc-typentfernung.mjs'
 import { announceAuthUrl } from './token-adresse.mjs'
 
@@ -387,6 +388,39 @@ async function main() {
         // Abweichung, die vermieden werden soll.
         process.stdout.write(
           `[pmh] FEHLER: eigene Pakete konnten nicht eingetragen werden — ` +
+            `${cause instanceof Error ? cause.message : String(cause)}\n`,
+        )
+      }
+
+      // **Der Skill-Vorrat — aus dem Repo ins Home, bei jedem Start.**
+      //
+      // Dieselbe Begründung wie beim Profil-Patch darüber: das Home liegt in
+      // `.pmh-build/` und ist **nicht** versioniert. Anders als der Patch betrifft
+      // es hier aber nicht nur dieses Projekt — die projektweite Wurzel
+      // (`.agents/skills`) gilt nur für Sitzungen **in diesem Baum**; wer den
+      // Harness in einem anderen Projekt startet, sieht dort keinen davon. Die
+      // benutzerweite Wurzel `<home>/skills` gilt für jede Sitzung dieser
+      // Installation — deshalb wird dorthin gelegt und nicht nur hier abgelegt.
+      //
+      // Kopiert wird nur, was sich **inhaltlich** unterscheidet (Fingerabdruck,
+      // nicht Zeitstempel): 41 Dateien, 2,3 MB, wenige Millisekunden je Start.
+      //
+      // Die Meldung ist **fail-open**: ein fehlender Skill ist eine fehlende
+      // Beigabe, kein Grund, den Host nicht hochkommen zu lassen. Er fehlt dann
+      // im Katalog, und das Werkzeug sagt es beim Aufruf.
+      try {
+        for (const befund of vorratBereitstellen(options.home, { wurzel: ROOT })) {
+          const was =
+            befund.grund === 'kopiert'
+              ? 'kopiert'
+              : befund.grund === 'unveraendert'
+                ? 'unverändert'
+                : 'Quelle fehlt — nicht bereitgestellt'
+          process.stdout.write(`[pmh] Skill ${befund.name}: ${was}\n`)
+        }
+      } catch (cause) {
+        process.stdout.write(
+          `[pmh] WARNUNG: Skill-Vorrat nicht bereitgestellt — ` +
             `${cause instanceof Error ? cause.message : String(cause)}\n`,
         )
       }

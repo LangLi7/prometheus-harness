@@ -28,6 +28,10 @@ target/
 .pmh/
 *.log
 
+# Arbeitsordner des Design-Skills `design-taste-frontend`: Richtungsbögen, Screenshots,
+# geladene Bilder und die Ausgabedateien von `scripts/pmh-run.cmd`. Reine Laufzeitdaten.
+.taste-skill/
+
 # --- Eigenes Harness-Home und Go-Binärdateien ---
 #
 # `.pmh-build/` ist der Bau- und Laufzeitordner dieses Projekts: die
