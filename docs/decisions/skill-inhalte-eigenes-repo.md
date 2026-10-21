@@ -76,20 +76,29 @@ also Inhalt.
 
 ---
 
-## 6. Was diese Entscheidung **nicht** belegt
+## 6. Nachtrag 21.10.2026 — wirksam über eine Junction, nicht über die vierte Wurzel
 
-**Die Wurzel ist angelegt, aber nicht wirksam.** `skill-plugin` steht laut
-`skill-uebertragung.md` §5 **nicht** in `scripts/profile-patch.mjs` (`EIGENE_PAKETE`); damit
-meldet heute kein eigener Anbieter Wurzeln an `ctx.skills` an. Die Skills dieser Sitzung kommen
-über den Anbieter des Kerns.
+**Der Skill ist geladen.** Gemessen: der Katalog dieser Sitzung führt `diagram-design`, und das
+`skill`-Werkzeug liefert seinen vollständigen Rumpf samt Ressourcenpfad.
 
-**Zum Wirksamwerden fehlen vier Messungen** (die Abnahme aus `skill-uebertragung.md` §6, keine
-Empfehlung):
+**Der Weg war ein anderer als geplant.** Statt `skill-plugin` in `EIGENE_PAKETE` einzutragen —
+was einen Host-Neustart verlangt hätte — zeigt eine **Junction** im Benutzer-Scope auf den
+Bestand im Repo:
 
-1. `skill-plugin` in `EIGENE_PAKETE` eintragen.
-2. Der Kern nimmt den Anbieter an (`registerProvider` mit seiner Steuerung).
-3. `diagram-design` erscheint im Katalog der Web-Oberfläche.
-4. Eine geänderte Datei wird ohne Neustart sichtbar.
+```
+~\.agents\skills\diagram-design   →   units\skills\diagram-design
+```
 
-**Bis dahin gilt:** der Skill ist **übernommen und versioniert**, aber **nicht geladen**. Wer
-das anders darstellt, behauptet eine Wirkung, die nicht gemessen ist.
+Der Kern-Anbieter liest den Benutzer-Scope ohnehin (Rang 400). Die Junction ist eine
+**Verbindung, keine Kopie**: der Inhalt liegt einmal, im eigenen Repo. Die Registry hat den
+Katalog **ohne Neustart** neu gelesen.
+
+**Was das für die Entscheidung bedeutet:** Die **vierte Wurzel (Rang 300)** bleibt die
+Architektur — sie gibt dem Skill seinen eigenen Rang und hängt nicht am Benutzerprofil. Sie ist
+aber **keine Voraussetzung mehr** für Wirksamkeit. Wer sie baut, misst weiterhin die vier Sätze
+aus der ursprünglichen Fassung.
+
+**Was weiterhin gilt:** Die Junction ist ein Angriffspunkt. Wer
+`~\.agents\skills\diagram-design` löscht, trennt die Verbindung; der Bestand unter
+`units/skills/` bleibt unberührt. Auf einem neuen Rechner muss die Junction **erneut** angelegt
+werden — sie liegt außerhalb des Repos und ist deshalb nicht versioniert.

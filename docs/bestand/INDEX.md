@@ -28,7 +28,7 @@
 |---|---|---|
 | **Kern** (`node_modules/@deepseek-ai/`) | **265** Pakete, alle `0.2.1-alpha.2` | Verzeichnis gezählt |
 | **Eigene Plugins** (`packages/plugin/`) | **8** Pakete, **116** Dateien | je Paket gezählt |
-| **Skills wirksam** (Benutzer-Scope) | **23** | `%USERPROFILE%\.agents\skills` |
+| **Skills wirksam** (Benutzer-Scope) | **24** | `%USERPROFILE%\.agents\skills` — 23 eigene plus `diagram-design` über Junction |
 | **Skills im Repo** | **19** Ordner, davon **3** mit Inhalt | `.agents/skills/` |
 | **Skill-Repo `units/skills`** | **1** Fähigkeit (`diagram-design`, 287 Dateien) — eigene Historie | `units/skills/`, Commits `3aaccfe` und `b7d0c7a` |
 | **MCP-Server** | **4** (`graphify`, `rea`, `research`, `obsidian`) | laufende Sitzung |
@@ -55,7 +55,7 @@ Dazu die sechs Pakete, die **kein** Client-Plugin sind: `skill`, `skill-filesyst
 
 ---
 
-## 4. Register: die 23 wirksamen Skills
+## 4. Register: die 24 wirksamen Skills
 
 **Design (6):** `design-taste-frontend` · `high-end-visual-design` · `emil-design-eng` ·
 `redesign-existing-projects` · `web-design-guidelines` · `figma-use`
@@ -78,9 +78,11 @@ Dazu die sechs Pakete, die **kein** Client-Plugin sind: `skill`, `skill-filesyst
 > [`checkup-skills-plugins.md`](checkup-skills-plugins.md) §4 und Punkt P2.1 in
 > [`todos.md`](todos.md).
 >
-> **Dazu seit 21.10.2026:** `diagram-design` liegt im eigenen Skill-Repo (`units/skills/`) —
-> **übernommen, aber noch nicht geladen**, weil die vierte Wurzel `skill-plugin` voraussetzt.
-> Damit sind es **24 Fähigkeiten im Bestand**, aber weiterhin **23 wirksam**.
+> **Dazu seit 21.10.2026:** `diagram-design` liegt im eigenen Skill-Repo (`units/skills/`) und
+> ist über eine **Junction** im Benutzer-Scope **geladen** — der Katalog führt ihn, das
+> `skill`-Werkzeug liefert seinen Rumpf. Damit sind es **24 Fähigkeiten im Bestand und 24
+> wirksam**. Die vierte Wurzel (Rang 300) bleibt als Architektur offen, ist aber keine
+> Voraussetzung mehr.
 
 ---
 

@@ -19,7 +19,7 @@
 | **B0.1** | Bestands-Checkup (vier Schichten) | 0 | — | Dokument | **erledigt** |
 | **B0.2** | Bewertung von 23 Fremd-Repos | 0 | — | Dokument | **erledigt** |
 | **B0.3** | Register und Ziel | 0 | — | Dokument | **erledigt** |
-| **P1.1** | `diagram-design` als Skill | 1 | L4 | Skill | **Nachweis offen** |
+| **P1.1** | `diagram-design` als Skill | 1 | L4 | Skill | **erledigt** |
 | **P1.2** | `pretext` als Bibliothek | 1 | — | Bibliothek | offen |
 | **P1.3** | `agent-reach` hinter Werkzeug-Plugin | 1 | Plattform | Werkzeug | offen |
 | **P2.1** | Die 23 Skills ins Repo | 2 | **L1** | Skills | offen |
@@ -57,7 +57,8 @@ Repository ein Urteil (auch das „nein").
 
 ### P1.1 · `diagram-design` als Skill
 
-**Stand 21.10.2026: `Nachweis offen`.** Übernommen und versioniert, aber **nicht geladen**.
+**Stand 21.10.2026: `erledigt`.** Übernommen, versioniert und **geladen** — über eine Junction,
+nicht über die vierte Wurzel.
 
 | Was | Stand | Beleg |
 |---|---|---|
@@ -66,16 +67,21 @@ Repository ein Urteil (auch das „nein").
 | Lizenz und Herkunft | **erledigt** | `LICENSE` und `THIRD_PARTY_LICENSES.md` unverändert daneben; Quelle und Stand im Commit |
 | Im Monorepo ausgenommen | **erledigt** | `.gitignore` Regel `/units/skills/`, geprüft mit `git check-ignore -v` |
 | Selbsttest des Skills | **erledigt** | `python scripts\self_check.py assets\example-flowchart.html` → `OK`, exit 0 |
-| Vierte Skill-Wurzel eingetragen | **offen** | braucht `skill-plugin` in `EIGENE_PAKETE` |
-| Wirksamkeit gemessen | **offen** | vier Messungen aus `decisions/skill-inhalte-eigenes-repo.md` §6 |
+| Sichtbar im Benutzer-Scope | **erledigt** | Junction `~\.agents\skills\diagram-design` → `units\skills\diagram-design`, keine Kopie |
+| Im Katalog geladen | **erledigt** | Katalog aktualisiert **ohne Neustart**; `skill diagram-design` liefert den Rumpf |
+| Vierte Skill-Wurzel (Rang 300) | **offen** | braucht `skill-plugin` in `EIGENE_PAKETE` — **nicht mehr blockierend** |
 
 - **Lücke:** L4 (kein Diagramm-Skill; 0 Treffer über 23 Fähigkeiten).
-- **Der Nachweis, der noch fehlt:** `diagram-design` erscheint im Katalog der Web-Oberfläche,
-  und ein Diagramm entsteht aus einer Beschreibung. Bis dahin ist der Skill **vorhanden**, nicht
-  **wirksam**.
+- **Der Nachweis ist erbracht:** der Skill steht im Katalog dieser Sitzung, und ein Aufruf des
+  `skill`-Werkzeugs liefert seinen vollständigen Rumpf samt Ressourcenpfad.
+- **Die Abweichung, die dokumentiert sein muss:** Die Entscheidung nennt die **vierte Wurzel**;
+  wirksam wurde der Skill über eine **Junction in den Benutzer-Scope** (Rang 400). Der Inhalt
+  liegt weiterhin **einmal** — die Junction ist eine Verbindung, keine Kopie. Die vierte Wurzel
+  bleibt die Architektur für den eigenen Rang, ist aber keine Voraussetzung mehr.
 - **Prüfpunkte (§8 `fremd-repos.md`):** MIT ✓ · Bauform Skill ✓ · kein Duplikat ✓ · keine neue
   Laufzeit (Python nur für Export) ✓ · Lücke belegt ✓.
-- **Risiko:** gering. **Offen:** die Einhängung, nicht der Inhalt.
+- **Risiko:** gering. Die Junction ist der einzige neue Angriffspunkt: wer den Skill im
+  Benutzer-Scope löscht, trennt die Verbindung — der Bestand im Repo bleibt unberührt.
 
 ### P1.2 · `pretext` als Bibliothek in `apps/universe`
 
