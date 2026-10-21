@@ -16,7 +16,7 @@
 | [checkup-skills-plugins.md](checkup-skills-plugins.md) | **Was ist da?** | Vier Schichten gezählt — Kern, 8 eigene Plugins, 23 Skills, 4 MCP-Server — mit acht belegten Lücken, darunter L1 (Skills außerhalb des Repos) und L6 (keine Skill-Evals). |
 | [fremd-repos.md](fremd-repos.md) | **Was passt von außen?** | 23 Repositories gelesen und in vier Bauformen einsortiert — Unit, Bibliothek, Werkzeug, Referenz —, jedes mit Lizenz und Urteil, auch dem „nein". |
 | [goal.md](goal.md) | **Wohin soll es?** | Fünf Phasen vom Bestand zur belegten Unit, mit Abnahmekriterien und fünf ausdrücklichen Nicht-Zielen. |
-| [todos.md](todos.md) | **Was ist zu tun?** | 17 Punkte mit ID, Phase, Lücke und Nachweis — nach den Regeln A1–A7 aus `arbeitspakete.md`. |
+| [todos.md](todos.md) | **Was ist zu tun?** | 18 Punkte mit ID, Phase, Lücke und Nachweis — nach den Regeln A1–A7 aus `arbeitspakete.md`. |
 
 **Reihenfolge zum Lesen:** Checkup → Fremd-Repos → Ziel → Todos.
 

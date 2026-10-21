@@ -291,7 +291,7 @@ nicht geraten, sondern beim nächsten vollständigen Durchlauf ersetzt.
 | [bestand/checkup-skills-plugins.md](bestand/checkup-skills-plugins.md) | Der Checkup vom 21.10.2026: vier Schichten, acht belegte Lücken — darunter **L1** (23 Skills außerhalb des Repos, 3 darin) und **L6** (keine Skill-Evals) |
 | [bestand/fremd-repos.md](bestand/fremd-repos.md) | 23 Fremd-Repositories gelesen und in vier Bauformen einsortiert (Unit, Bibliothek, Werkzeug, Referenz) — jedes mit Lizenz und Urteil, auch dem „nein"; enthält die Korrektur, daß `strix` kein Subagent ist und `packages/browser-use` leer |
 | [bestand/goal.md](bestand/goal.md) | Das Ziel in fünf Phasen mit Abnahmekriterien und fünf ausdrücklichen Nicht-Zielen |
-| [bestand/todos.md](bestand/todos.md) | 17 Punkte mit ID, Phase, Lücke und Nachweis, nach den Regeln A1–A7 aus `status/arbeitspakete.md` |
+| [bestand/todos.md](bestand/todos.md) | 18 Punkte mit ID, Phase, Lücke und Nachweis, nach den Regeln A1–A7 aus `status/arbeitspakete.md` |
 
 ## Konventionen
 
