@@ -28,7 +28,7 @@
 |---|---|---|
 | **Kern** (`node_modules/@deepseek-ai/`) | **265** Pakete, alle `0.2.1-alpha.2` | Verzeichnis gezählt |
 | **Eigene Plugins** (`packages/plugin/`) | **8** Pakete, **116** Dateien | je Paket gezählt |
-| **Skills wirksam** (Benutzer-Scope) | **30** | 23 eigene + **7 übernommene** über Junction |
+| **Skills wirksam** (Benutzer-Scope) | **44** | 23 eigene + **21 übernommene** über Junction |
 | **Skills im Repo** | **19** Ordner, davon **3** mit Inhalt | `.agents/skills/` |
 | **Skill-Repo `units/skills`** | **1** Fähigkeit (`diagram-design`, 287 Dateien) — eigene Historie | `units/skills/`, Commits `3aaccfe` und `b7d0c7a` |
 | **MCP-Server** | **4** (`graphify`, `rea`, `research`, `obsidian`) | laufende Sitzung |
@@ -55,7 +55,7 @@ Dazu die sechs Pakete, die **kein** Client-Plugin sind: `skill`, `skill-filesyst
 
 ---
 
-## 4. Register: die 30 wirksamen Skills
+## 4. Register: die 44 wirksamen Skills
 
 **Design (6):** `design-taste-frontend` · `high-end-visual-design` · `emil-design-eng` ·
 `redesign-existing-projects` · `web-design-guidelines` · `figma-use`
@@ -78,11 +78,11 @@ Dazu die sechs Pakete, die **kein** Client-Plugin sind: `skill`, `skill-filesyst
 > [`checkup-skills-plugins.md`](checkup-skills-plugins.md) §4 und Punkt P2.1 in
 > [`todos.md`](todos.md).
 >
-> **Dazu seit 21.10.2026:** sieben Fähigkeiten liegen im eigenen Skill-Repo (`units/skills/`) und
-> sind über **Junctions** im Benutzer-Scope **geladen** — der Katalog führt sie, das
-> `skill`-Werkzeug liefert ihre Rümpfe. Damit sind es **30 Fähigkeiten im Bestand und 30
-> wirksam**: `diagram-design` plus sechs Research-Skills (`literature-review`, `paper-lookup`,
-> `citation-management`, `peer-review`, `market-research-reports`, `parallel-web`).
+> **Dazu seit 21.10.2026:** **21 Fähigkeiten** liegen im eigenen Skill-Repo (`units/skills/`) und
+> sind über **Junctions** im Benutzer-Scope **geladen**. Damit sind es **44 Fähigkeiten im
+> Bestand und 44 wirksam** — 23 eigene plus 21 übernommene aus **fünf** Quellen:
+> `diagram-design`, `scientific-agent-skills` (6), `academic-research-skills` (5, **CC BY-NC**),
+> `ecc` (3), `Anthropic-Cybersecurity-Skills` (3), `claude-red` (2), `agent-reach` (1).
 > Die vierte Wurzel (Rang 300) bleibt als Architektur offen, ist aber keine Voraussetzung mehr.
 
 ---

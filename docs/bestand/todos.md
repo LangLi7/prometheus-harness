@@ -22,7 +22,7 @@
 | **P1.1** | `diagram-design` als Skill | 1 | L4 | Skill | **erledigt** |
 | **P1.2** | `pretext` als Bibliothek | 1 | — | Bibliothek | offen |
 | **P1.3** | `agent-reach` hinter Werkzeug-Plugin | 1 | Plattform | Werkzeug | offen |
-| **P1.4** | Sechs Research-Skills | 1 | Research | Skills | **erledigt** |
+| **P1.4** | 21 Fremd-Skills übernommen | 1 | Research, Security, Evals | Skills | **erledigt** |
 | **P2.1** | Die 23 Skills ins Repo | 2 | **L1** | Skills | offen |
 | **P2.2** | Herkunft und Lizenz je Skill | 2 | L1 | Dokument | offen |
 | **P2.3** | Skill `skill-eval` bauen | 2 | **L6** | Skill | offen |
@@ -112,23 +112,35 @@ nicht über die vierte Wurzel.
   · neue Laufzeit **Python** ⚠️ (der Grund, warum es Phase 1 und nicht „sofort" ist).
 - **Risiko:** Cookies und ToS — Wegwerf-Konten, nie ein Produktkonto.
 
-### P1.4 · Sechs Research-Skills — **erledigt 21.10.2026**
+### P1.4 · Fremd-Skills übernommen — **erledigt 21.10.2026, 21 Fähigkeiten**
 
-- **Lücke:** Research — PMH konnte Webseiten abrufen, aber keine Literatur durchsuchen, keine
-  Zitate prüfen und keine systematische Übersicht bauen.
-- **Übernommen** (alle MIT, ohne Server, Katalog führt sie sofort):
-  `literature-review` · `paper-lookup` · `citation-management` · `peer-review` ·
-  `market-research-reports` · `parallel-web`.
-- **Quelle:** `K-Dense-AI/scientific-agent-skills`, sparse checkout (sechs von 177 Skills),
-  Stand 21.10.2026. Lizenzfeld je Skill geprüft: **sechsmal MIT**.
-- **Beleg:** Commit `3e6e7ef` (117 Dateien) im Skill-Repo; Katalog dieser Sitzung führt alle
-  sechs; `link-skills.ps1` meldet „6 Verbindung(en) angelegt".
-- **Ehrliche Grenze:** `parallel-web` braucht die **Parallel-CLI**, die heute nicht im PATH
-  liegt. Der Skill ist geladen, aber ohne CLI nicht ausführbar.
-- **Bewusst nicht übernommen:** `academic-research-skills` (`deep-research`, `academic-paper`,
-  `academic-pipeline`, `sr-screener`, `academic-paper-reviewer`) — **CC BY-NC 4.0** schließt
-  kommerzielle Nutzung aus, und die fünf Skills sind **Symlinks**, die ein Windows-Klon nicht
-  als Ordner sieht. Beides ist eine Betreiber-Entscheidung, keine technische.
+- **Lücke:** Research, Security-Methodik, Evals und ADRs — vier Rollen, die PMH nicht hatte.
+- **Übernommen, mit Quelle und Lizenz:**
+
+| Gruppe | Fähigkeiten | Quelle | Lizenz |
+|---|---|---|---|
+| Recherche/Wissenschaft (11) | `deep-research`, `academic-paper`, `academic-paper-reviewer`, `academic-pipeline`, `sr-screener`, `literature-review`, `paper-lookup`, `citation-management`, `peer-review`, `market-research-reports`, `parallel-web` | academic-research-skills · scientific-agent-skills | **CC BY-NC 4.0** (5) · MIT (6) |
+| Werkzeug (1) | `agent-reach` | Panniantong/agent-reach | MIT |
+| Qualität/Entscheidungen (3) | `architecture-decision-records`, `eval-harness`, `agent-eval` | affaan-m/ecc | MIT |
+| Sicherheit (5) | `analyzing-sbom-…`, `building-detection-rules-with-sigma`, `analyzing-supply-chain-malware-artifacts`, `offensive-api-security`, `offensive-ai-security` | cyber-skills · claude-red | Apache-2.0 (3) · MIT (2) |
+| Gestaltung (1) | `diagram-design` | cathrynlavery/diagram-design | MIT |
+
+- **Beleg:** Commits `3e6e7ef`, `732484e` im Skill-Repo; `link-skills.ps1` meldet 21 angelegte
+  Verbindungen; der Katalog führt **44** Fähigkeiten (23 eigene + 21 übernommene).
+- **Ehrliche Grenzen:**
+  - **Die fünf `academic-*`-Skills sind CC BY-NC 4.0** — keine kommerzielle Nutzung. Wer PMH
+    kommerziell betreibt, muss sie entfernen. Die Lizenz liegt als
+    `LICENSE-CC-BY-NC-4.0.md` daneben.
+  - **`agent-reach` ist installiert** (PyPI, `agent-reach.exe`), aber `doctor` meldet
+    „No channels installed" — die Plattform-Kanäle (YouTube, Reddit, RSS, X) sind noch nicht
+    eingerichtet.
+  - **`parallel-web`** hat seine CLI (`parallel-cli` 0.9.3 per `uv`), aber der Aufruf braucht
+    den PATH-Eintrag `~\.local\bin` — in dieser Sitzung nur per absolutem Pfad geprüft.
+  - **`offensive-api-security` und `offensive-ai-security` sind Dual-Use.** Aufgenommen für die
+    Prüfung eigener Systeme, nicht als Werkzeug gegen fremde.
+- **Bewusst nicht übernommen:** die **Anwendungen** (`flowsint`, `OpenExecutive`, `OpenMAIC`,
+  `voltagent`) und die **Laufzeit-Schwergewichte** (`OpenMontage` AGPL, `strix` Docker,
+  `Unlimited-OCR` GPU) — siehe P4.1/P4.2 und `fremd-repos.md` §4.
 
 ---
 
