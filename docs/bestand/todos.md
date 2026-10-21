@@ -65,6 +65,7 @@ Repository ein Urteil (auch das „nein").
 | Eigenes Git-Repo | **erledigt** | Commit `3aaccfe` (290 Dateien), `.gitattributes` `eol=lf` in `b7d0c7a` |
 | Lizenz und Herkunft | **erledigt** | `LICENSE` und `THIRD_PARTY_LICENSES.md` unverändert daneben; Quelle und Stand im Commit |
 | Im Monorepo ausgenommen | **erledigt** | `.gitignore` Regel `/units/skills/`, geprüft mit `git check-ignore -v` |
+| Selbsttest des Skills | **erledigt** | `python scripts\self_check.py assets\example-flowchart.html` → `OK`, exit 0 |
 | Vierte Skill-Wurzel eingetragen | **offen** | braucht `skill-plugin` in `EIGENE_PAKETE` |
 | Wirksamkeit gemessen | **offen** | vier Messungen aus `decisions/skill-inhalte-eigenes-repo.md` §6 |
 
