@@ -19,7 +19,7 @@
 | **B0.1** | Bestands-Checkup (vier Schichten) | 0 | — | Dokument | **erledigt** |
 | **B0.2** | Bewertung von 23 Fremd-Repos | 0 | — | Dokument | **erledigt** |
 | **B0.3** | Register und Ziel | 0 | — | Dokument | **erledigt** |
-| **P1.1** | `diagram-design` als Skill | 1 | L4 | Skill | offen |
+| **P1.1** | `diagram-design` als Skill | 1 | L4 | Skill | **Nachweis offen** |
 | **P1.2** | `pretext` als Bibliothek | 1 | — | Bibliothek | offen |
 | **P1.3** | `agent-reach` hinter Werkzeug-Plugin | 1 | Plattform | Werkzeug | offen |
 | **P2.1** | Die 23 Skills ins Repo | 2 | **L1** | Skills | offen |
@@ -57,15 +57,24 @@ Repository ein Urteil (auch das „nein").
 
 ### P1.1 · `diagram-design` als Skill
 
+**Stand 21.10.2026: `Nachweis offen`.** Übernommen und versioniert, aber **nicht geladen**.
+
+| Was | Stand | Beleg |
+|---|---|---|
+| Repository übernommen | **erledigt** | `units/skills/diagram-design/` — 287 Dateien, 5,13 MB |
+| Eigenes Git-Repo | **erledigt** | Commit `3aaccfe` (290 Dateien), `.gitattributes` `eol=lf` in `b7d0c7a` |
+| Lizenz und Herkunft | **erledigt** | `LICENSE` und `THIRD_PARTY_LICENSES.md` unverändert daneben; Quelle und Stand im Commit |
+| Im Monorepo ausgenommen | **erledigt** | `.gitignore` Regel `/units/skills/`, geprüft mit `git check-ignore -v` |
+| Vierte Skill-Wurzel eingetragen | **offen** | braucht `skill-plugin` in `EIGENE_PAKETE` |
+| Wirksamkeit gemessen | **offen** | vier Messungen aus `decisions/skill-inhalte-eigenes-repo.md` §6 |
+
 - **Lücke:** L4 (kein Diagramm-Skill; 0 Treffer über 23 Fähigkeiten).
-- **Was zu tun ist:** das Repository klonen, `SKILL.md` und `references/` übernehmen, die
-  Python-Skripte unter `scripts/` prüfen (nur SVG-Export ist Pflicht, PNG braucht Playwright),
-  als `<name>/SKILL.md` unter `.agents/skills/` ablegen.
-- **Nachweis:** `bun docs/status/messsonden/…` **oder** der Katalog-Digest des Hosts zeigt den
-  neuen Eintrag; ein Diagramm entsteht aus einer Beschreibung.
+- **Der Nachweis, der noch fehlt:** `diagram-design` erscheint im Katalog der Web-Oberfläche,
+  und ein Diagramm entsteht aus einer Beschreibung. Bis dahin ist der Skill **vorhanden**, nicht
+  **wirksam**.
 - **Prüfpunkte (§8 `fremd-repos.md`):** MIT ✓ · Bauform Skill ✓ · kein Duplikat ✓ · keine neue
   Laufzeit (Python nur für Export) ✓ · Lücke belegt ✓.
-- **Risiko:** gering. **Aufwand:** ein Nachmittag.
+- **Risiko:** gering. **Offen:** die Einhängung, nicht der Inhalt.
 
 ### P1.2 · `pretext` als Bibliothek in `apps/universe`
 

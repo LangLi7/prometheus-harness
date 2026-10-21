@@ -72,7 +72,7 @@ Fremd-Repo hat ein Urteil, auch das „nein".
 
 | # | Vorhaben | Lücke | Bauform | Aufwand |
 |---|---|---|---|---|
-| 1.1 | `diagram-design` als Skill | L4 | Skill | ein Nachmittag |
+| 1.1 | `diagram-design` als Skill | L4 | Skill | **übernommen 21.10.** — Wurzel angelegt, Wirksamkeit offen |
 | 1.2 | `pretext` als Bibliothek in `apps/universe` | — (Oberfläche) | Bibliothek | ein Nachmittag (Lizenz MIT, geklärt) |
 | 1.3 | `agent-reach` hinter einem Werkzeug-Plugin | Plattform-Zugriff | Werkzeug | mittel (Cookies) |
 

@@ -30,6 +30,7 @@
 | **Eigene Plugins** (`packages/plugin/`) | **8** Pakete, **116** Dateien | je Paket gezählt |
 | **Skills wirksam** (Benutzer-Scope) | **23** | `%USERPROFILE%\.agents\skills` |
 | **Skills im Repo** | **19** Ordner, davon **3** mit Inhalt | `.agents/skills/` |
+| **Skill-Repo `units/skills`** | **1** Fähigkeit (`diagram-design`, 287 Dateien) — eigene Historie | `units/skills/`, Commits `3aaccfe` und `b7d0c7a` |
 | **MCP-Server** | **4** (`graphify`, `rea`, `research`, `obsidian`) | laufende Sitzung |
 | **Paketordner** | **401**, davon **82** belegt, **319** leer | `packages/*/*` |
 | **Testdateien `apps/universe`** | **33** | `apps/universe/tests` |
@@ -76,6 +77,10 @@ Dazu die sechs Pakete, die **kein** Client-Plugin sind: `skill`, `skill-filesyst
 > im Repository. Ein frischer Klon hat **drei**. Das ist L1 in
 > [`checkup-skills-plugins.md`](checkup-skills-plugins.md) §4 und Punkt P2.1 in
 > [`todos.md`](todos.md).
+>
+> **Dazu seit 21.10.2026:** `diagram-design` liegt im eigenen Skill-Repo (`units/skills/`) —
+> **übernommen, aber noch nicht geladen**, weil die vierte Wurzel `skill-plugin` voraussetzt.
+> Damit sind es **24 Fähigkeiten im Bestand**, aber weiterhin **23 wirksam**.
 
 ---
 
