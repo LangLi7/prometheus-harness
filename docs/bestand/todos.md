@@ -21,7 +21,7 @@
 | **B0.3** | Register und Ziel | 0 | — | Dokument | **erledigt** |
 | **P1.1** | `diagram-design` als Skill | 1 | L4 | Skill | **erledigt** |
 | **P1.2** | `pretext` als Bibliothek | 1 | — | Bibliothek | offen |
-| **P1.3** | `agent-reach` hinter Werkzeug-Plugin | 1 | Plattform | Werkzeug | offen |
+| **P1.3** | `agent-reach` — Skill, CLI, Kanäle | 1 | Plattform | Werkzeug | **erledigt** |
 | **P1.4** | 21 Fremd-Skills übernommen | 1 | Research, Security, Evals | Skills | **erledigt** |
 | **P2.1** | Die 23 Skills ins Repo | 2 | **L1** | Skills | offen |
 | **P2.2** | Herkunft und Lizenz je Skill | 2 | L1 | Dokument | offen |
@@ -99,17 +99,19 @@ nicht über die vierte Wurzel.
 - **Grenze:** läuft **nur im Browser**; in Bun ohne `OffscreenCanvas`-Shim wirft `prepare()`.
 - **Aufwand:** ein Nachmittag.
 
-### P1.3 · `agent-reach` hinter einem Werkzeug-Plugin
+### P1.3 · `agent-reach` — Skill, CLI, Kanäle — **erledigt 21.10.2026**
 
-- **Lücke:** Plattform-Zugriff — PMH kann Webseiten abrufen, aber keine YouTube-Untertitel,
+| Was | Stand | Beleg |
+|---|---|---|
+| Skill übernommen | **erledigt** | `units/skills/agent-reach/` (SKILL.md plus sieben `references/`) |
+| CLI installiert | **erledigt** | `pip install agent-reach` → `agent-reach.exe` |
+| Kanäle eingerichtet | **erledigt** | `agent-reach doctor` → `ok rss feedparser`, `ok youtube yt-dlp 2026.08.19` |
+| Werkzeug-Wrapper mit `doctor`-Vorprüfung | **offen, optional** | der Skill ruft die CLI direkt; ein Plugin-Wrapper wäre die härtere Kapselung |
+
+- **Lücke:** Plattform-Zugriff — PMH konnte Webseiten abrufen, aber keine YouTube-Transkripte,
   Reddit-Threads, RSS-Feeds oder X-Suche.
-- **Was zu tun ist:** **nicht** die Skill direkt übernehmen, sondern ein dünnes Plugin, das die
-  CLI aufruft und **vorher** `agent-reach doctor --json` prüft. Damit liegt der Cookie-Umgang an
-  einer Stelle.
-- **Nachweis:** `doctor` meldet für mindestens einen Kanal „bereit"; ein Abruf liefert Inhalt;
-  ohne Cookie meldet das Plugin **„nicht bereit"** statt zu scheitern.
-- **Prüfpunkte:** MIT ✓ · Bauform Werkzeug ✓ · benachbart zu `browser-local`, aber kein Duplikat ✓
-  · neue Laufzeit **Python** ⚠️ (der Grund, warum es Phase 1 und nicht „sofort" ist).
+- **Ehrliche Grenze:** Kanäle mit Login (X, Reddit, Instagram, LinkedIn) brauchen Cookies und
+  sind **nicht** eingerichtet. `rss` und `youtube` laufen ohne Anmeldung.
 - **Risiko:** Cookies und ToS — Wegwerf-Konten, nie ein Produktkonto.
 
 ### P1.4 · Fremd-Skills übernommen — **erledigt 21.10.2026, 21 Fähigkeiten**
@@ -131,11 +133,14 @@ nicht über die vierte Wurzel.
   - **Die fünf `academic-*`-Skills sind CC BY-NC 4.0** — keine kommerzielle Nutzung. Wer PMH
     kommerziell betreibt, muss sie entfernen. Die Lizenz liegt als
     `LICENSE-CC-BY-NC-4.0.md` daneben.
-  - **`agent-reach` ist installiert** (PyPI, `agent-reach.exe`), aber `doctor` meldet
-    „No channels installed" — die Plattform-Kanäle (YouTube, Reddit, RSS, X) sind noch nicht
-    eingerichtet.
+  - **`agent-reach`** ist vollständig: CLI installiert, `rss` und `youtube` melden `ok`. Kanäle
+    mit Login (X, Reddit, Instagram, LinkedIn) fehlen weiterhin — sie brauchen Cookies.
   - **`parallel-web`** hat seine CLI (`parallel-cli` 0.9.3 per `uv`), aber der Aufruf braucht
     den PATH-Eintrag `~\.local\bin` — in dieser Sitzung nur per absolutem Pfad geprüft.
+  - **`offensive-ai-security` fehlte im Katalog**, obwohl die Datei da war: das Frontmatter
+    fehlte, und die Registry verwirft Skills ohne `name`. Repariert in Commit `03b9d91` — der
+    Skill erschien danach **sofort** im Katalog. Das ist zugleich der Beweis, daß der Host die
+    Junctions live liest und kein Neustart nötig ist.
   - **`offensive-api-security` und `offensive-ai-security` sind Dual-Use.** Aufgenommen für die
     Prüfung eigener Systeme, nicht als Werkzeug gegen fremde.
 - **Bewusst nicht übernommen:** die **Anwendungen** (`flowsint`, `OpenExecutive`, `OpenMAIC`,
