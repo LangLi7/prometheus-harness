@@ -49,6 +49,14 @@ target/
 # Arbeitsbaum lässt sich kopieren, ohne eine fremde Installation zu berühren.
 .pmh-build/
 
+# --- Browser-Profile, die browser-use im Arbeitsbaum anlegt ---
+#
+# Der MCP-Server von browser-use legt bei jedem Start ein
+# `browser-use-user-data-dir-<zufall>` im **aktuellen Verzeichnis** an. Diese
+# Ordner sind Wegwerf-Profile (Chromium-Profil, Caches) und gehören nicht ins
+# Repository. Gemessen am 21.10.2026: acht Stück nach den Startversuchen.
+browser-use-user-data-dir-*/
+
 # --- Editor- und Betriebssystem-Beiwerk ---
 .DS_Store
 Thumbs.db
@@ -103,3 +111,18 @@ coverage/
 .github/workflows/*
 !.github/workflows/pmh-ci.yml
 
+# --- Lokaler Windows-Tray-Build ---
+# Die Verknüpfung trägt absolute Pfade dieser Maschine; die .exe sind aus
+# `native/pmh-tray` reproduzierbar. Der Quellcode und bin/README.md bleiben
+# versionierbar.
+/Prometheus Tray.lnk
+/native/pmh-tray/bin/*.exe
+
+
+# --- Skill-Inhalte als eigenes Repository ---
+# `units/skills` ist ein eigenstaendiges Git-Repository: eigene Historie, eigene
+# Lizenz, eigene Quelle. Es liegt im Arbeitsbaum, gehoert aber nicht in diese
+# Historie -- sonst entstuende ein eingebettetes Repository ohne Versionierung.
+# Code-Units (Plugins, Bibliotheken) bleiben davon unberuehrt und liegen weiter
+# als Package im Monorepo.
+/units/skills/
