@@ -1,0 +1,247 @@
+# Todo-Liste — der Bestand, in Arbeit übersetzt
+
+> **Was dieses Blatt ist:** die abarbeitbare Liste zu [`goal.md`](goal.md). Sie folgt den
+> **Regeln A1–A7** aus [`arbeitspakete.md`](../status/arbeitspakete.md) — sie erfindet kein
+> zweites Verfahren:
+> **A1** ein Paket, eine Liste · **A2** jedes Paket nennt seine Phase ·
+> **A3** abgehakt wird nur Belegtes · **A4** die Liste ist änderbar ·
+> **A5** der Ausführende kennt seine Liste · **A6** nur Fertiges wird committet ·
+> **A7** Meldeformat `BEDARF/GRUND/UMFANG/FERTIG`.
+>
+> **Stand:** 21.10.2026 · **Phasen:** `offen` → `in Arbeit` → `Nachweis offen` → `erledigt`
+
+---
+
+## 1. Die Liste auf einen Blick
+
+| ID | Aufgabe | Phase | Lücke | Bauform | Stand |
+|---|---|---|---|---|---|
+| **B0.1** | Bestands-Checkup (vier Schichten) | 0 | — | Dokument | **erledigt** |
+| **B0.2** | Bewertung von 23 Fremd-Repos | 0 | — | Dokument | **erledigt** |
+| **B0.3** | Register und Ziel | 0 | — | Dokument | **erledigt** |
+| **P1.1** | `diagram-design` als Skill | 1 | L4 | Skill | offen |
+| **P1.2** | `pretext` als Bibliothek | 1 | — | Bibliothek | offen |
+| **P1.3** | `agent-reach` hinter Werkzeug-Plugin | 1 | Plattform | Werkzeug | offen |
+| **P2.1** | Die 23 Skills ins Repo | 2 | **L1** | Skills | offen |
+| **P2.2** | Herkunft und Lizenz je Skill | 2 | L1 | Dokument | offen |
+| **P2.3** | Skill `skill-eval` bauen | 2 | **L6** | Skill | offen |
+| **P2.4** | 15 leere `dsh-*`-Ordner entscheiden | 2 | L2 | Aufräumen | offen |
+| **P3.1** | Blast-Radius prüfen | 3 | — | Abfrage | offen |
+| **P3.2** | Learnings-Datei für Obsidian | 3 | — | Verfahren | offen |
+| **P3.3** | Verfall für den pgvector-Speicher | 3 | — | Konzept | offen |
+| **P3.4** | Entscheidung: ein Wissensspeicher | 3 | — | Entscheidung | offen |
+| **P4.1** | `OpenMontage` (Video) | 4 | **L5** | Werkzeug | **gesperrt** (AGPL) |
+| **P4.2** | `strix` als Sicherheits-Werkzeug | 4 | — | Werkzeug | **gesperrt** (Allowlist) |
+| **P4.3** | `ocr scan` für `security-audit` | 4 | — | Skill-Ergänzung | offen |
+| **P4.4** | Browser-Naht mit TS-Anbieter füllen | 4 | **L3** | Plugin | offen |
+
+**Was zuerst:** P1.1, dann P4.3, dann P2.1 und P2.3. Begründung in
+[`goal.md`](goal.md) §5 — bestes Verhältnis aus Nutzen, Risiko und Aufwand.
+
+---
+
+## 2. Phase 0 — Bestand (erledigt)
+
+| ID | Aufgabe | Nachweis |
+|---|---|---|
+| **B0.1** | Skills und Plugins in vier Schichten gezählt, Lücken L1–L8 belegt | [`checkup-skills-plugins.md`](checkup-skills-plugins.md) — 401 Paketordner, 82 belegt, 319 leer; 23 Skills außerhalb, 3 im Repo |
+| **B0.2** | 23 Repos gelesen, Lizenz und Bauform bestimmt, jedes mit Urteil | [`fremd-repos.md`](fremd-repos.md) |
+| **B0.3** | Register, Ziel, diese Liste, Eintrag im Doku-Katalog | [`INDEX.md`](INDEX.md), [`goal.md`](goal.md), [`docs/INDEX.md`](../INDEX.md) |
+
+**Abnahme Phase 0:** erfüllt — jede Zahl ist selbst gezählt, jede Lücke hat einen Beleg, jedes
+Repository ein Urteil (auch das „nein").
+
+---
+
+## 3. Phase 1 — Die drei billigen Übernahmen
+
+### P1.1 · `diagram-design` als Skill
+
+- **Lücke:** L4 (kein Diagramm-Skill; 0 Treffer über 23 Fähigkeiten).
+- **Was zu tun ist:** das Repository klonen, `SKILL.md` und `references/` übernehmen, die
+  Python-Skripte unter `scripts/` prüfen (nur SVG-Export ist Pflicht, PNG braucht Playwright),
+  als `<name>/SKILL.md` unter `.agents/skills/` ablegen.
+- **Nachweis:** `bun docs/status/messsonden/…` **oder** der Katalog-Digest des Hosts zeigt den
+  neuen Eintrag; ein Diagramm entsteht aus einer Beschreibung.
+- **Prüfpunkte (§8 `fremd-repos.md`):** MIT ✓ · Bauform Skill ✓ · kein Duplikat ✓ · keine neue
+  Laufzeit (Python nur für Export) ✓ · Lücke belegt ✓.
+- **Risiko:** gering. **Aufwand:** ein Nachmittag.
+
+### P1.2 · `pretext` als Bibliothek in `apps/universe`
+
+- **Lücke:** keine im Checkup — eine **Oberflächen-Notwendigkeit**: Chat und Log wachsen, jede
+  Höhenmessung über das DOM löst Reflow aus.
+- **Was zu tun ist:** `@chenglou/pretext` einbinden, **nur** in `apps/universe` und `apps/web`;
+  `prepare()` einmal je Absatz, `layout()` bei Breitenänderung. Prüfen, ob `rich-ui`-Karten
+  profitieren.
+- **Nachweis:** eine Messung vorher/nachher (Layout-Dauer bei N Nachrichten), exit 0 im
+  Typecheck, kein Reflow im Profil.
+- **Prüfpunkte:** MIT mit Zusatzhinweisen ✓ (die API meldet `NOASSERTION` — **kein** Blocker,
+  siehe `fremd-repos.md` §1.4) · Bauform Bibliothek ✓ · kein Duplikat ✓ · keine neue Laufzeit ✓.
+- **Grenze:** läuft **nur im Browser**; in Bun ohne `OffscreenCanvas`-Shim wirft `prepare()`.
+- **Aufwand:** ein Nachmittag.
+
+### P1.3 · `agent-reach` hinter einem Werkzeug-Plugin
+
+- **Lücke:** Plattform-Zugriff — PMH kann Webseiten abrufen, aber keine YouTube-Untertitel,
+  Reddit-Threads, RSS-Feeds oder X-Suche.
+- **Was zu tun ist:** **nicht** die Skill direkt übernehmen, sondern ein dünnes Plugin, das die
+  CLI aufruft und **vorher** `agent-reach doctor --json` prüft. Damit liegt der Cookie-Umgang an
+  einer Stelle.
+- **Nachweis:** `doctor` meldet für mindestens einen Kanal „bereit"; ein Abruf liefert Inhalt;
+  ohne Cookie meldet das Plugin **„nicht bereit"** statt zu scheitern.
+- **Prüfpunkte:** MIT ✓ · Bauform Werkzeug ✓ · benachbart zu `browser-local`, aber kein Duplikat ✓
+  · neue Laufzeit **Python** ⚠️ (der Grund, warum es Phase 1 und nicht „sofort" ist).
+- **Risiko:** Cookies und ToS — Wegwerf-Konten, nie ein Produktkonto.
+
+---
+
+## 4. Phase 2 — Skills ins Repo und ihre Wirkung messen
+
+### P2.1 · Die 23 Skills ins Repo
+
+- **Lücke:** **L1** — ein frischer Klon hat drei Skills statt 23.
+- **Was zu tun ist:** entscheiden, ob **Kopie** oder **dokumentierte Herkunft**. Eine Kopie ist
+  eine zweite Quelle der Wahrheit (die `skill-uebertragung.md` §5 ausdrücklich vermeidet);
+  sauberer ist ein **Abgleich**: welche Skills sind eigen, welche fremd, welche werden über den
+  Benutzer-Scope geladen?
+- **Nachweis:** ein frischer Klon in einem leeren Benutzer-Scope listet **alle** vorgesehenen
+  Skills im Katalog; die Zahl steht im Bericht.
+- **Vorsicht:** 16 von 23 sind fremd — ohne Quelle wird aus einem Export eine Rechtsfrage
+  (P2.2 hängt daran).
+
+### P2.2 · Herkunft und Lizenz je Skill
+
+- **Was zu tun ist:** je Skill eine Zeile: Quelle (URL), Lizenz, eigene Änderungen. Grundlage:
+  `fremd-repos.md` und die `LICENSE`-Dateien der Sammlungen.
+- **Nachweis:** die Tabelle deckt 23 von 23 ab, keine Zeile „unbekannt".
+- **Warum vor P2.1:** eine Kopie ohne Quelle ist der Fehler, den `auftrag-feature-und-skills.md`
+  §F3 schon benannt hat.
+
+### P2.3 · Skill `skill-eval` bauen
+
+- **Lücke:** **L6** — 23 Fähigkeiten, kein Verfahren, ihre Wirkung zu messen.
+- **Vorbild:** `skillgrade` aus `awesome-harness-engineering` — Task/Grader-Paare aus einer
+  `SKILL.md`, mehrere Läufe, CI-Schwelle.
+- **Was zu tun ist:** ein Skill, der aus einer Fähigkeit Prüfaufgaben ableitet, sie laufen lässt
+  und eine Schwelle prüft. **Nicht** ein Benchmark für Modelle — ein Test für **Anweisungen**.
+- **Nachweis:** für mindestens drei Fähigkeiten existiert ein Eval mit Schwelle; ein
+  absichtlich verschlechterter Skill fällt durch (Gegenprobe).
+- **Aufwand:** der größte Posten dieser Liste, und der mit dem längsten Nutzen.
+
+### P2.4 · Die 15 leeren `dsh-*`-Ordner entscheiden
+
+- **Befund:** `.agents/skills/` hat 19 Ordner, 15 leer.
+- **Was zu tun ist:** je Ordner **entweder** füllen **oder** entfernen — mit Grund im Commit.
+  Ein leerer Ordner sieht aus wie eine Fähigkeit und ist keine.
+- **Nachweis:** `Get-ChildItem .agents\skills -Directory` liefert keinen Ordner ohne `SKILL.md`,
+  oder jeder leere hat eine Notiz mit Grund.
+
+---
+
+## 5. Phase 3 — Die Wissensschicht als Verfahren
+
+### P3.1 · Blast-Radius prüfen
+
+- **Was zu tun ist:** vergleichen, was `mcp__graphify__get_pr_impact` heute liefert und was
+  `codebase-memory-mcp` (`detect_changes`) zusätzlich kann. **Nicht** den Server einbauen.
+- **Nachweis:** eine Änderung nennt ihre betroffenen Stellen aus dem Graphen — mit Quelle.
+
+### P3.2 · Learnings-Datei für Obsidian
+
+- **Was zu tun ist:** das `Trail-Code`-Verfahren übernehmen: kurze Markdown-Datei je
+  Entscheidung, `touches`-Feld auf Dateien, im Repo, durch Git geteilt — und eine Prüfung vor
+  dem Commit, die eine frühere Entscheidung **nennt**, wenn der Diff ihr widerspricht.
+- **Warum das die eigentliche Lücke ist:** `docs/decisions/` ist gut, aber von Hand und nicht
+  maschinell geprüft; Obsidian ist gut, aber nicht im Repo und nicht an Dateien gebunden. Die
+  Verbindung fehlt.
+- **Nachweis:** eine Entscheidung wird angelegt, ein widersprechender Diff wird erkannt, und der
+  Bericht nennt Autor, Datum und Grund.
+
+### P3.3 · Verfall für den pgvector-Speicher
+
+- **Was zu tun ist:** aus `agentmemory` die vierstufige Konsolidierung mit Verfall und
+  Auto-Forget auf das eigene Schema übertragen — als **Konzept**, nicht als Dienst.
+- **Nachweis:** ein Dokument mit Regeln und einer Zahl: was nach 30/90/365 Tagen passiert.
+
+### P3.4 · Entscheidung: ein Wissensspeicher
+
+- **Was zu tun ist:** die Entscheidung schriftlich festhalten (in `docs/decisions/`):
+  Graphify + Obsidian + PostgreSQL bleiben, **kein** zweiter Speicher; `universe` bekommt später
+  eine Notiz-Ansicht auf **denselben** Speicher.
+- **Nachweis:** die Entscheidung liegt als Datei vor und widerspricht keiner bestehenden
+  (`obsidian-gedaechtnis-oder-ansicht.md` prüfen).
+
+---
+
+## 6. Phase 4 — Die großen Vorhaben, jede gesperrt bis zur Entscheidung
+
+### P4.1 · `OpenMontage` — **gesperrt: AGPL-3.0**
+
+- **Was zu tun ist:** nichts, bis die Lizenzfrage entschieden ist. Dann: eigener Prozess,
+  eigenes Verzeichnis, Pipeline-ID und Brief als Argumente.
+- **Vorbedingung:** rechtliche Prüfung §13 AGPL bei netzwerkbedientem Produkt; Entscheidung über
+  die dritte Laufzeit (Python + Node + FFmpeg).
+- **Warum nicht gestrichen:** es ist die **einzige** Option für Video/Schnitt (L5), und der
+  Zero-Key-Pfad wäre ohne laufende Kosten testbar.
+
+### P4.2 · `strix` — **gesperrt: Ziel-Allowlist**
+
+- **Korrektur zur Annahme:** `strix` ist **kein Subagent**. Es ist eine Python-CLI mit eigenem
+  Docker-Sandbox; ein PMH-Subagent kann es **aufrufen**, nicht **sein**.
+- **Vorbedingung:** Docker, LLM-Schlüssel, **geprüfte Zielliste** (rechtlich, nicht technisch).
+- **Nutzen:** ergänzt `security-audit` (heute reine Anleitung) um dynamische Validierung.
+
+### P4.3 · `ocr scan` für `security-audit`
+
+- **Was zu tun ist:** `ocr scan` in die Skill aufnehmen — Ganzdatei-Review **ohne Diff**. Heute
+  steht es nur als Fallstrick in der Skill, ohne Aufrufpfad.
+- **Nachweis:** ein Lauf auf einem Verzeichnis ohne Git-Diff liefert Befunde; exit-Code
+  dokumentiert.
+- **Warum das fast kostenlos ist:** die CLI ist bereits installiert und eingebunden.
+
+### P4.4 · Browser-Naht mit einem TypeScript-Anbieter füllen
+
+- **Lücke:** **L3** — `packages/browser-use/browser-use` hat 0 Dateien; Browser läuft nur als
+  MCP-Konfiguration.
+- **Was zu tun ist:** die Naht `ctx.browserUse` (drei Anbieter sind beschrieben) mit **einem**
+  TypeScript-Anbieter füllen. **Nicht** das Python-Original portieren — es ist Vorbild, nicht
+  Baustein.
+- **Nachweis:** eine Sitzung ohne MCP-Konfiguration öffnet eine Seite und liest den DOM.
+
+---
+
+## 7. Was **nicht** auf dieser Liste steht
+
+Diese Punkte sind entschieden und werden nicht nachgetragen (Begründung in
+[`fremd-repos.md`](fremd-repos.md) §4 und [`goal.md`](goal.md) §3.5):
+
+| Nicht | Grund |
+|---|---|
+| `voltagent` als Framework | Duplikat von Subagenten, Workflow, MCP |
+| `flowsint` als Graph-Backend | fertige App mit Neo4j, zweiter Graph |
+| `agentmemory` als Dienst | zweiter Wissensspeicher; nur die Verfahren (P3.3) |
+| `Trail-Code` als Ganzes | Graph-Hälfte ist Graphify-Dublette; nur die Learnings (P3.2) |
+| `codebase-memory-mcp` als Ersatz | Daemon mit exklusivem Cache-Root, ~330 MB; nur der Vergleich (P3.1) |
+| `agency-agents` als Import | 230 Personas unterbieten die eigenen Skills |
+| `academic-research-skills` | CC BY-NC schließt kommerzielle Nutzung aus |
+| `OpenMAIC`, `OpenExecutive` | Apps, keine Units; nur als Vorbild gelesen |
+
+---
+
+## 8. Wie ein Punkt abgehakt wird
+
+Nach Regel **A3** — und deshalb steht bei jedem Punkt ein Nachweis und nicht ein Häkchen:
+
+```powershell
+# Beispiel P1.1 — der Skill ist im Katalog, nicht nur im Ordner
+Get-ChildItem .agents\skills\diagram-design -Recurse -File | Measure-Object    # > 0
+bun test packages\skill\skill-filesystem\tests\filesystem.test.ts              # exit 0
+
+# Beispiel P4.3 — ocr scan läuft ohne Diff
+ocr scan --help                                                                # Befehl existiert
+ocr scan . --format json                                                       # Befunde als JSON
+```
+
+**Ein Punkt ohne Befehl und Ergebnis bleibt offen**, auch wenn die Datei schon existiert. Das ist
+die Regel, die dieses Projekt am häufigsten verletzt hat (`plugin-inventur.md`, Widerrufe).
