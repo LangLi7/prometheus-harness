@@ -22,6 +22,7 @@
 | **P1.1** | `diagram-design` als Skill | 1 | L4 | Skill | **erledigt** |
 | **P1.2** | `pretext` als Bibliothek | 1 | — | Bibliothek | offen |
 | **P1.3** | `agent-reach` hinter Werkzeug-Plugin | 1 | Plattform | Werkzeug | offen |
+| **P1.4** | Sechs Research-Skills | 1 | Research | Skills | **erledigt** |
 | **P2.1** | Die 23 Skills ins Repo | 2 | **L1** | Skills | offen |
 | **P2.2** | Herkunft und Lizenz je Skill | 2 | L1 | Dokument | offen |
 | **P2.3** | Skill `skill-eval` bauen | 2 | **L6** | Skill | offen |
@@ -110,6 +111,24 @@ nicht über die vierte Wurzel.
 - **Prüfpunkte:** MIT ✓ · Bauform Werkzeug ✓ · benachbart zu `browser-local`, aber kein Duplikat ✓
   · neue Laufzeit **Python** ⚠️ (der Grund, warum es Phase 1 und nicht „sofort" ist).
 - **Risiko:** Cookies und ToS — Wegwerf-Konten, nie ein Produktkonto.
+
+### P1.4 · Sechs Research-Skills — **erledigt 21.10.2026**
+
+- **Lücke:** Research — PMH konnte Webseiten abrufen, aber keine Literatur durchsuchen, keine
+  Zitate prüfen und keine systematische Übersicht bauen.
+- **Übernommen** (alle MIT, ohne Server, Katalog führt sie sofort):
+  `literature-review` · `paper-lookup` · `citation-management` · `peer-review` ·
+  `market-research-reports` · `parallel-web`.
+- **Quelle:** `K-Dense-AI/scientific-agent-skills`, sparse checkout (sechs von 177 Skills),
+  Stand 21.10.2026. Lizenzfeld je Skill geprüft: **sechsmal MIT**.
+- **Beleg:** Commit `3e6e7ef` (117 Dateien) im Skill-Repo; Katalog dieser Sitzung führt alle
+  sechs; `link-skills.ps1` meldet „6 Verbindung(en) angelegt".
+- **Ehrliche Grenze:** `parallel-web` braucht die **Parallel-CLI**, die heute nicht im PATH
+  liegt. Der Skill ist geladen, aber ohne CLI nicht ausführbar.
+- **Bewusst nicht übernommen:** `academic-research-skills` (`deep-research`, `academic-paper`,
+  `academic-pipeline`, `sr-screener`, `academic-paper-reviewer`) — **CC BY-NC 4.0** schließt
+  kommerzielle Nutzung aus, und die fünf Skills sind **Symlinks**, die ein Windows-Klon nicht
+  als Ordner sieht. Beides ist eine Betreiber-Entscheidung, keine technische.
 
 ---
 
