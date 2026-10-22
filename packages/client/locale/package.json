@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Deutsches Sprachpaket als Client-Plugin: meldet die Sprache de an und hängt 56 Wörterbücher (2374 Texte) in den Namensraum-Speicher des Kerns. Die Knoten-Hälfte ist leer; die Browser-Hälfte liegt als gebautes lib/client.js vor.",
+  "description": "Deutsches Sprachpaket als Client-Plugin: meldet die Sprache de an und hängt 57 Wörterbücher der Oberfläche (2483 Texte) sowie die Fächer der Plugins (6 Namensräume, 305 Texte aus plugins.de.json/plugins.en.json) in den Namensraum-Speicher des Kerns — zusammen 63 Fächer und 2788 Texte. Die Knoten-Hälfte ist leer; die Browser-Hälfte liegt als gebautes lib/client.js vor.",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
@@ -23,6 +23,6 @@
     "lib/client.js"
   ],
   "scripts": {
-    "build": "bun run ../../../scripts/client-buendel.mjs"
+    "build": "cd ../../.. && bun scripts/client-buendel.mjs --paket packages/client/locale"
   }
 }

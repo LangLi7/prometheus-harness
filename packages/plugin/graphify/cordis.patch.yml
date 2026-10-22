@@ -1,0 +1,8 @@
+# Das Graphify-Plugin als eigenes Bündel.
+#
+# Es bringt **beides** mit: die Host-Routen (über den Provider) und das
+# Browser-Panel. Wer nur Graphify will, installiert nur dieses Paket.
+- insert:
+    - id: pmh-graphify
+      name: '@prometheus-harness/graphify'
+      inject: [webServer]

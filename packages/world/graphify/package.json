@@ -1,0 +1,19 @@
+{
+  "name": "@prometheus-harness/world-graphify",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Liest Graphifys graphify-out/graph.json als gemeinsamen Welt-Graphen, meldet den Zustand der CLI und startet auf Wunsch einen Lauf (deep/update). Vier local-only Routen am Webserver des Kerns: status, graph, run, config. Der Befehl kommt ausschließlich aus der Konfiguration, niemals aus dem Anfragekörper.",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@prometheus-harness/world-graph": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "nodes": [
+    {
+      "id": "httpx/_client.py",
+      "label": "_client.py",
+      "file_type": "code",
+      "source_file": "httpx/_client.py",
+      "source_location": "L1",
+      "community": 1
+    },
+    {
+      "id": "httpx/_client.py:Client",
+      "label": "Client",
+      "file_type": "code",
+      "source_file": "httpx/_client.py",
+      "source_location": "L42",
+      "community": 1
+    },
+    {
+      "id": "httpx",
+      "label": "httpx",
+      "file_type": "code",
+      "source_file": "httpx",
+      "source_location": "L1",
+      "community": 2
+    }
+  ],
+  "links": [
+    {
+      "source": "httpx/_client.py",
+      "target": "httpx/_client.py:Client",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "weight": 1,
+      "source_file": "httpx/_client.py",
+      "source_location": "L1"
+    },
+    {
+      "source": "httpx/_client.py:Client",
+      "target": "httpx",
+      "relation": "imports_from",
+      "confidence": "INFERRED",
+      "weight": 1,
+      "source_file": "httpx/_client.py",
+      "source_location": "L42"
+    }
+  ]
+}

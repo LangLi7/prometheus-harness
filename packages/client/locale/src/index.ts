@@ -40,6 +40,11 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import de from '../de.json' with { type: 'json' }
+// **Die Fächer der Plugins** — nicht von Hand geschrieben, sondern erzeugt von
+// `scripts/language-merge.mjs` aus `packages/plugin/*/locale/{de,en}.json`. Wer hier etwas
+// einträgt, trägt es an der falschen Stelle ein: die Quelle ist die Datei beim Plugin.
+import pluginsDe from '../plugins.de.json' with { type: 'json' }
+import pluginsEn from '../plugins.en.json' with { type: 'json' }
 
 /** Kennung des Pakets. */
 export const name = 'locale-de'
@@ -106,6 +111,31 @@ export function apply(ctx: Context): void {
     ctx.effect(
       () => locale.register(namensraum, SPRACHE, woerterbuch),
       `locale-de: ${namensraum}`,
+    )
+  }
+
+  /*
+   * **Die Fächer der Plugins — beide Sprachen.**
+   *
+   * Deutsch ist die Sprache, die dieses Paket anmeldet; Englisch meldet es **nicht** an, weil der
+   * Kern es mitbringt. Angemeldet wird trotzdem: ein Wörterbuch hängt am Namensraum und an der
+   * Sprache, nicht an der Sprachliste. Ohne diese Zeilen zeigte ein deutscher Nutzer bei fehlendem
+   * Schlüssel den Schlüsselnamen statt des englischen Satzes — und die Rückfallkette des Kerns,
+   * die genau dafür da ist, liefe ins Leere.
+   *
+   * **Warum jede Anmeldung ein eigenes `ctx.effect` hat.** Beim Abbau muß jeder Namensraum
+   * einzeln zurückgenommen werden; eine Schleife in einem Effekt nähme nur den letzten mit.
+   */
+  for (const [namensraum, woerterbuch] of Object.entries(pluginsDe)) {
+    ctx.effect(
+      () => locale.register(namensraum, SPRACHE, woerterbuch),
+      `locale-de: ${namensraum} (Plugin)`,
+    )
+  }
+  for (const [namensraum, woerterbuch] of Object.entries(pluginsEn)) {
+    ctx.effect(
+      () => locale.register(namensraum, 'en', woerterbuch),
+      `locale-en: ${namensraum} (Plugin)`,
     )
   }
 }

@@ -1,0 +1,16 @@
+{
+  "name": "@prometheus-harness/world-graph",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Der gemeinsame Graph-Vertrag der Welt: Knoten, Kanten, Quellen und der Zusammenbau aus Obsidian und Graphify. Reine Typen und Funktionen, kein Dateisystem, kein Netz.",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

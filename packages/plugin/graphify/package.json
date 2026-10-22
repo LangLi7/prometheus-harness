@@ -1,0 +1,40 @@
+{
+  "name": "@prometheus-harness/graphify",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Graphify als eigenes DSH-Plugin: Sidebar-Eintrag, gezeichneter Graph in drei Ebenen (Gesamt, Gruppe, Nachbarschaft), Knotenliste, Hubs und Lauf, dazu die Routen /api/world/graphify.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@prometheus-harness/world-graphify": "workspace:*"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.client.json"
+  }
+}
