@@ -1,0 +1,79 @@
+-- =============================================================================
+-- 03 — Vorgaben als EIGENTÜMERIN setzen (der Teil, der sonst wirkungslos ist)
+-- =============================================================================
+--
+-- **Warum diese Datei getrennt ist — und warum sie der wichtigste Teil des
+-- Rechtemodells ist.**
+--
+-- `ALTER DEFAULT PRIVILEGES` gilt in PostgreSQL **für die Rolle, die es setzt**.
+-- Wird es vom Superuser gesetzt, gelten die Vorgaben für Objekte, die **der
+-- Superuser** künftig anlegt. Unsere Tabellen legt aber die **Eigentümerin** an
+-- (so läuft die Migration) — also greifen die Vorgaben dann **nicht**, obwohl
+-- sie in der Datenbank stehen und richtig aussehen.
+--
+-- Genau dieser Fehler macht das Muster in der Praxis häufig wirkungslos: es
+-- steht in der Einrichtungsdatei, es sieht korrekt aus, und der erste Fremde,
+-- der es benutzt, bekommt Monate später ein „permission denied" auf einer
+-- frisch angelegten Tabelle — ohne Zusammenhang.
+--
+-- **Die Lösung:** dieselben `ALTER DEFAULT PRIVILEGES`-Anweisungen, aber
+-- ausgeführt **als die Eigentümerin**. Diese Datei wird deshalb nicht vom
+-- Eintragungspunkt ausgeführt, sondern von `04-run-as-owner.sh`, das sich per
+-- `psql -U <eigentuemerin>` verbindet.
+
+\set ON_ERROR_STOP on
+
+-- -----------------------------------------------------------------------------
+-- Der Suchpfad steht NICHT hier — mit dem Befund, der das erzwungen hat
+-- -----------------------------------------------------------------------------
+-- Diese Datei läuft als **Eigentümerin**. `ALTER ROLE <fremde Rolle> SET ...`
+-- ist aber eine **Superuser**-Anweisung: der erste Versuch scheiterte mit
+-- `ERROR: permission denied to alter role`. Die Suchpfade werden deshalb in
+-- `02-roles.sh` gesetzt, das als Superuser läuft.
+--
+-- **Die Regel dahinter, und sie ist allgemein:** rollenweite Einstellungen
+-- gehören in die Einrichtung (Superuser); Vorgaben für künftige Objekte gehören
+-- zur Eigentümerin. `ALTER DEFAULT PRIVILEGES` gilt für die Rolle, die es
+-- **setzt** — deshalb muss es hier stehen, und deshalb wäre es am anderen Ort
+-- wirkungslos.
+
+-- -----------------------------------------------------------------------------
+-- Die Vorgaben — jetzt als Eigentümerin, also wirksam
+-- -----------------------------------------------------------------------------
+-- **Anwendung: lesen und schreiben, kein DDL.** Die vier Rechte, die ein Dienst
+-- braucht; `TRUNCATE` und `REFERENCES` fehlen bewusst — `TRUNCATE` ist ein
+-- verkleidetes `DELETE FROM` ohne `WHERE` und ohne Auslöser, und `REFERENCES`
+-- braucht nur, wer Fremdschlüssel **anlegt** (also die Eigentümerin).
+ALTER DEFAULT PRIVILEGES IN SCHEMA pmh
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"app_user";
+ALTER DEFAULT PRIVILEGES IN SCHEMA pmh
+  GRANT USAGE, SELECT ON SEQUENCES TO :"app_user";
+ALTER DEFAULT PRIVILEGES IN SCHEMA pmh
+  GRANT EXECUTE ON FUNCTIONS TO :"app_user";
+
+-- **Nur-Lesen: ausschließlich `SELECT`.** Diese Zeile ist die Zusage, dass ein
+-- Fremdwerkzeug mit dieser Rolle nichts verändern **kann**.
+ALTER DEFAULT PRIVILEGES IN SCHEMA pmh
+  GRANT SELECT ON TABLES TO :"ro_user";
+ALTER DEFAULT PRIVILEGES IN SCHEMA pmh
+  GRANT SELECT ON SEQUENCES TO :"ro_user";
+
+-- **Und ausdrücklich: keine öffentlichen Rechte auf Künftiges.** Ohne diese
+-- Zeile könnte ein Fremder über `PUBLIC` lesen, wenn die Vorgaben das nicht
+-- ausschließen.
+ALTER DEFAULT PRIVILEGES IN SCHEMA pmh
+  REVOKE ALL ON TABLES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES IN SCHEMA pmh
+  REVOKE ALL ON SEQUENCES FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES IN SCHEMA pmh
+  REVOKE ALL ON FUNCTIONS FROM PUBLIC;
+
+\echo ''
+\echo '=== Vorgaben, jetzt als Eigentuemerin gesetzt ==='
+SELECT defaclrole::regrole AS fuer_rolle,
+       defaclnamespace::regnamespace AS im_schema,
+       CASE defaclobjtype WHEN 'r' THEN 'Tabelle' WHEN 'S' THEN 'Sequenz' WHEN 'f' THEN 'Funktion' ELSE defaclobjtype::text END AS objektart,
+       defaclacl AS vorgabe
+  FROM pg_default_acl
+ ORDER BY 1, 2, 3;
+\echo ''
