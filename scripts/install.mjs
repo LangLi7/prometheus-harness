@@ -61,8 +61,8 @@
  *
  * | Schalter | Wirkung |
  * |---|---|
- * | *(keiner)* | Graphify wird installiert, Obsidian genannt |
- * | `--mit-obsidian` | auch Obsidian wird installiert (winget/brew/flatpak/snap) |
+ * | *(keiner)* | Graphify **und** Obsidian werden installiert |
+ * | `--ohne-obsidian` | Obsidian nur nennen, nicht installieren |
  * | `--ohne-mitgaben` | beide nur prüfen und nennen |
  *
  * **Warum Obsidian nicht von selbst.** Es ist ein Programm mit Oberfläche und
@@ -796,7 +796,10 @@ export async function installiere(optionen = {}) {
   await schritt(7, 'Mitgaben (Graphify, Obsidian)', async () => {
     const wahl = {
       ohneMitgaben: ueberspringeMitgaben,
-      mitObsidian: optionen.mitObsidian === true,
+      // **Obsidian ist Standard seit dem 31.10.2026.** Ohne Vault-Panel ist der
+      // Wissensspeicher eine Sackgasse; die Lizenzfrage (gewerblich
+      // kostenpflichtig) nennt die Ausgabe, und `--ohne-obsidian` wählt ab.
+      mitObsidian: ueberspringeMitgaben ? false : optionen.ohneObsidian !== true,
       mitGraphen: !ueberspringeMitgaben,
     }
     const vorher = await pruefeAlle()
@@ -830,7 +833,7 @@ export async function installiere(optionen = {}) {
       )
       if (fehltNoch.some((befund) => befund.name === 'obsidian')) {
         schreibe('  Obsidian nachziehen (eigene Lizenz, für gewerbliche Nutzung kostenpflichtig):\n')
-        schreibe('    bun run install:alles -- --mit-obsidian\n')
+        schreibe('    bun run install:alles\n')
       }
     }
     return true
@@ -931,6 +934,6 @@ export async function installiere(optionen = {}) {
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const ohneStapel = process.argv.includes('--ohne-stapel')
   const ohneMitgaben = process.argv.includes('--ohne-mitgaben')
-  const mitObsidian = process.argv.includes('--mit-obsidian')
-  process.exitCode = await installiere({ ohneStapel, ohneMitgaben, mitObsidian })
+  const ohneObsidian = process.argv.includes('--ohne-obsidian')
+  process.exitCode = await installiere({ ohneStapel, ohneMitgaben, ohneObsidian })
 }

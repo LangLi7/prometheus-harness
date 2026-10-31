@@ -44,7 +44,8 @@
 #>
 [CmdletBinding()]
 param(
-  [switch]$OhneStapel
+  [switch]$OhneStapel,
+  [switch]$OhneObsidian
 )
 
 $ErrorActionPreference = 'Stop'
@@ -167,6 +168,7 @@ try {
   # --- 2. Übergeben an das eigentliche Installationsskript -------------------
   $argumente = @('scripts/install.mjs')
   if ($OhneStapel) { $argumente += '--ohne-stapel' }
+  if ($OhneObsidian) { $argumente += '--ohne-obsidian' }
 
   # **Der Exit-Code wird durchgereicht.** Ohne diese Zeile endet PowerShell mit 0,
   # auch wenn die Installation gescheitert ist — und ein Aufrufer aus einem
