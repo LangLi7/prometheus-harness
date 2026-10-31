@@ -17,13 +17,13 @@ English | [Deutsch](README.de.md)
 <a id="summary"></a>
 ## Summary
 
-One line on Windows — it fetches the repository itself and installs:
+One line on Windows. It fetches the repository itself and installs:
 
 ```powershell
 irm https://raw.githubusercontent.com/LangLi7/prometheus-harness/main/scripts/install.ps1 | iex
 ```
 
-On Linux and macOS, clone and run the shell entry — `./scripts/install.sh`. The
+On Linux and macOS, clone the repository and run `./scripts/install.sh`. The
 installer installs Bun and the base packages, generates `.env` with fresh secrets,
 starts PostgreSQL 17 and Redis 7 (installing Docker first when it is missing on
 Linux), waits for their health checks, runs the migrations, and type-checks every
@@ -85,11 +85,11 @@ Nothing here is an estimate.
 ## Quickstart
 
 ```sh
-# Windows — PowerShell, one line. No clone first, and no change to the
-# execution policy: `iex` loads no file, so `Restricted` does not apply.
+# Windows: PowerShell, one line. No clone first, and no change to the
+# execution policy. `iex` loads no file, so `Restricted` does not apply.
 irm https://raw.githubusercontent.com/LangLi7/prometheus-harness/main/scripts/install.ps1 | iex
 
-# Windows — fallback if you already cloned (also works from cmd.exe)
+# Windows: fallback if you already cloned (also works from cmd.exe)
 scripts\install.cmd
 
 # Linux and macOS

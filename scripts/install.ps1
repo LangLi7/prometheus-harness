@@ -53,7 +53,7 @@ $ErrorActionPreference = 'Stop'
 # ---------------------------------------------------------------------------
 # 0. Wo liegt das Projekt? — und was tun, wenn es hier nicht liegt
 # ---------------------------------------------------------------------------
-# **Drei Wege, dieses Skript zu starten, und der dritte ist der Ein-Zeiler:**
+# Drei Wege, dieses Skript zu starten, und der dritte ist der Ein-Zeiler.
 #
 #   powershell -File scripts\install.ps1      → $PSCommandPath ist gesetzt
 #   Get-Content … | Invoke-Expression        → $PSCommandPath ist LEER
@@ -81,7 +81,7 @@ if ($PSCommandPath) {
 }
 if (-not (Test-Projekt $kandidat)) { $kandidat = (Get-Location).Path }
 
-# **Der Ein-Zeiler holt das Projekt selbst.** Derselbe Weg wie in `install.sh`:
+# Der Ein-Zeiler holt das Projekt selbst. Derselbe Weg wie in `install.sh`:
 # erst prüfen, dann holen, dann dort weitermachen. Übersteuerbar, damit der Weg
 # ohne Netz prüfbar ist:
 #   $env:PMH_REPO          Quelle des Projekts

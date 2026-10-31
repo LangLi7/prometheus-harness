@@ -275,14 +275,14 @@ echo "Bun: $(bun --version)"
 echo
 
 # -----------------------------------------------------------------------------
-# 6. Docker — die Datenbank braucht es
+# 6. Docker: die Datenbank braucht es
 # -----------------------------------------------------------------------------
-# **Warum das hier geschieht und nicht in `install.mjs`.** Auf Linux ist Docker
+# Warum das hier geschieht und nicht in `install.mjs`. Auf Linux ist Docker
 # über das offizielle Skript installierbar; das braucht root. `sudo` ist hier
 # schon geprüft (Schritt 2) — in Bun müsste dieselbe Rechteprüfung ein zweites
 # Mal stehen.
 #
-# **Der unangenehme Teil danach:** `usermod -aG docker` wirkt erst nach einer
+# Der unangenehme Teil danach. `usermod -aG docker` wirkt erst nach einer
 # neuen Anmeldung. Ohne diese Prüfung scheiterte Schritt 4 des Installers mit
 # „permission denied while trying to connect to the Docker daemon" — und das
 # sieht nach einem Fehler des Installers aus, nicht nach einer Gruppenregel.
@@ -312,7 +312,7 @@ if [ "${PMH_OHNE_DOCKER:-0}" != '1' ] && ! command -v docker >/dev/null 2>&1; th
   fi
 fi
 
-# **Die Rechteprüfung, die den Unterschied macht.** `docker info` fragt den
+# Die Rechteprüfung, die den Unterschied macht. `docker info` fragt den
 # Daemon, nicht die Binärdatei: installiert und trotzdem gesperrt ist genau der
 # Zustand nach `usermod`, solange die Sitzung alt ist.
 if command -v docker >/dev/null 2>&1 && ! docker info >/dev/null 2>&1; then

@@ -1,15 +1,14 @@
 ---
 name: prometheus-package
-description: Zieht Fähigkeiten (Skills) und Pakete (Units) des Prometheus Harness nach — Bestand holen, in den Benutzer-Scope verknüpfen, eine einzelne Fähigkeit nachinstallieren, Units prüfen. Anwenden bei „Skill nachinstallieren", „Paket fehlt", „Bestand aktualisieren", „pmh-package", „prometheus package".
+description: Zieht Fähigkeiten (Skills) und Pakete (Units) des Prometheus Harness nach. Bestand holen, in den Benutzer-Scope verknüpfen, eine einzelne Fähigkeit nachinstallieren, Units prüfen. Anwenden bei "Skill nachinstallieren", "Paket fehlt", "Bestand aktualisieren", "pmh-package", "prometheus package".
 license: MIT
 ---
 
 # Prometheus Package
 
-Nach der Installation ist der Harness lauffähig, aber nicht vollständig: Die
-Fähigkeiten liegen in `units/skills` (eigenes Repository), die Pakete in
-`packages/` und `harness/units.json`. Dieser Skill zieht beides nach — ohne
-Neuinstallation.
+Nach der Installation startet der Harness, aber es fehlt etwas. Die Fähigkeiten
+liegen in `units/skills` (eigenes Repository), die Pakete in `packages/` und
+`harness/units.json`. Dieser Skill zieht beides nach, ohne Neuinstallation.
 
 ## Woher der Bestand kommt
 
@@ -19,8 +18,8 @@ Neuinstallation.
 | Benutzer-Scope | `~/.agents/skills` | Verknüpfungen dorthin |
 | Pakete (Units) | `harness/units.json` | im Harness-Repo |
 
-**Warum ein eigenes Repository.** Fähigkeiten sind Inhalte, keine Kernpakete:
-eigene Historie, eigene Lizenz, eigener Takt. Der Harness liest sie über den
+Fähigkeiten sind Inhalte, keine Kernpakete. Sie haben eine eigene Historie, eine
+eigene Lizenz und einen eigenen Takt. Der Harness liest sie über den
 Benutzer-Scope, nicht über `node_modules`.
 
 ## 1. Fähigkeiten holen oder aktualisieren
@@ -33,7 +32,7 @@ git -C units/skills pull --ff-only
 git clone --depth 1 https://github.com/LangLi7/pmh-skills.git units/skills
 ```
 
-## 2. Verknüpfen — der Schritt, der sie sichtbar macht
+## 2. Verknüpfen
 
 Ohne Verknüpfung liegt der Bestand nur auf der Platte. Der Harness liest
 `~/.agents/skills`; dort steht je Fähigkeit ein Verweis, keine Kopie.
@@ -55,8 +54,8 @@ Verknüpfung ist. Danach zählen:
 ls ~/.agents/skills | wc -l
 ```
 
-**Neu starten.** Der Katalog wird beim Start gelesen; eine laufende Sitzung
-sieht neue Fähigkeiten erst nach dem Neustart.
+Der Katalog wird beim Start gelesen. Eine laufende Sitzung sieht neue
+Fähigkeiten erst nach dem Neustart.
 
 ## 3. Eine einzelne Fähigkeit
 
@@ -71,21 +70,22 @@ New-Item -ItemType Junction -Path "$env:USERPROFILE\.agents\skills\<name>" `
 ln -s "$(pwd)/units/skills/<name>" "$HOME/.agents/skills/<name>"
 ```
 
-Für Sammlungen (mehrere Fähigkeiten in einem Baum, z. B. `pstack`, `ui-skills`)
-liegt die Fähigkeit eine Ebene tiefer: `units/skills/<sammlung>/skills/<name>`.
+Für Sammlungen (mehrere Fähigkeiten in einem Baum, etwa `pstack` oder
+`ui-skills`) liegt die Fähigkeit eine Ebene tiefer:
+`units/skills/<sammlung>/skills/<name>`.
 
 ## 4. Pakete und Units
 
-Die Units sind der laufende Bestand; `harness/units.json` deklariert sie.
+Die Units sind der laufende Bestand. `harness/units.json` deklariert sie.
 
 ```sh
-bun run units:host     # beweist: Generation → mount → Weg → unmount
+bun run units:host     # beweist: Generation -> mount -> Weg -> unmount
 bun run gen            # Unit-System: erzeugen, prüfen, quittieren
 bun run typecheck      # die Typen der Pakete
 bun test packages      # die Prüfungen der Pakete
 ```
 
-Fehlt nach einem `git pull` ein Paket, ist der Weg **nicht** „einzeln
+Fehlt nach einem `git pull` ein Paket, ist der Weg nicht "einzeln
 nachinstallieren", sondern:
 
 ```sh
@@ -93,16 +93,16 @@ bun install
 bun run install:alles -- --ohne-stapel
 ```
 
-## 5. Grenzen — ehrlich
+## 5. Grenzen
 
-- **Der Benutzer-Scope ist ein Ort, kein Besitz.** Liegt dort schon eine echte
-  Datei gleichen Namens, wird sie **nicht** überschrieben; die Ausgabe sagt es.
-- **`index.json` schreibt nur das PowerShell-Skript.** Unter Linux fehlt die
-  Gruppierung nach Sammlung im Web-Client; die Fähigkeiten selbst sind da.
-- **Ein Klon ist kein Update.** `pull --ff-only` scheitert bewusst, wenn lokal
-  etwas geändert wurde — dann ist Nachsehen richtiger als Überschreiben.
-- **Kein仍然 Marktplatz.** Es gibt keinen entfernten Katalog, aus dem eine
-  Fähigkeit einzeln geladen wird; die Quelle ist das Repository als Ganzes.
+- Der Benutzer-Scope ist ein Ort, kein Besitz. Liegt dort schon eine echte
+  Datei gleichen Namens, wird sie nicht überschrieben. Die Ausgabe sagt es.
+- `index.json` schreibt nur das PowerShell-Skript. Unter Linux fehlt die
+  Gruppierung nach Sammlung im Web-Client. Die Fähigkeiten selbst sind da.
+- Ein Klon ist kein Update. `pull --ff-only` scheitert bewusst, wenn lokal etwas
+  geändert wurde. Dann ist Nachsehen richtiger als Überschreiben.
+- Es gibt keinen entfernten Katalog, aus dem eine Fähigkeit einzeln geladen
+  wird. Die Quelle ist das Repository als Ganzes.
 
 ## Wenn etwas fehlt
 

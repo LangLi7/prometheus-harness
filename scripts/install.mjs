@@ -841,7 +841,7 @@ export async function installiere(optionen = {}) {
 
   // ── 8 ────────────────────────────────────────────────────────────────────
   /*
-   * **Fähigkeiten — der Bestand, der nicht zum Kern gehört.**
+   * Fähigkeiten: der Bestand, der nicht zum Kern gehört.
    *
    * Die Skills liegen seit dem 31.10.2026 in `github.com/LangLi7/pmh-skills`
    * (eigenes Repository: eigene Historie, eigene Lizenz, eigener Takt). Sie
@@ -849,11 +849,11 @@ export async function installiere(optionen = {}) {
    * hier pflegt. Stattdessen: holen, wenn sie fehlen, und in den
    * Benutzer-Scope verknüpfen, den der Katalog liest.
    *
-   * **Warum das ein eigener Schritt ist und nicht Teil der Mitgaben.** Ohne
+   * Warum das ein eigener Schritt ist und nicht Teil der Mitgaben. Ohne
    * Fähigkeiten startet der Harness, aber `/hilfe` ist leer. Das ist kein
    * fehlendes Beiwerk, sondern der Unterschied zwischen „läuft" und „nutzbar".
    *
-   * **Kein Scheitern.** Fehlt das Netz oder git, steht das da, und die
+   * Kein Scheitern. Fehlt das Netz oder git, steht das da, und die
    * Installation endet trotzdem mit 0 — der Rest ist fertig.
    */
   await schritt(8, 'Fähigkeiten (Skills)', async () => {

@@ -17,7 +17,7 @@ kind: "project"
 <a id="summary"></a>
 ## Zusammenfassung
 
-Unter Windows ein Befehl — er holt das Repository selbst und installiert:
+Unter Windows ein Befehl. Er holt das Repository selbst und installiert:
 
 ```powershell
 irm https://raw.githubusercontent.com/LangLi7/prometheus-harness/main/scripts/install.ps1 | iex
@@ -88,11 +88,11 @@ Nichts hier ist geschätzt.
 ## Schnellstart
 
 ```sh
-# Windows — PowerShell, ein Befehl. Kein Klonen vorher, und keine Änderung an
-# der Ausführungsrichtlinie: `iex` lädt keine Datei, `Restricted` greift nicht.
+# Windows: PowerShell, ein Befehl. Kein Klonen vorher, und keine Änderung an
+# der Ausführungsrichtlinie. `iex` lädt keine Datei, `Restricted` greift nicht.
 irm https://raw.githubusercontent.com/LangLi7/prometheus-harness/main/scripts/install.ps1 | iex
 
-# Windows — Rückfall, wenn schon geklont (läuft auch aus cmd.exe)
+# Windows: Rückfall, wenn schon geklont (läuft auch aus cmd.exe)
 scripts\install.cmd
 
 # Linux und macOS
