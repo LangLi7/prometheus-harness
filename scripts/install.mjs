@@ -51,7 +51,9 @@
  * | 5 | Migrationen |
  * | 6 | Typecheck (unser „build") |
  * | 7 | **Mitgaben**: Graphify nachziehen, Obsidian nennen (oder auf Wunsch installieren) |
- * | 8 | Prüfen, was läuft — und den nächsten Befehl nennen |
+ * | 8 | **Fähigkeiten (Skills)**: holen und in den Benutzer-Scope verknüpfen |
+ * | 9 | **Plugins (Units)**: holen, verknüpfen und in `harness/units.json` eintragen |
+ * | 10 | Prüfen, was läuft — und den nächsten Befehl nennen |
  *
  * ## Die beiden Mitgaben (Schritt 7)
  *
@@ -534,7 +536,7 @@ async function starteStapel(schreibe = aus) {
  * @returns das Ergebnis des Körpers
  */
 async function schritt(nummer, titel, koerper) {
-  aus(`\n[${String(nummer)}/9] ${titel}\n`)
+  aus(`\n[${String(nummer)}/10] ${titel}\n`)
   return await koerper()
 }
 
@@ -900,7 +902,53 @@ export async function installiere(optionen = {}) {
   })
 
   // ── 9 ────────────────────────────────────────────────────────────────────
-  await schritt(9, 'Fertig', async () => {
+  /*
+   * **Plugins (Units) — der Bestand, der sich einhängt.**
+   *
+   * Ein Plugin ist ein Unit: `unit.json`, `README.md`, `src/index.ts` unter
+   * `units/<name>`. Der Harness lädt nicht, was auf der Platte liegt, sondern was
+   * in `harness/units.json` deklariert ist. Das Verknüpfungsskript tut beides:
+   * Verweis anlegen und eintragen.
+   *
+   * Die Quelle ist `github.com/LangLi7/pmh-plugins` (eigenes Repository, wie bei
+   * den Fähigkeiten). Fehlt das Netz, steht der Hinweis da, und die Installation
+   * endet trotzdem mit 0.
+   */
+  await schritt(9, 'Plugins (Units)', async () => {
+    const quelle = join(wurzel, 'units', 'plugins')
+    if (!existsSync(quelle)) {
+      schreibe('  units/plugins fehlt — wird geholt …\n')
+      const { code, text } = await laufe(
+        werkzeugBefehl('git'),
+        ['clone', '--depth', '1', 'https://github.com/LangLi7/pmh-plugins.git', quelle],
+        { cwd: wurzel },
+      )
+      if (code !== 0) {
+        schreibe(`  FEHLER (exit ${String(code)}) — die Plugins fehlen weiterhin:\n`)
+        for (const zeile of text.trimEnd().split('\n').slice(-6)) schreibe(`    ${zeile}\n`)
+        schreibe('  Nachholen: bun run install:alles   (oder den Skill `prometheus-package`)\n')
+        return true
+      }
+    }
+
+    const skript = join(quelle, 'link-plugins.mjs')
+    if (!existsSync(skript)) {
+      schreibe('  FEHLER: link-plugins.mjs fehlt im Bestand.\n')
+      return true
+    }
+    const { code, text } = await laufe(BUN, [skript], { cwd: wurzel })
+    for (const zeile of text.trimEnd().split('\n').slice(-8)) {
+      if (zeile.trim() !== '') schreibe(`  ${zeile}\n`)
+    }
+    if (code !== 0) {
+      schreibe(`  FEHLER beim Verknüpfen (exit ${String(code)}) — die Deklaration bleibt unvollständig.\n`)
+      return true
+    }
+    return true
+  })
+
+  // ── 10 ───────────────────────────────────────────────────────────────────
+  await schritt(10, 'Fertig', async () => {
     schreibe(
       '\n  Starten:\n' +
         '\n' +

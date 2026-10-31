@@ -74,7 +74,29 @@ Für Sammlungen (mehrere Fähigkeiten in einem Baum, etwa `pstack` oder
 `ui-skills`) liegt die Fähigkeit eine Ebene tiefer:
 `units/skills/<sammlung>/skills/<name>`.
 
-## 4. Pakete und Units
+## 4. Plugins (Units)
+
+Ein Plugin ist ein Unit: `unit.json`, `README.md`, `src/index.ts` unter
+`units/<name>`. Der Harness lädt nicht, was auf der Platte liegt, sondern was in
+`harness/units.json` deklariert ist.
+
+```sh
+git clone --depth 1 https://github.com/LangLi7/pmh-plugins.git units/plugins
+bun units/plugins/link-plugins.mjs --pruefen   # zeigen, nichts schreiben
+bun units/plugins/link-plugins.mjs             # verknüpfen und deklarieren
+```
+
+Das Skript legt für jedes Plugin einen Verweis unter `units/<name>` an und trägt
+es in `harness/units.json` ein. Ein zweiter Lauf überspringt, was schon da ist.
+
+Prüfen:
+
+```sh
+bun run gen check     # Deklaration gültig?
+bun run units:host    # Generation, Einhängen, Weg, Abstecken
+```
+
+## 5. Pakete und Units
 
 Die Units sind der laufende Bestand. `harness/units.json` deklariert sie.
 
@@ -93,7 +115,7 @@ bun install
 bun run install:alles -- --ohne-stapel
 ```
 
-## 5. Grenzen
+## 6. Grenzen
 
 - Der Benutzer-Scope ist ein Ort, kein Besitz. Liegt dort schon eine echte
   Datei gleichen Namens, wird sie nicht überschrieben. Die Ausgabe sagt es.

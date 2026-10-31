@@ -199,3 +199,7 @@ brag-output-*/
 data-gym-cache/
 .playwright-mcp/
 /dist/
+
+# --- Eigenstaendige Repositories unter units/ (eigene Historie, eigener Takt) ---
+/units/plugins/
+
