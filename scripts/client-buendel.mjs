@@ -197,6 +197,39 @@ ${rumpf
  * @param {{namensraeume: number, texte: number}} erwartet - die gemessenen Zahlen (Sprachpaket)
  * @returns {{fehler: string[], befund: string[]}}
  */
+/**
+ * Die gemessene Erwartung für das Sprachpaket.
+ *
+ * Die Kern-Namensräume kommen aus `docs/status/sprachquelle.json`, die
+ * Plugin-Fächer aus den beiden `plugins.*.json`, die `scripts/language-merge.mjs`
+ * schreibt. Das Paket hängt beide ein, also zählen beide. Nur den Kern zu zählen
+ * hieße, jedes neue Plugin-Fach als Befund zu melden.
+ *
+ * **Eine Quelle für Bau und Test.** Vorher baute der Test seine Erwartung selbst
+ * und wich damit vom Bau ab; der Bau war grün, der Test rot.
+ *
+ * @returns {{namensraeume: number, texte: number, englisch: Set<string>}} die Zahlen
+ */
+export function messeErwartung() {
+  const quelle = JSON.parse(readFileSync(QUELLE, 'utf8'))
+  const liesPluginFaecher = (name) => {
+    try {
+      return JSON.parse(readFileSync(join('packages', 'client', 'locale', name), 'utf8'))
+    } catch {
+      return {}
+    }
+  }
+  const pluginsDe = liesPluginFaecher('plugins.de.json')
+  const pluginsEn = liesPluginFaecher('plugins.en.json')
+  return {
+    namensraeume: Object.keys(quelle.faecher).length + Object.keys(pluginsDe).length,
+    texte:
+      Object.values(quelle.faecher).reduce((s, f) => s + Object.keys(f.englisch).length, 0) +
+      Object.values(pluginsDe).reduce((s, f) => s + Object.keys(f).length, 0),
+    englisch: new Set(Object.keys(pluginsEn)),
+  }
+}
+
 export function pruefeBuendel(text, paket, erwartet) {
   const fehler = []
   const befund = []
@@ -959,33 +992,7 @@ async function haupt() {
   // `--paket <dir>` baut eines; ohne Angabe **alle** aus der Tabelle (ein vergessenes Plugin
   // wäre sonst still nicht gebaut).
   const gewaehlt = args.includes('--paket') ? [args[args.indexOf('--paket') + 1] ?? ''] : PAKETE.map((p) => p.dir)
-  const quelle = JSON.parse(readFileSync(QUELLE, 'utf8'))
-  /*
-   * **Die Fächer der Plugins zählen mit.**
-   *
-   * `scripts/language-merge.mjs` schreibt sie aus den `locale`-Dateien der Plugins nach
-   * `plugins.de.json`/`plugins.en.json`; das Sprachpaket hängt **beide** ein. Ohne sie in der
-   * Erwartung wäre jedes neue Plugin-Fach ein Befund — und der Befund wäre richtig, nur läge der
-   * Fehler nicht im Bündel, sondern in dieser Zeile.
-   *
-   * Fehlt eine der Dateien, zählt sie als leer: ein frisches Paket ohne Plugin-Fächer ist gültig.
-   */
-  const liesPluginFaecher = (name) => {
-    try {
-      return JSON.parse(readFileSync(join('packages', 'client', 'locale', name), 'utf8'))
-    } catch {
-      return {}
-    }
-  }
-  const pluginsDe = liesPluginFaecher('plugins.de.json')
-  const pluginsEn = liesPluginFaecher('plugins.en.json')
-  const erwartet = {
-    namensraeume: Object.keys(quelle.faecher).length + Object.keys(pluginsDe).length,
-    texte:
-      Object.values(quelle.faecher).reduce((s, f) => s + Object.keys(f.englisch).length, 0) +
-      Object.values(pluginsDe).reduce((s, f) => s + Object.keys(f).length, 0),
-    englisch: new Set(Object.keys(pluginsEn)),
-  }
+  const erwartet = messeErwartung()
 
   let fehlerGesamt = 0
   for (const dir of gewaehlt) {

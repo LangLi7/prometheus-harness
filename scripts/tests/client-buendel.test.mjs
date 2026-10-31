@@ -14,7 +14,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { describe, expect, test } from 'bun:test'
-import { paketFuer, pruefeBuendel, umschliesse } from '../client-buendel.mjs'
+import { messeErwartung, paketFuer, pruefeBuendel, umschliesse } from '../client-buendel.mjs'
 
 /** Der Eintrag der Tabelle für das Sprachpaket — die Prüfung braucht die Art. */
 const SPRACHPaket = paketFuer('packages/client/locale')
@@ -24,11 +24,7 @@ const STILPaket = paketFuer('packages/client/select-contrast')
 const ZIEL = 'packages/client/locale/lib/client.js'
 /** Das Bündel des Kontrast-Plugins. */
 const STIL_ZIEL = 'packages/client/select-contrast/lib/client.js'
-const quelle = JSON.parse(readFileSync('docs/status/sprachquelle.json', 'utf8'))
-const erwartet = {
-  namensraeume: Object.keys(quelle.faecher).length,
-  texte: Object.values(quelle.faecher).reduce((s, f) => s + Object.keys(f.englisch).length, 0),
-}
+const erwartet = messeErwartung()
 
 /** Ein kleines, absichtlich unvollständiges Plugin als Bündeltext. */
 function baue(rumpf) {
@@ -135,8 +131,13 @@ exports.inject = ["locale"];
     const quelle = JSON.parse(readFileSync('docs/status/sprachquelle.json', 'utf8'))
     const faecher = Object.keys(quelle.faecher).length
     const texte = Object.values(quelle.faecher).reduce((s, f) => s + Object.keys(f.englisch).length, 0)
-    expect(erwartet.namensraeume).toBe(faecher)
-    expect(erwartet.texte).toBe(texte)
+    // **Die Plugin-Fächer kommen dazu.** Sie stehen nicht in der Kern-Messung,
+    // das Sprachpaket hängt sie trotzdem ein (`plugins.de.json`).
+    const plugins = JSON.parse(readFileSync('packages/client/locale/plugins.de.json', 'utf8'))
+    const pluginFaecher = Object.keys(plugins).length
+    const pluginTexte = Object.values(plugins).reduce((s, f) => s + Object.keys(f).length, 0)
+    expect(erwartet.namensraeume).toBe(faecher + pluginFaecher)
+    expect(erwartet.texte).toBe(texte + pluginTexte)
     // Untergrenze: der Bestand vom 14.10.2026. Ein Rückfall darunter heißt: die Extraktion ist
     // kaputt, nicht das Paket.
     expect(erwartet.namensraeume).toBeGreaterThanOrEqual(57)
