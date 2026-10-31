@@ -54,8 +54,10 @@ export const WURZELN = [
   'scripts',
   'services',
   'benchmarks',
-  'docker',
   'native',
+  // `docker` stand hier, bis der Ordner am 31.10.2026 geloescht wurde
+  // (`docker-compose.yml` liegt in der Wurzel und bleibt). Eine Wurzel, die es
+  // nicht gibt, meldet der Waechter selbst — siehe den Test unten.
   // `docs` ist dabei — aber im **Code-Modus**: geprüft werden dort nur ausführbare und erzeugte
   // Dateien, keine Notizen. Ohne diesen Eintrag lief die Erkennung nie, und der Wächter meldete
   // weiter 30, obwohl 28 Codenamen dort lagen.

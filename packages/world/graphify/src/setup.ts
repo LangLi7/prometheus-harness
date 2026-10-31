@@ -176,8 +176,11 @@ export function installBefehl(method: SetupMethod, python: string | null): reado
   if (method === 'pipx') return ['pipx', 'install', PAKET]
   if (method === 'pip') {
     if (python === null) return null
-    // `py` ist der Windows-Starter und braucht die Versionswahl.
-    const starter = /^py(?:\.exe)?$/iu.test(basename(python))
+    // `py` ist der Windows-Starter und braucht die Versionswahl. `basename`
+    // erkennt auf Linux den Backslash nicht als Trenner, deshalb der Split: der
+    // Test prüft den Windows-Pfad auf jeder Plattform.
+    const name = python.includes('\\') ? (python.split('\\').pop() ?? '') : basename(python)
+    const starter = /^py(?:\.exe)?$/iu.test(name)
     return [python, ...(starter ? ['-3'] : []), '-m', 'pip', 'install', '--user', PAKET]
   }
   return null

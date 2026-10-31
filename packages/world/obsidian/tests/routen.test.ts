@@ -67,12 +67,18 @@ describe('GET app', () => {
     expect(antwort.status).toBe(200)
     expect(antwort.kopf['cache-control']).toBe('no-store')
     const koerper = antwort.koerper as { verfuegbar: boolean; exe: string | null; detail: string; vault: string | null }
-    // Auf diesem Rechner ist Obsidian installiert (gemessen); der Test sagt es,
-    // statt es vorauszusetzen — schlägt er fehl, ist die Erkennung kaputt.
-    expect(koerper.verfuegbar).toBe(true)
-    expect(koerper.exe).toContain('Obsidian.exe')
-    expect(koerper.vault).toBeString()
-    expect(koerper.detail).toContain(koerper.exe ?? '')
+    // **Beide Fälle sind ein Befund.** Auf einer Maschine mit Obsidian nennt die
+    // Antwort die exe; auf einer ohne (CI) muss sie sagen, dass sie keine fand.
+    // Vorher stand hier hart `true` — richtig auf der Entwicklungsmaschine, in CI
+    // ein Fehler, der nicht die Erkennung prüfte, sondern die Ausstattung.
+    if (koerper.verfuegbar) {
+      expect(koerper.exe).toContain('Obsidian.exe')
+      expect(koerper.vault).toBeString()
+      expect(koerper.detail).toContain(koerper.exe ?? '')
+    } else {
+      expect(koerper.exe).toBeNull()
+      expect(koerper.detail.length).toBeGreaterThan(0)
+    }
   })
 })
 

@@ -17,6 +17,7 @@
  */
 
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
+import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { tmpdir } from 'node:os'
@@ -77,11 +78,43 @@ interface Fake {
  * @param erlaubt - ob der Verbindungsdienst durchläßt
  * @returns der Fake
  */
+/**
+ * **Der Workspace mit Repository ist ein Wegwerf-Repository.**
+ *
+ * Vorher war es `process.cwd()`. In CI ist der Kopf abgetrennt, `zweig.name` ist
+ * dort `null`, und die Prüfung fiel um — nicht weil die Route falsch läse,
+ * sondern weil die Umgebung keinen Zweig hatte. Das Fixture hat `main`, einen
+ * Commit und ein Fern: alles, was `/stand` und `/fern` lesen.
+ *
+ * @returns das Verzeichnis
+ */
+function baueRepo(): string {
+  const verzeichnis = mkdtempSync(join(tmpdir(), 'pmh-git-'))
+  const git = (...argumente: string[]) =>
+    execFileSync('git', argumente, { cwd: verzeichnis, stdio: 'ignore' })
+  git('init', '-q', '-b', 'main')
+  git(
+    '-c',
+    'user.email=test@example.invalid',
+    '-c',
+    'user.name=Test',
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'erster',
+  )
+  git('remote', 'add', 'origin', 'https://example.invalid/repo.git')
+  return verzeichnis
+}
+
+const REPO = baueRepo()
+
 function macheFake(erlaubt = true): Fake {
   const routen: WebRoute[] = []
   const wirkungen: (() => void)[] = []
   const workspaces: FakeWorkspace[] = [
-    { id: 'w-repo', path: process.cwd(), title: 'Prometheus Harness' },
+    { id: 'w-repo', path: REPO, title: 'Prometheus Harness' },
     { id: 'w-leer', path: LEER, title: 'Leer' },
   ]
   const ctx = {
