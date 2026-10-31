@@ -160,6 +160,16 @@ for t in curl git; do
   fi
 done
 
+# **Bash für Bun — und zwar nur, wenn Bun wirklich fehlt.**
+# Das offizielle Installationsskript von Bun beginnt mit `#!/usr/bin/env bash`
+# (gemessen am 31.10.2026 an https://bun.sh/install). Auf Alpine gibt es nur
+# BusyBox-`sh`; ohne diese Zeile scheiterte `curl … | bash` dort mit
+# „bash: not found" — und zwar an einer Stelle, die nach einem Fehler des
+# Skripts aussieht. Steht Bun schon, wird bash nicht gebraucht.
+if ! command -v bun >/dev/null 2>&1 && ! command -v bash >/dev/null 2>&1; then
+  fehlende="$fehlende bash"
+fi
+
 # -----------------------------------------------------------------------------
 # 4. Fehlende Pakete installieren — oder sichtbar abbrechen
 # -----------------------------------------------------------------------------
