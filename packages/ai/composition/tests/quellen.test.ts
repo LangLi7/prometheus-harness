@@ -56,9 +56,9 @@ describe('Quellen anmelden', () => {
     const meldung = meldeQuellen(m)
 
     expect(m.familien).toEqual(FAMILIEN.map((familie) => familie.id))
-    expect(m.familien.length).toBe(7)
+    expect(m.familien.length).toBe(FAMILIEN.length)
     expect(m.tarife).toEqual([SAAT.length])
-    expect(meldung.bericht.join(' ')).toContain('7 Familien')
+    expect(meldung.bericht.join(' ')).toContain(`${FAMILIEN.length} Familien`)
     expect(meldung.bericht.join(' ')).toContain(String(SAAT.length))
     expect(meldung.bericht.join(' ')).toContain(SAAT_STAND)
   })
@@ -121,7 +121,7 @@ describe('Quellen anmelden', () => {
     expect(m.abmeldungen[0]).toBe('modelle:openrouter')
     expect(m.abmeldungen).toContain('katalog')
     expect(m.abmeldungen).toContain('tarife')
-    expect(m.abmeldungen.filter((zeile) => zeile.startsWith('familie:'))).toHaveLength(7)
+    expect(m.abmeldungen.filter((zeile) => zeile.startsWith('familie:'))).toHaveLength(FAMILIEN.length)
   })
 
   test('zweimal abmelden ist harmlos — die Reihenfolge bleibt', () => {

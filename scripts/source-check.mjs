@@ -70,6 +70,11 @@ export const AUSGENOMMEN = [
   '.github',
   'website/.vitepress/cache',
   'website/.vitepress/dist',
+  // **Minifizierte Fremd-Bündel in mitgelieferten Skill-Assets.** `frost.js` ist
+  // ein Three.js-Bundle; die Bytes `\u0001` sind dort Trennzeichen in einem
+  // Tag-Leser, kein Defekt — derselbe Fall wie mark.js weiter oben. Gemessen am
+  // 31.10.2026: zwei Treffer, beide in dieser Datei, beide Absicht.
+  '.agents/skills/frost-sequence-camera-orbit/assets',
 ]
 
 /** Die Dateiendungen, die als Quelltext gelten. */

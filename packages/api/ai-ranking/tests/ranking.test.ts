@@ -14,7 +14,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import type { Anbieter, Faehigkeit } from '@prometheus-harness/capabilities'
-import type { Familie } from '@prometheus-harness/provider-directory'
+import { FAMILIEN, type Familie } from '@prometheus-harness/provider-directory'
 import type { Katalog, Katalogeintrag } from '@prometheus-harness/directory-curator'
 import { SAAT, type Tarifeintrag } from '@prometheus-harness/tariffs'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
@@ -383,7 +383,10 @@ describe('Das Einhängen', () => {
 
     const register = host.dienst()
     const quellen = register.quellen()
-    expect(quellen.familien.length).toBe(7)
+    // **Die Zahl kommt aus dem Verzeichnis, nicht aus dem Kopf.** TypeSafe kam am
+    // 31.10.2026 als achte Familie dazu; eine feste 7 wäre beim nächsten Zuwachs
+    // wieder falsch.
+    expect(quellen.familien.length).toBe(FAMILIEN.length)
     expect(quellen.tarife.length).toBe(SAAT.length)
     // **Kein Katalog** — er kommt aus einem Verwalterlauf und wird gereicht, nicht erfunden.
     expect(quellen.katalog).toBeUndefined()
@@ -426,7 +429,7 @@ describe('Das Einhängen', () => {
     host.routen[0]?.handler(fakeReq('GET', RANKING_PATH), res)
     const koerper = JSON.parse(ergebnis().body)
     expect(koerper.quellenbericht.length).toBeGreaterThan(0)
-    expect(koerper.quellenbericht.join(' ')).toContain('7 Familien')
+    expect(koerper.quellenbericht.join(' ')).toContain(`${FAMILIEN.length} Familien`)
     expect(koerper.quellenbericht.join(' ')).toContain('KEIN Katalog')
   })
 
@@ -443,7 +446,7 @@ describe('Das Einhängen', () => {
   test('meldeStandardquellen läßt sich einschränken', () => {
     const register = erzeugeRegister()
     meldeStandardquellen(register, { tarife: [] })
-    expect(register.quellen().familien.length).toBe(7)
+    expect(register.quellen().familien.length).toBe(FAMILIEN.length)
     expect(register.quellen().tarife).toEqual([])
   })
 })
