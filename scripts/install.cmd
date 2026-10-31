@@ -69,6 +69,7 @@ set "ARGS="
 if "%~1"=="" goto fertig
 set "A=%~1"
 if /i "%A%"=="--ohne-stapel" set "A=-OhneStapel"
+if /i "%A%"=="--ohne-obsidian" set "A=-OhneObsidian"
 if /i "%A%"=="--help" set "A=-?"
 if /i "%A%"=="-h" set "A=-?"
 set "ARGS=%ARGS% %A%"

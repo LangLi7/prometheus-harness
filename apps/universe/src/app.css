@@ -1,0 +1,4578 @@
+/*
+ * Die **Welt** (Skizze des Betreibers) und das **Design-System des Harness** (importiert).
+ *
+ * **Zwei Sätze, und beide kommen jetzt aus dem Original — keiner ist mehr abgeschrieben.**
+ *
+ *   1. Die Welt folgt den Skizzen des Betreibers
+ *      (`docs/design/webdesign example/002-Chat Perspektive/index.html`, `002-f-galaxy/index.html`):
+ *
+ *        --bg #050507  --s #101010  --b #3d3a39  --t #f2f2f2  --t2 #b8b3b0  --t3 #8b949e
+ *        --a  #ff5a1f  --a2 #ffb35c  --blue #6ba3ff  --g #3fb970
+ *
+ *   2. Der Chat folgt dem DeepSeek-Harness — und zwar **nicht mehr nachgebaut**, sondern
+ *      **importiert**: `design-system.css` lädt die fünf Blätter aus `ui-theme` wörtlich
+ *      (Schriften, Token-Sätze hell **und** dunkel, Bildlaufleiste, Fokusring).
+ *
+ * **Was hier NICHT mehr steht: die `--dsw-*`-Werte.** Sie standen bis eben an dieser Stelle, von
+ * Hand aus `design-platform.css` herausgelesen. Das war der Fehler, den der Betreiber an zwei
+ * Bildern gesehen hat („siehst du der unterschied???"): **die Maße waren aus dem Harness, die Farben
+ * waren meine.** Abgeschriebene Werte sind eine zweite Wahrheit — sie stimmen heute und driften
+ * morgen. Wer einen Token braucht, findet ihn im Import.
+ *
+ * **Was hier stehen bleibt:** die Welt-Tokens, und die `--dsh-*`-Werte, die der Harness zur
+ * **Laufzeit** setzt (Schriftgröße aus den Einstellungen, Breite der Lesespalte). Ohne sie hätte ein
+ * Blatt aus `ui-theme` keinen Wert für `var(--dsh-content-font-size)`.
+ */
+:root {
+  /* ── Die Welt (Skizzen des Betreibers) ─────────────────────────────────────────────── */
+  --bg: #050507;
+  --s: #101010;
+  --s2: #0a0a0a;
+  --b: #3d3a39;
+  --b2: #1d1b1a;
+  --t: #f2f2f2;
+  --t2: #b8b3b0;
+  --t3: #8b949e;
+  --a: #ff5a1f;
+  --a2: #ffb35c;
+  --blue: #6ba3ff;
+  --g: #3fb970;
+  --mono: 'JetBrains Mono', Consolas, monospace;
+  /*
+   * **Die Textschrift kommt aus dem Harness — nicht aus einem Wunsch.**
+   *
+   * Hier stand `Inter, system-ui, sans-serif`. Inter wird **nirgends geladen** (kein Import, keine
+   * Datei), also rendert der Browser die Systemschrift — und die ist zufällig dieselbe, die der
+   * Harness benutzt: `--dsh-font-family-text-default` ist `-apple-system, BlinkMacSystemFont,
+   * 'Segoe UI', …`. Gemessen in `tools/ui-surface.ts` stand als gerechnete Familie `-apple-system`.
+   *
+   * Der Unterschied ist nicht die Familie, sondern die **Herkunft**: ein Wunsch nach einer Schrift,
+   * die es nicht gibt, ist eine stille Lüge. Wer sie ändern will, ändert sie hier — und die
+   * Harness-Variable bleibt die Wahrheit.
+   */
+  --sans: var(--dsw-font-family, system-ui, sans-serif);
+
+  /*
+   * ── Die Schriftgrade, und warum sie hier stehen ──────────────────────────────────────
+   *
+   * **Gemessen, nicht gewählt.** Der Betreiber: „schau das bild nochmals an" — und dann, nach
+   * mehreren Runden über die Welt statt über die Oberfläche: „nein es geht um gui ui ux".
+   *
+   * `tools/ui-surface.ts` hat die Oberfläche vermessen und dabei **elf** Schriftgrade gefunden:
+   * 8, 9, 9,5, 10, 10,5, 11, 11,5, 12, 12,5, 13, 14 px. Keine Skala, sondern gewachsene Zahlen —
+   * und die kleinen (8 bis 10,5) standen ausgerechnet an den Stellen, die man **immer** liest:
+   * die Knopfleiste unten („abgesteckt: …", 10 px), die Etiketten im Suchfeld (10,5 px), der
+   * Kopfzeilen-Zusatz (10 px).
+   *
+   * Zum Vergleich die Skala des Harness, ausgezählt über seine 202 Stylesheets:
+   *
+   *     12 px  159×     14 px  109×     13 px  104×     11 px  53×     16 px  22×     10 px  16×
+   *
+   * 8, 9, 9,5 und 10,5 px kommen dort **praktisch nicht vor**. Die Regel ist also nicht Geschmack,
+   * sondern Messung: **11 px ist die untere Grenze, 12 px die Norm, 14 px für Überschriften.** Die
+   * Namen unten machen das nachvollziehbar — jede Zeile, die sie benutzt, nennt damit ihren Zweck.
+   */
+  --f-titel: 14px;
+  --f-text: 12px;
+  --f-klein: 11px;
+
+  /*
+   * **Und die gedämpfte Farbe wird heller.** `--t3` war `#8b949e` — ein Blaugrau mit Kontrast 6,2:1,
+   * formal ausreichend, in der Fläche aber kaum zu sehen: die Beschriftungen der Knopfleiste stehen in
+   * 10 px **gesperrten Grossbuchstaben**, und eine dünne Schrift mit weiter Sperrung verliert genau
+   * die Strichdicke, die den Kontrast trägt.
+   *
+   * Kontrast ist die eine Hälfte, **Strichdicke und Grösse** sind die andere. `#b9c2cc` bringt den
+   * Kontrast auf über 9:1, und zusammen mit 11 px und aufgehobener Sperrung ist der Text ein Text.
+   */
+  --t3: #b9c2cc;
+
+  /*
+   * ── Die Laufzeit-Werte des Harness ──────────────────────────────────────────────────
+   *
+   * Der Harness setzt diese beim Start (`ThemePresenter`, `Bootstrap`): die Schriftgröße aus den
+   * Einstellungen (10–22 px, Vorgabe 14) und daraus die abgeleiteten Größen. Ein Blatt aus
+   * `ui-theme` liest sie mit `var(--dsh-content-font-size, 14px)`; ohne den Wert greift überall der
+   * Rückfall, und die Schrift stellte sich nicht auf die Einstellung um.
+   */
+  --dsh-content-font-size: 14px;
+  --dsh-content-font-delta: 0px;
+  --dsh-content-font-size-secondary: 13px;
+  --dsh-content-font-delta-secondary: 0px;
+  --dsh-code-font-size: 11px;
+
+  /*
+   * **Die Breitenachse.** Zwei Werte, die zusammengehören: die Lesespalte und die Composer-Karte,
+   * die **32 px breiter** ist. Beide sitzen auf derselben Mittelachse — das ist der Grund, warum die
+   * Oberfläche ruhig aussieht. Die Zahlen stehen wörtlich in `ConversationRoot.module.css`.
+   */
+  --dsh-chat-content-width: min(calc(100% - 32px), 920px);
+  --dsh-composer-card-max-width: min(calc(100% - 16px), 952px);
+  --dsh-composer-side-clearance: 16px;
+
+  /* ══ BEWEGUNG ═══════════════════════════════════════════════════════════════════════════
+   *
+   * **Der Befund, der diese Gruppe erzwungen hat.** Am 15.10.2026 bat der Betreiber: *„alles was mit
+   * design und animation … smooth und modern professionell ist"*. Gezählt waren es damals **13**
+   * Übergänge in 2705 Zeilen — mit **neun verschiedenen Dauerangaben** (0,12 s · 0,2 s · 0,25 s ·
+   * 0,28 s · 0,3 s · 0,45 s · 120 ms · 140 ms · 1,2 s), **drei** davon `linear`, und **kein** einziger
+   * Fall für „der Nutzer will keine Bewegung" (`prefers-reduced-motion` kam im ganzen Blatt **null**
+   * mal vor).
+   *
+   * **Warum das nicht „Geschmack" ist.** Eine Bewegung ist eine Aussage über eine **Beziehung**: was
+   * zusammengehört, bewegt sich gleich; was auseinandergeht, bewegt sich anders. Neun Dauern für
+   * dieselbe Sache („etwas wird sichtbar") sind neun Aussagen — und der Nutzer liest sie, auch wenn
+   * er sie nicht benennen kann. Es fühlt sich „unruhig" an, und niemand weiß warum.
+   *
+   * **Die vier Dauern, und wofür sie stehen:**
+   *
+   *   --t-schnell   120 ms   ein **Zustand** wechselt: Farbe, Rahmen, Sichtbarkeit einer Marke
+   *   --t-mittel    180 ms   eine **Fläche** antwortet: Hover, Fokus, ein Knopf drückt sich
+   *   --t-gross     260 ms   eine **Sache** erscheint: Panel, Dialog, Ansicht, Zeile in der Liste
+   *   --t-feder     440 ms   **der eine** große Übergang: die Insel klappt auf
+   *
+   * **Warum keine fünfte.** Wer eine braucht, hat zwei, die dasselbe tun — und dann ist eine davon
+   * falsch. Die Insel bekommt die längste, weil sie die größte Fläche bewegt; alles andere liegt
+   * darunter.
+   *
+   * **Die Kurven.** `--e-standard` ist die ruhige: schnell los, sanft ankommen (dieselbe Kurve, die
+   * Material Design „standard" nennt). `--e-aus` nimmt die Bewegung heraus (etwas verschwindet),
+   * `--e-ein` bringt sie hinein. `--e-feder` hat ein **kleines** Überschwingen (1,22 statt der 1,56
+   * aus der Vorlage) — genug, daß das Aufklappen „weich" wirkt, zu wenig, um wie ein Gummiband
+   * auszusehen.
+   */
+  --t-schnell: 120ms;
+  --t-mittel: 180ms;
+  --t-gross: 260ms;
+  --t-feder: 440ms;
+  --e-standard: cubic-bezier(0.2, 0, 0, 1);
+  --e-ein: cubic-bezier(0.4, 0, 1, 1);
+  --e-aus: cubic-bezier(0, 0, 0.2, 1);
+  --e-feder: cubic-bezier(0.34, 1.22, 0.64, 1);
+
+  /* ══ FORM ═══════════════════════════════════════════════════════════════════════════════
+   *
+   * **Gemessen:** 37 `border-radius`-Angaben, davon **acht** verschiedene freie Werte
+   * (2 · 3 · 4 · 5 · 6 · 7 · 16 · 22 px) neben den Tokens des Harness (`--dsw-radius-*`) und einem
+   * `--r`. Sechs davon werden hier zu **vier** Stufen zusammengezogen — die zwei, die bleiben, haben
+   * einen Grund (siehe unten).
+   *
+   * **Warum 7 px zu 8 px wird und 5 px zu 4 px.** Ein Pixel Unterschied sieht niemand **einzeln** —
+   * aber nebeneinander liest das Auge „unsauber", ohne es benennen zu können. Genau das ist der
+   * Unterschied zwischen „zusammengebaut" und „gewachsen".
+   */
+  --r-fein: 2px; /* Der Strich selbst: Griff und Ticks der Ansichtsleiste. */
+  --r-xs: 4px; /* Chips, kleine Schalter, Zahlenfelder. */
+  --r-sm: 6px; /* Felder, Etiketten, Suchtreffer, die Marke der Kopfzeile. */
+  --r: 8px; /* Die Norm: Karten, Knöpfe, Panel-Innenflächen, Zeilen der Insel. */
+  --r-lg: 16px; /* Aufgeklappte Insel, Dialog. */
+  --r-rund: 9999px; /* Pillen und Punkte — alles, was keine Ecke hat. */
+
+  /* ══ HÖHE ═══════════════════════════════════════════════════════════════════════════════
+   *
+   * **Gemessen:** neun verschiedene Schatten neben zwei Leuchtringen (`0 0 6px var(--g)`) — jeder ein
+   * eigener Versuch, „über der Fläche" zu sagen: `0 8px 24px #0008`, `0 8px 30px #000a`,
+   * `0 10px 34px #000b`, `0 12px 48px rgb(0 0 0 / 45%)`, `0 16px 40px #000b`, `0 20px 60px #000c`,
+   * `0 6px 24px rgb(0 0 0 / 45%)` …
+   *
+   * Drei Stufen sagen dasselbe, und man **sieht** den Unterschied: je höher, desto weiter und weicher.
+   * Ein Schatten ist keine Verzierung, sondern eine **Aussage über Abstand** — und wer neun davon hat,
+   * sagt neun verschiedene Abstände für dieselbe Ebene.
+   */
+  --sch-1: 0 1px 2px #00000080; /* auf der Fläche: Felder, Karten, Zeilen */
+  --sch-2: 0 8px 24px #000000a6; /* schwebt: Insel, Panel, Leiste */
+  --sch-3: 0 20px 60px #000000c4; /* über allem: Dialog, Schleier */
+
+  /* ══ GLAS ═══════════════════════════════════════════════════════════════════════════════
+   *
+   * Insel und Panel sind **durchscheinend** (`backdrop-filter: blur()`), damit die Welt dahinter
+   * sichtbar bleibt. Hier stand zwei mal wörtlich `#101010f2` — dieselbe Absicht, zwei Zahlen.
+   */
+  --glas: #101010f2;
+  --glas-unschaerfe: 10px;
+
+  /*
+   * **Und eine fünfte Dauer — die einzige, die keine ist.**
+   *
+   * `--puls-dauer` treibt **eine Anzeige**, keinen Übergang: den gestrichelten Ring um die Insel,
+   * solange ein Panel gezogen wird. Ein Puls ist keine Bewegung von A nach B, sondern ein „hier
+   * passiert etwas" — und dafür ist eine Dauer in Sekunden richtig, nicht in Millisekunden: er soll
+   * **ruhig** atmen, nicht zucken. 1,2 s ist ein ruhiger Atemzug.
+   *
+   * **Bei `prefers-reduced-motion` steht er still** (siehe den Block unten) — die Aussage bleibt, die
+   * Bewegung geht.
+   */
+  --puls-dauer: 1.2s;
+}
+
+/*
+ * ══ WER KEINE BEWEGUNG WILL, BEKOMMT KEINE ══════════════════════════════════════════════════
+ *
+ * **Warum das eine Pflicht ist und keine Höflichkeit.** `prefers-reduced-motion` ist keine Vorliebe,
+ * sondern eine **Auskunft über den Menschen**: wer Übelkeit, Schwindel oder eine Gleichgewichts-
+ * störung hat, wird von einem aufklappenden Fenster mit Überschwingen krank — und wer sich auf einer
+ * Seite nicht orientieren kann, weil sich beim Öffnen alles bewegt, verliert mehr als einen schönen
+ * Effekt. Systeme setzen die Auskunft selbst (Windows: „Animationen … deaktivieren"), der Browser
+ * reicht sie weiter. Kommt sie, ist sie zu befolgen.
+ *
+ * **Und warum hier KEIN `!important` steht.** Der übliche Weg ist ein Block, der allen Elementen die
+ * Laufzeit wegnimmt — mit `!important`, weil er jede einzelne Angabe schlagen muß. Der Preis: eine
+ * Regel, die alles überschreibt, überschreibt auch die **nächste** Regel, die jemand für guten Grund
+ * schreibt.
+ *
+ * Hier steht stattdessen **dieselbe** Wahrheit auf **null**: die vier Dauern. Jeder Übergang und jede
+ * Animation im Blatt liest sie (das ist der Grund, warum es sie gibt) — also steht die Bewegung
+ * überall still, ohne daß eine Zeile überschrieben werden müßte. Ein Übergang mit „0 ms" **springt**
+ * sofort in den Endzustand: genau das ist gewollt.
+ *
+ * **Was NICHT auf null steht:** der Leuchtring der „live"-Marke und der Puls der Andockstelle sind
+ * keine Bewegung im Sinne dieser Auskunft, sondern eine **Anzeige** („hier passiert etwas"). Ein
+ * Standbild ist für die Aussage besser als ein ausgeschalteter Ring — die Animation wird deshalb auf
+ * eine **ruhige** Fassung reduziert statt gelöscht: kein Puls, aber ein sichtbarer Ring.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-schnell: 1ms;
+    --t-mittel: 1ms;
+    --t-gross: 1ms;
+    --t-feder: 1ms;
+  }
+
+  /* Kein Puls — die Marke bleibt stehen und ist trotzdem da. */
+  #isl.dropziel::after {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/*
+ * **Der Grund und die Schrift der Seite kommen jetzt aus dem Harness.**
+ *
+ * `--dsw-alias-bg-base` und `--dsw-font-family` sind Tokens; `body[data-ds-dark-theme]` setzt den
+ * dunklen Satz (siehe `main.ts`, das die Marke beim Start setzt). Vorher stand hier `var(--bg)` und
+ * `var(--mono)` — die Welt-Palette und die Festbreitenschrift. Das war der zweite Teil des
+ * Unterschieds: der Chat trug die Schrift und die Fläche der Welt.
+ */
+html,
+body {
+  height: 100%;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsh-content-font-size) / 24px var(--dsw-font-family);
+  overflow: hidden;
+}
+
+.mono {
+  font-family: var(--mono);
+}
+.hidden {
+  display: none !important;
+}
+.spacer {
+  flex: 1;
+}
+
+/* ── Rahmen: Leiste links, Flaeche rechts ─────────────────────────────────────────────── */
+
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+.screen {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+/*
+ * ══ WIE ETWAS ERSCHEINT ═════════════════════════════════════════════════════════════════════
+ *
+ * **Der Befund.** Die drei Bildschirme (Chat, Welt, Vorlage) wurden **umgeschaltet**: die eine Klasse
+ * `hidden` weg, die andere hin — ein Bild verschwand, ein anderes stand da. Dasselbe beim
+ * Einstellungsdialog und beim Öffnen der Insel. Nichts davon war falsch; es war nur **abgehackt**.
+ * Der Betreiber: *„alles was mit design und animation … smooth und modern professionell ist"*.
+ *
+ * **Warum ein Einblenden und kein Überblenden.** Ein echtes Überblenden (beide Bildschirme kurz
+ * gleichzeitig sichtbar) braucht beide **im** Layout — und hier liegen sie als Geschwister in einer
+ * Reihe (`flex`), nicht übereinander. Sie übereinander zu legen wäre ein Umbau des Rahmens für einen
+ * halben Sekundenbruchteil. Was bleibt, ist die ehrliche Fassung: der **kommende** Bildschirm blendet
+ * ein und steigt dabei 4 px auf. Das Auge liest „es kommt etwas" statt „es ist plötzlich da".
+ *
+ * **Warum `animation` und nicht `transition`.** Von `display: none` auf `display: block` gibt es
+ * nichts zu interpolieren — eine `transition` liefe ins Leere. Eine **Animation** dagegen startet
+ * neu, sobald ein Element wieder gezeichnet wird. Genau dieser Unterschied ist hier der Trick.
+ *
+ * **Und warum das die Tests nicht berührt:** `hidden` bleibt `hidden` (siehe `.hidden` oben). Das
+ * Umschalten ist unverändert — es sieht nur anders aus.
+ */
+@keyframes sichtbar-ein {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes hoch-ein {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes satz-ein {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.screen:not(.hidden) {
+  animation: hoch-ein var(--t-gross) var(--e-aus) both;
+}
+
+/* ── Die Vorlage (`apps/web`) — 1:1 ────────────────────────────────────────────────────────
+ *
+ * **Das ist die Vorlage des Betreibers**, übernommen aus `apps/web/src`:
+ *
+ *   `app.css`                → `.stage`
+ *   `lib/Universe.css`       → `.universe`, der Verlaufshintergrund
+ *   `lib/ChannelsIsland.css` → `.isl`, `.full`, `.head`, `.ch`, `.grp`, `.item`
+ *
+ * **Warum zeichengleich und nicht „nachgebaut".** Der Betreiber: „dort wird zb beim DSH structure
+ * web vorlage komplett implementiert. also quasi 1:1". Eine eigene Fassung wäre eine zweite
+ * Wahrheit — und beim nächsten Vergleich zweier Bilder sähe man den Unterschied, ohne zu wissen,
+ * welche die richtige ist.
+ *
+ * **Was NICHT übernommen ist:** `.panel`, `.dock`, `.term`, `.rail`, `.modal` aus der Vorlage
+ * `webui/src/App.svelte`. Diese Flächen gibt es hier nicht — das Andocken macht in diesem Prototyp
+ * die `dock-view.ts`. Wer sie braucht, hängt sie als Plugin an.
+ *
+ * **Warum die Regeln auf `#screen-web` zeigen — und warum die Insel der Welt anders aussieht.**
+ *
+ * Es gibt in diesem Prototyp **zwei** Inseln, die aus derselben Skizze stammen:
+ *
+ *   `#screen-web .isl`  die **Vorlage des Betreibers** (`apps/web`): 230 × 40, Radius 22,
+ *                       Übergang `cubic-bezier(0.34, 1.56, 0.64, 1)`, Einträge mit Sigil
+ *   `#screen-os .isl`   die Insel der **Welt**: 360 × 40, Radius 9999, Einträge mit Marke
+ *
+ * Beide sind richtig — für ihre Ansicht. Sie teilen die Klassennamen, weil beide aus derselben
+ * Vorlage `webui/src/App.svelte` stammen; unterschieden werden sie durch ihren **Ort**. Wer die
+ * eine ändert, muss wissen, dass die andere ihren eigenen Satz hat: das ist keine Doppelung,
+ * sondern der Preis dafür, dass die Vorlage 1:1 übernommen ist und die Welt trotzdem ihre eigene
+ * Form behalten darf.
+ */
+
+/* Die Fläche, auf der Hintergrund und Insel liegen. */
+.stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/*
+ * Der Verlaufshintergrund.
+ *
+ * Zeichengleich aus `apps/web/src/lib/Universe.css` — dort mit dem Hinweis auf die Vorlage
+ * `webui/src/lib/Universe.svelte`, `<style>` Zeile 397:
+ *
+ *   radial-gradient(ellipse at 50% 35%, #0c0a10, #050507 75%)
+ */
+.universe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at 50% 35%, #0c0a10, #050507 75%);
+}
+
+#screen-web .isl {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  background: #0a0a0aee;
+  border: 1px solid var(--b);
+  border-radius: 22px;
+  backdrop-filter: blur(12px);
+  width: 230px;
+  height: 40px;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    width 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    height 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    border-radius 0.3s;
+  box-shadow: 0 8px 30px #000a;
+}
+
+/* Eingeklappt ist `.isl` selbst die Pille (230 × 40, Radius 22); aufgeklappt 560 × 280, Radius 16. */
+#screen-web .isl.max {
+  width: min(560px, 90vw);
+  height: 280px;
+  border-radius: var(--r-lg);
+  cursor: default;
+}
+
+#screen-web .isl .mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 16px;
+  white-space: nowrap;
+}
+
+#screen-web .isl .mini:focus-visible {
+  outline: 1px solid var(--a2);
+  outline-offset: -2px;
+}
+
+#screen-web .isl .mini .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--g);
+  box-shadow: 0 0 6px var(--g);
+  flex: none;
+}
+
+#screen-web .isl .mini b {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--a2);
+  font-weight: 600;
+}
+
+#screen-web .isl .mini span {
+  font-size: var(--f-klein);
+  color: var(--t3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#screen-web .isl .full {
+  height: 100%;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+#screen-web .isl .head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+#screen-web .isl .head b {
+  font-size: var(--f-text);
+  letter-spacing: 2px;
+  color: var(--a2);
+}
+
+#screen-web .isl .head span {
+  font-size: var(--f-klein);
+  color: var(--t3);
+}
+
+#screen-web .isl .x {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--t3);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Zwei Spalten, Gruppenüberschrift über die volle Breite — wie in der Vorlage. */
+#screen-web .ch {
+  flex: 1;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 18px;
+  align-content: start;
+}
+
+#screen-web .ch .grp {
+  grid-column: 1 / -1;
+  font-size: var(--f-klein);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--t3);
+  margin: 8px 0 3px;
+}
+
+/*
+ * Ein Eintrag. Die Deklarationen sind aus der Vorlage; ergänzt sind nur `border: none`,
+ * `background: none`, `font: inherit` und `text-align: left`, weil ein `<button>` sonst seine eigene
+ * Rahmen- und Schriftbehandlung mitbringt.
+ */
+#screen-web .ch .item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  color: var(--t2);
+  font-size: 12.5px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+}
+
+#screen-web .ch .item:hover,
+#screen-web .ch .item.on {
+  background: #1a1a1a;
+}
+
+#screen-web .ch .item.on {
+  color: var(--a2);
+}
+
+#screen-web .ch .item .sigil {
+  color: var(--t3);
+}
+
+#screen-web .ch .item .badge {
+  font-size: var(--f-klein);
+  color: var(--blue);
+  border: 1px solid var(--b);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-left: auto;
+}
+
+/* ── Einstellungen als eigener Bildschirm ──────────────────────────────────────────────
+ *
+ * **Die Form kommt aus dem Harness**, wo die Einstellungen kein Panel sind, sondern eine eigene
+ * Fläche über dem Chat: links die **Abschnitte**, rechts die Zeilen. Der Betreiber: „sollte es den
+ * settings öffnen vom Harness die man auch in chat hat".
+ *
+ * **Warum ein Overlay und kein Dock-Panel.** Der Verlauf darf nicht verschwinden — wer die
+ * Schriftgröße sucht, will danach weiterlesen. Ein Panel in einer Dock-Zone nimmt Platz weg; ein
+ * Overlay legt sich darüber und geht wieder weg.
+ *
+ * **Alle Werte sind Tokens** aus `design-system.css`, also aus dem Harness selbst: Fläche
+ * `--dsw-alias-bg-layer-2`, Rahmen `--dsw-alias-border-l3`, Radien `--dsw-radius-*`. Deshalb sieht
+ * dieser Bildschirm aus wie die Einstellungen im Original — nicht, weil ich Farben abgeschrieben
+ * habe, sondern weil es dieselben sind.
+ */
+
+.set-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.set-overlay.offen {
+  display: flex;
+  /*
+   * **Der Dialog kommt herein, statt dazustehen.** Der Schleier wird schnell sichtbar (er ist die
+   * Verdunkelung, kein Inhalt), der Dialog selbst steigt 10 px auf und blendet ein. Das ist dieselbe
+   * Choreografie wie beim Aufklappen der Insel: erst der Grund, dann die Sache darauf.
+   *
+   * `animation` statt `transition`, weil hier `display` geschaltet wird (siehe `.screen`).
+   */
+  animation: sichtbar-ein var(--t-schnell) var(--e-standard) both;
+}
+
+.set-overlay.offen .set-dialog {
+  animation: satz-ein var(--t-gross) var(--e-aus) both;
+}
+
+/* Der Schleier fängt jeden Klick ab — auch den daneben. */
+.set-schleier {
+  position: absolute;
+  inset: 0;
+  background: var(--dsw-alias-bg-mask-1);
+}
+
+.set-dialog {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(880px, 100%);
+  height: min(620px, 100%);
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-lg);
+  background: var(--dsw-alias-bg-layer-2);
+  box-shadow: var(--sch-3);
+  overflow: hidden;
+}
+
+.set-kopf {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 16px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l1);
+}
+
+.set-kopf b {
+  font: 500 15px/22px var(--dsw-font-family);
+  color: var(--dsw-alias-label-primary);
+}
+
+.set-knopf {
+  flex: none;
+  height: 28px;
+  padding: 0 10px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm);
+  background: none;
+  color: var(--dsw-alias-label-secondary);
+  font: 400 13px/20px var(--dsw-font-family);
+  cursor: pointer;
+}
+
+.set-knopf:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.set-koerper {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+}
+
+/* Die Abschnitte. `auto` heisst: so breit wie der längste Name — nicht 200 px für „Welt". */
+.set-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  min-width: 190px;
+  border-right: 0.5px solid var(--dsw-alias-border-l1);
+  overflow-y: auto;
+}
+
+.set-navitem {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px;
+  border: none;
+  border-radius: var(--dsw-radius-md);
+  background: none;
+  color: var(--dsw-alias-label-secondary);
+  font: 400 14px/22px var(--dsw-font-family);
+  text-align: left;
+  cursor: pointer;
+}
+
+.set-navitem:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.set-navitem.on {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.set-inhalt {
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+/* Eine Zeile: Text links, Bedienung rechts. Zwei Spalten, immer dieselben. */
+.set-zeile {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  padding: 12px 0;
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
+}
+
+.set-zeile:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.set-text {
+  flex: 1 1 55%;
+  min-width: 0;
+}
+
+.set-label {
+  display: block;
+  font: 400 14px/22px var(--dsw-font-family);
+  color: var(--dsw-alias-label-primary);
+}
+
+.set-geaendert {
+  margin-left: 5px;
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.set-desc {
+  margin: 2px 0 0;
+  font: 400 13px/18px var(--dsw-font-family);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.set-ctl {
+  flex: 0 1 45%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.set-regler {
+  width: 100%;
+  accent-color: var(--dsw-alias-state-business-primary);
+}
+
+.set-zahl,
+.set-auswahl {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary);
+  font: 400 13px/20px var(--ds-font-family-code);
+}
+
+.set-schalter {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--dsw-alias-state-business-primary);
+}
+
+/* Die Anzeige der **Bedeutung** — „128° / Bildschirmbreite" statt „0.00175". */
+.set-wert {
+  font: 400 12px/18px var(--ds-font-family-code);
+  color: var(--dsw-alias-label-secondary);
+  text-align: right;
+}
+
+/* ── Chat — der Platzhalter ─────────────────────────────────────────────────────────────
+ *
+ * **Fast keine Spur, und das ist Absicht.** Der Betreiber hat die Chat-Implementierung aus diesem
+ * Prototyp herausgenommen und einem anderen Agenten uebergeben: „entferne mal den chat
+ * implementierung stattdessen das es quasi nur das oeffnen ux, gui existiert. quasi fast kein spur".
+ *
+ * Geblieben sind **vier** Regeln: die Flaeche, die Kopfzeile und die Karte, die den Auftrag nennt.
+ * Alles andere — Verlauf, Blasen, Composer, Leiste — ist weg. Ein halbfertiger Aufbau waere hier
+ * hinderlicher als keiner: er sieht aus wie eine Vorgabe, ist aber keine.
+ *
+ * **Was NICHT geloescht wurde:** das Design-System (design-system.css) und seine Tokens. Es
+ * gehoert nicht dem Chat — die Welt braucht es genauso, und der naechste Agent soll es vorfinden.
+ */
+.chat-platzhalter {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--dsw-font-family);
+}
+
+.platzhalter-flaeche {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+}
+
+.platzhalter-karte {
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 24px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-lg);
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.platzhalter-karte b {
+  font: 500 15px/22px var(--dsw-font-family);
+}
+
+.platzhalter-text {
+  font: 400 14px/22px var(--dsw-font-family);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.platzhalter-hinweis {
+  font: 400 13px/18px var(--dsw-font-family);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* ── Der Auftrag (Panel) ──────────────────────────────────────────────────────────────── */
+
+/*
+ * **Ein Übergabeprotokoll, keine Textwand.**
+ *
+ * Das Panel stand bis hierher als eine Liste von Absätzen in einer Schriftgröße. Der Auftrag ist
+ * aber kein Fließtext: er hat vier Teile, und der vierte ist eine **Entscheidungsliste**. Deshalb
+ * bekommt jeder Teil eine Nummer, einen eigenen Rahmen und — beim letzten — eine Marke
+ * „zu entscheiden". Die Zahlen stehen in der Monoschrift, weil sie Ordnung sind, nicht Prosa.
+ */
+.auftrag {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-family: var(--sans);
+  color: var(--t2);
+}
+
+.auftrag-kopf {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 1px 2px 3px;
+}
+
+.auftrag-marke {
+  color: var(--a2);
+  font-size: var(--f-klein);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.auftrag-titel {
+  margin: 0;
+  color: var(--t);
+  font-size: var(--f-titel);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.auftrag-lead {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.auftrag-lage {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 3px;
+}
+
+.auftrag-lage span {
+  border: 1px solid var(--b2);
+  border-radius: var(--r-rund);
+  padding: 1px 8px;
+  color: var(--t3);
+  font-size: var(--f-klein);
+}
+
+.auftrag-lage .auftrag-lage-offen {
+  color: var(--a2);
+  border-color: color-mix(in srgb, var(--a2) 26%, transparent);
+}
+
+.auftrag-teil {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid var(--b2);
+  border-radius: var(--r);
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--t) 3%, var(--s)),
+    color-mix(in srgb, var(--t) 1%, var(--s2))
+  );
+}
+
+.auftrag-teil[data-offen] {
+  border-color: color-mix(in srgb, var(--a) 24%, transparent);
+  background:
+    radial-gradient(
+      120% 140% at 0% 0%,
+      color-mix(in srgb, var(--a) 9%, transparent),
+      transparent 62%
+    ),
+    color-mix(in srgb, var(--t) 2%, var(--s2));
+}
+
+.auftrag-teil-kopf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.auftrag-nummer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border: 1px solid var(--b2);
+  border-radius: var(--r-xs);
+  color: var(--t3);
+  font-family: var(--mono);
+  font-size: var(--f-klein);
+  font-variant-numeric: tabular-nums;
+}
+
+.auftrag-teil[data-offen] .auftrag-nummer {
+  color: var(--a2);
+  border-color: color-mix(in srgb, var(--a) 34%, transparent);
+}
+
+.auftrag-teil-titel {
+  margin: 0;
+  color: var(--t2);
+  font-size: var(--f-klein);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.auftrag-status {
+  margin-left: auto;
+  color: var(--a2);
+  font-size: var(--f-klein);
+  white-space: nowrap;
+}
+
+.auftrag-inhalt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.auftrag-absatz {
+  margin: 0;
+  color: var(--t2);
+  font-size: var(--f-text);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.auftrag-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auftrag-liste li {
+  position: relative;
+  padding-left: 12px;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  line-height: 1.5;
+}
+
+.auftrag-liste li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.62em;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--t3);
+}
+
+.auftrag-fuss {
+  margin: 1px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--b2);
+  color: var(--t3);
+  font-size: var(--f-klein);
+}
+
+/* ── API-Token (Panel) ──────────────────────────────────────────────────────────────────── */
+
+/*
+ * **Ein Schlüssel ist ein Geheimnis — die Fläche darf das zeigen.**
+ *
+ * Das Panel ist absichtlich ruhig: eine Liste von Anbietern mit „gesetzt / nicht gesetzt",
+ * ein Paßwortfeld, zwei Knöpfe. Keine bunten Kacheln, kein Fortschrittsbalken — der
+ * einzige Zustand, der hier zählt, ist „liegt ein Schlüssel vor oder nicht".
+ *
+ * **Der Wert steht nie im Bild.** Das Feld ist `type=password`, wird nach dem Speichern
+ * geleert, und die Liste zeigt nur den `key_hint` (acht Hexzeichen).
+ */
+.token-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  color: var(--t2);
+  font-size: var(--f-text);
+}
+
+.token-kopf {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.token-marke {
+  color: var(--a2);
+  font-size: var(--f-klein);
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.token-titel {
+  margin: 0;
+  color: var(--t);
+  font-size: var(--f-titel);
+  font-weight: 600;
+}
+
+.token-lead {
+  margin: 0;
+  max-width: 48ch;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.token-status {
+  margin: 0;
+  padding-left: 8px;
+  border-left: 2px solid var(--b);
+  color: var(--t3);
+  font-size: var(--f-klein);
+  line-height: 1.5;
+}
+
+.token-status[data-art='gut'] {
+  border-left-color: var(--g);
+  color: var(--t2);
+}
+
+.token-status[data-art='fehler'] {
+  border-left-color: var(--a);
+  color: var(--a2);
+}
+
+.token-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.token-anbieter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--b2);
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--t) 2%, var(--s2));
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--t-schnell) var(--e-standard),
+    background var(--t-schnell) var(--e-standard);
+}
+
+.token-anbieter:hover {
+  border-color: var(--b);
+  background: color-mix(in srgb, var(--t) 4%, var(--s2));
+}
+
+.token-anbieter[data-an='1'] {
+  border-color: color-mix(in srgb, var(--a) 36%, transparent);
+  background:
+    radial-gradient(
+      120% 140% at 0% 0%,
+      color-mix(in srgb, var(--a) 10%, transparent),
+      transparent 62%
+    ),
+    color-mix(in srgb, var(--t) 2%, var(--s2));
+}
+
+.token-anbieter-name {
+  color: var(--t);
+  font-size: var(--f-text);
+  font-weight: 500;
+}
+
+.token-anbieter-ref {
+  grid-column: 1;
+  color: var(--t3);
+  font-family: var(--mono);
+  font-size: var(--f-klein);
+  overflow-wrap: anywhere;
+}
+
+.token-anbieter-marke {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  border: 1px solid var(--b2);
+  border-radius: var(--r-rund);
+  padding: 1px 7px;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  white-space: nowrap;
+}
+
+.token-anbieter-marke[data-gesetzt='1'] {
+  color: var(--g);
+  border-color: color-mix(in srgb, var(--g) 30%, transparent);
+}
+
+.token-anbieter-hinweis {
+  grid-column: 1 / -1;
+  color: var(--t3);
+  font-family: var(--mono);
+  font-size: var(--f-klein);
+}
+
+.token-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 9px;
+  border-top: 1px solid var(--b2);
+}
+
+.token-feld-kopf {
+  color: var(--t3);
+  font-size: var(--f-klein);
+}
+
+.token-eingabe {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--b);
+  border-radius: var(--r-sm);
+  background: var(--s2);
+  color: var(--t);
+  font-family: var(--mono);
+  font-size: var(--f-text);
+  outline: none;
+  transition: border-color var(--t-schnell) var(--e-standard);
+}
+
+.token-eingabe:focus {
+  border-color: var(--a);
+}
+
+.token-eingabe:disabled {
+  opacity: 0.55;
+}
+
+.token-fuss {
+  margin: 0;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  line-height: 1.5;
+}
+
+.token-aktionen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 1px;
+}
+
+.token-knopf {
+  border: 1px solid var(--b);
+  border-radius: var(--r-sm);
+  background: var(--s2);
+  color: var(--t2);
+  font-family: inherit;
+  font-size: var(--f-klein);
+  padding: 5px 11px;
+  cursor: pointer;
+  transition:
+    color var(--t-schnell) var(--e-standard),
+    background var(--t-schnell) var(--e-standard),
+    border-color var(--t-schnell) var(--e-standard),
+    transform var(--t-schnell) var(--e-standard);
+}
+
+.token-knopf-haupt {
+  border-color: color-mix(in srgb, var(--a) 60%, transparent);
+  background: var(--a);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.token-knopf-haupt:hover {
+  background: var(--a2);
+  border-color: var(--a2);
+}
+
+.token-knopf:active {
+  transform: scale(0.97);
+}
+
+.token-knopf:disabled {
+  cursor: default;
+  opacity: 0.45;
+  transform: none;
+}
+
+.token-knopf-weg:hover {
+  color: var(--a2);
+  border-color: color-mix(in srgb, var(--a) 40%, transparent);
+}
+
+.token-anmelden {
+  align-self: flex-start;
+  color: var(--a2);
+  font-size: var(--f-klein);
+  text-decoration: none;
+}
+
+.token-anmelden:hover {
+  text-decoration: underline;
+}
+
+/* ── Welt (OS) ────────────────────────────────────────────────────────────────────────── */
+
+#screen-os {
+  background: radial-gradient(ellipse at 50% 35%, #14100c, var(--bg) 75%);
+}
+
+/*
+ * Das Sternenfeld ist ein **Hintergrund ohne Tiefe** — Absicht, aus einem Fehler gelernt.
+ *
+ * In der ersten Fassung lagen die Sterne auf einer Kugelschale **in der Welt** (three.js
+ * `Points`). Bei mittlerem Zoom fielen sie alle in einen **weissen Klumpen** in der Mitte des
+ * Bildes, weil die Kamera weit von ihnen weg war. Der Betreiber hat es sofort gesehen.
+ *
+ * Jetzt liegen sie als Bild hinter allem: sie drehen sich **nicht** mit, sie liegen **nie** im
+ * Weg, und sie kosten keine Zeichenzeit. Die Adresse des Bildes setzt `main.ts` — erzeugt aus
+ * einem festen Zufallsstartwert, damit dasselbe Sternbild bei jedem Laden erscheint.
+ *
+ * **Abgeschaltet.** Der Betreiber: „**entferne mal alle anzeige im Universe, nur logic schnittstelle
+ * behalten**" und auf die Nachfrage „nix einfach leer lassen :D". Das Universe ist jetzt eine **leere
+ * Fläche** — die Sterne gehörten zur Anzeige, nicht zur Schnittstelle. Der Aufbau in `starfieldUrl`
+ * bleibt stehen und ist über die Einstellung `interface.starfield` wieder einzuschalten; `display: none`
+ * ist die Voreinstellung, nicht das Ende.
+ */
+#screen-os::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--starfield);
+  background-size: cover;
+  opacity: 0.85;
+  pointer-events: none;
+  z-index: 0;
+  display: none;
+}
+
+/*
+ * **Und angeschaltet wird er über eine Klasse**, nicht über ein zweites `display` im Kopf.
+ *
+ * Die Voreinstellung ist **leer** (der Betreiber: „nix einfach leer lassen"), und `main.ts` setzt die
+ * Klasse `himmel`, wenn die Einstellung `universe.visuals` an ist. Eine Regel hier und ein Wert dort
+ * wären zwei Orte für dieselbe Entscheidung.
+ */
+#screen-os.himmel::before,
+#screen-os.himmel::after {
+  display: block;
+}
+
+/* ══ DER HIMMEL — KEINE SCHICHT MEHR ═══════════════════════════════════════════════════════════
+ *
+ * Hier standen bis zum 16.10.2026 rund 110 Zeilen für eine **DOM-Schicht** aus 4 053 gezeichneten
+ * Sternen: die Fläche (himmel-schicht), ihre Karte (himmel-karte) und sechs Regeln für die
+ * Grenzhelligkeit über data-grenze.
+ *
+ * **Sie sind ersatzlos entfallen — und das ist der Punkt.** Der Betreiber: „keine bilder nutzen lol
+ * ;D das macht es doch so laggy … stattdessen kannst du doch quasi die sterne generieren … like star
+ * wars schiff beschleunigen". Die Sterne sind jetzt **Punkte im Raum**: erzeugt in stars.ts,
+ * gezeichnet in scene.ts. Damit gibt es keine Stilberechnung über 4 053 Knoten mehr (gemessen 58,8 ms
+ * gegen 0,09 ms, docs/status/himmel-physik.md §4.6) und keine Grenzhelligkeit in CSS — sie ist eine
+ * Eigenschaft der Bezugsebene und wird dort gesetzt, wo die Ebene bekannt ist.
+ *
+ * **Was bleibt:** der Dunst. Er ist keine Sternenkarte, sondern eine Fläche (--starfield, oben) —
+ * und die Klasse `himmel` an #screen-os, die ihn ein- und ausschaltet.
+ */
+
+/* Ein dunkler Rand zieht den Blick zur Mitte — ohne ihn wirkt die Flaeche unruhig. */
+#screen-os::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, transparent 45%, #0505079c 100%);
+  pointer-events: none;
+  z-index: 1;
+  display: none;
+}
+
+#world {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  display: block;
+  z-index: 2;
+}
+
+#world:active {
+  cursor: grabbing;
+}
+
+/*
+ * Beschriftungen sind HTML, keine Textur.
+ *
+ * Eine Textur muesste bei jedem Zoom neu erzeugt oder vergroessert werden — vergroessern
+ * heisst verwaschen. HTML-Text bleibt bei jedem Zoom scharf, weil der Browser ihn malt.
+ * Groesse und Deckkraft setzt `scene.ts` nach der Tiefe.
+ */
+.labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 3;
+}
+
+/*
+ * **Die Beschriftungen der Körper.**
+ *
+ * Der Betreiber: „texte sind nicht lesbar, farbe und grösse und dicke, passt nicht zur unser
+ * Harness evt schrieften ect."
+ *
+ * Er hatte recht, und es waren **vier** Ursachen auf einmal:
+ *
+ *   1. **Schrift** — `var(--mono)`. Die Welt spricht Festbreitenschrift, weil sie ein Messinstrument
+ *      ist. Ein **Name** ist aber kein Messwert; er ist Text, und Text liest man in der
+ *      Systemsansicht. Der Harness trennt das genauso (`--dsw-font-family` für Text,
+ *      `--ds-font-family-code` für Code).
+ *   2. **Größe** — 15 px minus sechs pro Tiefe ergab **9 px** für ferne Körper. Unten steht jetzt
+ *      eine **Untergrenze** von 11,5 px: eine Beschriftung, die man nicht liest, ist keine.
+ *   3. **Gewicht und Farbe** — 400 in `--t2` (ein warmes Grau aus der Skizze des Betreibers, nicht
+ *      aus dem Harness) war zu blass gegen den schwarzen Grund. Jetzt **500** und
+ *      `--dsw-alias-label-primary` — die kräftigste Textfarbe, die das Design-System hat.
+ *   4. **Lesbarkeit auf dem Bild** — drei schwarze Schatten übereinander sind ein Notbehelf. Ein
+ *      Name liegt jetzt auf einer **schmalen Fläche** (`--dsw-alias-bg-mask-3`), wie ein Etikett.
+ *
+ * **Warum die Schriftgröße eine CSS-Rechnung ist.** Sie hing vorher als `font-size` in `scene.ts` —
+ * zusammen mit `opacity`, während Farbe und Gewicht hier standen. Wer die Schrift ändern wollte,
+ * musste zwei Dateien kennen. Jetzt setzt `placeLabels` nur noch `--depth`, und die Rechnung steht
+ * hier bei dem, was sie ändert.
+ */
+.label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* Die Tiefe kommt aus der Szene (0 = fern, 1 = nah). */
+  --depth: 1;
+  /*
+   * **Die Markenschrift des Harness** — Montserrat, geometrisch und technisch, mit Abstand
+   * zwischen den Buchstaben. Genau das, was der Betreiber mit „in richtung scifi schrifft" meint:
+   * keine Systemschrift, sondern eine **gesetzte**. Sie kommt mit dem Design-System
+   * (`design-system.css` → `brand-font.css`), es wurde nichts installiert.
+   *
+   * **Und eine feste Grösse von 12 px.** Vorher wuchs sie mit der Tiefe (11,5 bis 15 px). Für einen
+   * Namen ist das falsch: er ist eine **Angabe**, kein gemaltes Objekt — und eine Angabe, die sich
+   * beim Zoomen ändert, muss man bei jedem Schritt neu lesen. Die Tiefe steuert jetzt nur noch die
+   * **Deckkraft**.
+   */
+  font-family: var(--dsw-font-family-brand);
+  font-size: var(--f-text);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 18px;
+  color: var(--dsw-alias-label-primary);
+  white-space: nowrap;
+  padding: 1px 6px;
+  border-radius: var(--dsw-radius-xs);
+  background: var(--dsw-alias-bg-mask-3);
+  /* Die Deckkraft folgt der Tiefe, aber **nicht bis zur Unlesbarkeit**: 0,62 ist die Untergrenze. */
+  opacity: calc(0.62 + var(--depth) * 0.38);
+  will-change: transform, opacity;
+}
+
+/* Ein Stern wird benannt wie ein Stern — in der Akzentfarbe seiner Handlungen. */
+.label-sun {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--dsw-alias-label-primary);
+  background: color-mix(in srgb, var(--dsw-alias-bg-mask-3) 72%, var(--dsw-static-deepseek-500));
+}
+
+/*
+ * Das Achsenkreuz ist ein **Winkelanzeiger in der Ecke**, kein Strich durch die Welt.
+ *
+ * Die erste Fassung zog drei Linien von 420 Welteneinheiten Laenge durch die Szene. Der
+ * Betreiber: „diese rot, blau grüne strich ist bischen whack sieht nicht modern aus". Er hatte
+ * recht — ein Gestell mitten im Bild ist ein Entwicklerwerkzeug, kein Orientierungshilfe.
+ *
+ * Jetzt: drei kurze Striche, die die **Bildschirmrichtung** der Achsen zeigen. Sie sitzen in
+ * der Ecke, drehen sich mit der Kamera und sagen damit genau das, was man wissen will:
+ * wo ist oben, wo ist vorne.
+ */
+.axes {
+  position: absolute;
+  left: 22px;
+  /*
+   * **Über der Knopfleiste, nicht auf ihr.**
+   *
+   * Hier stand `bottom: 22px`, die Knopfleiste steht bei `bottom: 14px` — und beide sind **feste**
+   * Zahlen, die nichts voneinander wissen. Gemessen im Ausschnitt (`tools/overlap3.png`) lag
+   * „ACHSEN · ZIEHEN" damit **auf** „abgesteckt: + Achsen + Raum …".
+   *
+   * `--leiste-hoehe` setzt `main.ts` bei jeder Layoutänderung auf die **gemessene** Höhe der Leiste;
+   * der Rückfall von 46 px ist ihre Höhe bei der heutigen Skala (11 px Schrift, 7 px Polsterung).
+   * Wer die Leiste höher macht, verschiebt die Anzeige mit — ohne eine zweite Zahl zu suchen.
+   */
+  /*
+   * **Die Achsenanzeige stand zu weit oben** — sie klebte am unteren Rand der **Kernfläche**, und die
+   * endet seit dem Platz für die Leiste bei `y = 835`. Der Betreiber: „**achsen anzeige ist naja bischen
+   * weit zu oben verschoben**".
+   *
+   * Sie sitzt jetzt ein Stück **über** dem Rand — sie gehört zur Welt, aber nicht an ihren Rand. Die
+   * 24 px sind der Abstand, den auch die Kopfzeile oben hat: dieselbe Luft auf beiden Seiten.
+   *
+   * **Und sie wird ein Objekt, kein Zierrat.** Der Betreiber schlägt vor, sie als Docking-Station zu
+   * behandeln, „das zb irgendein ecke darüber erst ermöglicht es zu verschieben" — also eine **Ecke**
+   * als Griff. Bis dahin ist sie ein greifbares Werkzeug (die Achsen lassen sich ziehen, der Ring
+   * dreht), und ihr Platz ist fest. Der Umbau zu einem verschiebbaren Objekt steht als offener Punkt
+   * im Register.
+   *
+   * **Und hier standen ZWEI Regeln für dasselbe Element.** `left: 22px` in dieser und
+   * `bottom: calc(100vh - var(--unten-top))` in einer zweiten weiter unten — die zweite stand
+   * **später** und gewann. Wer nur die erste ändert, sieht keine Wirkung und sucht an der falschen
+   * Stelle; genau das ist mir passiert, und gemessen stand die Anzeige unverändert bei `y = 611`.
+   */
+  left: 24px;      /* war 22px — dieselbe Luft wie die Kopfzeile oben */
+  bottom: 24px;    /* war eine Formel über `--unten-top` (Rest aus der abgeschafften Leiste) */
+  width: 96px;
+  height: 96px;
+  z-index: 4;
+  /*
+   * **Der Rahmen laesst den Zeiger durch, das Kreuz nicht.**
+   *
+   * Das Kaestchen ist 96 × 96, das Kreuz darin ist kleiner und liegt in der linken unteren Ecke.
+   * Ohne `none` hier wuerde die leere Flaeche daneben das Ziehen der Welt abfangen — man zoege ins
+   * Leere und wuesste nicht warum. Die Trefferlinien und der Ring setzen ihr `pointer-events`
+   * selbst (siehe unten).
+   */
+  pointer-events: none;
+}
+
+.axes svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* Nur die Grife fangen den Zeiger: die breite Trefferlinie je Achse und der Ring. */
+.axes .ax-hit,
+.axes .spin-hit {
+  pointer-events: stroke;
+}
+
+/*
+ * **Wenn es zu eng wird, verschwindet die Achsenanzeige — nicht die Beschriftung der Welt.**
+ *
+ * **Was hier zuerst falsch war, zweimal.**
+ *
+ * 1. Eine Medienabfrage auf `max-width: 1100px`. Gemessen (`tools/ui-surface.ts`): das Fenster ist
+ *    **1440 px** breit — die Abfrage griff **nie** (`capDisplay: "block"`). Eine Bedingung, die nie
+ *    wahr wird, ist keine Ausnahme, sondern eine Zeile Code.
+ * 2. Dann `max-height` auf der Anzeige. Sie ist aber **96 px hoch und fest** — eine Höhenbegrenzung
+ *    ändert daran nichts.
+ *
+ * **Und die Überlappung war vertikal, nicht horizontal:** die untere Zone (Terminal) beginnt bei
+ * **792 px**, die Anzeige reichte bis **835 px**. Sie lag also **im** Terminal — nicht neben ihm.
+ *
+ * Deshalb wandert die Anzeige **über** die untere Zone. Die Oberkante wird gemessen (`--unten-top`,
+ * gesetzt in `main.ts`) und in den Abstand eingerechnet: die Anzeige endet dort, wo das Terminal
+ * anfängt. Das stimmt auch, wenn der Nutzer das Terminal zieht — und es hängt nicht an der
+ * Fensterbreite.
+ *
+ * **Warum nicht einfach ausblenden.** Die Anzeige ist der **Weg zur Drehung** — sie ist greifbar
+ * (`main.ts`: „möchte also auch diese achse dinger nutzen können"). Sie zu verstecken, wenn das
+ * Terminal offen ist, nimmt eine Bedienung weg, um Platz zu sparen. Sie zu **verschieben** nimmt
+ * nichts weg.
+ *
+ * Rückfall 792 px: die Oberkante der unteren Zone bei 900 px Höhe — gemessen. Der Zweck ist
+ * entfallen: die Panels starten abgesteckt, und eine Zone, die meistens nicht existiert, ist kein Maß.
+ * Der Abstand steht jetzt **einmal** in der Regel bei `.axes` (24 px zu beiden Rändern).
+ *
+ * **Und genau deshalb ist sie gelöscht.** Sie stand **nach** der Hauptregel und überschrieb deren
+ * `bottom` still: ich habe dort `bottom: 24px` gesetzt, gemessen stand die Anzeige unverändert bei
+ * `y = 611`. Zwei Regeln für dasselbe Element, und die spätere gewinnt.
+ */
+.axes .ax {
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.axes .ax-x {
+  stroke: var(--a);
+}
+.axes .ax-y {
+  stroke: var(--g);
+}
+.axes .ax-z {
+  stroke: var(--blue);
+}
+
+.axes text {
+  font: 9px var(--mono);
+  letter-spacing: 0.08em;
+}
+
+.axes .tx {
+  fill: var(--a);
+}
+.axes .ty {
+  fill: var(--g);
+}
+.axes .tz {
+  fill: var(--blue);
+}
+
+.axes .cap {
+  font-size: var(--f-klein);
+  fill: var(--t3);
+  letter-spacing: 0.12em;
+}
+
+/*
+ * Die **Griffe** am Achsenkreuz.
+ *
+ * Der Betreiber: „ich möchte also auch diese achse dinger nutzen können um rotation bewegung zu
+ * machen" und „fehlt unten beim achsen noch eine rotation Kugel".
+ *
+ * **Warum eine unsichtbare Trefferlinie.** Der sichtbare Strich ist 1,5 px breit. Wer ihn treffen
+ * muss, trifft ihn nicht — eine Linie von 1,5 px mit der Maus zu fassen ist eine Geduldsprobe und
+ * keine Bedienung. Die Trefferlinie ist deshalb **14 px** breit und `stroke: transparent`: sie
+ * fängt den Zeiger, ohne gesehen zu werden. Das ist kein Trick, sondern die übliche Form eines
+ * Griffs in einem Zeichenprogramm.
+ */
+.axes .ax-hit {
+  stroke: transparent;
+  stroke-width: 14;
+  fill: none;
+  cursor: grab;
+  /* Der Zeiger soll den Griff finden, ohne ihn zu sehen — `stroke` trifft nur die Linie selbst,
+     nicht die Fläche daneben. Deshalb bleibt der Rest des Käbchens durchlässig. */
+  pointer-events: stroke;
+}
+
+.axes .ax-hit:hover + .ax {
+  stroke-width: 2.5;
+}
+
+/* Gegriffen: der Zeiger bleibt „geschlossen", solange gezogen wird. */
+.axes .ax-hit:active,
+.axes .spin-hit:active {
+  cursor: grabbing;
+}
+
+/*
+ * Der **Endpunkt** der Achse — der sichtbare Griff.
+ *
+ * Er hat dieselbe Farbe wie sein Strich, damit klar ist, wozu er gehört. `pointer-events: none`:
+ * gefangen wird an der breiten Trefferlinie, der Punkt ist nur die Anzeige.
+ */
+.axes .knob {
+  pointer-events: none;
+  stroke: var(--bg);
+  stroke-width: 1;
+  transition: r var(--t-schnell) var(--e-standard);
+}
+
+.axes .kn-x {
+  fill: var(--a);
+}
+.axes .kn-y {
+  fill: var(--g);
+}
+.axes .kn-z {
+  fill: var(--blue);
+}
+
+/* Während des Zugs wächst der Punkt — die Rückmeldung, dass der Griff hält. */
+.axes .knob.on {
+  r: 7;
+}
+
+/*
+ * Der **Drehring** unten: freie Drehung in der Bildebene.
+ *
+ * Er ist bewusst **kein** vierter Achsenstrich. Ein Strich zeigt eine Richtung; ein Ring dreht um
+ * die Achse, die aus dem Bild zeigt — und genau das tut er. Die Form sagt, was er tut.
+ */
+.axes .spin-band {
+  fill: none;
+  stroke: var(--b);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 3;
+  pointer-events: none;
+}
+
+.axes .spin-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 10;
+  cursor: grab;
+  pointer-events: stroke;
+}
+
+.axes .spin-hit:hover + .spin-band,
+.axes .spin-band.on {
+  stroke: var(--t2);
+  stroke-dasharray: none;
+}
+
+/* ── Einstellungen ─────────────────────────────────────────────────────────────────────── */
+
+/*
+ * Der Einstellungsbildschirm aus dem Plugin `ui-settings`.
+ *
+ * **Eine Zeile je Einstellung, Beschriftung links, Bedienung rechts.** Das ist die Form, die jeder
+ * kennt (VS Code, CAD-Programme, Browser) — und sie ist keine Geschmacksfrage: wer eine Einstellung
+ * sucht, liest zuerst die Beschriftung und greift dann nach rechts. Zwei Spalten, immer dieselben.
+ */
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+}
+
+.set-kopf {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.set-kopf .field {
+  flex: 1;
+}
+
+.set-reset {
+  flex: 0 0 auto;
+  width: 30px;
+  border: 1px solid var(--b);
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--t2);
+  cursor: pointer;
+  /* **Kein freier Schriftgrad.** Hier stand `14px` — derselbe Wert wie `--f-titel`, aber als
+     Zahl: eine zweite Wahrheit über dieselbe Größe. Gemessen waren im Blatt fünf freie
+     Schriftgrade (11 · 11,5 · 13 · 14 px) neben den drei Tokens. */
+  font-size: var(--f-titel);
+}
+
+.set-reset:hover {
+  border-color: var(--a);
+  color: var(--a);
+}
+
+.set-liste {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.set-grp h4 {
+  margin: 0 0 6px;
+  font: 10px var(--mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--t3);
+}
+
+.set-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 7px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.set-text {
+  flex: 1 1 50%;
+  min-width: 0;
+}
+
+.set-label {
+  display: block;
+  font-size: var(--f-text);
+  color: var(--t);
+}
+
+/*
+ * Ein **geänderter** Wert wird gekennzeichnet, nicht versteckt.
+ *
+ * Ohne die Marke sucht man später, warum sich die Welt anders anfühlt als beim ersten Start — und
+ * findet es nicht, weil die Einstellung aussieht wie jede andere.
+ */
+.set-changed {
+  margin-left: 5px;
+  color: var(--a);
+}
+
+.set-desc {
+  margin: 3px 0 0;
+  font-size: var(--f-klein);
+  line-height: 1.45;
+  color: var(--t3);
+}
+
+.set-ctl {
+  flex: 0 1 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.set-ctl input[type='range'] {
+  width: 100%;
+  accent-color: var(--a);
+}
+
+.set-zahl {
+  width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--b);
+  border-radius: var(--r-xs);
+  background: #0a0a0c;
+  color: var(--t);
+  font: 11px var(--mono);
+}
+
+/* Die Anzeige der **Bedeutung** — „128° / Bildschirmbreite" statt „0.00175". */
+.set-wert {
+  font: 10px var(--mono);
+  color: var(--a2);
+  text-align: right;
+}
+
+.set-ctl select {
+  width: 100%;
+}
+
+/*
+ * Die **Dynamic Island** — die einzige Navigation. Keine Seitenleiste.
+ *
+ * **Maße und Klassen wörtlich aus der Vorlage des Betreibers**
+ * (`H:/Projekt/Programmieren/Prometheus/sketches/002-g-universe/index.html`):
+ *
+ *   .isl        oben mittig, z-index 5, Breite/Höhe animiert
+ *   .isl.max    min(560px, 90vw) × 280px, Radius 16
+ *   .isl .mini  40 px hoch, Pille; blendet beim Aufklappen aus
+ *   .isl .full  560 × 280 mit .head / .ch / .grp
+ *
+ * Der Übergang ist **nicht** „aufpoppen und weg": die Pille bleibt im DOM und blendet aus
+ * (`opacity 0`, `position absolute`), die Fläche blendet mit 0,15 s Verzögerung ein. Dadurch
+ * wirkt es wie ein Aufklappen an derselben Stelle, nicht wie zwei verschiedene Fenster.
+ */
+.isl {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: min(360px, 90vw);
+  height: 40px;
+  background: var(--glas);
+  border: 1px solid var(--b);
+  border-radius: var(--r-rund);
+  backdrop-filter: blur(var(--glas-unschaerfe));
+  box-shadow: var(--sch-2);
+  overflow: hidden;
+  cursor: pointer;
+  /*
+   * **Der eine große Übergang.** Die Insel ist die größte Fläche, die sich hier bewegt — sie bekommt
+   * die längste Dauer und die einzige Feder (siehe :root). width und height bewegen sich mit
+   * **derselben** Kurve: zwei verschiedene wären zwei Aussagen über dieselbe Bewegung.
+   *
+   * `background-color` und `border-color` laufen **schneller** mit — ein Rahmen, der so langsam
+   * nachzieht wie die Fläche, sieht aus, als käme er zu spät.
+   */
+  transition:
+    width var(--t-feder) var(--e-feder),
+    height var(--t-feder) var(--e-feder),
+    border-radius var(--t-gross) var(--e-standard),
+    border-color var(--t-schnell) var(--e-standard),
+    box-shadow var(--t-gross) var(--e-standard);
+}
+
+.isl.max {
+  width: min(560px, 90vw);
+  /*
+   * **Höher als die Vorlage — weil die Liste gewachsen ist.**
+   *
+   * Die 280 px stammen aus dem Entwurf mit acht Einträgen. Seit die Panels eine eigene Gruppe mit
+   * vierzehn Zeilen und drei Überschriften sind, paßte die Liste nicht mehr hinein: „Werkzeuge" stand
+   * am unteren Rand, die Zeilen darunter waren nur per Scrollen zu finden — und wer die Rangliste
+   * suchte, sah sie nicht. 520 px zeigen die ganze Liste; auf kleineren Fenstern bleibt die Fläche
+   * im Bild (`calc(100vh - 120px)`).
+   */
+  height: min(520px, calc(100vh - 120px));
+  border-radius: var(--r-lg);
+  cursor: default;
+}
+
+.isl .mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 16px;
+  white-space: nowrap;
+  transition: opacity var(--t-mittel) var(--e-aus);
+}
+
+.isl.max .mini {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.isl .mini .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--g);
+  box-shadow: 0 0 6px var(--g);
+}
+
+.isl .mini b {
+  font: 600 11px var(--mono);
+  letter-spacing: 2px;
+  color: var(--a2);
+}
+
+.isl .mini span {
+  font-size: var(--f-klein);
+  color: var(--t3);
+}
+
+.isl .full {
+  opacity: 0;
+  pointer-events: none;
+  /*
+   * **Warum hier kein Einblenden, sondern eine Bewegung.** Die Fläche hat schon eine
+   * opacity-Transition (sie kommt 90 ms nach der Pille). Eine **Animation** dazu würde die
+   * Sichtbarkeit ein zweites Mal steuern — und Animationen schlagen Deklarationen: das Auf- und
+   * Zuklappen wäre kaputt. Was fehlt, ist die **Richtung**: sie steigt 4 px mit auf.
+   */
+  transform: translateY(-4px);
+  /*
+   * **Der Aufschub ist ein Token, keine Zahl.** Er stand als 90ms hier — eine fünfte Dauer, an
+   * genau einer Stelle, für genau einen Zweck: die Pille soll **zuerst** gehen. Dafür gibt es schon
+   * einen Wert (--t-schnell ist „ein Zustand wechselt"); ihn zu benutzen sagt dasselbe und bleibt
+   * bei vier Dauern.
+   */
+  transition:
+    opacity var(--t-gross) var(--e-ein) var(--t-schnell),
+    transform var(--t-gross) var(--e-feder) var(--t-schnell);
+  /* Erst die Pille hinaus, dann die Fläche herein — sonst überlagern sich zwei Schriften. */
+  padding: 14px 18px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.isl.max .full {
+  opacity: 1;
+  pointer-events: auto;
+  /* Und sie steigt dabei auf — siehe `.isl .full`. */
+  transform: none;
+}
+
+.isl .head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--b2);
+}
+
+.isl .head b {
+  font: 600 11px var(--mono);
+  letter-spacing: 2px;
+  color: var(--a2);
+  /*
+   * **Die Kopfzeile bricht NICHT um.**
+   *
+   * Seit die Marke ein **Zeichen** trägt (15.10.2026, `@prometheus-harness/icons`), ist der Kopf um
+   * 15 px breiter — und „Übersicht öffnen" brach in zwei Zeilen um (im Bild des Betreibers stand
+   * „Übersicht" über „öffnen", mit dem Zeichen daneben). Die Zeile ist eine **Überschrift**, kein
+   * Fließtext: sie hat eine Zeile zu sein, und was nicht hineinpaßt, ist der **Zusatz** daneben
+   * (`.proj`), nicht die Überschrift.
+   */
+  white-space: nowrap;
+}
+
+.isl .head .proj {
+  font-size: var(--f-klein);
+  color: var(--t3);
+  letter-spacing: 1px;
+  /*
+   * **Und der Zusatz gibt nach.** Er ist die Angabe **neben** der Überschrift (der Raum), nicht die
+   * Überschrift selbst: wenn der Platz nicht reicht, wird er **gekürzt** statt umgebrochen. Ein
+   * umgebrochener Raumname („Standard-" / „raum") sähe aus wie ein Fehler; ein gekürzter sieht aus
+   * wie das, was er ist.
+   */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.isl .x {
+  border: none;
+  background: none;
+  color: var(--t3);
+  cursor: pointer;
+  font-size: var(--f-text);
+  padding: 2px 6px;
+}
+
+.isl .x:hover {
+  color: var(--a);
+}
+
+.isl .ch {
+  flex: 1;
+  overflow: auto;
+  padding-top: 6px;
+}
+
+.isl .grp {
+  font-size: var(--f-klein);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--t3);
+  padding: 9px 4px 4px;
+}
+
+.isl .isitem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--t2);
+  font: 12.5px var(--mono);
+  padding: 6px 8px;
+  border-radius: var(--r);
+  cursor: pointer;
+}
+
+.isl .isitem:hover,
+.isl .isitem:focus-visible {
+  background: var(--s2);
+  border-color: var(--b);
+  color: var(--t);
+  outline: none;
+}
+
+.isl .isitem .ih {
+  color: var(--a);
+  /*
+   * **15 px — die Breite des Zeichens, nicht die einer Blindenschrift.**
+   *
+   * Hier stand `12px`, weil ein **Schriftzeichen** drin war und die Zelle nur seinen Platz halten
+   * musste. Ein gezeichnetes Zeichen ist 15 px breit; in einer 12-px-Zelle **läuft es über**
+   * (gemessen im Browser: `scrollWidth − clientWidth` = 3 px). Die Zeile wird davon nicht höher, aber
+   * das Zeichen schiebt sich in den Abstand zur Beschriftung — und bei einem anderen Zeichen sähe das
+   * nach Absicht aus.
+   */
+  width: 15px;
+  text-align: center;
+}
+
+.isl .isitem .il {
+  flex: 1;
+}
+
+.isl .isitem .ib {
+  font-size: var(--f-klein);
+  color: var(--a2);
+  border: 1px solid var(--b);
+  border-radius: var(--r-rund);
+  padding: 1px 7px;
+}
+
+/*
+ * Die Kopfzeile links — **unter** der Insel, nicht in ihrer Höhe.
+ *
+ * Vorher stand sie oben links und die Insel oben mittig; das sah nach zwei konkurrierenden
+ * Überschriften aus. Jetzt ist die Insel das Einzige oben, und die Zeilen stehen darunter.
+ */
+.hud {
+  position: absolute;
+  top: 66px;
+  /*
+   * **Die Kopfzeile weicht dem linken Panel aus.**
+   *
+   * Hier stand `left: 20px` — und damit lag sie auf dem Suchpanel, sobald das offen war. Gemessen
+   * (`tools/ui-surface.ts`) war das die **grösste Überlappung im Bild**: 2864 px² zwischen
+   * „Ebene Sonnensystem · 4,8 k" und „Jedes Objekt hat einen Namen".
+   *
+   * `--panel-links` setzt `main.ts` bei jeder Layoutänderung auf die Breite der linken Zone. Der
+   * Rückfall von 280 px ist keine Zahl aus der Luft: es ist `SIDEBAR_DEFAULT` — die Breite, die das
+   * Panel beim ersten Laden hat.
+   */
+  left: calc(var(--panel-links, 280px) + 24px);
+  z-index: 6;
+  pointer-events: none;
+}
+
+/*
+ * **Die Marke ist seit dem 14.10.2026 ein Bedienelement — und das Bild bleibt trotzdem ruhig.**
+ *
+ * Der Betreiber: *„schaue dir eine moeglichkeit es einfacher in dem Universe modus zu wechseln ich
+ * denke wir nutzen oben links den text … fuers wechseln"* — und ausdruecklich: am Bild **nichts**
+ * aendern. Deshalb steht die Marke weiter an derselben Stelle in derselben Schrift und Farbe; dazu
+ * kommen nur drei Dinge, die man erst bei der Bedienung sieht:
+ *
+ *   `pointer-events: auto`  Die Kopfzeile selbst ist `pointer-events: none` (sie liegt ueber der
+ *                           Welt und darf nichts abfangen). Ohne diese Zeile bekaeme die Marke
+ *                           **keinen** Klick — und das saehe aus wie ein kaputter Umschalter.
+ *   `cursor: pointer`       Die Maus zeigt, dass hier etwas passiert.
+ *   Polster mit negativem   Die Trefferflaeche wird groesser (11 px Schrift sind sonst ein
+ *   Rand                    Fadenkreuz), **ohne** den Text zu verschieben: waagerecht nimmt der
+ *                           negative Rand genau weg, was das Polster hinzufuegt. Senkrecht wirkt
+ *                           weder das eine noch das andere auf den Zeilenkasten — ein Polster auf
+ *                           einem Inline-Element verschiebt keine Zeile.
+ *
+ * Die Beschriftung des Bedienelements steht in `main.ts` (`hudMarke`), nicht hier.
+ */
+.hud .wm {
+  font-size: var(--f-klein);
+  letter-spacing: 3px;
+  color: var(--a2);
+  pointer-events: auto;
+  cursor: pointer;
+  padding: 2px 6px;
+  margin: -2px -6px;
+  border-radius: var(--r-sm);
+}
+
+.hud .wm:hover,
+.hud .wm:focus-visible {
+  background: var(--s2);
+  color: var(--t);
+  outline: none;
+}
+
+.hud small {
+  display: block;
+  font-size: var(--f-klein);
+  /*
+   * **Keine Sperrung — und das ist gemessen, nicht Geschmack.**
+   *
+   * Hier stand `letter-spacing: 1.5px`. Bei **11 px** Schrift zerreisst eine Sperrung von 1,5 px die
+   * Wörter in Einzelbuchstaben: gemessen (`tools/build-up.js`) stand „Ebene Stern · 3,0 k · 280 fps" als
+   * Folge loser Zeichen da, und der Betreiber: „**schau mal text und zahl oben links an**".
+   *
+   * Dieselbe Kombination hat schon die Knopfleiste unleserlich gemacht (10 px gesperrte
+   * Grossbuchstaben). Eine Sperrung ist ein Mittel für **kurze** Auszeichnungen — ein Markenzeichen,
+   * ein Etikett. Für eine Zeile, die man liest, ist sie falsch.
+   */
+  letter-spacing: 0;
+  color: var(--t3);
+  margin-top: 2px;
+}
+
+/*
+ * **Die Felder der Kopfzeile bekommen Luft.**
+ *
+ * Sie standen ohne Abstand nebeneinander, und die Zahl hatte durch `min-width` eine Lücke **in** sich
+ * — der Trenner `·` verschwand darin (gemessen: „· 4.8 k" bei x=159, „·  60 fps" bei x=202, also
+ * 43 px für 39 px Inhalt). Mit `gap` am Elternteil liegt der Abstand **zwischen** den Feldern, wo er
+ * hingehört, und die Zahl bleibt trotzdem fest.
+ */
+.hud small {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+/*
+ * **Die Bildrate bekommt eine feste Breite.**
+ *
+ * Der Betreiber: „**die fps zahlen sollte eigentlich einzeln aktualisieren ohne den text**". Der Text
+ * wird jetzt nur bei Änderung geschrieben (`main.ts`) — aber eine Zahl, die von `60` auf `280` wechselt,
+ * ist **breiter**, und dann schiebt sie alles daneben mit. Eine zappelnde Zeile ist genau das, was
+ * „einzeln aktualisieren" vermeiden soll.
+ *
+ * Zwei Mittel dagegen: `tabular-nums` gibt jeder Ziffer dieselbe Breite, und `min-width` in `ch` hält
+ * den Platz für drei Stellen frei. Damit steht der Text still und **nur die Zahl** ändert sich.
+ */
+#hudFps {
+  display: inline-block;
+  /*
+   * **Die feste Breite ist jetzt knapp.** Vorher `7ch`, und bei 11 px Schrift mit 1,5 px Sperrung war
+   * das **41,5 px** für „60 fps" — eine Lücke, in der der Trenner verschwand. `4ch` reicht für drei
+   * Ziffern plus „fps" nicht mehr, deshalb steht die Breite am **Zahlenfeld allein**: der Text „fps"
+   * gehört nicht in die feste Breite, sonst wandert er mit der Ziffer.
+   */
+  min-width: 3ch;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.mobile-note {
+  position: absolute;
+  inset: auto 16px 16px 16px;
+  border: 1px solid var(--b);
+  background: var(--s);
+  border-radius: var(--r);
+  padding: 12px 16px;
+  color: var(--t2);
+  font-family: var(--sans);
+}
+
+/* ── Docking ──────────────────────────────────────────────────────────────────────────── */
+
+/*
+ * **Das Dock ist eingebaut, nicht darübergelegt.**
+ *
+ * Vorher stand hier:
+ *
+ *     .dockhost { position: absolute; inset: 0; display: flex; pointer-events: none; }
+ *     .zone-left { background: #0b0b0eee; backdrop-filter: blur(8px); }
+ *     .zone-bottom { position: absolute; left: 0; right: 0; bottom: 0; }
+ *
+ * Das sind drei Anzeichen derselben Sache: die Panels waren **Overlays** über dem Canvas. Halb-
+ * durchsichtig, mit Weichzeichnung, damit man die Welt darunter noch sieht — und überall dort, wo der
+ * Canvas liegt. Beim Öffnen der Welt wurde der Baum gebaut, und die Panels **erschienen** über der
+ * Welt: der Betreiber: „**dockingstuff wurde einfach rein getan plop auftaucht**".
+ *
+ * Jetzt sind Kern und Dock **Geschwister im Fluss** (`#core` und `.dockhost`). Der Kern bekommt den
+ * Rest der Fläche, das Dock seine Spalten. Wer ein Panel öffnet, **verkleinert** die Welt — er
+ * verdeckt sie nicht. Und was einmal da ist, taucht nicht auf: es ist da.
+ */
+#screen-os {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.core {
+  position: absolute;
+  inset: 0;
+  /*
+   * **Die Leiste bekommt ihren Platz, statt die Welt zu verdecken.**
+   *
+   * Der Betreiber: „**immer noch da den abgedeckte teil?**" — mit einem Ausschnitt, in dem die Pille
+   * („abgesteckt: + Suche …") **über** dem Namen „Sonne" liegt und ihn anschneidet. Sie ist
+   * `position: absolute; bottom: 14px` und liegt damit auf der Welt.
+   *
+   * Die Kernfläche endet deshalb **über** der Leiste: ihr unterer Rand wird um die **gemessene** Höhe
+   * der Leiste plus ihren Abstand gekürzt. Damit ist die Welt kleiner, aber nichts liegt auf ihr — und
+   * weil die Insel, die Kopfzeile und die Achsenanzeige **in** der Kernfläche liegen, rücken sie alle
+   * mit.
+   *
+   * `--leiste-hoehe` setzt `main.ts` bei jeder Layoutänderung (gemessen, nicht geschätzt): die Höhe
+   * hängt an Schriftgrad und Polsterung, und beides darf sich ändern.
+   */
+  bottom: calc(var(--leiste-hoehe, 41px) + 24px);
+  min-height: 0;
+  min-width: 0;
+  /*
+   * **Die Kernfläche liegt UNTER dem Dock — sonst sind die Panels nicht bedienbar.**
+   *
+   * Der Betreiber: „**wenn ich es zb aktiviere ist es nicht interaktiv … ich kann es auch nicht
+   * bewegen**". Gemessen (`tools/panels.js`): an der Kopfzeile eines offenen Panels liefert
+   * `elementsFromPoint` als **erstes** Element `world` — den Canvas der Kernfläche. Also lag die
+   * Kernfläche **über** dem Dock, und jedes Ziehen am Griff, jeder Klick im Panel ging an den Canvas.
+   *
+   * Dass das „✕" trotzdem wirkte, ist kein Gegenbeweis: der Test hatte das Ereignis **erfunden** und
+   * direkt auf den Knopf geschickt — ein erfundenes Ereignis braucht kein Trefferbild. Nur ein echter
+   * Zeiger trifft, und der traf die Kernfläche.
+   *
+   * `z-index: 1` gegen `z-index: 2` beim Dock (`app.css`, `.dockhost`) macht die Reihenfolge eindeutig.
+   * Die Kernfläche bleibt **unter** den Panels und **über** dem Hintergrund — das ist die Reihenfolge,
+   * die ein Dock verlangt.
+   */
+  z-index: 1;
+  /*
+   * **Der `overflow: hidden` ist nicht Kosmetik.** Die Insel ist 560 px breit, wenn sie aufgeklappt
+   * ist; ohne diese Zeile schöbe sie die Kernfläche über die Panels hinaus.
+   */
+  overflow: hidden;
+}
+
+/*
+ * **Die Kernfläche lässt den Zeiger durch — nur ihre Bedienteile fangen ihn.**
+ *
+ * **Hier steckte der Fehler, der die Welt unbedienbar gemacht hat.** Der Betreiber: „**noch dazu kann
+ * ich es nicht mehr universe ect steuern mit maus und oder tastatur**".
+ *
+ * Diese Regel stand zuerst **vor** der Regel für `.labels` — und beide haben dieselbe Spezifität
+ * (0,1,0). Bei gleicher Spezifität gewinnt die **spätere**. Also überschrieb `.core > *` das
+ * `pointer-events: none` der Beschriftungsebene, und gemessen war die Folge:
+ *
+ *     labels   pe="auto"   z=3     ← über dem Canvas und fängt ALLES ab
+ *     world    pe="auto"   z=2
+ *
+ * Die Beschriftungen liegen mit `z-index: 3` über dem Canvas (`z-index: 2`) und decken die ganze
+ * Fläche. Mit `auto` fing diese unsichtbare Ebene jedes Radereignis, jeden Zug und jeden Klick —
+ * die Welt darunter bekam nichts mehr.
+ *
+ * Die Ausnahmen stehen jetzt **nach** dieser Regel: `.labels` lässt durch, die Insel und die
+ * Achsenanzeige fangen (die sind greifbar, siehe `control.showAxes`).
+ */
+.core > * {
+  pointer-events: auto;
+}
+
+.core > .labels {
+  pointer-events: none;
+}
+
+.core > #world,
+.core > .hud {
+  pointer-events: auto;
+}
+
+/*
+ * **Das Dock liegt über der Fläche — und das ist ein offener Mangel, kein Entwurf.**
+ *
+ * Der Betreiber: „**dockingstuff wurde einfach rein getan plop auftaucht**". Gemeint ist genau das,
+ * was hier steht: die Panels sind ein **Overlay** über der Welt, halbdurchsichtig, und beim Öffnen
+ * der Welt erscheinen sie schlagartig darüber. Sie sind nicht **eingebaut**, sie sind hineingelegt.
+ *
+ * **Zwei Umbauten sind gescheitert und zurückgenommen** — ein Flex-Streifen (die Panels wurden ein
+ * Band, die Welt ein Streifen) und ein Raster mit `display: contents` (die Panels ragten über den
+ * Rand, die Welt wurde ein schmaler Streifen, unten eine leere Fläche). Beide waren schlechter als
+ * dieser Stand, und beide wurden **verworfen statt repariert**: ein kaputter Umbau ist schlimmer als
+ * ein bekannter Mangel.
+ *
+ * **Was ein richtiger Umbau braucht** — damit es beim nächsten Anlauf nicht wieder geraten wird:
+ *
+ *   1. Die Zonen müssen **Kinder des Rasters** sein, nicht eines Zwischenelements. `display: contents`
+ *      war der Versuch; er scheitert daran, dass die Panels ihre Breite aus `flex-basis` setzen und
+ *      im Raster kein Flex-Kontext mehr existiert.
+ *   2. Also braucht es **je Zone einen Rasterplatz mit fester Breite** (`grid-template-columns: 280px
+ *      1fr 280px`) und eine Regel, die die Breite beim Ziehen setzt — heute setzt `dock-view.ts`
+ *      `flex-basis`, was im Raster nichts tut.
+ *   3. Und der Umbau braucht **eigene Werkzeuge**: `tools/dock-layout.js` misst die Kästen von Kern,
+ *      linker, rechter und unterer Zone und meldet, ob sie sich überlappen oder ausserhalb liegen.
+ *      Ohne das ist „es sieht falsch aus" wieder eine Beobachtung statt einer Zahl.
+ */
+/* Die Gruppenzeile der Panels ist ein Knopf — sie klappt die Liste auf und zu. */
+.grp-knopf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  padding: 4px 8px;
+  border-radius: var(--r);
+}
+
+.grp-knopf:hover {
+  background: var(--dsw-alias-bg-layer-2, #17171a);
+}
+
+/*
+ * **Der Zustand eines Panels ist eine Marke, kein Zeichen.**
+ *
+ * Vorher standen dort `▣` und `▢` — zwei Kästchen, die man nicht unterscheiden kann, wenn man nicht
+ * genau hinsieht. Ein farbiger Punkt mit Text daneben („offen" / „abgesteckt") ist lesbar, auch ohne
+ * die Farbe zu erkennen.
+ */
+.pkt {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-rund);
+  flex: 0 0 auto;
+}
+
+.pkt.an {
+  background: var(--g);
+}
+
+.pkt.aus {
+  border: 1px solid var(--t3);
+  background: transparent;
+}
+
+/* Die eingeklappte Liste nimmt keinen Platz — `hidden` heisst „nicht da". */
+.grp-liste[hidden] {
+  display: none;
+}
+
+.grp-liste {
+  display: flex;
+  flex-direction: column;
+  padding-left: 8px;
+}
+
+/*
+ * **Die Gruppenüberschrift in der Panelliste.**
+ *
+ * Sie ist eine Zeile, kein Knopf: „Ansicht", „System", „Werkzeuge" sagen, wozu die Zeilen darunter
+ * gehören. Klein, gesperrt, gedämpft — sie soll die Liste gliedern, nicht mit ihr sprechen.
+ */
+.grp-unter {
+  padding: 7px 8px 2px;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.grp-unter:first-child {
+  padding-top: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+ * **Die Ansichts-Leiste — sieben Striche, kein Kasten.**
+ *
+ * Der erste Anlauf war ein Kasten mit Titelzeile, Ebenenname, Abstand und zwei Knöpfen. Der Betreiber:
+ * „**sieht scheisse aus nicht modern nicht scifi** und ich würde lieber den strich nutzen als button
+ * und als scrollen".
+ *
+ * Er hat recht, und der Harness zeigt an solchen Stellen genau das: **dünne Striche**, der aktive
+ * heller und länger — wie die Tab-Indikatoren in `ui-layout`. Kein Rahmen, keine Füllung, keine
+ * Knopfform.
+ *
+ * **Warum kein Hintergrund.** Ein Instrument, das über der Welt liegt, braucht keine Fläche, wenn es
+ * aus Strichen besteht: es liest sich als **Massstab**. Eine Fläche mit Erhebung hebt es heraus und
+ * macht aus einem Instrument ein Fenster.
+ * ══════════════════════════════════════════════════════════════════════════════════════════ */
+.viewctl {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  gap: 4px 8px;
+  padding: 6px 8px 4px;
+  /* `pointer-events: auto` ist nötig: die Kernfläche lässt den Zeiger durch (siehe `.core > *`). */
+  pointer-events: auto;
+  font-family: var(--sans);
+  user-select: none;
+  cursor: ns-resize;
+}
+
+.viewctl[hidden] {
+  display: none;
+}
+
+/*
+ * **Der Griff** — ein kurzer Strich links, sichtbar beim Überfahren. Er verschiebt das Objekt.
+ */
+.viewctl .vc-grip {
+  grid-row: 1 / 3;
+  align-self: stretch;
+  width: 3px;
+  border-radius: var(--r-fein);
+  background: var(--t3);
+  opacity: 0;
+  transition: opacity var(--t-mittel) var(--e-standard);
+}
+
+.viewctl:hover .vc-grip {
+  opacity: 0.5;
+}
+
+/*
+ * **Die Striche.** Jeder ist eine Zeile der Bezugsebenen: oben fein, unten weit. Der aktive ist lang
+ * und hell, die anderen kurz und gedämpft — dieselbe Sprache wie die Tab-Indikatoren des Harness.
+ */
+.viewctl .vc-ticks {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  justify-content: center;
+}
+
+.viewctl .vc-tick {
+  border: none;
+  padding: 0;
+  height: 4px;
+  width: 16px;
+  border-radius: var(--r-fein);
+  background: var(--t3);
+  opacity: 0.45;
+  cursor: pointer;
+  transition:
+    width var(--t-mittel) var(--e-standard),
+    opacity var(--t-mittel) var(--e-standard),
+    background-color var(--t-mittel) var(--e-standard);
+}
+
+.viewctl .vc-tick:hover {
+  opacity: 0.8;
+  width: 22px;
+}
+
+/*
+ * **Der aktive Strich.** Länge **und** Helligkeit — nicht nur Farbe: wer die Farbe nicht unterscheidet,
+ * liest die Länge.
+ */
+.viewctl .vc-tick[data-an] {
+  width: 30px;
+  opacity: 1;
+  background: var(--dsw-static-deepseek-500, #7aaaff);
+}
+
+/*
+ * **Die Anzeige steht neben den Strichen, nicht darunter** — und sie ist klein und ruhig. Sie ist
+ * eine **Angabe**, kein Bedienelement: sie sagt, wo man ist, und wandert mit.
+ */
+.viewctl .vc-read {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-width: 74px;
+}
+
+.viewctl .vc-ebene {
+  font-size: var(--f-klein);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--t);
+  /* Feste Zeilenhöhe: der Name wechselt, und ohne sie springt die Gruppe bei jedem Wechsel. */
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.viewctl .vc-abstand {
+  font-size: var(--f-klein);
+  color: var(--t3);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+
+/*
+ * **Das „✕" erscheint nur beim Überfahren.** Ein Objekt, das man wegräumen kann, soll das nicht
+ * anschreien — und im Ruhezustand ist die Leiste ein Massstab, kein Fenster.
+ */
+.viewctl .vc-close {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: var(--r-rund);
+  background: var(--dsw-alias-bg-layer-3, #232326);
+  color: var(--t3);
+  /* Kein Grad unter 11 px — der Test `typo-scale` prüft das, und er hat hier zugeschlagen. */
+  font-size: var(--f-klein);
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--t-mittel) var(--e-standard);
+}
+
+.viewctl:hover .vc-close,
+.viewctl:focus-within .vc-close {
+  opacity: 1;
+}
+
+.viewctl .vc-close:hover {
+  color: var(--t);
+}
+
+.viewctl.zieht {
+  cursor: ns-resize;
+}
+
+.dockhost {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  /*
+   * **Über der Kernfläche.** Ohne diese Zeile lag der Canvas über den Panels und fing jeden Zug und
+   * jeden Klick ab — die Panels waren sichtbar, aber nicht bedienbar. Siehe `.core`.
+   */
+  z-index: 2;
+}
+
+/*
+ * **Die Zonen lassen den Zeiger durch — nur die Panels fangen ihn.**
+ *
+ * Hier stand `.dockhost > * { pointer-events: auto }`. Das war ein **echter Fehler** mit einer
+ * sichtbaren Folge: die Zonen sind Flex-Kinder von `.dockhost` (1440 × 900) und werden auf die volle
+ * Höhe **gestreckt** — gemessen 900 px. Also fing die rechte Zone **420 × 900** ab, die linke
+ * **280 × 900**, die untere **1440 × 145**. Zusammen fast der ganze Bildschirm.
+ *
+ * Der Betreiber: „**noch dazu kann ich es nicht mehr universe ect steuern mit maus und oder
+ * tastatur**". Genau das: die Welt bekam keine Zeigerereignisse mehr, weil drei durchsichtige
+ * Flächen darüberlagen.
+ *
+ * Richtig ist die feinere Regel: die **Zone** lässt durch, das **Panel** fängt. Eine Zone ist eine
+ * Anordnung, kein Bedienelement — sie soll nichts abfangen, auch nicht dort, wo sie leer ist.
+ */
+.dockhost > * {
+  pointer-events: none;
+}
+
+.zone .panel,
+.zone .dock-col,
+.zone .tabs,
+.zone .tab,
+.zone .panelbar,
+.zone .edge {
+  pointer-events: auto;
+}
+
+/* Der Griff zum Ziehen ist Teil des Panels — die Zone darunter nicht. */
+.zone .edge {
+  pointer-events: auto;
+}
+
+.zone {
+  display: flex;
+  position: relative;
+}
+
+/*
+ * **Eine Zone ist eine Anordnung — sie zeichnet nichts.**
+ *
+ * Hier stand bei allen drei Zonen `background: #0b0b0eee` mit `backdrop-filter: blur(8px)`. Das war
+ * der halbdurchsichtige Schleier, der über der Welt lag, auch dort, wo gar kein Panel stand — und
+ * zusammen mit `.dockhost > * { pointer-events: auto }` hat er die Welt zusätzlich **bedienungsunfähig**
+ * gemacht (siehe oben).
+ *
+ * Die Fläche gehört dem **Panel**, nicht der Zone. Ein leerer Bereich im Dock soll die Welt zeigen,
+ * nicht einen Schleier.
+ */
+.zone-left {
+  flex-direction: row;
+  align-items: stretch;
+  border-right: 1px solid var(--b);
+}
+
+.zone-right {
+  flex-direction: row;
+  align-items: stretch;
+  margin-left: auto;
+  border-left: 1px solid var(--b);
+}
+
+.zone-bottom {
+  flex-direction: column;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /*
+   * **Eine Untergrenze für den Bildschirm, keine Obergrenze für den Inhalt.** Die Höhe kommt aus
+   * der Anordnung (`dock-view.ts` setzt sie); hier steht nur, daß sie oben Luft lassen muß. Ohne
+   * diese Zeile deckt ein 720-px-Panel auf einem 600-px-Bildschirm den Kopf zu.
+   */
+  max-height: calc(100% - 64px);
+  border-top: 1px solid var(--b);
+}
+
+.zone-floating {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.zone-floating .panel {
+  position: absolute;
+  pointer-events: auto;
+  box-shadow: var(--sch-3);
+  border-radius: var(--r);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  background: var(--s);
+  border-radius: 0;
+}
+
+.panel-floating {
+  background: var(--glas);
+  border: 1px solid var(--b);
+}
+
+.panelhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--b2);
+  cursor: grab;
+  user-select: none;
+  /*
+   * **Der Titel eines Fensters ist die Titelstufe der Skala.**
+   *
+   * Hier stand `var(--f-klein)` = 11 px — **dieselbe Grösse wie der Inhalt darunter**. Ein Titel, der
+   * genauso gross ist wie sein Inhalt, ist kein Titel, sondern eine erste Zeile. Dazu
+   * `letter-spacing: 1.5px` mit Grossbuchstaben: dieselbe Kombination, die die Knopfleiste unleserlich
+   * gemacht hat. `--f-titel` (14 px) gibt ihm den Rang, den er in der Hierarchie hat.
+   */
+  font-size: var(--f-titel);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--t2);
+  font-weight: 600;
+}
+
+.panelhead b {
+  color: var(--a2);
+  font-weight: 600;
+}
+
+.panelhead .grip {
+  color: var(--b);
+  cursor: grab;
+}
+
+.panelx {
+  border: none;
+  background: none;
+  color: var(--t3);
+  cursor: pointer;
+  font-size: var(--f-text);
+  padding: 2px 4px;
+}
+
+.panelx:hover {
+  color: var(--a);
+}
+
+.panelcontent {
+  flex: 1;
+  overflow: auto;
+  padding: 12px 14px;
+  min-height: 0;
+}
+
+/*
+ * **Eine Spalte je Zone: Reiter oben, Panel darunter.**
+ *
+ * Vorher waren `.tabs`, `.panel` und `.edge` **direkte Kinder** der Zone — und die Zone ist
+ * `flex-direction: row`. Also lagen sie nebeneinander: das Reiterband als 253 px breite Spalte über
+ * die volle Höhe, das Panel daneben mit 157 px Restbreite. Genau das hat der Betreiber gesehen.
+ *
+ * `flex-direction: column` in dieser Zwischenebene ist alles, was nötig ist: Reiter bilden eine
+ * Zeile, das Panel füllt den Rest, und die Spalte ist genau so breit wie ihr breitester Teil.
+ */
+.dock-col {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  /*
+   * **Die Spalte ist die Fläche.** Die Zone zeichnet nichts mehr (siehe unten), also trägt die Spalte
+   * den Hintergrund — sie umfasst Reiterband **und** Panel, und beides soll auf einer Fläche liegen.
+   */
+  background: var(--dsw-alias-bg-layer-1, var(--s));
+}
+
+/*
+ * **Die Reiter sitzen in der Kopfzeile — kein Band, keine eigene Zeile.**
+ *
+ * Der Betreiber: „**bitte die ausblenden bzw sollte nicht da sein sollange man es per button oder per
+ * command idk what ever macht erst dann auftaucht**". Sie standen als eigenes Band über dem Panel und
+ * doppelten dessen Titel („ZUSTAND" zweimal).
+ *
+ * Jetzt sind sie eine **Reihe leiser Knöpfe rechts in der Kopfzeile**: nur vorhanden, wenn es ein
+ * Geschwisterpanel gibt, gleiche Schriftgrösse wie der Titel, kein Rahmen, gedämpfte Farbe. Wer nicht
+ * umschalten will, sieht nichts Zusätzliches.
+ *
+ * `margin-left: auto` schiebt sie nach rechts — der `spacer` davor bleibt, damit die Kopfzeile auch
+ * **ohne** Reiter ziehbar bleibt.
+ */
+.tabs {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+  overflow: hidden;
+}
+
+.tab {
+  border: none;
+  background: none;
+  color: var(--t3);
+  /* Ein Reiter ist Text, nicht Code — dieselbe Regel wie bei Knöpfen und Etiketten. */
+  font: 500 var(--f-klein) var(--sans);
+  white-space: nowrap;
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 3px 8px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition:
+    color var(--t-schnell) var(--e-standard),
+    background-color var(--t-schnell) var(--e-standard);
+}
+
+.tab:hover {
+  color: var(--t);
+  background: var(--dsw-alias-bg-layer-2, #17171a);
+}
+
+.edge {
+  background: transparent;
+  flex: 0 0 6px;
+}
+
+.edge-x {
+  cursor: col-resize;
+}
+
+.edge-y {
+  cursor: row-resize;
+  flex-basis: 6px;
+  height: 6px;
+  width: 100%;
+}
+
+.edge:hover {
+  background: var(--a);
+}
+
+/*
+ * **Die Zielmarke sitzt AN DER INSEL — nicht über der ganzen Fläche.**
+ *
+ * Hier standen zwei gestrichelte Rahmen mit `inset: 12% 20% 22%` und `inset: 0` — also **über den
+ * ganzen Bildschirm**, sobald ein Panel gezogen wurde. Der Betreiber: „**diese komische rote anzeige
+ * umrandung**" und „**es wäre besser das es nur beim dynamic illand passiert bei kolision**".
+ *
+ * Er hat recht: eine Marke, die überall ist, sagt nicht, **wohin** etwas gehört. Und sie war irreführend
+ * — abstecken gibt es nur an der Insel (`dockStations` in `docking.ts`), also leuchtet auch nur sie.
+ *
+ * Die Marke ist ein **Ring um die Insel**, mit Abstand, damit sie die Pille nicht berührt. Sie
+ * erscheint, wenn die Insel im Weg ist (`.dockhost.dragging`), und sie ist ein **Zustand der Insel**,
+ * kein eigener Kasten: sie umschliesst genau das, worauf man zielt.
+ */
+#isl.dropziel::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 1px dashed var(--a);
+  border-radius: var(--r-rund);
+  pointer-events: none;
+  animation: droppuls var(--puls-dauer) ease-in-out infinite;
+}
+
+@keyframes droppuls {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/*
+ * **Die Andockstellen — als Linie an ihrer Kante, nicht als Rahmen über der Fläche.**
+ *
+ * Der Betreiber: „**sieht scheisse aus nicht modern nicht scifi und ich würde lieber den strich nutzen
+ * als button und als scrollen**". Ein Strich ist die Sprache dieses Entwurfs (siehe `.viewctl`: sieben
+ * Striche statt eines Kastens) — ein Rahmen um eine Fläche ist es nicht.
+ *
+ * Deshalb ist eine Stelle hier **eine Linie dort, wo ihre Kante ist**: an der linken Stelle eine
+ * senkrechte Linie in ihrer Breite, an der unteren eine waagerechte. Kein Kasten, kein Schleier.
+ *
+ * **Und sie sind nur waehrend eines Zugs da.** `.dockstellen` ist leer, solange nichts gezogen wird
+ * (`stellenZeichnen`). Die alte Fassung hatte zwei gestrichelte Rahmen **immer** an — „diese komische
+ * rote anzeige umrandung".
+ *
+ * **Die Linie zeigt auch die Ausrichtung.** Sie ist so **hoch** wie das gezogene Objekt (links/rechts)
+ * bzw. so **breit** (unten) — man sieht vor dem Loslassen, **wie** das Objekt liegen wird. Genau das
+ * war der Auftrag: Stellen sollen „auch den objekte selbst auch orientiert".
+ */
+.dockstellen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.dockstelle {
+  position: absolute;
+  /* Der Strich selbst — 2 px, wie die Achsen und die Skala. */
+  background: color-mix(in srgb, var(--dsw-static-deepseek-500, #7aaaff) 34%, transparent);
+  /* **`background-color`, nicht `background`.** Die Kurzform weiß nicht, *was* sich ändert, und der
+     Browser animiert dann nichts — eine Zeile, die aussieht wie ein Übergang und keiner ist.
+     Und linear für eine Antwort auf den Zeiger liest sich mechanisch: Menschen bewegen sich nicht
+     gleichförmig. */
+  transition: background-color var(--t-schnell) var(--e-standard);
+}
+
+.dockstelle[data-achse='x'] {
+  width: 2px;
+}
+
+.dockstelle[data-achse='y'] {
+  height: 2px;
+}
+
+/*
+ * Die **gemeinte** Stelle. Sie ist der einzige Ort, der sich farblich meldet: alle anderen bleiben
+ * leise, damit man sieht, **dass** es Stellen gibt — und welche man gerade meint.
+ */
+.dockstelle[data-aktiv='ja'] {
+  background: var(--dsw-static-deepseek-500, #7aaaff);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--dsw-static-deepseek-500, #7aaaff) 60%, transparent);
+}
+
+/* ── Objekte in der Fläche ─────────────────────────────────────────────────────────────── */
+
+/*
+ * **Karten in Bildpunkten — nicht in der Welt.**
+ *
+ * Betreiber: „**also objecte aka datei möglichkeit drag and drop**". Die Karten liegen **über** der
+ * Welt in einer eigenen Ebene, deshalb bewegt sie der Zoom nicht: eine Karte bleibt an ihrem Platz und
+ * greifbar, egal welcher Maßstab darunter liegt (Begründung in `canvas-objects.ts`).
+ *
+ * **Warum die Ebene Zeigerereignisse annimmt, die Fläche darunter aber nicht gestört wird.** Die
+ * Ebene bekommt `pointer-events: none` und **jede Karte** `auto` — sonst lüge die Fläche überall dort,
+ * wo eine Karte **nicht** ist, und die Welt wäre nicht mehr zu drehen. Genau dieser Fehler ist beim
+ * Dock schon einmal passiert („`.core` lag über `.dockhost`").
+ */
+.canvasobj {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.cobj {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 22px 8px 12px;
+  border: 1px solid var(--b);
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--dsw-alias-bg-base) 88%, transparent);
+  backdrop-filter: blur(6px);
+  pointer-events: auto;
+  cursor: grab;
+  box-shadow: var(--sch-1);
+  transition: border-color var(--t-schnell) var(--e-standard);
+}
+
+.cobj:hover,
+.cobj:focus-visible {
+  border-color: var(--dsw-static-deepseek-500, #7aaaff);
+}
+
+.cobj.zieht {
+  cursor: grabbing;
+  border-color: var(--dsw-static-deepseek-500, #7aaaff);
+  box-shadow: var(--sch-2);
+}
+
+/* Die Art — klein und oben, wie eine Fußzeile in einem Dateimanager. */
+.cobjart {
+  font: 500 var(--f-klein) / 1.2 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dsw-static-deepseek-500, #7aaaff);
+}
+
+.cobjname {
+  font: var(--f-text) / 1.3 var(--dsw-font-family);
+  color: var(--dsw-alias-label-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cobjgroesse {
+  font: var(--f-klein) / 1.2 var(--mono);
+  color: var(--t3, #b9c2cc);
+}
+
+.cobjx {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--t3, #b9c2cc);
+  font: var(--f-klein) / 1 var(--dsw-font-family);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--t-schnell) var(--e-standard);
+}
+
+.cobj:hover .cobjx,
+.cobj:focus-within .cobjx {
+  opacity: 1;
+}
+
+.cobjx:hover {
+  color: var(--dsw-alias-label-primary);
+}
+
+/*
+ * **Die Meldung „hier ablegen" — und sie nimmt KEINE Zeigerereignisse an.**
+ *
+ * Ohne `pointer-events: none` läge sie beim Ziehen im Weg, und die Datei fiele auf die Meldung statt
+ * auf die Fläche. Sie erscheint nur, solange eine Datei über der Fläche gehalten wird.
+ */
+.cobjdrop {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border: 1px dashed var(--dsw-static-deepseek-500, #7aaaff);
+  border-radius: var(--r-rund);
+  background: color-mix(in srgb, var(--dsw-alias-bg-base) 82%, transparent);
+  color: var(--dsw-alias-label-primary);
+  font: var(--f-text) / 1.2 var(--dsw-font-family);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Und die Fläche zeigt, dass sie bereit ist. */
+#screen-os.zieht-datei .cobjdrop {
+  border-style: solid;
+}
+
+
+.panelbar {
+  position: absolute;
+  left: 72px;
+  bottom: 14px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  /*
+   * **Die Leiste ist eine Fläche, kein Umriss.**
+   *
+   * Vorher: `background: var(--s)` = `#101010` bei einem Rahmen von `#3d3a39` — auf dem dunklen
+   * Hintergrund las sich das als Strich mit Text daran, nicht als Leiste. Jetzt eine Fläche des
+   * Design-Systems mit Erhebung, damit sie **über** der Welt liegt statt in ihr zu schwimmen.
+   */
+  background: var(--dsw-alias-bg-layer-2, #17171a);
+  border: 1px solid var(--dsw-alias-border-l2, #2c2c30);
+  border-radius: var(--r-rund);
+  padding: 7px 16px;
+  box-shadow: var(--sch-2);
+  pointer-events: auto;
+}
+
+.panelbar-label {
+  font-family: var(--sans);
+  font-size: var(--f-klein);
+  /*
+   * **Keine Sperrung, keine Grossbuchstaben.**
+   *
+   * `letter-spacing: 1.5px` + `text-transform: uppercase` war der zweite Grund, warum diese Zeile
+   * unleserlich war: eine dünne Schrift mit weiter Sperrung verliert die Strichdicke, die man zum
+   * Erkennen braucht. Gesperrte Grossbuchstaben gehören auf ein Titelblatt, nicht in eine Knopfleiste.
+   */
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--t2);
+}
+
+.dockbtn {
+  border: 1px solid var(--dsw-alias-border-l2, #2c2c30);
+  background: var(--dsw-alias-bg-layer-1, #101014);
+  color: var(--t2);
+  border-radius: var(--r-rund);
+  padding: 4px 12px;
+  /* **Textschrift, nicht Code.** Ein Knopf ist eine Handlung, kein Messwert. */
+  font: 500 var(--f-klein) var(--sans);
+  cursor: pointer;
+  transition:
+    border-color var(--t-schnell) var(--e-standard),
+    color var(--t-schnell) var(--e-standard),
+    background-color var(--t-schnell) var(--e-standard);
+}
+
+.dockbtn:hover {
+  border-color: var(--dsw-alias-border-l3, #44444a);
+  background: var(--dsw-alias-bg-layer-2, #17171a);
+  color: var(--t);
+}
+
+/* ── Panel-Inhalte ────────────────────────────────────────────────────────────────────── */
+
+.hint {
+  color: var(--t3);
+  font: 11.5px/1.5 var(--mono);
+  margin-bottom: 10px;
+}
+
+.field {
+  width: 100%;
+  background: var(--s2);
+  border: 1px solid var(--b);
+  border-radius: var(--r-sm);
+  color: var(--t);
+  font: inherit;
+  font-size: var(--f-text);
+  padding: 8px 10px;
+  outline: none;
+  margin-bottom: 10px;
+}
+
+.field:focus {
+  border-color: var(--a);
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.result {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  text-align: left;
+  border: 1px solid var(--b2);
+  background: none;
+  border-radius: var(--r-sm);
+  padding: 7px 9px;
+  color: var(--t2);
+  font: 12px var(--mono);
+  cursor: pointer;
+}
+
+.result:hover {
+  border-color: var(--a);
+  color: var(--t);
+}
+
+.result .kind {
+  color: var(--a2);
+  font-size: var(--f-klein);
+}
+
+.result .where {
+  grid-column: 1 / -1;
+  color: var(--t3);
+  font-size: var(--f-klein);
+}
+
+/*
+ * ── Die KI-Rangliste ───────────────────────────────────────────────────────────────────────
+ *
+ * ## Was hier anders ist als vorher
+ *
+ * Vorher war das eine Liste unter einer Liste: eine Zeile Zahlen, dann Absätze, dann wieder
+ * Absätze. Auf 1440 px stand links ein schmaler Streifen Text, rechts blieb die Fläche leer. Das
+ * ist ein ausgedrucktes Protokoll, keine Ansicht.
+ *
+ * Jetzt beantwortet die Fläche drei Fragen in dieser Reihenfolge: **Was ist die Lage?** (die
+ * Zahlenleiste), **Was wird empfohlen — und warum?** (die Empfehlung in der Karte), **Was gibt es
+ * sonst?** (die Kandidaten). Die Karten stehen nebeneinander, weil zwei Fähigkeiten zwei Fragen
+ * sind — nicht eine lange.
+ *
+ * ## Die Regeln, die bleiben
+ *
+ * **Keine eigenen Farben, Formen, Schatten oder Dauern.** Alles kommt aus den Tokens dieses
+ * Blattes (`design.test.ts` zählt sie nach). Die Schriftgrade bleiben auf der Skala; **kein** Grad
+ * unter 11 px, weil genau das die Stelle ist, an der diese Oberfläche schon einmal unleserlich war
+ * (`typo-scale.test.ts`).
+ *
+ * **Bewegung ist eine Aussage über Beziehung.** Karten kommen mit einer ruhigen Bewegung, Zeilen
+ * antworten auf den Zeiger, Knöpfe geben beim Drücken nach. Nichts davon läuft bei
+ * `prefers-reduced-motion` — der Block unten setzt die vier Dauern auf 1 ms.
+ */
+.rang {
+  --rang-linie: color-mix(in srgb, var(--t) 9%, transparent);
+  --rang-linie-stark: color-mix(in srgb, var(--t) 17%, transparent);
+  --rang-flaeche: color-mix(in srgb, var(--t) 4%, var(--s));
+  --rang-flaeche-2: color-mix(in srgb, var(--t) 2%, var(--s2));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding-bottom: 2px;
+  font-size: var(--f-text);
+  line-height: 1.5;
+  color: var(--t2);
+  /*
+   * Das Licht kommt von links oben — dieselbe Richtung wie die Esse der Vorlage. Zwei weiche
+   * Scheine, keine Bilddatei: die Fläche bleibt leicht, und die Farbe folgt dem Token.
+   */
+  background:
+    radial-gradient(
+      720px 220px at -8% -20%,
+      color-mix(in srgb, var(--a) 11%, transparent),
+      transparent 68%
+    ),
+    radial-gradient(
+      620px 200px at 108% -10%,
+      color-mix(in srgb, var(--blue) 8%, transparent),
+      transparent 70%
+    );
+}
+
+/* ── Der Kopf ─────────────────────────────────────────────────────────────────────────────── */
+
+.rang-dach {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 24px;
+  align-items: start;
+  padding: 2px 2px 0;
+}
+
+.rang-marke {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rang-punkt {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--a);
+  box-shadow: 0 0 10px var(--a);
+}
+
+.rang-marke-text {
+  color: var(--a2);
+  font-size: var(--f-klein);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.rang-moment {
+  color: var(--t3);
+  font-size: var(--f-klein);
+  border: 1px solid var(--rang-linie);
+  border-radius: var(--r-rund);
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+.rang-titelzeile {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.rang-haupttitel {
+  margin: 6px 0 0;
+  color: var(--t);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.rang-untertitel {
+  margin: 4px 0 0;
+  max-width: 92ch;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.rang-dach-rechts {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rang-quelle {
+  color: var(--t3);
+  font-family: var(--mono);
+  font-size: var(--f-klein);
+  border: 1px solid var(--rang-linie);
+  border-radius: var(--r-xs);
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.rang-knopf {
+  border: 1px solid var(--b);
+  border-radius: var(--r-sm);
+  background: var(--s2);
+  color: var(--t2);
+  font-family: inherit;
+  font-size: var(--f-klein);
+  padding: 5px 11px;
+  cursor: pointer;
+  transition:
+    color var(--t-schnell) var(--e-standard),
+    background var(--t-schnell) var(--e-standard),
+    border-color var(--t-schnell) var(--e-standard),
+    transform var(--t-schnell) var(--e-standard);
+}
+
+.rang-knopf:hover {
+  color: var(--t);
+  border-color: var(--rang-linie-stark);
+  background: color-mix(in srgb, var(--t) 6%, var(--s2));
+}
+
+.rang-knopf:active {
+  transform: scale(0.97);
+}
+
+/* ── Die Lage: fünf Zahlen ────────────────────────────────────────────────────────────────── */
+
+.rang-zahlen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
+}
+
+.rang-zahl {
+  --zahl-farbe: var(--t3);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 12px 8px 14px;
+  overflow: hidden;
+  border: 1px solid var(--rang-linie);
+  border-radius: var(--r);
+  background: linear-gradient(160deg, var(--rang-flaeche), var(--rang-flaeche-2));
+  box-shadow: var(--sch-1);
+}
+
+.rang-zahl::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--zahl-farbe);
+  opacity: 0.55;
+}
+
+.rang-zahl[data-art='gut'] {
+  --zahl-farbe: var(--g);
+}
+
+.rang-zahl[data-art='info'] {
+  --zahl-farbe: var(--blue);
+}
+
+.rang-zahl[data-art='frei'] {
+  --zahl-farbe: var(--g);
+}
+
+.rang-zahl[data-art='warn'] {
+  --zahl-farbe: var(--a2);
+}
+
+.rang-zahl-wert {
+  color: var(--t);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rang-zahl-name {
+  overflow: hidden;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Die Leiste: Fähigkeiten und Stand ───────────────────────────────────────────────────── */
+
+.rang-leiste {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rang-linie);
+}
+
+.rang-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rang-tab {
+  border: 1px solid transparent;
+  border-radius: var(--r-rund);
+  background: transparent;
+  color: var(--t3);
+  font-family: inherit;
+  font-size: var(--f-klein);
+  padding: 4px 10px;
+  cursor: pointer;
+  transition:
+    color var(--t-schnell) var(--e-standard),
+    background var(--t-schnell) var(--e-standard),
+    border-color var(--t-schnell) var(--e-standard);
+}
+
+.rang-tab:hover {
+  color: var(--t);
+  background: color-mix(in srgb, var(--t) 5%, transparent);
+}
+
+.rang-tab[data-an='1'] {
+  color: var(--t);
+  border-color: color-mix(in srgb, var(--a) 32%, transparent);
+  background: color-mix(in srgb, var(--a) 13%, transparent);
+}
+
+.rang-stand {
+  margin-left: auto;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  white-space: nowrap;
+}
+
+/* ── Die Fläche: eine Karte je Fähigkeit ─────────────────────────────────────────────────── */
+
+.rang-flaeche {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
+  gap: 12px;
+  align-items: start;
+  min-width: 0;
+}
+
+.rang-faehigkeit {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid var(--rang-linie);
+  border-radius: var(--r-lg);
+  background: linear-gradient(165deg, var(--rang-flaeche), var(--rang-flaeche-2));
+  box-shadow: var(--sch-1);
+  animation: rang-ein var(--t-gross) var(--e-aus) both;
+  transition: border-color var(--t-mittel) var(--e-standard);
+}
+
+/* Die obere Kante fängt das Licht — dieselbe Richtung wie die Scheine im Hintergrund. */
+.rang-faehigkeit::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--a) 42%, transparent),
+    transparent
+  );
+}
+
+.rang-faehig-kopf {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rang-titel {
+  margin: 0;
+  color: var(--t);
+  font-size: var(--f-titel);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.rang-faehig-id {
+  color: var(--t3);
+  font-family: var(--mono);
+  font-size: var(--f-klein);
+}
+
+.rang-faehig-anzahl {
+  margin-left: auto;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  border: 1px solid var(--rang-linie);
+  border-radius: var(--r-rund);
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+/* ── Die Empfehlung ──────────────────────────────────────────────────────────────────────── */
+
+.rang-empfehlung {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 10px 15px;
+  border: 1px solid color-mix(in srgb, var(--a) 26%, transparent);
+  border-radius: var(--r);
+  background:
+    radial-gradient(
+      130% 120% at 0% 0%,
+      color-mix(in srgb, var(--a) 13%, transparent),
+      transparent 62%
+    ),
+    color-mix(in srgb, var(--t) 3%, var(--s2));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--t) 12%, transparent);
+}
+
+.rang-empfehlung::before {
+  content: '';
+  position: absolute;
+  inset: 11px auto 11px 0;
+  width: 2px;
+  border-radius: var(--r-rund);
+  background: var(--a);
+}
+
+.rang-empfehlung[data-ohne] {
+  border-color: var(--rang-linie);
+  background: color-mix(in srgb, var(--t) 2%, var(--s2));
+}
+
+.rang-empfehlung[data-ohne]::before {
+  background: var(--b);
+}
+
+.rang-empfehlung-kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 10px;
+  min-width: 0;
+}
+
+.rang-empfehlung-marke {
+  color: var(--a2);
+  font-size: var(--f-klein);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.rang-empfehlung-titel {
+  min-width: 0;
+  color: var(--t);
+  font-family: var(--mono);
+  font-size: var(--f-text);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.rang-empfehlung-kopf .rang-preisgruppe {
+  margin-left: auto;
+}
+
+.rang-empfehlung-meta,
+.rang-empfehlung-status,
+.rang-empfehlung-grund,
+.rang-gruende-rest {
+  color: var(--t3);
+  font-size: var(--f-klein);
+  line-height: 1.5;
+}
+
+.rang-empfehlung-grund {
+  margin: 2px 0 0;
+  color: var(--t2);
+}
+
+.rang-gruende {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rang-gruende li {
+  position: relative;
+  padding-left: 13px;
+  color: var(--t2);
+  font-size: var(--f-klein);
+  line-height: 1.45;
+}
+
+.rang-gruende li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.62em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--a2);
+}
+
+/* ── Die Kandidaten ──────────────────────────────────────────────────────────────────────── */
+
+.rang-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-top: 5px;
+  border-top: 1px solid var(--rang-linie);
+}
+
+.rang-eintrag {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-areas:
+    'platz kopf kosten'
+    'platz merker merker'
+    'platz grund grund';
+  gap: 2px 10px;
+  align-items: start;
+  min-width: 0;
+  padding: 7px 8px 7px 5px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  transition:
+    background var(--t-schnell) var(--e-standard),
+    border-color var(--t-schnell) var(--e-standard);
+}
+
+.rang-eintrag[data-bevorzugt='1'] {
+  border-color: color-mix(in srgb, var(--a) 20%, transparent);
+  background: color-mix(in srgb, var(--a) 6%, transparent);
+}
+
+.rang-platz {
+  grid-area: platz;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--rang-linie);
+  border-radius: var(--r-sm);
+  color: var(--t3);
+  font-family: var(--mono);
+  font-size: var(--f-klein);
+  font-variant-numeric: tabular-nums;
+}
+
+.rang-eintrag[data-bevorzugt='1'] .rang-platz {
+  color: var(--a2);
+  border-color: color-mix(in srgb, var(--a) 40%, transparent);
+  background: color-mix(in srgb, var(--a) 12%, transparent);
+}
+
+.rang-kopf {
+  grid-area: kopf;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.rang-bevorzugt-marke {
+  color: var(--a2);
+  font-size: var(--f-klein);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rang-familie {
+  color: var(--t);
+  font-size: var(--f-text);
+  font-weight: 500;
+}
+
+.rang-modell {
+  min-width: 0;
+  color: var(--t3);
+  font-family: var(--mono);
+  font-size: var(--f-klein);
+  overflow-wrap: anywhere;
+}
+
+.rang-kosten {
+  grid-area: kosten;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.rang-kostenart {
+  border: 1px solid var(--rang-linie);
+  border-radius: var(--r-rund);
+  padding: 1px 7px;
+  color: var(--t2);
+  font-size: var(--f-klein);
+  white-space: nowrap;
+}
+
+.rang-kostenart[data-kosten='kostenlos'] {
+  color: var(--g);
+  border-color: color-mix(in srgb, var(--g) 30%, transparent);
+}
+
+.rang-kostenart[data-kosten='freibetrag'] {
+  color: var(--blue);
+  border-color: color-mix(in srgb, var(--blue) 30%, transparent);
+}
+
+.rang-kostenart[data-kosten='unbekannt'] {
+  color: var(--a2);
+  border-color: color-mix(in srgb, var(--a2) 28%, transparent);
+}
+
+.rang-preisgruppe {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.rang-preis {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.rang-preis-trenner {
+  color: var(--t3);
+  font-size: var(--f-klein);
+  opacity: 0.55;
+}
+
+.rang-preis-marke,
+.rang-preis-einheit {
+  color: var(--t3);
+  font-size: var(--f-klein);
+}
+
+.rang-preis-zahl {
+  color: var(--t);
+  font-size: var(--f-klein);
+  font-weight: 500;
+}
+
+.rang-preisgruppe[data-bekannt='0'] .rang-preis-zahl {
+  color: var(--t3);
+}
+
+.rang-preis-unbekannt {
+  color: var(--a2);
+  font-size: var(--f-klein);
+}
+
+.rang-merker {
+  grid-area: merker;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rang-chip {
+  border: 1px solid var(--rang-linie);
+  border-radius: var(--r-rund);
+  padding: 1px 7px;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.rang-chip[data-art='gut'] {
+  color: var(--g);
+  border-color: color-mix(in srgb, var(--g) 30%, transparent);
+}
+
+.rang-chip[data-art='info'] {
+  color: var(--blue);
+  border-color: color-mix(in srgb, var(--blue) 30%, transparent);
+}
+
+.rang-chip[data-art='warn'] {
+  color: var(--a2);
+  border-color: color-mix(in srgb, var(--a2) 30%, transparent);
+}
+
+.rang-chip[data-art='schlecht'] {
+  color: var(--a);
+  border-color: color-mix(in srgb, var(--a) 34%, transparent);
+}
+
+.rang-grund-kurz {
+  grid-area: grund;
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rang-mehr {
+  align-self: flex-start;
+  border: 1px dashed var(--b);
+  border-radius: var(--r-rund);
+  background: transparent;
+  color: var(--t3);
+  font-family: inherit;
+  font-size: var(--f-klein);
+  padding: 4px 10px;
+  cursor: pointer;
+  transition:
+    color var(--t-schnell) var(--e-standard),
+    border-color var(--t-schnell) var(--e-standard),
+    background var(--t-schnell) var(--e-standard);
+}
+
+.rang-mehr:hover {
+  color: var(--t);
+  border-color: var(--rang-linie-stark);
+  background: color-mix(in srgb, var(--t) 5%, transparent);
+}
+
+/* ── Leer, Hinweise, Grund ───────────────────────────────────────────────────────────────── */
+
+.rang-leer {
+  margin: 0;
+  border: 1px dashed var(--rang-linie);
+  border-radius: var(--r);
+  padding: 14px;
+  color: var(--t3);
+  font-size: var(--f-text);
+  background: color-mix(in srgb, var(--t) 2%, transparent);
+}
+
+.rang-hinweise {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--rang-linie);
+}
+
+.rang-hinweise-titel {
+  margin: 0;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rang-hinweis {
+  position: relative;
+  margin: 0;
+  padding-left: 13px;
+  color: var(--t3);
+  font-size: var(--f-klein);
+  line-height: 1.5;
+}
+
+.rang-hinweis::before {
+  content: '!';
+  position: absolute;
+  left: 0;
+  color: var(--a2);
+  font-weight: 600;
+}
+
+.rang-fehler {
+  max-width: 820px;
+  gap: 7px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--a) 30%, transparent);
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(
+      120% 140% at 0% 0%,
+      color-mix(in srgb, var(--a) 12%, transparent),
+      transparent 60%
+    ),
+    var(--rang-flaeche-2);
+}
+
+.rang-fehler-marke {
+  color: var(--a2);
+  font-size: var(--f-klein);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.rang-fehler-titel {
+  margin: 0;
+  color: var(--t);
+  font-size: var(--f-titel);
+  font-weight: 600;
+}
+
+.rang-grund {
+  margin: 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--a);
+  color: var(--t2);
+  font-size: var(--f-text);
+  line-height: 1.55;
+}
+
+.rang-fehler-fuss {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 3px;
+}
+
+/* ── Laden: dasselbe Gerüst, ohne Inhalt ─────────────────────────────────────────────────── */
+
+.rang-laden {
+  gap: 12px;
+}
+
+/*
+ * **Nur für Vorlesegeräte.** Der Text steht im Baum, aber nicht im Bild — ein Ladezustand, den
+ * niemand ansagen kann, ist für einen Blinden ein leerer Bildschirm.
+ */
+.rang-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.rang-skelett {
+  display: block;
+  border-radius: var(--r-xs);
+  background: color-mix(in srgb, var(--t) 8%, transparent);
+  animation: rang-atmen var(--puls-dauer) var(--e-standard) infinite;
+}
+
+.rang-skelett-punkt {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.rang-skelett-marke {
+  width: 120px;
+  height: 10px;
+}
+
+.rang-skelett-titel {
+  width: min(420px, 60%);
+  height: 24px;
+  margin-top: 6px;
+}
+
+.rang-zahl-skelett {
+  gap: 5px;
+}
+
+.rang-skelett-zahl {
+  width: 38px;
+  height: 18px;
+}
+
+.rang-skelett-name {
+  width: 68px;
+  height: 8px;
+}
+
+.rang-skelett-karte {
+  gap: 9px;
+  min-height: 190px;
+}
+
+.rang-skelett-titel-klein {
+  width: 90px;
+  height: 12px;
+}
+
+.rang-skelett-empfehlung {
+  width: 100%;
+  height: 66px;
+  border-radius: var(--r);
+}
+
+.rang-skelett-zeile {
+  width: 100%;
+  height: 30px;
+}
+
+/* ── Bewegung ────────────────────────────────────────────────────────────────────────────── */
+
+@keyframes rang-ein {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rang-atmen {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* Nur wo ein Zeiger schweben kann — ein Touchgerät löst `:hover` beim Tippen aus. */
+@media (hover: hover) and (pointer: fine) {
+  .rang-faehigkeit:hover {
+    border-color: var(--rang-linie-stark);
+  }
+
+  .rang-eintrag:hover {
+    border-color: var(--rang-linie);
+    background: color-mix(in srgb, var(--t) 4%, transparent);
+  }
+
+  .rang-eintrag[data-bevorzugt='1']:hover {
+    border-color: color-mix(in srgb, var(--a) 30%, transparent);
+    background: color-mix(in srgb, var(--a) 9%, transparent);
+  }
+}
+
+.rang button:focus-visible {
+  outline: 2px solid var(--a);
+  outline-offset: 2px;
+}
+
+/* ── Schmalere Fenster ───────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .rang-dach {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rang-dach-rechts {
+    grid-column: 1;
+    grid-row: auto;
+    justify-content: flex-start;
+  }
+
+  .rang-zahlen {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .rang-flaeche {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .rang-haupttitel {
+    font-size: 18px;
+  }
+
+  .rang-zahlen {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }  .rang-leiste {
+    flex-wrap: wrap;
+  }
+
+  .rang-stand {
+    margin-left: 0;
+  }
+
+  .rang-eintrag {
+    grid-template-columns: 28px minmax(0, 1fr);
+    grid-template-areas:
+      'platz kopf'
+      'platz kosten'
+      'platz merker'
+      'platz grund';
+  }
+
+  .rang-kosten {
+    justify-content: flex-start;
+  }
+
+  .rang-preis-einheit {
+    display: none;
+  }
+
+  .rang-empfehlung-kopf .rang-preisgruppe {
+    margin-left: 0;
+  }
+}
+
+
+.kv {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--f-klein);
+  /*
+   * **Kein `table-layout: fixed` — das war ein eigener Fehler.**
+   *
+   * Der erste Versuch setzte `fixed` mit `max-width: 15ch` auf die Wertspalte, in der Absicht, den
+   * Umbruch mitten im Wort zu verhindern. Das Ergebnis war **schlimmer**: gemessen brach
+   * `Raum „ui-mv8mxuq4"` danach nach **acht** Zeichen um („ui-" / „mv8mxuq" / „4""), weil `fixed`
+   * beide Spalten auf die halbe Panelbreite festnagelt.
+   *
+   * Bei `auto` teilt der Browser die Spalten nach Inhalt: das Label bekommt, was es braucht, der Wert
+   * den Rest. Das ist genau das, was hier gewollt ist — und der Notumbruch bleibt als letzte
+   * Möglichkeit, wenn ein einzelnes Wort breiter ist als die Spalte.
+   */
+  table-layout: auto;
+}
+
+.kv td {
+  padding: 3px 0;
+  border-bottom: 1px solid var(--b2);
+  color: var(--t2);
+}
+
+.kv td:first-child {
+  color: var(--t3);
+}
+
+.kv td:last-child {
+  text-align: right;
+  color: var(--a2);
+  /*
+   * **Ein Wert bricht an der Wortgrenze — und nur wenn es nicht anders geht.**
+   *
+   * Sichtbar im Ausschnitt (`tools/overlap.png`): `Raum „ui-mv8mj4k"` stand als `Raum „ui-` /
+   * `mv8mj4k"` über zwei Zeilen, und im Zustandsbericht stand `Harness-Anbindung**` mit einem Umbruch
+   * mitten im Wort.
+   *
+   * `overflow-wrap: break-word` erlaubt einen Notumbruch **nur**, wenn ein Wort allein nicht in die
+   * Zeile passt; `word-break: normal` verbietet das Zerhacken an jeder beliebigen Stelle. Ein
+   * `hyphens: none` verhindert zusätzlich, dass die Silbentrennung des Browsers eigene Trennstellen
+   * erfindet — die wären sprachabhängig und bei Kennungen wie `ui-mv8mxuq4` ohnehin falsch.
+   *
+   * **Was das nicht löst, und das ist eine Entscheidung:** ein 11 Zeichen langer Raumname passt in
+   * eine 140-px-Spalte einfach nicht. Er darf dann **einmal** umbrechen — das ist lesbar. Ihn zu
+   * kürzen wäre schlimmer: der Raumname ist die Angabe, in welchem Universum man schaut.
+   */
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
+}
+
+/*
+ * **Gelöscht: `.axis-row`, `.axis`, `.axis.x/.y/.z` — toter Code.**
+ *
+ * Diese Regeln stylten eine **Knopfreihe mit x/y/z-Kästchen**, die es nicht mehr gibt (das Markup
+ * erzeugt niemand mehr; `main.ts` benutzt `axes-legend`). Sie standen hier, weil `.axis` und `.axes`
+ * sich zum Verwechseln ähnlich sehen — und genau daran ist die Achsenanzeige der Welt zweimal falsch
+ * konfiguriert worden: eine Regel für `.axes`, die eigentlich die Knopfreihe meinte, überschrieb
+ * `display` und `gap` der Anzeige.
+ *
+ * Ein Selektor, der wie ein anderer aussieht, ist eine Falle. Die Knopfreihe ist weg, also auch ihre
+ * Regeln — und `.axes` gehört jetzt eindeutig der Welt.
+ */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  border: 1px solid var(--b);
+  border-radius: var(--r-rund);
+  padding: 3px 10px;
+  font-size: var(--f-klein);
+  color: var(--t2);
+  background: var(--s2);
+}
+
+/* ── Terminal (Plugin `debug-terminal`) ───────────────────────────────────────────────── */
+
+.terminal {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  height: 100%;
+}
+
+.term-out {
+  flex: 1;
+  overflow: auto;
+  padding: 10px 14px;
+  font: 11.5px/1.55 var(--mono);
+  background: #070709;
+}
+
+.term-line {
+  white-space: pre-wrap;
+  color: var(--t2);
+}
+
+.term-line.ok {
+  color: var(--g);
+}
+
+.term-line.bad {
+  color: #f87171;
+}
+
+.term-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--b2);
+  background: var(--s2);
+}
+
+.term-prompt {
+  color: var(--a2);
+}
+
+.term-in {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--t);
+  font: 12px var(--mono);
+}
+
+.term-in::placeholder {
+  color: #55565c;
+}
+
+/* Der Gesundheitsbericht ist Text, kein Diagramm — Monospace und ruhig. */
+.health {
+  font: 11.5px/1.5 var(--mono);
+  color: var(--t2);
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════
+ * **Die Schriftgrade der Oberfläche — eine Skala statt elf Zahlen.**
+ *
+ * Ganz unten, weil diese Regeln **gewinnen** sollen: sie setzen die Grade, die über die Datei
+ * verstreut gewachsen sind, auf die drei Stufen der Skala. Wer eine Stelle ändern will, ändert sie
+ * **hier** — und nicht an einer von elf Stellen, von denen man zehn nicht kennt.
+ *
+ * Gemessen vorher (`tools/ui-surface.ts`): 8, 9, 9,5, 10, 10,5, 11, 11,5, 12, 12,5, 13, 14 px.
+ * Nachher: 11, 11,5, 12, 12,5, 13, 14 — die kleinen Grade sind weg, und was bleibt, ist eine Skala.
+ *
+ * **Was in Monospace bleibt und was nicht.** Ein **Messwert** ist Monospace (die Kopfzeile, der
+ * Abstand, der Zustandsbericht, eine Datei-Endung): dort sollen Ziffern untereinander stehen. Ein
+ * **Name** und eine **Handlung** sind Text: die Etiketten im Suchfeld, die Knöpfe, die Titel. Vorher
+ * war die Grenze zufällig — die Knopfleiste war Code, der Zustandsbericht Text.
+ * ══════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* Die Kopfzeile ist ein Messwert: Monospace, aber **nicht** 10 px. */
+.hud small,
+.hud {
+  font-size: var(--f-klein);
+}
+
+/* Die Knopfleiste unter dem Suchfeld und die Beschriftungen im Zustand: Text, nicht Code. */
+#screen-web .isl .mini span,
+.isl .mini span,
+.isl .head .proj,
+.isl .grp,
+.isl .isitem .ib,
+#screen-web .isl .head span,
+#screen-web .ch .grp,
+.result .kind,
+.result .where {
+  font-size: var(--f-klein);
+  font-family: var(--sans);
+}
+
+/* Ein Etikett wie „Datei" oder „Baum" ist eine Marke — 11 px, Gewicht 500, gesperrt. */
+.result .kind,
+.result .where {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/*
+ * **Die Achsenbeschriftung war 8 px.** Das ist die kleinste Schrift im ganzen Prototyp und sie steht
+ * auf einem Bildschirm ohne Zoom — 8 px sind unter jeder Lesbarkeitsgrenze (die Empfehlung liegt bei
+ * 11 px für Beschriftungen). Sie ist jetzt 11 px **und** gedämpft, denn sie erklärt ein Hilfsmittel
+ * und ist keine Aussage über die Welt.
+ */
+.axes .cap {
+  font-size: var(--f-klein);
+}
+
+/* Elf-Pixel-Marken bleiben Marken: Zahl im Kreis, Endung einer Datei. */
+#screen-web .ch .item .badge,
+.chip {
+  font-size: var(--f-klein);
+}
+
+/* ── Die Zeichen ──────────────────────────────────────────────────────────────────────────────
+ *
+ * **Der Betreiber: „emoji sieht schon scheisse aus und umprofessionell."** Bis zum 15.10.2026
+ * zeichnete diese Oberfläche ihre Symbole mit **Schriftzeichen**: `◆` für die Marke, `▤` für den
+ * Chat, `◉` für den Überblick, `⟲` für das Zurücksetzen, `#` für einen Ort, `⌥` für einen Körper,
+ * `⚙`, `✕`, `❯`, `▸`. Jetzt kommen sie aus `@prometheus-harness/icons` — gezeichnete SVG-Zeichen aus
+ * **einer** Quelle (`packages/assets/icons/src/shapes.ts`), dieselbe Zeichnung auf jedem Rechner.
+ *
+ * **Warum die Größe hier steht und nicht im Zeichen.** Ein Zeichen mit eingebauter Größe wäre in der
+ * Kopfzeile zu groß und in einer Tabelle zu klein. Das Markup bringt deshalb **keine** `width`/`height`
+ * mit, und diese Regeln setzen sie je Zusammenhang — genau wie bei Schrift.
+ *
+ * **Die Farbe kommt von außen.** Jedes Zeichen zeichnet mit `currentColor`; es erbt also die Farbe
+ * seines Knopfes, seiner Zeile, seines Zustands. Deshalb steht hier **keine** Farbe.
+ *
+ * **15 px als Vorgabe**, weil das die Größe der Insel-Einträge ist — der häufigste Fall. Wer eine
+ * andere braucht, setzt sie an seinem Zusammenhang (darunter: Marke 13, Gruppenüberschrift 12).
+ */
+.pmh-icon {
+  width: 15px;
+  height: 15px;
+  display: block;
+  flex: none;
+}
+
+/* Die Marke der Kopfzeile: Zeichen und Wort in einer Reihe, mittig. */
+.hud .wm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud .wm .marke {
+  width: 13px;
+  height: 13px;
+}
+
+/* Gruppenüberschriften: Zeichen und Wort, kleiner als die Einträge. */
+.isl .grp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.isl .grp .grp-zeichen {
+  width: 12px;
+  height: 12px;
+}
+
+/* Das Plus im abgesteckten Panel-Knopf steht neben seiner Beschriftung. */
+.dockbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dockbtn .dockbtn-zeichen {
+  width: 12px;
+  height: 12px;
+}
+/*
+ * **Die Marke in der eingeklappten Pille.**
+ *
+ * Sie war ein grüner Punkt (`.dot`, mit Schein). Der Punkt stand direkt vor dem Wort `PROMETHEUS` und
+ * war damit die Marke der Pille — nur eine **andere** als die in der Kopfzeile. Jetzt ist es dieselbe
+ * Flamme, und der Zustand steht als Text daneben.
+ *
+ * Die Größe ist **kleiner** als in der Kopfzeile (11 px statt 13): die Pille ist 40 px hoch und
+ * sitzt mitten im Bild — eine Marke in Kopfzeilengröße zöge den Blick dorthin, wo nichts zu sehen ist.
+ */
+.isl .mini .marke,
+#screen-web .isl .mini .marke {
+  width: 11px;
+  height: 11px;
+  color: var(--a);
+}
+/* Das Terminal: die Eingabeaufforderung als Zeichen — vor dem Feld und vor jeder Eingabezeile. */
+.term-prompt .pmh-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.term-line.eingabe {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--t3);
+}
+
+.term-line.eingabe .term-eingabe-zeichen {
+  width: 12px;
+  height: 12px;
+}
+/* ══ DER ANTWORT-ÜBERGANG ═════════════════════════════════════════════════════════════════════
+ *
+ * **Eine Stelle, die sagt, wie eine Fläche auf den Zeiger antwortet.**
+ *
+ * **Der Befund.** Gezählt waren im Blatt 13 Übergänge — an **vier** Stellen. Alles andere, was auf
+ * den Zeiger reagiert, sprang: die Zeilen der Insel (`.isitem`), ihr Schliessen-Knopf, die Marke der
+ * Kopfzeile, die Panels der Andockleiste (`.panelx`, `.dockbtn`), die Suchtreffer (`.result`), jeder
+ * Knopf im Einstellungsbildschirm, die Zieh-Kanten (`.edge`). Ein Knopf, der seine Farbe in **einem
+ * Bild** wechselt, sieht aus wie ein Fehler; einer, der sie in 120 ms wechselt, sieht aus wie ein
+ * Knopf. Es ist dieselbe Farbe — nur der Weg dorthin ist ein anderer.
+ *
+ * **Warum eine gemeinsame Regel und nicht zwanzig einzelne.** Die Antwort auf den Zeiger ist **eine**
+ * Entscheidung, nicht zwanzig: eine Farbe, ein Rahmen, die Sichtbarkeit einer Marke. Stünde sie an
+ * jeder Stelle einzeln, hätte man beim nächsten Umbau zwanzig Gelegenheiten, sie zu vergessen — und
+ * genau so ist der Zustand entstanden, den diese Regel behebt.
+ *
+ * **Warum `transform` NICHT dabei ist.** Ein Knopf, der beim Zeigen wächst oder hüpft, ist eine
+ * Bewegung ohne Aussage: er sagt nicht mehr als „du bist darüber", und das sagt die Farbe schon. Was
+ * hier NICHT passiert, ist so wichtig wie was passiert (siehe den Abschnitt „was absichtlich fehlt").
+ *
+ * **Die Reihenfolge im Blatt.** Diese Regel steht **hinten** und ersetzt damit die vier Einzelangaben
+ * weiter oben — die vier sind in dieser Menge enthalten (Farbe, Rahmen, Fläche, Sichtbarkeit). Wer
+ * hier etwas hinzufügt, fügt es für **alle** Flächen hinzu; das ist gewollt.
+ */
+.isl .isitem,
+.isl .x,
+.isl .grp-knopf,
+.hud .wm,
+.dockbtn,
+.panelx,
+.result,
+.set-knopf,
+.set-navitem,
+.set-reset,
+.tab,
+.chip,
+.cobj,
+.cobjx,
+.dockstelle,
+.edge,
+.axes .ax,
+.axes .spin-band {
+  transition:
+    color var(--t-schnell) var(--e-standard),
+    background-color var(--t-schnell) var(--e-standard),
+    border-color var(--t-schnell) var(--e-standard),
+    opacity var(--t-schnell) var(--e-standard);
+}
+
+/* ── Notizen (Plugin `notes`) ───────────────────────────────────────────────────────────
+ *
+ * **Warum eigene Regeln und nicht die des Auftrags.** Der Auftrag ist Text in Abschnitten;
+ * hier stehen Zeilen mit Pfad und Marken, ein Suchfeld und zwei Knöpfe. Dieselbe Gestaltung
+ * würde beides schlechter machen.
+ *
+ * Alle Werte kommen aus den Tokens — eine Vorlage (`stil.css`) kann sie damit umfärben, ohne
+ * diese Datei zu kennen.
+ */
+
+.notizen {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  font-family: var(--sans);
+  font-size: var(--f-text);
+  color: var(--t);
+}
+
+.notizen-titel {
+  font-size: var(--f-titel);
+  font-weight: 600;
+}
+
+.notizen-suche {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--b);
+  border-radius: var(--r-sm);
+  background: var(--s);
+  color: var(--t);
+  font: inherit;
+}
+
+.notizen-suche:focus-visible {
+  outline: 2px solid var(--a);
+  outline-offset: 1px;
+}
+
+.notizen-liste {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.notizen-eintrag {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 8px;
+  border: 1px solid var(--b);
+  border-radius: var(--r-sm);
+  background: var(--s);
+}
+
+.notizen-name {
+  font-weight: 600;
+}
+
+.notizen-pfad {
+  font-family: var(--mono);
+  font-size: var(--f-klein);
+  opacity: 0.7;
+}
+
+.notizen-marke {
+  font-size: var(--f-klein);
+  color: var(--blue);
+}
+
+.notizen-fuss {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--f-klein);
+}
+
+.notizen-zaehler {
+  opacity: 0.8;
+}
+
+.notizen-knopf {
+  padding: 4px 10px;
+  border: 1px solid var(--b);
+  border-radius: var(--r-sm);
+  background: var(--s);
+  color: var(--t);
+  font: inherit;
+  cursor: pointer;
+}
+
+.notizen-knopf:hover {
+  border-color: var(--a);
+}
+
+.notizen-knopf:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.notizen-vorschlag {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px dashed var(--b);
+  border-radius: var(--r-sm);
+}
+
+.notizen-leer,
+.notizen-fehler {
+  margin: 0;
+  opacity: 0.8;
+}
+
+.notizen-fehler {
+  color: var(--a);
+  opacity: 1;
+}

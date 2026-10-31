@@ -144,7 +144,7 @@ export function zieheNach(einheiten, heute) {
     commits_seit_ledger: 84,
     betriebsdatenbank: `pmh: fassung ${String(heute.fassungBetrieb)}, ${String(heute.tabellen)} Tabellen`,
     ACHTUNG:
-      'Die Betriebsdatenbank liegt HINTER dem Code (Code: Fassung 7). Pruefen mit: bun scripts/schema-version.mjs pruefen',
+      'schema-stand: Die Betriebsdatenbank liegt HINTER dem Code (Code: Fassung 7). Pruefen mit: bun scripts/schema-version.mjs pruefen',
     neue_migrationen: [
       { fassung: 4, name: 'mandantentrennung-an-fremdschluesseln', wirkung: 'B-S1 Struktur behoben' },
       { fassung: 5, name: 'benutzerprofile-isolation-je-benutzer', wirkung: 'neue Tabelle user_profiles' },

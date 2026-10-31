@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/LangLi7/prometheus-harness/services/pmh-nix/api"
 )
 
 // pmhExit sind die Exit-Codes des Vertrags.
@@ -18,10 +20,15 @@ const (
 	pmhExitBackend = 125
 )
 
+// pmhSchema ist die Fassung des uebertragenen Formats, die die Antworten
+// tragen muessen.
+const pmhSchema = api.Schema
+
 // pmhResponse ist die eine Antwort, die der Dienst ausgibt.
 type pmhResponse struct {
 	Command   string          `json:"command"`
 	Backend   string          `json:"backend"`
+	Mode      string          `json:"mode"`
 	Schema    int             `json:"schema"`
 	OK        bool            `json:"ok"`
 	ExitCode  int             `json:"exit_code"`
@@ -86,8 +93,11 @@ func TestCLIDetectReportsUnavailable(t *testing.T) {
 		t.Fatalf("detect endete mit %d, erwartet %d (stderr: %s)", code, pmhExitOK, stderr)
 	}
 	res := pmhJSON(t, stdout)
-	if res.Command != "detect" || res.Backend != "stub" || res.Schema != 1 {
+	if res.Command != "detect" || res.Backend != "stub" || res.Schema != pmhSchema {
 		t.Fatalf("Antwort ist unerwartet: %+v", res)
+	}
+	if res.Mode != string(api.ModeLocal) {
+		t.Fatalf("die Vorgabe-Betriebsart ist %q, erwartet %q", res.Mode, api.ModeLocal)
 	}
 	if !res.OK || res.ExitCode != pmhExitOK {
 		t.Fatalf("Antwort meldet keinen Erfolg: %+v", res)
@@ -119,6 +129,21 @@ func TestCLIProposeThenCheckThenApplyThenRollback(t *testing.T) {
 	checkRes := pmhJSON(t, stdout)
 	mustContain(t, string(checkRes.Data), `"blocked":false`)
 
+	// Ohne Freigabe kein apply — die vierte Stufe des Vertrags.
+	stdout, stderr, code = pmhRun("apply", "--proposal", "prop-0001", "--json", "--state", statePath)
+	if code != pmhExitPolicy {
+		t.Fatalf("apply ohne Freigabe endete mit %d, erwartet %d (stderr: %s)", code, pmhExitPolicy, stderr)
+	}
+	mustContain(t, pmhJSON(t, stdout).Error, "keine-freigabe")
+
+	stdout, stderr, code = pmhRun("approve", "--proposal", "prop-0001", "--by", "betreiber@test", "--json", "--state", statePath)
+	if code != pmhExitOK {
+		t.Fatalf("approve endete mit %d (stderr: %s)", code, stderr)
+	}
+	approveRes := pmhJSON(t, stdout)
+	mustContain(t, string(approveRes.Data), `"by":"betreiber@test"`)
+	mustContain(t, string(approveRes.Data), `"diff_hash":"sha256:`)
+
 	stdout, stderr, code = pmhRun("apply", "--proposal", "prop-0001", "--json", "--state", statePath)
 	if code != pmhExitOK {
 		t.Fatalf("apply endete mit %d (stderr: %s)", code, stderr)
@@ -126,6 +151,7 @@ func TestCLIProposeThenCheckThenApplyThenRollback(t *testing.T) {
 	applyRes := pmhJSON(t, stdout)
 	mustContain(t, string(applyRes.Data), `"generation"`)
 	mustContain(t, string(applyRes.Data), `"system":"attrappe"`)
+	mustContain(t, string(applyRes.Data), `"approved_by":"betreiber@test"`)
 
 	stdout, stderr, code = pmhRun("generations", "--json", "--state", statePath)
 	if code != pmhExitOK {
@@ -200,6 +226,9 @@ func TestCLIApplyRejectsAlreadyAppliedProposal(t *testing.T) {
 	if _, _, code := pmhRun("check", "--proposal", "prop-0001", "--json", "--state", statePath); code != pmhExitOK {
 		t.Fatalf("check endete mit %d", code)
 	}
+	if _, _, code := pmhRun("approve", "--proposal", "prop-0001", "--by", "betreiber@test", "--json", "--state", statePath); code != pmhExitOK {
+		t.Fatalf("approve endete mit %d", code)
+	}
 	if _, _, code := pmhRun("apply", "--proposal", "prop-0001", "--json", "--state", statePath); code != pmhExitOK {
 		t.Fatalf("erstes apply endete mit %d", code)
 	}
@@ -258,12 +287,33 @@ func TestCLIBackendFailuresExitOneTwentyFive(t *testing.T) {
 	if _, _, code := pmhRun("propose", "--flake", constFlake, "--json", "--state", statePath); code != pmhExitOK {
 		t.Fatalf("Vorbereitung propose endete mit %d", code)
 	}
+	if _, _, code := pmhRun("check", "--proposal", "prop-0001", "--json", "--state", statePath); code != pmhExitOK {
+		t.Fatalf("Vorbereitung check endete mit %d", code)
+	}
+	if _, _, code := pmhRun("approve", "--proposal", "prop-0001", "--by", "betreiber@test", "--json", "--state", statePath); code != pmhExitOK {
+		t.Fatalf("Vorbereitung approve endete mit %d", code)
+	}
+	stdoutReady, stderrReady, code := pmhRun("apply", "--proposal", "prop-0001", "--json", "--state", statePath)
+	if code != pmhExitOK {
+		t.Fatalf("Vorbereitung apply endete mit %d (stderr: %s)", code, stderrReady)
+	}
+	var applied struct {
+		Generation struct {
+			ID string `json:"id"`
+		} `json:"generation"`
+	}
+	if err := json.Unmarshal(pmhJSON(t, stdoutReady).Data, &applied); err != nil {
+		t.Fatalf("die Generation ist nicht lesbar: %v", err)
+	}
+	if applied.Generation.ID == "" {
+		t.Fatal("die Vorbereitung erzeugte keine Generation")
+	}
+
 	commands := [][]string{
 		{"propose", "--flake", constFlake, "--json"},
 		{"check", "--proposal", "prop-0001", "--json"},
-		{"apply", "--proposal", "prop-0001", "--json"},
 		{"generations", "--json"},
-		{"rollback", "--to", "gen-0001", "--json"},
+		{"rollback", "--to", applied.Generation.ID, "--json"},
 	}
 	for _, rest := range commands {
 		args := append([]string{"--backend", "nix"}, rest...)
@@ -302,7 +352,7 @@ func TestCLIJSONIsExactlyOneObject(t *testing.T) {
 			t.Fatalf("%v: kein JSON auf stdout (exit %d, stderr %q)", args, code, stderr)
 		}
 		decode(t, []byte(stdout), &res)
-		if res.Schema != 1 {
+		if res.Schema != pmhSchema {
 			t.Fatalf("%v: Antwort traegt Fassung %d", args, res.Schema)
 		}
 		if res.Command == "" {
@@ -319,19 +369,20 @@ func TestCLIJSONIsExactlyOneObject(t *testing.T) {
 	}
 	for _, args := range steps {
 		stdout, _, _ := pmhRun(args...)
-		if res := pmhJSON(t, stdout); res.Schema != 1 || !res.OK {
+		if res := pmhJSON(t, stdout); res.Schema != pmhSchema || !res.OK {
 			t.Fatalf("%v: Antwort ist unerwartet: %+v", args, res)
 		}
 	}
 	// Nach der Aufnahme ist die Kennung bekannt.
 	for _, args := range [][]string{
 		{"check", "--proposal", "prop-0001", "--json", "--state", statePath},
+		{"approve", "--proposal", "prop-0001", "--by", "betreiber@test", "--json", "--state", statePath},
 		{"apply", "--proposal", "prop-0001", "--json", "--state", statePath},
 		{"generations", "--json", "--state", statePath},
 		{"apply", "--proposal", "prop-0001", "--json", "--state", statePath},
 	} {
 		stdout, _, _ := pmhRun(args...)
-		if res := pmhJSON(t, stdout); res.Schema != 1 {
+		if res := pmhJSON(t, stdout); res.Schema != pmhSchema {
 			t.Fatalf("%v: Antwort ist unerwartet: %+v", args, res)
 		}
 	}
@@ -360,6 +411,109 @@ func TestCLIJSONIsExactlyOneObject(t *testing.T) {
 	if res := pmhJSON(t, stdout); !res.OK {
 		t.Fatalf("rollback meldete einen Fehler: %+v", res)
 	}
+}
+
+// TestCLIModeFlagLocalAndRemote prueft die Betriebsart: Vorgabe local, remote
+// waehlbar, unbekannt ist ein Aufruffeher.
+func TestCLIModeFlagLocalAndRemote(t *testing.T) {
+	statePath := pmhState(t)
+
+	// Vorgabe: local.
+	stdout, stderr, code := pmhRun("propose", "--flake", constFlake, "--target", "node1", "--json", "--state", statePath)
+	if code != pmhExitOK {
+		t.Fatalf("propose endete mit %d (stderr: %s)", code, stderr)
+	}
+	res := pmhJSON(t, stdout)
+	if res.Mode != string(api.ModeLocal) {
+		t.Fatalf("die Vorgabe-Betriebsart ist %q, erwartet %q", res.Mode, api.ModeLocal)
+	}
+	mustContain(t, string(res.Data), `"mode":"local"`)
+	mustContain(t, string(res.Data), `"branch"`)
+
+	// Ausdruecklich local, vor dem Unterbefehl.
+	before, _, code := pmhRun("--mode", "local", "detect", "--json", "--state", statePath)
+	if code != pmhExitOK {
+		t.Fatalf("--mode local detect endete mit %d", code)
+	}
+	if got := pmhJSON(t, before).Mode; got != string(api.ModeLocal) {
+		t.Fatalf("--mode local ergab %q", got)
+	}
+
+	// remote, nach dem Unterbefehl.
+	stdout, stderr, code = pmhRun("propose", "--flake", constFlake, "--target", "pi5",
+		"--mode", "remote", "--json", "--state", statePath)
+	if code != pmhExitOK {
+		t.Fatalf("propose --mode remote endete mit %d (stderr: %s)", code, stderr)
+	}
+	res = pmhJSON(t, stdout)
+	if res.Mode != string(api.ModeRemote) {
+		t.Fatalf("die Betriebsart ist %q, erwartet %q", res.Mode, api.ModeRemote)
+	}
+	mustContain(t, string(res.Data), `"mode":"remote"`)
+	mustContain(t, string(res.Data), `"push":true`)
+
+	// Unbekannt: Aufruffeher, mit JSON-Objekt.
+	stdout, stderr, code = pmhRun("--mode", "wolke", "detect", "--json", "--state", statePath)
+	if code != pmhExitUsage {
+		t.Fatalf("--mode wolke endete mit %d, erwartet %d", code, pmhExitUsage)
+	}
+	if !strings.HasPrefix(stderr, "pmh-nix: ") {
+		t.Fatalf("stderr traegt nicht das Praefix: %q", stderr)
+	}
+	mustContain(t, pmhJSON(t, stdout).Error, "unbekannte Betriebsart")
+
+	// Und aus der Umgebung.
+	t.Setenv("PMH_NIX_MODE", "remote")
+	stdout, _, code = pmhRun("detect", "--json", "--state", statePath)
+	if code != pmhExitOK {
+		t.Fatalf("detect mit PMH_NIX_MODE endete mit %d", code)
+	}
+	if got := pmhJSON(t, stdout).Mode; got != string(api.ModeRemote) {
+		t.Fatalf("PMH_NIX_MODE=remote ergab %q", got)
+	}
+}
+
+// TestCLIApproveRequiresIdentity prueft, dass die Freigabe nicht anonym sein
+// kann: ohne --by gibt es keinen Erfolg.
+func TestCLIApproveRequiresIdentity(t *testing.T) {
+	statePath := pmhState(t)
+	if _, _, code := pmhRun("propose", "--flake", constFlake, "--json", "--state", statePath); code != pmhExitOK {
+		t.Fatalf("propose endete mit %d", code)
+	}
+	if _, _, code := pmhRun("check", "--proposal", "prop-0001", "--json", "--state", statePath); code != pmhExitOK {
+		t.Fatalf("check endete mit %d", code)
+	}
+
+	stdout, stderr, code := pmhRun("approve", "--proposal", "prop-0001", "--json", "--state", statePath)
+	if code != pmhExitUsage {
+		t.Fatalf("approve ohne --by endete mit %d, erwartet %d", code, pmhExitUsage)
+	}
+	mustContain(t, pmhJSON(t, stdout).Error, "--by fehlt")
+	if !strings.HasPrefix(stderr, "pmh-nix: ") {
+		t.Fatalf("stderr traegt nicht das Praefix: %q", stderr)
+	}
+
+	// Ohne vorherigen Pruefbau gibt es keine Freigabe.
+	if _, _, code := pmhRun("propose", "--flake", constFlake, "--json", "--state", statePath); code != pmhExitOK {
+		t.Fatalf("zweites propose endete mit %d", code)
+	}
+	stdout, _, code = pmhRun("approve", "--proposal", "prop-0002", "--by", "betreiber@test", "--json", "--state", statePath)
+	if code != pmhExitPolicy {
+		t.Fatalf("approve ohne Pruefbau endete mit %d, erwartet %d", code, pmhExitPolicy)
+	}
+	mustContain(t, pmhJSON(t, stdout).Error, "Pruefbau")
+}
+
+// TestCLIModeListedInUsage prueft, dass die Betriebsarten in der Hilfe stehen.
+func TestCLIModeListedInUsage(t *testing.T) {
+	stdout, _, code := pmhRun("--help")
+	if code != pmhExitOK {
+		t.Fatalf("--help endete mit %d", code)
+	}
+	for _, want := range []string{"--mode", "local", "remote", "approve"} {
+		mustContain(t, stdout, want)
+	}
+	mustContain(t, stdout, "propose -> check -> approve -> apply")
 }
 
 // TestCLIWithoutJSONPrintsNoJSON prueft die Gegenprobe: ohne --json kommt kein

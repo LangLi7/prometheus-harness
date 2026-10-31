@@ -1,0 +1,14 @@
+# Das Welt-Bündel — **nur noch das Universe-Panel**.
+#
+# Obsidian und Graphify sind seit dieser Runde **eigene Plugins** mit eigenem
+# Panel (`@prometheus-harness/obsidian`, `@prometheus-harness/graphify`). Sie
+# stehen bewusst nicht mehr hier: wer nur die Welt will, soll nicht zwei
+# Quellen mitinstallieren, und wer Graphify ohne Obsidian will, soll es einzeln
+# einschalten können.
+#
+# **Was hier NICHT steht.** Kein `/universe`-Auslieferer und kein
+# `client-world-switch`: die Welt ist ein main-Panel im Shell, kein zweiter Pfad.
+- insert:
+    - id: pmh-world-view
+      name: '@prometheus-harness/client-world'
+      inject: [webServer]

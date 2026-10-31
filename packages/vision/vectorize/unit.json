@@ -1,0 +1,18 @@
+{
+  "name": "vectorize",
+  "version": "0.1.0",
+  "kind": "library",
+  "language": "typescript",
+  "description": "Ein flaechiges Bild zu SVG ohne Fremdwerkzeug: PNG lesen (8 Bit, RGB/RGBA/Palette), Farben per k-Means finden und kleine Saeume schlucken, Kanten zu Schleifen verketten, per RDP vereinfachen, SVG mit even-odd schreiben und das Ergebnis ZURUECKRASTERN, um die Abweichung zu messen.",
+  "core": "optional",
+  "contract": "^0.2.0",
+  "provides": ["vectorize"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Art library, weil das Paket keinen Lebenszyklus hat: reine Funktionen, kein Netz, kein Host. Der Aufrufer ist scripts/avatar-svg.mjs.",
+    "Fundstelle: Betreiber-Anfrage 'versuche ein Avatar zu erstellen und spaeter als Vector SVG'. Auf der Maschine gibt es keinen Vektorisierer (magick, potrace, vtracer, inkscape fehlen, geprueft 19.10.2026).",
+    "Kein Kurvenfitting: Polygonzuege sind ehrlicher als erfundene Rundungen. Fuer flaechige Zeichen gedacht, nicht fuer Fotos.",
+    "Die Gegenprobe ist Teil des Vertrags: rasterisiere() rechnet die Schleifen mit demselben even-odd wie ein Browser zurueck; die Abweichung steht im Bericht."
+  ]
+}

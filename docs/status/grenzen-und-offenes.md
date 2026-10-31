@@ -44,6 +44,27 @@ Host-Loader und die Zeilen je Agent-Preset. Ein Werkzeug darf hostweit
 `enabled=false` sein und in der Preset-Zeile `active` — das ist der **Normalfall**.
 „`enabled=false` im Loader" ist **kein** Lückenbefund.
 
+## Was am 21.10.2026 geschlossen wurde
+
+Drei Punkte, die in diesem Dokument als offen standen, sind **erledigt** — mit
+Beleg, nicht mit Behauptung:
+
+| Vorher offen | Heute | Beleg |
+|---|---|---|
+| **Graph-Ansicht** fehlt | Notizgraph im Panel: Umgebung um die gewählte Notiz (zwei Kanten, beide Richtungen), „ganzer Vault" mit Obergrenze, zwei Verweislisten, Klick öffnet die Notiz | `packages/plugin/obsidian/src/graph.ts`, `GraphView.tsx`, 15 Prüfungen in `tests/graph.test.ts` |
+| Obsidian ließ sich **nicht öffnen** | Knopf in der Kopfzeile (Vault) und je Notiz, Seitenleisten-Aktion, Tab im rechten Dock — alle über `obsidian://open?path=…` | `docs/decisions/obsidian-programm-oeffnen.md` |
+| **Installation** von Obsidian/Graphify war eine Sackgasse | Plugin und Installer ziehen fehlende Mitgaben nach (winget/brew/flatpak/snap bzw. `uv tool install graphifyy[mcp]`), plattformgerecht | `packages/world/obsidian/src/install.ts`, `scripts/mitgaben.mjs` |
+
+**Was dabei ausdrücklich NICHT geschlossen wurde** — und warum:
+
+| Punkt | Grund |
+|---|---|
+| Einbettungen, Dateiwächter | brauchen ein Embedding-Modell bzw. einen Watcher-Dienst; die Graph-Ansicht war der dritte Teil desselben Satzes und ist es nicht mehr |
+| Verschlüsselung des Wissensspeichers | **Entscheidung**, kein Skriptlauf ([schluessel-je-stueck-oder-je-benutzer.md](../decisions/schluessel-je-stueck-oder-je-benutzer.md)) |
+| Zehn Datenbankprüfungen gegen die Betriebsdatenbank | `PMH_TEST_DATABASE_URL` zeigt weiter auf `pmh`; eine `pmh_test` anzulegen ist ein Eingriff in die Umgebung (Docker ist aus dieser Sitzung nicht erreichbar) |
+| `gitleaks` fehlt | Werkzeug fehlt weiterhin; der Haken ist aktiv (`core.hooksPath=.githooks`) und sagt es |
+| `pg_hba.conf` auf `trust`, kein Administrator, fremde Dienste | Eingriffe in den Betrieb bzw. Arbeit anderer Hand |
+
 ## Was offen ist
 
 **Die eigene Oberfläche ist ein Gerüst.** `apps/web/src` hat **8** Dateien; an fest
@@ -82,7 +103,8 @@ Offen ist etwas **anderes** als das, was hier zuerst stand: ob die Verdichtung b
 **Der Wissensspeicher hat kein Schema-Problem mehr, aber keinen Indexer.**
 Migration 0006 (Dokumente, Stücke, `vector(768)`, HNSW) und 0007 (Obsidian:
 Gewölbe, Notizen, Etiketten, Verweise) sind mit Proben belegt. Es fehlen
-**Einbettungen**, ein **Dateiwächter** und die **Graph-Ansicht**.
+**Einbettungen** und ein **Dateiwächter**. Die **Graph-Ansicht** — der dritte
+Punkt dieses Satzes — gibt es seit dem 21.10.2026 (siehe oben).
 
 **Verschlüsselung des Wissensspeichers: Entscheidung getroffen, nicht gebaut.**
 Ein Datenschlüssel je Benutzer, hinter einem Schalter — begründet in

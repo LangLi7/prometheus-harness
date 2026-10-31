@@ -1,7 +1,7 @@
 /**
  * `@prometheus-harness/openrouter` — der **Anbieter** OpenRouter.
  *
- * Er erfüllt vier der sechs Fähigkeiten aus `@prometheus-harness/capabilities`, jede über ihren
+ * Er erfüllt fünf der sechs Fähigkeiten aus `@prometheus-harness/capabilities`, jede über ihren
  * **eigenen** Weg. Daß es nicht *ein* Weg ist, ist keine Unordnung, sondern gemessen: der
  * Chat-Weg **weist ein Sprachmodell ab** und nennt den richtigen Weg.
  *
@@ -11,14 +11,27 @@
  * | `text-zu-sprache` | `POST /audio/speech` | **rohe Bytes** |
  * | `sprache-zu-text` | `POST /audio/transcriptions` | `{text}` (Mehrtelldaten hinein) |
  * | `einbetten` | `POST /embeddings` | Vektoren, **nach `index` zu ordnen** |
+ * | `bild` | `POST /images/generations` | **Base64 im JSON** (`data[0].b64_json`) |
  *
  * Alle Einzelheiten samt Fehlermeldungen und Kosten: `docs/status/openrouter-schnittstelle.md`.
  *
  * ## Was dieser Anbieter NICHT nennt, und warum
  *
- * **`bild`.** Der Weg dorthin ist **nicht gemessen**. Ein Anbieter, der eine Fähigkeit nennt, die
- * er nicht belegen kann, steht in der Registratur als „kann es" — und der Aufrufer erfährt erst
- * beim Aufruf, daß es nicht stimmt. Also steht sie nicht in der Liste, bis sie gemessen ist.
+ * **Nur `gespraech` fehlt.** Das ist kein Mangel: das Gespräch führt der Kern selbst
+ * (`@prometheus-harness/llm`); der Vertrag `Anbieter` hat dafür kein Feld. Eine Fähigkeit zu
+ * nennen, für die es keine Schnittstelle gibt, wäre ein Eintrag ohne Wirkung.
+ *
+ * ## `bild` — gemessen am 19.10.2026, nach einem Fehlschlag
+ *
+ * Der Weg war seit dem 15.10. nur als **Pfad** bestätigt. Die erste Messung mit
+ * `google/gemini-nano-banana-2.1` gab **429** (Google-Kontingent erschöpft, kein Formfehler).
+ * Erst `google/gemini-2.5-flash-image` antwortete mit **200** und einem Bild — Form:
+ * `{model, prompt, n, response_format:'b64_json'}`, Antwort `data[0].b64_json`.
+ *
+ * **Und der Befund, der eine Falle schließt:** die Sonde schrieb die Daten nach `….png` — das war
+ * eine **Annahme der Endung**, kein Wissen über den Behälter. Die Bytes entschieden: PNG. Der Typ
+ * wird deshalb aus den **ersten Bytes** gelesen, nicht aus dem Wunsch — dieselbe Regel wie beim
+ * Ton, wo er aus der Kopfzeile kommt.
  *
  * **`gespraech`.** Das Gespräch führt der Kern selbst (`@prometheus-harness/llm`); der Vertrag
  * `Anbieter` hat dafür kein Feld. Eine Fähigkeit zu nennen, für die es keine Schnittstelle gibt,
@@ -45,6 +58,9 @@ import {
   type Hoerer,
   type Sprecher,
   type Urteil,
+  type ZeichenOptionen,
+  type Zeichner,
+  type GezeichnetesBild,
 } from '@prometheus-harness/capabilities'
 import { liesUrteil, zuJsonSchema, type JsonSchema } from './schema.ts'
 
@@ -63,6 +79,17 @@ export const WEG_SPRACHE = '/audio/speech'
 export const WEG_HOEREN = '/audio/transcriptions'
 /** Einbetten. */
 export const WEG_EINBETTEN = '/embeddings'
+/** Text zu Bild — JSON hinein, Base64 im JSON heraus. */
+export const WEG_BILD = '/images/generations'
+
+/**
+ * Das Antwortformat für `bild` — **gemessen** am 19.10.2026.
+ *
+ * Ohne dieses Feld antwortet der Dienst mit einem **Verweis** (`url`), und der Verweis ist eine
+ * zweite Adresse, die niemand prüft. Mit ihm kommen die Bytes selbst; der Aufrufer hat das Bild,
+ * ohne es nachzuladen.
+ */
+export const BILD_FORMAT = 'b64_json'
 
 /**
  * Die Modellkennungen, die dieser Anbieter **vorschlägt** — mit gemessenem Preis.
@@ -92,6 +119,12 @@ export const WEG_EINBETTEN = '/embeddings'
  * | `text-zu-sprache` | `google/gemini-3.8-flash-tts` | 0,50 | 9,00 |
  * | `sprache-zu-text` | `google/gemini-3.5-transcribe` | 2,00 | 12,00 |
  * | `einbetten` | `google/gemini-embedding-2` | 0,20 | 0 |
+ * | `bild` | `google/gemini-2.5-flash-image` | 0,30 | 2,50 |
+ *
+ * **Die Bildzeile ist nicht vergleichbar.** Sie stammt aus derselben Liste
+ * (`architecture.output_modalities` nennt `image`) und ist der **Token**preis des Modells, nicht
+ * der Preis je Bild — ein Bild kostet viele Ausgabe-Token. Wer sie liest, soll das wissen.
+ * Am 19.10.2026 gemessen: `GET /models` nennt **12 von 471** Modellen mit Bildausgabe.
  *
  * Die Reihenfolge ist Absicht: **das Billigste zuerst.** Ein Vorschlag ist eine Empfehlung —
  * und eine Empfehlung, die mit dem Teuren anfängt, ist keine.
@@ -104,18 +137,25 @@ export const VORSCHLAEGE: Readonly<Record<string, readonly string[]>> = {
   'text-zu-sprache': ['google/gemini-3.8-flash-tts'],
   'sprache-zu-text': ['google/gemini-3.5-transcribe'],
   einbetten: ['google/gemini-embedding-2'],
+  // **Die Reihenfolge ist auch hier eine Empfehlung.** `gemini-2.5-flash-image` ist das Modell,
+  // mit dem die Form am 19.10.2026 gemessen wurde — und das billigste der zwölf. Die anderen
+  // stehen daneben, weil nano-banana an diesem Tag mit 429 antwortete: ein Vorschlag, der nur
+  // ein Modell nennt, ist bei einem erschöpften Kontingent kein Vorschlag mehr.
+  bild: ['google/gemini-2.5-flash-image', 'google/gemini-3.1-flash-image', 'openai/gpt-5-image-mini'],
 }
 
 /**
  * Die Fähigkeiten, die dieser Anbieter **belegen** kann.
  *
- * `bild` fehlt mit Absicht: der Weg ist nicht gemessen. Siehe Dateikopf.
+ * `bild` steht seit dem 19.10.2026 dabei — der Weg ist mit einem echten Auftrag gemessen, nicht
+ * nur als Pfad bestätigt. `gespraech` fehlt weiter mit Absicht: dafür hat der Vertrag kein Feld.
  */
 export const FAEHIGKEITEN_OPENROUTER: readonly Faehigkeit[] = [
   'entscheiden',
   'text-zu-sprache',
   'sprache-zu-text',
   'einbetten',
+  'bild',
 ]
 
 /** Die Umgebungsvariable, aus der der Schlüssel kommt, wenn keine Quelle gesetzt ist. */
@@ -261,6 +301,69 @@ const AUSZUG_MAX = 400
  */
 function istText(wert: unknown): wert is string {
   return typeof wert === 'string' && wert.trim() !== ''
+}
+
+/**
+ * Erkennt den **Behälter** von Ton an seinen ersten Bytes.
+ *
+ * ## Warum das nötig ist — gemessen am 19.10.2026
+ *
+ * Der Hör-Weg wurde mit `file: 'ton'` und `application/octet-stream` aufgerufen. Der Dienst
+ * antwortete **200** und `{"text":""}` — ein leerer Text, der wie „nichts verstanden" aussieht.
+ * Mit `ton.wav` und `audio/wav` kam derselbe Satz vollständig zurück:
+ *
+ * | Auftrag | Antwort |
+ * |---|---|
+ * | `ton` + `application/octet-stream` | `200`, `text: ""` |
+ * | `ton.wav` + `audio/wav` | `200`, der gesprochene Satz |
+ *
+ * **Der Fehler war still.** Kein Statuscode, keine Meldung — nur ein leerer Text. Deshalb wird der
+ * Behälter jetzt aus den Bytes gelesen und der Dateiname trägt seine Endung.
+ *
+ * @param bytes - die Bytes
+ * @returns Inhaltstyp und Endung; unbekannt ergibt `application/octet-stream` und `bin`
+ */
+export function tonArt(bytes: Uint8Array): { readonly typ: string; readonly endung: string } {
+  const b = (i: number): number => bytes[i] ?? -1
+  if (b(0) === 0x52 && b(1) === 0x49 && b(2) === 0x46 && b(3) === 0x46 && b(8) === 0x57 && b(9) === 0x41) {
+    return { typ: 'audio/wav', endung: 'wav' }
+  }
+  if (b(0) === 0x49 && b(1) === 0x44 && b(2) === 0x33) return { typ: 'audio/mpeg', endung: 'mp3' }
+  if (b(0) === 0xff && (b(1) === 0xfb || b(1) === 0xf3 || b(1) === 0xf2)) return { typ: 'audio/mpeg', endung: 'mp3' }
+  if (b(0) === 0x4f && b(1) === 0x67 && b(2) === 0x67 && b(3) === 0x53) return { typ: 'audio/ogg', endung: 'ogg' }
+  if (b(0) === 0x66 && b(1) === 0x4c && b(2) === 0x61 && b(3) === 0x43) return { typ: 'audio/flac', endung: 'flac' }
+  if (b(0) === 0x1a && b(1) === 0x45 && b(2) === 0xdf && b(3) === 0xa3) return { typ: 'audio/webm', endung: 'webm' }
+  if (b(4) === 0x66 && b(5) === 0x74 && b(6) === 0x79 && b(7) === 0x70) return { typ: 'audio/mp4', endung: 'm4a' }
+  return { typ: 'application/octet-stream', endung: 'bin' }
+}
+
+/**
+ * Erkennt den **Behälter** eines Bildes an seinen ersten Bytes.
+ *
+ * ## Warum das nötig ist
+ *
+ * Ein Bild kommt als Base64 ohne Dateinamen. Wer den Typ aus dem **Wunsch** ableitet („ich habe
+ * `.png` gesagt"), behauptet etwas über Daten, die er nicht gelesen hat; ein falscher
+ * `Content-Type` ergibt im Browser ein leeres Feld. Am 19.10.2026 war das Ergebnis ein PNG — die
+ * Sonde hatte die Datei trotzdem `.png` genannt, und **das war Glück, kein Wissen**.
+ *
+ * Dieselbe Regel gilt hier wie beim Ton: **der Typ kommt aus den Daten**, nicht aus dem Auftrag.
+ *
+ * @param bytes - die Bytes
+ * @returns der Inhaltstyp, oder `application/octet-stream`, wenn keiner erkannt wurde
+ */
+export function bildArt(bytes: Uint8Array): string {
+  const b = (i: number): number => bytes[i] ?? -1
+  if (b(0) === 0x89 && b(1) === 0x50 && b(2) === 0x4e && b(3) === 0x47) return 'image/png'
+  if (b(0) === 0xff && b(1) === 0xd8 && b(2) === 0xff) return 'image/jpeg'
+  if (b(0) === 0x47 && b(1) === 0x49 && b(2) === 0x46) return 'image/gif'
+  if (
+    b(0) === 0x52 && b(1) === 0x49 && b(2) === 0x46 && b(3) === 0x46 &&
+    b(8) === 0x57 && b(9) === 0x45 && b(10) === 0x42 && b(11) === 0x50
+  ) {
+    return 'image/webp'
+  }
+  return 'application/octet-stream'
 }
 
 /**
@@ -562,10 +665,10 @@ export function openrouter(optionen: OpenrouterOptionen = {}): Anbieter {
       }
       const daten = new FormData()
       daten.append('model', modell)
-      // Der Dateiname trägt **keine** Endung: wir wissen nicht, in welchem Behälter die Bytes
-      // stecken, und `ton.wav` wäre eine Behauptung. Ob der Dienst ohne Endung zurechtkommt, ist
-      // gemessen — siehe `tests/lebend.test.ts`.
-      daten.append('file', new Blob([ton], { type: 'application/octet-stream' }), 'ton')
+      // **Der Dateiname trägt die Endung des Behälters.** Ohne sie antwortet der Dienst mit 200
+      // und leerem Text — gemessen am 19.10.2026, siehe {@link tonArt}.
+      const art = tonArt(ton)
+      daten.append('file', new Blob([ton], { type: art.typ }), `ton.${art.endung}`)
       if (istText(sprache)) daten.append('language', sprache)
 
       // **Kein `content-type` von Hand.** Bei Mehrtelldaten setzt `fetch` die Grenze selbst; ein
@@ -638,6 +741,96 @@ export function openrouter(optionen: OpenrouterOptionen = {}): Anbieter {
   }
 
   // -------------------------------------------------------------------------
+  // bild
+  // -------------------------------------------------------------------------
+
+  const zeichner: Zeichner = {
+    async zeichne(beschreibung: string, optionen: ZeichenOptionen = {}): Promise<GezeichnetesBild> {
+      if (!istText(beschreibung)) {
+        throw new OpenrouterFehler('Es wurde kein Bildauftrag übergeben (leere Beschreibung).')
+      }
+      const schluessel = await holeSchluessel()
+      if (schluessel === undefined) {
+        throw new OpenrouterFehler('Es ist kein Schlüssel hinterlegt — ohne ihn wird nichts gezeichnet.')
+      }
+      const modell = modellOderFehler('bild')
+      // **Die gemessene Form, Feld für Feld.** `response_format` erzwingt die Bytes statt eines
+      // Verweises. Die übrigen Felder sind die der Bild-API (gelesen am 21.10.2026 aus
+      // `GET /api/v1/images/models`); **welche** ein Modell kennt, entscheidet der Dienst und
+      // antwortet sonst mit 400 — geraten wird hier nichts.
+      const koerper: Record<string, unknown> = {
+        model: modell,
+        prompt: beschreibung,
+        n: optionen.anzahl ?? 1,
+        response_format: BILD_FORMAT,
+      }
+      if (istText(optionen.seitenverhaeltnis)) koerper['aspect_ratio'] = optionen.seitenverhaeltnis
+      if (istText(optionen.aufloesung)) koerper['resolution'] = optionen.aufloesung
+      if (optionen.qualitaet !== undefined) koerper['quality'] = optionen.qualitaet
+      if (optionen.format !== undefined) koerper['output_format'] = optionen.format
+      if (optionen.hintergrund !== undefined) koerper['background'] = optionen.hintergrund
+      const referenzen = optionen.referenzen ?? []
+      if (referenzen.length > 0) {
+        koerper['input_references'] = referenzen.map((url) => ({
+          type: 'image_url',
+          image_url: { url },
+        }))
+      }
+      const antwort = await rufe(WEG_BILD, JSON.stringify(koerper), schluessel, {
+        'content-type': 'application/json',
+      })
+      const gelesen = await alsJson(antwort, WEG_BILD, schluessel)
+      const daten = gelesen['data']
+      if (!Array.isArray(daten) || daten.length === 0) {
+        throw new OpenrouterFehler('Die Antwort auf den Bild-Weg enthielt kein `data`-Feld mit einem Bild.')
+      }
+      const erstes = daten[0]
+      if (erstes === null || typeof erstes !== 'object') {
+        throw new OpenrouterFehler('Der erste Eintrag der Bild-Antwort war kein Objekt.')
+      }
+      const satz = erstes as Record<string, unknown>
+      const base64 = satz['b64_json']
+      let bytes: Uint8Array
+      if (typeof base64 === 'string' && base64 !== '') {
+        bytes = new Uint8Array(Buffer.from(base64, 'base64'))
+      } else {
+        // **Der Verweis ist der zweite Weg — und der einzige, den diese Fassung noch nicht
+        // gemessen hat.** Kommt er, wird er geholt statt geraten: ein `url`-Feld zu ignorieren
+        // hieße, ein Bild zu verwerfen, das der Dienst geliefert hat.
+        const verweis = satz['url']
+        if (typeof verweis !== 'string' || verweis.trim() === '') {
+          throw new OpenrouterFehler(
+            'Die Bild-Antwort trug weder `b64_json` noch `url` — es ist nicht zu sehen, wo das Bild liegt.',
+          )
+        }
+        const geholt = await abruf(verweis, { method: 'GET', signal: AbortSignal.timeout(fristMs) })
+        if (!geholt.ok) {
+          throw new OpenrouterFehler(
+            `Das Bild unter dem Verweis war nicht abrufbar (Status ${String(geholt.status)}).`,
+            geholt.status,
+          )
+        }
+        bytes = new Uint8Array(await geholt.arrayBuffer())
+      }
+      if (bytes.length === 0) {
+        throw new OpenrouterFehler('OpenRouter lieferte ein Bild ohne Inhalt (0 Bytes).')
+      }
+      // **Der Typ kommt zuerst aus `media_type`** — die Bild-API nennt ihn, wenn sie ihn kennt.
+      // Fehlt er, entscheiden die Bytes (`bildArt`); eine Endung entscheidet nie.
+      const gemeldet = satz['media_type']
+      const typ = typeof gemeldet === 'string' && gemeldet !== '' ? gemeldet : bildArt(bytes)
+      // **Der Preis, wenn der Dienst ihn nennt.** `usage.cost` steht in der Antwort; ihn zu
+      // verschweigen hieße, dem Aufrufer die einzige Zahl vorzuenthalten, die er wirklich braucht.
+      const nutzung = gelesen['usage']
+      const kosten =
+        nutzung !== null && typeof nutzung === 'object' && typeof (nutzung as Record<string, unknown>)['cost'] === 'number'
+          ? ((nutzung as Record<string, unknown>)['cost'] as number)
+          : undefined
+      return { bytes, typ, ...(kosten === undefined ? {} : { kostenUsd: kosten }) }
+    },
+  }
+
+  // -------------------------------------------------------------------------
   // Der Anbieter
   // -------------------------------------------------------------------------
 
@@ -697,6 +890,6 @@ export function openrouter(optionen: OpenrouterOptionen = {}): Anbieter {
     sprecher,
     hoerer,
     einbetter,
-    // **Kein `zeichner`.** Der Weg zum Bild ist nicht gemessen; siehe Dateikopf.
+    zeichner,
   }
 }

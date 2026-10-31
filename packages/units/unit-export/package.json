@@ -4,6 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "description": "Unit-Manifest, Registry, Bündelung und Export/Import über die Harness",
+  "exports": {
+    ".": "./src/index.ts",
+    "./plugin-host": "./src/plugin-host.ts"
+  },
   "scripts": {
     "typecheck": "tsgo --noEmit",
     "test": "bun test",

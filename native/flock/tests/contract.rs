@@ -554,10 +554,18 @@ fn the_probe_answers_on_every_host() {
 }
 
 /// Lock the raw descriptor `raw` without taking ownership of it.
+///
+/// Uses the **non-panicking** entry point on purpose. Condition 13 passes
+/// descriptor numbers that are invalid *by design* (a negative number, a closed
+/// number); the contract requires those to be **reported** as `EBADF`, never to
+/// abort the process. `borrow_raw` panics for a negative number in debug builds,
+/// which would make this helper test the wrong thing — a panic instead of an
+/// error value.
+///
+/// SAFETY: the caller only passes descriptor numbers that are either invalid on
+/// purpose (the point of the test) or valid for the call's duration. This crate
+/// never closes a descriptor, which is the contract's rule.
 fn try_lock_raw(raw: i32, kind: LockKind) -> Result<(), pmh_flock::LockError> {
-    // SAFETY: the caller only passes descriptor numbers that are either invalid
-    // on purpose (the point of the test) or valid for the call's duration. This
-    // crate never closes a descriptor, which is the contract's rule.
-    let fd = unsafe { pmh_flock::borrow_raw(raw) };
+    let fd = unsafe { pmh_flock::try_borrow_raw(raw)? };
     try_lock(fd, kind, None)
 }

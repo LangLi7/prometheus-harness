@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { ermittleZiel, istRelativ, VORGABE_ZIEL, ZIEL_PARAMETER } from '../src/redirect.ts'
+import { einladungsToken, ermittleZiel, istRelativ, TOKEN_PARAMETER, VORGABE_ZIEL, ZIEL_PARAMETER } from '../src/redirect.ts'
 
 describe('Ziel nach der Anmeldung', () => {
   test('ohne Angabe gilt die Vorgabe', () => {
@@ -59,5 +59,43 @@ describe('Ziel nach der Anmeldung', () => {
     // Ein Wächter, der immer `false` sagt, wäre so falsch wie einer, der immer `true` sagt.
     expect(istRelativ('/ok')).toBe(true)
     expect(istRelativ('//nicht-ok')).toBe(false)
+  })
+})
+
+/**
+ * Das Einladungs-Token aus der Adresse.
+ *
+ * **Warum hier streng gelesen wird.** Ein Token, das nicht wie ein Token
+ * aussieht, ist ein alter Link oder ein Tippfehler — beides soll die Seite als
+ * „kein Link" behandeln und nicht als Einladung zeigen. Der Server prüft
+ * ohnehin; diese Prüfung verhindert nur, daß Unsinn wie eine Einladung aussieht.
+ */
+describe('Einladungs-Token aus der Adresse', () => {
+  const TOKEN = 'g30zj5d2BSDdmHZa-ZwAWR_riKQGbAa9BK078r_lysA'
+
+  test('ein Token im base64url-Alphabet wird gelesen', () => {
+    expect(einladungsToken(`?${TOKEN_PARAMETER}=${TOKEN}`)).toBe(TOKEN)
+    // Auch mit weiteren Parametern davor und danach.
+    expect(einladungsToken(`?weiter=/start&${TOKEN_PARAMETER}=${TOKEN}`)).toBe(TOKEN)
+    expect(einladungsToken(`?${TOKEN_PARAMETER}=${TOKEN}&weiter=/start`)).toBe(TOKEN)
+  })
+
+  test('ohne Token: nichts', () => {
+    expect(einladungsToken('')).toBeUndefined()
+    expect(einladungsToken('?weiter=/start')).toBeUndefined()
+    expect(einladungsToken(`?${TOKEN_PARAMETER}=`)).toBeUndefined()
+  })
+
+  test('zu kurz oder mit fremden Zeichen wird ABGELEHNT', () => {
+    expect(einladungsToken(`?${TOKEN_PARAMETER}=kurz`)).toBeUndefined()
+    expect(einladungsToken(`?${TOKEN_PARAMETER}=${'a'.repeat(31)}`)).toBeUndefined()
+    expect(einladungsToken(`?${TOKEN_PARAMETER}=${'a'.repeat(129)}`)).toBeUndefined()
+    expect(einladungsToken(`?${TOKEN_PARAMETER}=${TOKEN}%3Cscript%3E`)).toBeUndefined()
+    expect(einladungsToken(`?${TOKEN_PARAMETER}=${'a'.repeat(20)}%20${'b'.repeat(20)}`)).toBeUndefined()
+  })
+
+  test('Leerzeichen außen werden abgeschnitten — innen nicht', () => {
+    expect(einladungsToken(`?${TOKEN_PARAMETER}=%20${TOKEN}%20`)).toBe(TOKEN)
+    expect(einladungsToken(`?${TOKEN_PARAMETER}=${'a'.repeat(20)}%20${'b'.repeat(20)}`)).toBeUndefined()
   })
 })

@@ -1,0 +1,75 @@
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -1942,8 +1942,12 @@ window.__ModuleLoader__.load({
+ 				id: "delete",
+ 				label: t("delete.workspace"),
+ 				icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconTrashOutlineRegular, {}),
+ 				danger: true
++			}, {
++				id: "pmh-ordner",
++				label: "Quellordner…",
++				icon: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconFolderOpenRegular, {})
+ 			}];
+ 			const ownRow = (0, react_jsx_runtime.jsxs)("div", {
+ 				className: clsx(Rows_module_css_default.projectRow, menuOpen && Rows_module_css_default.menuOpen),
+ 				"data-row-key": `workspace:${group.key}`,
+@@ -1983,9 +1987,15 @@ window.__ModuleLoader__.load({
+ 							items: workspaceMenuItems,
+ 							onSelect: (id) => {
+ 								setMenuOpen(false);
+ 								/* v8 ignore next -- Menu can emit only the rename and delete rows supplied above. */
+-								if (id !== "rename" && id !== "delete") return;
++								if (id !== "rename" && id !== "delete" && id !== "pmh-ordner") return;
++								if (id === "pmh-ordner") {
++									globalThis.dispatchEvent(new CustomEvent("pmh:quellordner", {
++										detail: { workspaceId: group.workspaceId ?? group.key }
++									}));
++									return;
++								}
+ 								if (id === "rename") actions.rename();
+ 								else actions.delete();
+ 							},
+ 							portal: true,
+@@ -2248,16 +2258,40 @@ window.__ModuleLoader__.load({
+ 				rowRef.current?.scrollIntoView({ block: "nearest" });
+ 				onReveal();
+ 			}, [onReveal]);
+ 			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.HoverCard, {
+-				anchor: (0, react_jsx_runtime.jsxs)("div", {
++				anchor: (0, react_jsx_runtime.jsxs)("a", {
++					href: `/c/${encodeURIComponent(node.id)}`,
++					/*
++					 * Die Einfangphase, nicht die Blase.
++					 *
++					 * Der "…"-Knopf und die Menüeinträge liegen im Anker und rufen
++					 * stopPropagation — ein onClick am Anker läuft dann nie, und der Browser folgt
++					 * dem href: statt des Menüs öffnet sich die Sitzung in einem neuen Weg. Die
++					 * Einfangphase läuft VOR jedem Kind-Handler, deshalb verhindert sie die Navigation
++					 * zuverlässig — und läßt den Kindern ihren Klick.
++					 */
++					onClickCapture: (e) => {
++						if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
++						e.preventDefault();
++					},
+ 					ref: rowRef,
+ 					"data-row-key": `session:${node.id}`,
+ 					className: clsx(Rows_module_css_default.sessionRow, selected && Rows_module_css_default.selected, menuOpen && Rows_module_css_default.menuOpen, row.archived && Rows_module_css_default.archived, drag?.marker === "before" && Rows_module_css_default.dropBefore, drag?.marker === "after" && Rows_module_css_default.dropAfter),
+ 					role: "treeitem",
+ 					"aria-selected": selected,
+ 					"aria-description": row.archived ? t("toast.archivedNotOpenable") : void 0,
+-					onClick: () => {
++					onClick: (e) => {
++						if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
++						/*
++						 * Klicks aus dem Umfeld der Zeile gehören nicht der Zeile: der Menü-Knopf und die
++						 * Einträge des "…"-Menüs liegen im Anker. Ohne diese Prüfung stiege ihr Klick zum
++						 * Anker auf, der dann zusätzlich eine Sitzung öffnet — das Menü und die Auswahl
++						 * schlagen sich gegenseitig.
++						 */
++						const ziel = e.target;
++						if (ziel instanceof Element && ziel.closest('button,[role="menu"],[role="menuitem"]')) return;
++						e.preventDefault();
+ 						onOpen(node.id);
+ 					},
+ 					onPointerEnter: marquee.enter,
+ 					onPointerLeave: marquee.leave,

@@ -1,0 +1,9 @@
+{
+  "name": "motioncore",
+  "version": "0.1.0",
+  "description": "Motion-Schicht fuer Websites: Tokens erzeugen, vorhandene Bewegung auditieren, gegen die Hausregeln reviewen.",
+  "author": {
+    "name": "Prometheus Harness"
+  },
+  "license": "MIT"
+}

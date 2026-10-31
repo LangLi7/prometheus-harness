@@ -120,7 +120,7 @@ Anbindung an die fremden CLIs, nicht die Unteragenten.
 | `job_list` | ✅ | **OK** |
 | `schedule_list` | ✅ | **OK** |
 | `working_directory` | ✅ | **OK** |
-| `web_fetch` | ❌ `dispatcher.close is not a function` | **in unserer Liste — hier stand „nicht prüfbar"** |
+| `web_fetch` | ❌ `dispatcher.close is not a function` | **in unserer Liste — hier stand „nicht prüfbar"**; Ursache und Fix: **§9** |
 
 **Bilanz: 10 von 10 prüfbaren Werkzeugen grün.** Davon waren **drei** im Selbsttest-Bericht rot
 (`pwsh`, `glob`, `grep`) — dieselben drei sind jetzt grün.
@@ -318,3 +318,210 @@ und schrieb, die Defekte hörten „genau nach diesem Commit" auf. **Falsch:** d
 aufhörten, war ein Artefakt meiner Zeitzonenmischung. `7dc73d2` hat damit **nichts** mit dem
 Werkzeugausfall zu tun, und die Begründung im Commit („der Runner berichtet über IPC, nicht über
 stdout") steht unberührt.
+
+---
+
+## 9. Nachtrag 18.10.2026 — `web_fetch` ist erklärt **und** repariert
+
+§6 führte `web_fetch` als reproduzierten, aber unerklärten Defekt. Die Ursache ist jetzt gemessen,
+und sie ist keine Eigenheit dieses Rechners.
+
+### Die Ursache: Bun liefert unter dem Namen `undici` eine Attrappe aus
+
+```
+Bun.resolveSync("undici", <repo>)                      ->  "undici"        <- Builtin
+typeof (await import("undici")).Agent.prototype.close  ->  undefined
+typeof require("<repo>/node_modules/undici/index.js")
+        .Agent.prototype.close                         ->  function       <- das echte Paket
+```
+
+Unter **Bun 1.4.0** gewinnt ein eingebautes Modul gegen `node_modules/undici` (8.11.2). Die
+Attrappe ist täuschend freundlich: die Klasse heißt `Agent`, der Konstruktor wirft nicht,
+`instanceof Dispatcher` stimmt — **nur die Methoden fehlen**. Deshalb startet der Host sauber und
+erst der **Aufruf** scheitert:
+
+```
+Error: dispatcher.close is not a function. (In 'dispatcher.close()', 'dispatcher.close' is undefined)
+```
+
+Zwei Verbraucher sind betroffen, beide über `await import("undici")`:
+
+| Datei | Stelle | Was scheitert |
+|---|---|---|
+| `dsh-web-fetch-http/lib/index.js` | `requestPinned()`, `close()` | `dispatcher.close()` nach dem Lesen des Rumpfes |
+| `dsh-http-proxy/lib/index.js` | `installGlobalProxy()`, Abbau | `direct.close()`, `agent.close()` |
+
+**Der Abruf gelingt dabei.** Der Rumpf wird gelesen, erst das Aufräumen wirft — und das fertige
+Ergebnis wird verworfen. Für den Agenten sieht das aus wie „die Seite war nicht erreichbar", obwohl
+sie erreichbar war.
+
+### Warum die Meldung wie ein `pwsh`-Fehler aussah
+
+Die Sitzungsprotokolle sind eindeutig: **alle** `dispatcher`-Fehler stammen aus `web_fetch`, **kein
+einziger** aus `pwsh`.
+
+| Sitzung | Fehler | davon `web_fetch` | `pwsh`-Fehler |
+|---|---|---|---|
+| `f81aec88` | 4 | **4** | 0 |
+| `db6017f3` | 16 | **4** | 0 |
+| `4d8e0d12` | 16 | **2** | 0 |
+
+Der Augenschein täuscht, weil der fehlgeschlagene `web_fetch` **parallel zu einem `pwsh`-Aufruf im
+selben Schritt** lief und die Oberfläche den Block unter der Überschrift des ersten Werkzeugs
+zusammenfaßt. Die `pwsh`-Aufrufe derselben Schritte waren grün — auch der `git`-Aufruf, der nur
+`ResourceUnavailable: git.exe …` auf `stderr` zeigte (die Sandbox verbietet umgeleitete
+Standardströme; ein **zweiter, unabhängiger** Befund).
+
+### Warum nicht einfach `dispatcher.close?.()`
+
+Weil der Agent **nicht** geschlossen, sondern gebraucht wird: er wird mit
+`connect: { lookup: createPinnedLookup(addresses) }` gebaut. Der geprüfte Adresssatz wird in den
+Verbindungsaufbau **gepinnt**, damit ein Hostname nach der Prüfung nicht auf eine private IP
+umbiegen kann. Eine Attrappe, die `dispatcher` ignoriert, hebelt genau diesen Schutz aus. Ein
+`?.` würde den Fehler zum Schweigen bringen und den Abruf **ohne Pinning** weiterlaufen lassen —
+eine stille Verschlechterung statt einer Reparatur. Der Fehler war insofern **ehrlich**: er hat
+verhindert, daß ungeprüft verbunden wird.
+
+### Was geändert wurde
+
+Nach dem Muster der übrigen Bun-Lücken (`scripts/bun-gap-preload.mjs`), also **ohne** Patch im
+Abhängigkeitsbaum — `patches/` bleibt leer:
+
+| Datei | Rolle |
+|---|---|
+| `scripts/undici-echt.mjs` | lädt `node_modules/undici/index.js` direkt und reicht es weiter |
+| `scripts/undici-echte-aufloesung.mjs` | schreibt `import("undici")` in den zwei Verbrauchern auf das Umwegmodul um |
+| `scripts/bun-gap-preload.mjs` | nimmt die Ergänzung auf und meldet sie beim Start |
+| `scripts/tests/undici-echte-aufloesung.test.mjs` | 6 Prüfungen, darunter die Gegenprobe (fehlender Anker wirft) |
+
+**Ein `onResolve`-Filter auf `/^undici$/` wurde versucht und ist widerlegt** — er feuert nicht, weil
+Bun den Spezifizierer auflöst, **bevor** Plugins gefragt werden. Dieselbe Grenze steht schon in
+`bunfig.toml` für `node:module`. Der Anker liegt deshalb beim **Dateipfad** der Verbraucher.
+
+### Die Messung, A/B mit demselben Skript
+
+Wiederholbar über `docs/status/messsonden/undici-attrappe.mjs` (`--fetch` für den echten Abruf).
+Ohne Vorladung (cwd außerhalb des Projekts) — der gemeldete Fehler; mit Vorladung (cwd = Projekt) —
+echter Inhalt:
+
+```
+ohne:  FEHLER  https://example.com
+       dispatcher.close is not a function. (In 'dispatcher.close()', …)
+       FEHLER  Proxy-Abbau: direct.close is not a function. (In 'direct.close()', …)
+
+mit:   OK      HTTP 200  https://example.com
+       https://example.com/  |  html  577 Zeichen  |  "<!doctype html><html lang=en>…"
+       OK      HTTP 200  https://www.iana.org/help/example-domains
+       https://www.iana.org/help/example-domains  |  html  6772 Zeichen  |  "<title>Example Domains</title>"
+       OK      direct.close() über den Proxy-Abbau
+       OK      agent.close() über den Proxy-Abbau
+```
+
+Der nackte `import("undici")` liefert **weiterhin** die Attrappe (`typeof close = undefined`) — die
+Ergänzung ist gezielt und ändert die Laufzeit nicht global.
+
+### Was offen bleibt
+
+* **Der laufende Host hat den Fix noch nicht.** Die Vorladung wird beim Prozeßstart gelesen; die
+  Sitzung auf `127.0.0.1:3081` muß **neu gestartet** werden — mit dem **Projekt** als
+  Arbeitsverzeichnis, sonst wird die Vorladung gar nicht gefunden (§8).
+* **`bun test scripts/tests`: 292 grün, 1 rot** — `reference-guard` erwartet `quelle === "git"`,
+  bekommt `"baum"`, weil `git.exe` in dieser Sandbox nicht startbar ist. **Nicht** durch diese
+  Änderung verursacht; der Wächter fällt korrekt auf den Baum zurück.
+* **Der `git`-/Pipe-Befund** („Programm konnte nicht ausgeführt werden … `\\.\pipe\…` verweigert")
+  ist ein **eigener** Punkt und hier nicht behoben.
+
+---
+
+## 10. Nachtrag 18.10.2026 — „file has not been read" nach **jedem** Turn
+
+Der zweite Fehler desselben Tages ist harmloser im Klang und lästiger im Betrieb: Edits scheitern
+mit
+
+```
+Error: cannot modify "<pfad>": file has not been read — read the file, then retry
+```
+
+obwohl die Datei **im Turn davor** gelesen und **im selben Turn** schon einmal erfolgreich editiert
+worden war.
+
+### Der Ablauf im Protokoll
+
+```
+seq=908  step/end
+seq=909  turn/end              <- Turn zu Ende
+seq=910  session/end-seed      <- Sitzung wird neu aufgebaut
+seq=912  turn/start
+seq=919  assistant  [edit, edit, edit, edit]
+seq=920…927  alle vier: "file has not been read"
+seq=929…936  read, read, read, read
+seq=937…944  dieselben vier Edits — alle erfolgreich
+```
+
+Dieselbe Kette in einer zweiten Sitzung: `read` bei `seq=44` (Turn 1), `edit` bei `seq=307`
+(Turn 3) → `FS_NOT_OBSERVED`. **Der Fehler trat also nicht zufällig auf: er trat am Anfang jedes
+Turns auf.**
+
+### Die Ursache
+
+`@deepseek-ai/dsh-fs-observation-policy` merkt sich Beobachtungen in einer **`WeakMap`**,
+geschlüsselt über das **Sitzungs-Objekt**:
+
+```js
+observed = new WeakMap();
+owner(actor) { return actor?.agent?.session; }
+```
+
+Das ist bewusst so gebaut. Nur hält der Web-Host die Sitzung **nicht** am Leben: `turn/end` →
+persistieren, nächster Turn → `agents.resume()` aus dem Protokoll → **neues `Session`-Objekt,
+gleiche `id`**. Der `session/end-seed`-Eintrag ist der Beweis — er wird im **Konstruktor** einer
+geseedeten Sitzung angehängt (`Session`, Modus `snapshot`, Seed vorhanden).
+
+Neues Objekt heißt: neuer `WeakMap`-Schlüssel, keine Beobachtung. Für den Agenten sieht es aus,
+als hätte er nie gelesen.
+
+### Was geändert wurde
+
+| Datei | Rolle |
+|---|---|
+| `scripts/fs-beobachtung-lebensdauer.mjs` | Schlüssel ist die **`id`** der Sitzung; `WeakMap` → `Map` |
+| `scripts/bun-gap-preload.mjs` | nimmt die Ergänzung auf, meldet sie beim Start, `PMH_OHNE_BEOBACHTUNGS_FIX=1` schaltet sie ab |
+| `scripts/tests/fs-beobachtung-lebensdauer.test.mjs` | 5 Prüfungen der Umformung (Anker, Ergebnis, Stabilität, Gegenprobe) |
+| `docs/status/messsonden/beobachtung-lebensdauer.mjs` | Ende-zu-Ende-Nachweis, A/B über das cwd |
+
+**Die Sperre bleibt.** Ohne vorherige Beobachtung kein `edit` (`FS_NOT_OBSERVED`), eine andere
+Sitzung sieht nichts, und geschrieben wird weiter gegen die beobachtete Version
+(`replaceIfVersion`). Ändert jemand die Datei zwischen zwei Turns außerhalb des Werkzeugs, kommt
+`FS_STALE_VERSION` — die richtige, sichere Antwort. Es ändert sich **nur** die Frage „habe ich die
+Datei in dieser Unterhaltung schon gesehen?", und sie wird jetzt richtig beantwortet.
+
+### Die Messung
+
+```
+bun docs/status/messsonden/beobachtung-lebensdauer.mjs          # mit Vorladung
+  Wiederherstellung überlebt   : JA   (Version v1)
+  andere Sitzung blockiert     : JA
+  ungesehene Datei blockiert   : JA
+  Urteil: OK — Lebensdauer repariert, Sperre steht
+
+# cwd außerhalb des Projekts (keine Vorladung)
+  Wiederherstellung überlebt   : NEIN (edit requires reading "C:/p/a.ts" first)
+```
+
+### Was offen bleibt
+
+* **Eine `Map` räumt nicht von selbst auf.** Je Sitzung bleibt ein Eintrag im Prozeß. Das ist der
+  Preis für die Lebensdauer und bei der Zahl der Sitzungen eines Hosts vertretbar — aber es ist
+  eine **Änderung an einer Sicherheits-Policy**, deshalb der Abschalter.
+* **`bun test` prüft diesen Fall nicht.** Gemessen: der `onLoad`-Filter feuert unter `bun test`
+  für dieses Paket **nicht** (`[probe]` blieb aus), die Datei wird unverändert geladen. Der
+  Ende-zu-Ende-Fall liegt deshalb als **Sonde** vor, die als Skript läuft; im Test steht die
+  Umformung. Das ist eine Grenze des Prüfaufbaus, keine der Ergänzung.
+* **Der laufende Host hat auch diesen Fix noch nicht** — Neustart mit dem Projekt als
+  Arbeitsverzeichnis (§8), wie bei §9.
+* **Ob der Host die Sitzung wirklich pro Turn wiederherstellt oder nur gelegentlich**, ist aus dem
+  Protokoll an vier Turn-Grenzen belegt, nicht als generelle Regel gemessen. Der Fix schadet in
+  beiden Fällen nicht: er macht die Beobachtung an der **`id`** fest, die über
+  Wiederherstellungen hinweg stabil ist.
+
+

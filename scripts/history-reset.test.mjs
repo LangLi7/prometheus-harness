@@ -1,5 +1,5 @@
 /**
- * `scripts/verlauf-reset.mjs` — die Prüfung, und der wichtigste Fall ist:
+ * `scripts/history-reset.mjs` — die Prüfung, und der wichtigste Fall ist:
  * **es tut nichts**.
  *
  * ## Warum diese Prüfdatei existiert
@@ -25,13 +25,47 @@
  * Menschen, nicht in eine Prüfung, die beim Scheitern den echten Verlauf trifft.
  */
 
-import { describe, expect, test } from 'bun:test'
+import { afterAll, describe, expect, test } from 'bun:test'
+import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { NichtLesendError, befehle, fuehreAus, gitLesen, leseLage } from './verlauf-reset.mjs'
+import { NichtLesendError, befehle, fuehreAus, gitLesen, leseLage } from './history-reset.mjs'
 
-const hier = process.cwd()
+/**
+ * **Das Repository, an dem geprüft wird, ist ein Wegwerf-Repository.**
+ *
+ * Vorher war es `process.cwd()`. Lokal reichte das, weil dort ein Zweig `main`
+ * ausgecheckt ist; in CI ist der Kopf abgetrennt, `branch --show-current` liefert
+ * dort `""`, und sechs Prüfungen fielen um — nicht weil das Skript falsch wäre,
+ * sondern weil die Umgebung nicht die Entwicklungsmaschine war.
+ *
+ * Ein Fixture prüft das Skript. Es hat `main`, einen Commit und ein Fern, die drei
+ * Dinge, die `lage` und `befehle` brauchen.
+ *
+ * @returns das Verzeichnis des Wegwerf-Repositorys
+ */
+function baueRepo() {
+  const verzeichnis = mkdtempSync(join(tmpdir(), 'pmh-repo-'))
+  const git = (...argumente) => execFileSync('git', argumente, { cwd: verzeichnis, stdio: 'ignore' })
+  git('init', '-q', '-b', 'main')
+  git(
+    '-c',
+    'user.email=test@example.invalid',
+    '-c',
+    'user.name=Test',
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'erster',
+  )
+  git('remote', 'add', 'origin', 'https://example.invalid/repo.git')
+  return verzeichnis
+}
+
+const hier = baueRepo()
+afterAll(() => rmSync(hier, { recursive: true, force: true }))
 
 /** Fängt die Ausgabe eines Aufrufs ein. */
 function fange(argumente, umgebung) {

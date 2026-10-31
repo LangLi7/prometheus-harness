@@ -1,0 +1,9 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    // Rechner-Seite: `node:fs`, keine DOM-Typen.
+    "lib": ["ES2022"],
+    "types": ["bun"]
+  },
+  "include": ["src", "tests"]
+}

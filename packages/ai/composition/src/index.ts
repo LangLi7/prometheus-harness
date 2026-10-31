@@ -31,6 +31,9 @@ import {
   type Stufen,
 } from '@prometheus-harness/capabilities'
 import type { Einstellungen } from '@prometheus-harness/settings'
+import { FAMILIEN, type Familie, type Modellangabe } from '@prometheus-harness/provider-directory'
+import { SAAT, SAAT_STAND, type Tarifeintrag } from '@prometheus-harness/tariffs'
+import type { Katalog } from '@prometheus-harness/directory-curator'
 
 /**
  * Die Vorgabe-Schwellen, wenn der Endnutzer keine gesetzt hat.
@@ -159,4 +162,121 @@ export function baueAuf(optionen: Aufbauoptionen): Aufbau {
   }
 
   return { faehigkeiten: registratur, stufen, eingetragen, gewaehlt, hinweise }
+}
+
+// ---------------------------------------------------------------------------
+// Die Quellen der Rangliste anmelden
+// ---------------------------------------------------------------------------
+
+/**
+ * Was ein Quellenmelder können muß — **strukturell**, nicht namentlich.
+ *
+ * **Warum dieses Paket `api/ai-ranking` nicht importiert.** Das Register dort hängt am Webserver
+ * und am Cordis-Kontext; `composition` ist reine Logik ohne Host. Eine strukturelle Beschreibung
+ * hält beides auseinander: hier steht, **was** angemeldet wird, nicht **wer** es entgegennimmt.
+ * Damit ist die Funktion ohne Host und ohne HTTP prüfbar — und `api/ai-ranking` kann sie erfüllen,
+ * ohne daß eine der beiden Seiten die andere kennt.
+ */
+export interface Quellenmelder {
+  /** Meldet eine Familie des Verzeichnisses an. */
+  readonly meldeFamilie: (familie: Familie) => () => void
+  /** Meldet Tarife an. */
+  readonly meldeTarife: (tarife: readonly Tarifeintrag[]) => () => void
+  /** Meldet einen Katalog an. */
+  readonly meldeKatalog: (katalog: Katalog) => () => void
+  /** Meldet die gemessene Modellliste einer Familie an. */
+  readonly meldeModelle: (familie: string, modelle: readonly Modellangabe[]) => () => void
+}
+
+/** Was die Anmeldung braucht. */
+export interface Meldeoptionen {
+  /** Die Familien. Vorgabe: alle aus dem Verzeichnis. */
+  readonly familien?: readonly Familie[]
+  /** Die Tarife. Vorgabe: die Saat. */
+  readonly tarife?: readonly Tarifeintrag[]
+  /** Der Katalog, falls ein Verwalterlauf einen hinterlassen hat. */
+  readonly katalog?: Katalog
+  /** Die gemessenen Modelllisten, je Familie — aus `frageModelleMitPreis`. */
+  readonly modelle?: Readonly<Record<string, readonly Modellangabe[]>>
+}
+
+/** Was die Anmeldung ergeben hat. */
+export interface Meldung {
+  /** Wie man alles wieder abmeldet, in umgekehrter Reihenfolge. */
+  readonly abmelden: () => void
+  /** Was angemeldet wurde, Zeile für Zeile. */
+  readonly bericht: readonly string[]
+}
+
+/**
+ * Meldet Verzeichnis, Saat und — wenn vorhanden — Katalog und Modelllisten an.
+ *
+ * ## Warum es diese Funktion geben muß
+ *
+ * Am 15.10.2026 war der Endpunkt `GET /api/ai/ranking` gebaut und verdrahtet — und die Liste
+ * **leer**, weil niemand die Quellen anmeldete. Eine leere Liste mit Grund ist besser als ein 404,
+ * aber sie ist noch keine Auskunft. Das war die letzte Lücke zwischen „die Units sind gebaut" und
+ * „die Units arbeiten zusammen".
+ *
+ * ## Was hier NICHT passiert
+ *
+ * **Kein Netzzugriff.** Die Saat wird eingetragen, nicht gemessen; der Katalog wird **gereicht**,
+ * nicht geholt. Wer messen will, läßt die Sonde laufen (`provider-directory`) und den Verwalter
+ * (`directory-curator`) — beide haben ihren eigenen Anlaß. Diese Funktion trägt **ein**, was
+ * vorliegt.
+ *
+ * **Kein Erfinden.** Fehlt der Katalog, wird **kein** Katalog angemeldet — dann bleibt jede
+ * Fähigkeit `unbekannt`, und die Liste sagt das. Ein leerer Katalog `{fassung: 1, eintraege: {}}`
+ * wäre etwas anderes: er behauptete, es sei gemessen worden und nichts gefunden.
+ *
+ * @param melder - wohin angemeldet wird
+ * @param optionen - was angemeldet wird
+ * @returns die Abmeldung und der Bericht
+ */
+export function meldeQuellen(melder: Quellenmelder, optionen: Meldeoptionen = {}): Meldung {
+  const familien = optionen.familien ?? FAMILIEN
+  const tarife = optionen.tarife ?? SAAT
+  const bericht: string[] = []
+  const abmelder: (() => void)[] = []
+
+  for (const familie of familien) abmelder.push(melder.meldeFamilie(familie))
+  bericht.push(`${String(familien.length)} Familien des Verzeichnisses angemeldet.`)
+
+  if (tarife.length > 0) {
+    abmelder.push(melder.meldeTarife(tarife))
+    bericht.push(
+      `${String(tarife.length)} Tarife angemeldet (Saat, Stand ${SAAT_STAND}) — die Messung schlägt sie.`,
+    )
+  } else {
+    bericht.push('KEINE Tarife angemeldet — damit ist jeder Preis unbekannt.')
+  }
+
+  if (optionen.katalog !== undefined) {
+    abmelder.push(melder.meldeKatalog(optionen.katalog))
+    const anzahl = Object.keys(optionen.katalog.eintraege).length
+    bericht.push(`Katalog mit ${String(anzahl)} Einträgen angemeldet.`)
+  } else {
+    bericht.push(
+      'KEIN Katalog angemeldet — jede Fähigkeit bleibt `unbekannt`, und die Liste empfiehlt nichts. ' +
+        'Ein Verwalterlauf füllt das.',
+    )
+  }
+
+  const modelle = optionen.modelle ?? {}
+  const namen = Object.keys(modelle)
+  for (const name of namen) {
+    const liste = modelle[name]
+    if (liste !== undefined) abmelder.push(melder.meldeModelle(name, liste))
+  }
+  if (namen.length > 0) {
+    bericht.push(`Modelllisten für ${String(namen.length)} Familie(n) angemeldet.`)
+  }
+
+  return {
+    // Umgekehrt abmelden: was zuletzt kam, geht zuerst — dieselbe Regel wie bei `ctx.effect`.
+    abmelden: () => {
+      for (const ab of [...abmelder].reverse()) ab()
+    },
+    bericht,
+  }
 }

@@ -1,0 +1,9 @@
+{
+  "name": "repo-intel",
+  "version": "0.1.0",
+  "description": "Repository-Intelligenz für Agenten: Digest (gitingest), Architektur (gitdiagram), Bau-Prompt (gitreverse).",
+  "author": {
+    "name": "Prometheus Harness"
+  },
+  "license": "MIT"
+}

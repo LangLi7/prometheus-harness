@@ -1,0 +1,21 @@
+{
+  "name": "@prometheus-harness/dsh-credentials-postgres",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Der Credential-Provider des DeepSeek Harness gegen Postgres: user_secrets für Referenzen, credential_records für Grant-Records — verschlüsselt mit demselben Hauptschlüssel wie Prometheus.",
+  "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/index.js"
+  ],
+  "scripts": {
+    "build": "bun build src/index.ts --target=node --format=esm --outfile dist/index.js --external @deepseek-ai/cordis --external @deepseek-ai/dsh-credentials --external @deepseek-ai/schemastery",
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

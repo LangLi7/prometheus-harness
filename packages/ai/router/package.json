@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/router",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Die Auswahl: erst die ausdrueckliche Wahl des Endnutzers, dann die gerechnete Rangfolge. Ersetzt die Eintragsreihenfolge als Reihenfolge — und wirft mit allen Gruenden, statt zu raten.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

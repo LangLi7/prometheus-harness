@@ -59,12 +59,18 @@ import {
   verifySession,
   type PasswordHasher,
   type RateLimiter,
+  type UserRecord,
 } from '@prometheus-harness/auth'
 // **`AuthSpeicher` kommt aus dem Speicherpaket, nicht aus dem Regelkern.** Der
 // Regelkern kennt die drei Schnittstellen einzeln (`UserStore`, `SessionStore`,
 // `AuthEventSink`) und weiß nichts davon, daß sie zusammengebaut werden. Die
 // Zusammenfassung ist eine Sache des Speichers.
 import type { AuthSpeicher } from '@prometheus-harness/store-postgres'
+// **Der Passwort-Link.** Derselbe Regelkern wie beim Zurücksetzen: ein Token,
+// nur sein Hash in der Datenbank, einmal gültig, mit Ablauf. Er lag seit dem
+// 14.10. fertig da — ohne einen einzigen Aufrufer. Ein Konto anzulegen, dessen
+// Passwort der Administrator **nicht** kennt, ist genau sein Zweck.
+import { erzeugeResetToken, loeseResetTokenEin } from '@prometheus-harness/reset'
 // **Die Erstinbetriebnahme und die Rechte.** Beide Pakete gab es vorher schon —
 // mit 21 bzw. 30 eigenen Prüfungen und **ohne einen einzigen Aufrufer**. Ein
 // Recht, das niemand abfragt, ist keines.
@@ -78,6 +84,20 @@ import {
   type ClaimAblage,
 } from '@prometheus-harness/claim'
 import { akteurAus, darfBenutzerAnlegen, isolationAnsicht, type IsolationAnsicht } from './rights.ts'
+// **Die Einladung.** Die Regeln liegen in `einladung.ts` — hier wird nur
+// durchgereicht, was sie entscheiden, und die Ablage gefragt. Die Richtung ist
+// **einbahnig** (`paths.ts` → `einladung.ts`), damit kein Ring entsteht.
+import {
+  EINLADUNG_VORGABE_SEKUNDEN,
+  EINLADUNGEN_LISTE_MAX,
+  OFFENE_EINLADUNGEN_MAX,
+  einladungHash,
+  erzeugeEinladungToken,
+  pruefeEinladung,
+  waehleDauer,
+} from './einladung.ts'
+import type { EinladungRecord } from '@prometheus-harness/store-postgres'
+import { randomUUID } from 'node:crypto'
 
 // ---------------------------------------------------------------------------
 // Die Wege
@@ -103,6 +123,45 @@ export const PFAD_REGISTRIEREN = '/api/pmh/auth/register'
 export const PFAD_ANMELDEN = '/api/pmh/auth/login'
 export const PFAD_ABMELDEN = '/api/pmh/auth/logout'
 export const PFAD_ICH = '/api/pmh/auth/me'
+
+/**
+ * Die Wege der Einladungen.
+ *
+ * **Warum drei statt einer mit Methodenwechsel.** Der Webserver des Kerns
+ * gleicht nur den Pfad ab; ein Weg trägt genau **eine** Methode (siehe
+ * `macheWeg`). Zwei Methoden auf demselben Pfad wären zwei Registrierungen
+ * desselben Pfades — und `register()` wirft dabei („duplicate"). Die Namen sagen
+ * deshalb, was geschieht, statt sich auf die Methode zu verlassen.
+ */
+export const PFAD_EINLADUNGEN = '/api/pmh/auth/einladungen'
+export const PFAD_EINLADUNG_NEU = '/api/pmh/auth/einladungen/neu'
+export const PFAD_EINLADUNG_ZURUECK = '/api/pmh/auth/einladungen/zuruecknehmen'
+
+/**
+ * Die Wege der Benutzerverwaltung.
+ *
+ * **Warum sie unter `auth` liegen und nicht unter einem eigenen Präfix.** Sie
+ * brauchen dieselbe Sitzung, dieselbe CSRF-Kopplung und dieselbe Datenbank wie
+ * die Anmeldung. Ein zweiter Namensraum wäre eine zweite Stelle, an der jemand
+ * „wer darf das?" beantworten müßte — und die zweite Antwort wäre die falsche.
+ */
+export const PFAD_BENUTZER = '/api/pmh/auth/benutzer'
+export const PFAD_BENUTZER_STATUS = '/api/pmh/auth/benutzer/status'
+export const PFAD_BENUTZER_NEU = '/api/pmh/auth/benutzer/neu'
+export const PFAD_BENUTZER_LOESCHEN = '/api/pmh/auth/benutzer/loeschen'
+export const PFAD_BENUTZER_ROLLE = '/api/pmh/auth/benutzer/rolle'
+export const PFAD_PASSWORT_LINK = '/api/pmh/auth/passwort/link'
+export const PFAD_PASSWORT_SETZEN = '/api/pmh/auth/passwort/setzen'
+
+/**
+ * Der Weg des Betreibers — **aus der Token-Tür eine Sitzung**.
+ *
+ * Steht bei den Benutzerwegen und nicht bei den Anmeldewegen, weil er genau
+ * eines bezweckt: die Verwaltung im Harness ohne zweite Anmeldung benutzbar
+ * machen. Die Anmeldung mit Paßwort bleibt der Weg für Menschen, die **keinen**
+ * Token haben.
+ */
+export const PFAD_BETREIBER = '/api/pmh/auth/betreiber'
 
 /** Die Kopfzeile, in der die Anwendung ihren CSRF-Wert mitschickt. */
 export const CSRF_KOPFZEILE = 'x-pmh-csrf'
@@ -206,6 +265,15 @@ export interface RegistrierEingabe extends Herkunft {
   readonly displayName: unknown
   /** Das Claim-Token der Erstinbetriebnahme — nur beim **ersten** Konto nötig. */
   readonly claimToken?: unknown
+  /**
+   * Das Einladungs-Token aus dem Link (`?token=…`).
+   *
+   * **Der dritte Weg zu einem Konto.** Er braucht **keine** Sitzung und **kein**
+   * Claim: das Geheimnis ist der Link selbst. Wer ihn hat, darf **ein** Konto
+   * anlegen — genau das ist die Absicht (der Admin verschickt ihn, der
+   * Eingeladene setzt sein Passwort selbst).
+   */
+  readonly einladungToken?: unknown
   /** Das Sitzungstoken des anlegenden Admins — nur wenn schon Benutzer existieren. */
   readonly token?: string | undefined
   /** Der CSRF-Wert aus der Kopfzeile — Pflicht auf dem Admin-Weg. */
@@ -280,6 +348,10 @@ export async function registrieren(umg: Umgebung, eingabe: RegistrierEingabe): P
   // ist die Vertrauenswurzel — genau so, wie `erzeugeClaim` es in die Datei
   // schreibt. Wer keinen Zugang zum Dateisystem hat, kommt auch hier nicht durch.
   const claimWeg = erstinbetriebnahmeOffen(anzahl) || admins === 0
+  const einladungsToken = typeof eingabe.einladungToken === 'string' ? eingabe.einladungToken.trim() : ''
+
+  /** Die Einladung, mit der dieses Konto entsteht — oder `undefined`. */
+  let einladung: EinladungRecord | undefined
 
   if (claimWeg) {
     // **Der erste Weg: lokaler Zugang.** Ohne dieses Geheimnis wäre die Regel
@@ -307,6 +379,38 @@ export async function registrieren(umg: Umgebung, eingabe: RegistrierEingabe): P
       return schlecht(403, `claim-${claimUrteil.regel}`, claimUrteil.grund)
     }
     rolle = 'admin'
+  } else if (einladungsToken !== '') {
+    // **Der dritte Weg: ein Einladungslink.** Kein Claim (es gibt schon Konten),
+    // keine Sitzung (der Eingeladene ist noch niemand) — das Geheimnis ist der
+    // Link. Die Prüfung ist **lesend**: verbraucht wird erst, wenn das Konto
+    // feststeht (siehe unten). Ein zu schwaches Passwort darf die Einladung
+    // nicht verbrennen.
+    const gefunden = await umg.speicher.einladungen.findeNachHash(einladungHash(einladungsToken))
+    const urteil = pruefeEinladung(gefunden, jetzt)
+    // **Die Prüfung zuerst, die Existenz danach.** `pruefeEinladung` deckt
+    // `undefined` ab („unbekannt") — aber der Typlauf kann aus einem `||` nicht
+    // schließen, daß `gefunden` im Fehlerzweig nicht mehr `undefined` ist. Die
+    // getrennte Prüfung sagt dasselbe und ist für den Leser klarer.
+    if (!urteil.gueltig) {
+      // **Die Regel gehört in die Antwort.** Es gibt genau einen Berechtigten
+      // (den, der den Link bekommen hat); ihm zu sagen, warum es nicht geht, ist
+      // die einzige Auskunft, die ihm hilft.
+      return schlecht(403, `einladung-${urteil.regel}`, urteil.grund)
+    }
+    if (gefunden === undefined) {
+      // Kann nicht eintreten: `pruefeEinladung(undefined)` ist nie gültig. Ein
+      // stiller Durchlauf wäre trotzdem falsch — dann stünde hier ein Konto ohne
+      // Einladung.
+      return schlecht(403, 'einladung-unbekannt', 'Dieser Einladungslink ist unbekannt.')
+    }
+    // **Eine Einladung vergibt nie Adminrechte — auch nicht, wenn in der Zeile
+    // etwas anderes stünde.** Die Rolle ist eine Eigenschaft des Einladenden,
+    // nicht des Links: ein weitergeleiteter Link darf nicht zum Admin machen.
+    if (gefunden.role !== 'user') {
+      return schlecht(403, 'einladung-rolle', 'Diese Einladung vergibt keine Administratorrechte.')
+    }
+    einladung = gefunden
+    rolle = 'user'
   } else {
     // **Der zweite Weg: ein angemeldeter Admin.** Reihenfolge: Sitzung, dann
     // CSRF, dann das Recht. Ohne Sitzung ist der CSRF-Wert bedeutungslos, und
@@ -334,15 +438,79 @@ export async function registrieren(umg: Umgebung, eingabe: RegistrierEingabe): P
     rolle = 'user'
   }
 
+  // **Die Einladung wird VOR dem Konto belegt — und nach dem Anlegen bestätigt.**
+  // Das `UPDATE … WHERE consumed_at IS NULL` in der Ablage ist die Entscheidung:
+  // zwei gleichzeitige Einlösungen desselben Links, und nur eine gewinnt. Erst
+  // anlegen und danach verbrauchen hätte ein Zeitfenster, in dem **zwei** Konten
+  // aus **einem** Link entstehen.
+  //
+  // **Warum zwei Schritte und nicht einer.** `consumed_by` verweist auf `users`;
+  // die Kennung des Kontos gibt es vor dem Anlegen noch nicht. Belegen setzt
+  // deshalb nur `consumed_at`, `bestaetige` trägt danach die Kennung ein.
+  //
+  // **Was passiert, wenn das Anlegen scheitert: die Belegung wird wieder
+  // freigegeben** (`gibFrei`, weiter unten). Sonst wäre ein zu schwaches
+  // Passwort ein verbrauchter Link — und der Eingeladene läse „bereits
+  // eingelöst", obwohl er nie ein Konto bekam.
+  const kontoId = einladung === undefined ? undefined : randomUUID()
+  if (einladung !== undefined && kontoId !== undefined) {
+    const belegt = await umg.speicher.einladungen.verbrauche(einladung.id, jetzt)
+    if (!belegt) {
+      return schlecht(
+        409,
+        'einladung-eingeloest',
+        'Diese Einladung wurde soeben eingelöst. Bitte laß dir einen neuen Link schicken.',
+      )
+    }
+  }
+
   const ergebnis = await register(umg.speicher.benutzer, umg.hasher, eingabe.email, eingabe.password, anzeigename, {
     ...(umg.maxUsers === undefined ? {} : { maxUsers: umg.maxUsers }),
     role: rolle,
     sink: umg.speicher.spur,
     ...(eingabe.ip === undefined ? {} : { ip: eingabe.ip }),
     ...(eingabe.userAgent === undefined ? {} : { userAgent: eingabe.userAgent }),
+    ...(kontoId === undefined ? {} : { newId: () => kontoId }),
   })
 
+  if (!ergebnis.ok && einladung !== undefined && kontoId !== undefined) {
+    // **Nur eine unbestätigte Belegung freigeben.** `gibFrei` prüft
+    // `consumed_by IS NULL`; eine inzwischen bestätigte Einlösung bleibt
+    // unberührt.
+    //
+    // **Warum der Fehler hier nicht durchschlägt.** Das Anlegen ist bereits
+    // gescheitert; die Freigabe ist eine Aufräumarbeit. Würfe sie, bekäme der
+    // Aufrufer statt „Passwort zu schwach" ein 500 — und wüßte nicht, daß sein
+    // Link noch gilt.
+    try {
+      await umg.speicher.einladungen.gibFrei(einladung.id)
+    } catch (fehler) {
+      process.stderr.write(
+        `[pmh] auth/einladung: Freigabe nach gescheitertem Anlegen fehlgeschlagen — ` +
+          `${fehler instanceof Error ? fehler.message : String(fehler)}\n`,
+      )
+    }
+  }
+
   if (ergebnis.ok) {
+    // **Die Einladung trägt jetzt das Konto.** Sie war belegt (consumed_at),
+    // `consumed_by` fehlte noch — diese Kennung gibt es erst jetzt. Scheitert
+    // dieser Schritt, bleibt die Einladung „eingelöst ohne Konto": ein sichtbarer,
+    // harmloser Zustand, aber kein zweiter Einlöseweg.
+    if (einladung !== undefined) {
+      // **Buchführung, nicht Entscheidung.** Das Konto steht; scheitert das
+      // Eintragen der Kennung, bleibt die Einladung „eingelöst ohne Konto" —
+      // sichtbar, harmlos, aber kein Grund, dem Benutzer sein gerade angelegtes
+      // Konto als Fehler zu melden.
+      try {
+        await umg.speicher.einladungen.bestaetige(einladung.id, ergebnis.user.id)
+      } catch (fehler) {
+        process.stderr.write(
+          `[pmh] auth/einladung: Bestätigung fehlgeschlagen — ` +
+            `${fehler instanceof Error ? fehler.message : String(fehler)}\n`,
+        )
+      }
+    }
     // **Die Claim-Datei weg, sobald das Adminkonto steht.** Bliebe sie liegen,
     // läge das Token weiter auf der Platte — und ein Token, das nicht mehr gilt,
     // aber noch existiert, ist eine Einladung, es wieder gültig zu machen
@@ -648,4 +816,826 @@ export function cookieWert(kopf: string | undefined, name: string): string | und
     return wert === '' ? undefined : wert
   }
   return undefined
+}
+
+// ---------------------------------------------------------------------------
+// Einladungen — der Admin lädt Menschen ein, sich selbst ein Konto zu geben
+// ---------------------------------------------------------------------------
+
+/**
+ * Prüft, ob ein Aufruf im Namen eines angemeldeten **Administrators** kommt.
+ *
+ * **Die Reihenfolge: Sitzung, dann CSRF, dann Rolle.** Dieselbe wie beim
+ * Anlegen eines Kontos auf dem Admin-Weg, und aus demselben Grund: ohne Sitzung
+ * ist der CSRF-Wert bedeutungslos, und eine Prüfung, die zuerst das
+ * Unwichtigere prüft, verrät mehr als nötig.
+ *
+ * **Warum `art` und nicht immer CSRF.** Lesen ist keine Zustandsänderung; ein
+ * CSRF-Zwang beim Lesen würde nur die Oberfläche quälen. Schreiben verlangt ihn.
+ *
+ * @param umg - die Umgebung
+ * @param token - das Sitzungstoken aus dem Keks
+ * @param csrfKopf - der CSRF-Wert aus dem Kopf
+ * @param art - `'lesen'` oder `'schreiben'`
+ * @returns der Benutzer oder eine fertige Antwort
+ */
+async function alsAdmin(
+  umg: Umgebung,
+  token: string | undefined,
+  csrfKopf: string | undefined,
+  art: 'lesen' | 'schreiben',
+): Promise<{ readonly ok: true; readonly benutzer: UserRecord } | { readonly ok: false; readonly antwort: Antwort }> {
+  if (token === undefined || token === '') {
+    return { ok: false, antwort: schlecht(401, 'nicht-angemeldet', SESSION_NOT_USABLE) }
+  }
+  const geprueft = await verifySession(umg.speicher.sitzungen, token).catch(() => undefined)
+  if (geprueft === undefined) {
+    return { ok: false, antwort: schlecht(401, 'nicht-angemeldet', SESSION_NOT_USABLE) }
+  }
+  if (art === 'schreiben' && !verifyCsrf(geprueft.session, csrfKopf ?? '')) {
+    return { ok: false, antwort: schlecht(403, 'csrf-fehlt', 'Der CSRF-Wert fehlt oder stimmt nicht.') }
+  }
+  const benutzer = await umg.speicher.benutzer.findById(geprueft.session.userId)
+  if (benutzer === undefined) {
+    return { ok: false, antwort: schlecht(401, 'nicht-angemeldet', SESSION_NOT_USABLE) }
+  }
+  if (benutzer.role !== 'admin') {
+    // **Eigener Code, nicht `nicht-angemeldet`.** Der Aufrufer ist angemeldet;
+    // ihm „nicht angemeldet" zu sagen schickte ihn zum Anmeldeformular, wo er
+    // schon war.
+    return {
+      ok: false,
+      antwort: schlecht(403, 'kein-admin', 'Nur ein Administrator darf Einladungen verwalten.'),
+    }
+  }
+  return { ok: true, benutzer }
+}
+
+/** Der Zustand einer Einladung, wie ihn die Oberfläche braucht. */
+export type EinladungZustand = 'offen' | 'eingeloest' | 'abgelaufen' | 'zurueckgezogen'
+
+/** Eine Einladung, wie sie das Haus verläßt — **ohne** Hash und **ohne** Klartext. */
+export interface EinladungAnsicht {
+  readonly id: string
+  readonly note: string
+  readonly zustand: EinladungZustand
+  readonly erstelltAm: string
+  readonly laeuftAb: string
+  readonly eingeloestAm?: string
+}
+
+/**
+ * Bestimmt den Zustand einer Einladung.
+ *
+ * **Die Reihenfolge ist dieselbe wie in {@link pruefeEinladung}** — und aus
+ * demselben Grund: „zurückgezogen" ist die genauere Auskunft als „abgelaufen".
+ * Ein Zustand, der anders herum bestimmt würde als die Prüfung, wäre eine
+ * zweite Wahrheit: die Oberfläche zeigte „abgelaufen", während die Einlösung
+ * „zurückgezogen" meldete.
+ *
+ * @param eintrag - die Einladung
+ * @param jetzt - die Prüfzeit
+ * @returns der Zustand
+ */
+export function einladungZustand(eintrag: EinladungRecord, jetzt: Date): EinladungZustand {
+  if (eintrag.revokedAt !== undefined) return 'zurueckgezogen'
+  if (eintrag.consumedAt !== undefined) return 'eingeloest'
+  const ablauf = new Date(eintrag.expiresAt)
+  if (Number.isNaN(ablauf.getTime()) || !(jetzt < ablauf)) return 'abgelaufen'
+  return 'offen'
+}
+
+/** Macht aus einer gespeicherten Einladung die Ansicht. */
+function einladungAnsicht(eintrag: EinladungRecord, jetzt: Date): EinladungAnsicht {
+  return {
+    id: eintrag.id,
+    note: eintrag.note,
+    zustand: einladungZustand(eintrag, jetzt),
+    erstelltAm: eintrag.createdAt,
+    laeuftAb: eintrag.expiresAt,
+    ...(eintrag.consumedAt === undefined ? {} : { eingeloestAm: eintrag.consumedAt }),
+  }
+}
+
+/** Die Eingabe zum Anlegen einer Einladung. */
+export interface EinladungAnlegenEingabe {
+  /** Das Sitzungstoken des Admins — aus dem Keks. */
+  readonly token: string | undefined
+  /** Der CSRF-Wert aus dem Kopf. */
+  readonly csrfKopf: string | undefined
+  /** Die gewünschte Gültigkeit in Sekunden; fehlt sie, gilt die Vorgabe. */
+  readonly dauerSekunden: unknown
+  /** Ein Merker („für Anna"). */
+  readonly notiz: unknown
+}
+
+/**
+ * Legt eine Einladung an — **nur ein Administrator**.
+ *
+ * **Was zurückgeht und was nicht.** Der Klartext des Tokens geht **genau
+ * einmal** hinaus: in dieser Antwort. Er steht nirgends in der Datenbank
+ * (nur sein Hash), also kann ihn auch niemand später noch einmal anzeigen —
+ * wer den Link verliert, erzeugt einen neuen. Das ist der Preis dafür, daß ein
+ * Datenbankleck keine Einladung ist.
+ *
+ * **Warum die Antwort keine Adresse enthält.** Die Adresse hängt am Ursprung
+ * der Seite (`/anmeldung/`), und den kennt die Oberfläche, nicht dieser Weg.
+ * Ein `Host`-Kopf wäre die falsche Quelle — er ist frei wählbar (dieselbe
+ * Begründung wie in `access.ts`). Die Oberfläche baut den Link aus ihrem
+ * eigenen Ursprung und dem Token.
+ *
+ * @param umg - die Umgebung
+ * @param eingabe - Dauer, Notiz und Nachweise
+ * @returns die Einladung mit dem Klartext-Token und Status **201**
+ */
+export async function einladungAnlegen(umg: Umgebung, eingabe: EinladungAnlegenEingabe): Promise<Antwort> {
+  const wer = await alsAdmin(umg, eingabe.token, eingabe.csrfKopf, 'schreiben')
+  if (!wer.ok) return wer.antwort
+
+  const dauer =
+    eingabe.dauerSekunden === undefined ? EINLADUNG_VORGABE_SEKUNDEN : waehleDauer(eingabe.dauerSekunden)
+  if (dauer === undefined) {
+    // **Kein Klemmen.** Wer 999999 schickt, hat sich vertan; still auf 30 Tage zu
+    // begrenzen sähe wie Erfolg aus, und der Admin erführe nie, daß seine Angabe
+    // nicht genommen wurde.
+    return schlecht(
+      400,
+      'dauer-unbrauchbar',
+      'Die Gültigkeit muß eine ganze Zahl zwischen 60 Sekunden und 30 Tagen sein.',
+    )
+  }
+
+  const notiz = typeof eingabe.notiz === 'string' ? eingabe.notiz.trim().slice(0, 120) : ''
+  const jetzt = umg.jetzt()
+
+  const offen = await umg.speicher.einladungen.zaehleOffen(wer.benutzer.id, jetzt)
+  if (offen >= OFFENE_EINLADUNGEN_MAX) {
+    return schlecht(
+      409,
+      'zuviele-einladungen',
+      `Es sind bereits ${String(OFFENE_EINLADUNGEN_MAX)} Einladungen offen. Bitte zieh zuerst eine zurück.`,
+    )
+  }
+
+  const token = erzeugeEinladungToken()
+  const eintrag = await umg.speicher.einladungen.legeAb({
+    tokenHash: einladungHash(token),
+    createdBy: wer.benutzer.id,
+    // **Immer `user`.** Siehe `registrieren`: ein weitergeleiteter Link darf
+    // nicht zum Administrator machen.
+    role: 'user',
+    note: notiz,
+    expiresAt: new Date(jetzt.getTime() + dauer * 1000),
+    jetzt,
+  })
+
+  return gut(
+    {
+      id: eintrag.id,
+      token,
+      note: eintrag.note,
+      laeuftAb: eintrag.expiresAt,
+      dauerSekunden: dauer,
+    },
+    {},
+    201,
+  )
+}
+
+/**
+ * Die Einladungen des angemeldeten Administrators.
+ *
+ * **Nur seine eigenen.** Eine Einladung ist ein Versprechen, das jemand gegeben
+ * hat; fremde Versprechen gehen ihn nichts an. Die Ablage filtert auf
+ * `created_by` — hier steht nur die Begründung.
+ *
+ * @param umg - die Umgebung
+ * @param eingabe - das Sitzungstoken
+ * @returns die Liste
+ */
+export async function einladungenListe(
+  umg: Umgebung,
+  eingabe: { readonly token: string | undefined },
+): Promise<Antwort> {
+  const wer = await alsAdmin(umg, eingabe.token, undefined, 'lesen')
+  if (!wer.ok) return wer.antwort
+  const jetzt = umg.jetzt()
+  const zeilen = await umg.speicher.einladungen.liste(wer.benutzer.id, EINLADUNGEN_LISTE_MAX)
+  return gut({ einladungen: zeilen.map((zeile) => einladungAnsicht(zeile, jetzt)) })
+}
+
+/** Die Eingabe zum Zurückziehen. */
+export interface EinladungZurueckziehenEingabe {
+  readonly token: string | undefined
+  readonly csrfKopf: string | undefined
+  readonly id: unknown
+}
+
+/**
+ * Zieht eine Einladung zurück.
+ *
+ * **Wirkung: sofort.** Der Link ist danach tot, auch wenn er noch nicht
+ * abgelaufen war — das ist der Sinn eines Widerrufs. Eine bereits eingelöste
+ * Einladung läßt sich **nicht** zurückziehen; das Konto ist dann da, und wer es
+ * sperren will, sperrt das Konto (nicht den Link).
+ *
+ * @param umg - die Umgebung
+ * @param eingabe - Kennung und Nachweise
+ * @returns der neue Zustand
+ */
+export async function einladungZurueckziehen(
+  umg: Umgebung,
+  eingabe: EinladungZurueckziehenEingabe,
+): Promise<Antwort> {
+  const wer = await alsAdmin(umg, eingabe.token, eingabe.csrfKopf, 'schreiben')
+  if (!wer.ok) return wer.antwort
+
+  if (typeof eingabe.id !== 'string' || eingabe.id.trim() === '') {
+    return schlecht(400, 'eingabe-fehlt', 'Die Kennung der Einladung fehlt.')
+  }
+  const zurueck = await umg.speicher.einladungen.ziehZurueck(eingabe.id, wer.benutzer.id, umg.jetzt())
+  if (!zurueck) {
+    // **Dieselbe Antwort für „gibt es nicht", „gehört dir nicht" und „schon
+    // eingelöst".** Der Aufrufer ist Administrator, aber die Einladung ist nicht
+    // seine — und ob es sie gibt, ist eine Auskunft über fremde Versprechen.
+    return schlecht(
+      404,
+      'einladung-nicht-offen',
+      'Diese Einladung gibt es nicht (mehr), sie gehört nicht dir, oder sie ist nicht mehr offen.',
+    )
+  }
+  return gut({ id: eingabe.id, zustand: 'zurueckgezogen' satisfies EinladungZustand })
+}
+
+// ---------------------------------------------------------------------------
+// Die Konten — was die Verwaltung sieht und darf
+// ---------------------------------------------------------------------------
+
+/** Wie viele Konten die Liste höchstens zeigt. */
+export const BENUTZER_LISTE_MAX = 200
+
+/**
+ * **Der Betreiber — erkannt an der Token-Tür.**
+ *
+ * ## Warum es diesen Weg gibt
+ *
+ * Wer die Oberfläche öffnet, hat sie über den **Token des Wirts** geöffnet
+ * (`http://127.0.0.1:3080/?token=…`). Dieser Token ist die Wurzel: er erlaubt
+ * Dateien, Prozesse, alles. Er ist **stärker** als jedes PMH-Konto.
+ *
+ * Trotzdem hatte die Oberfläche keine PMH-Sitzung — das Panel „Konten" bekam
+ * `401` und verlangte eine zweite Anmeldung. Das ist die schlechtere von zwei
+ * Welten: der Stärkste muß sich am schwächsten Tor anmelden.
+ *
+ * ## Was hier geschieht
+ *
+ * Trägt die Anfrage den Token des Wirts (`hatToken` in `access.ts`), wird eine
+ * **Sitzung für das Administratorkonto** angelegt — dieselbe Form wie bei einer
+ * Anmeldung, mit Sitzungs- und CSRF-Keks. Danach ist alles wie immer: die Wege
+ * prüfen die Sitzung, nicht den Token.
+ *
+ * ## Warum kein eigener „Betreiber"-Akteur ohne Konto
+ *
+ * Eine Einladung braucht einen **Absender** (`created_by` → `users`). Ein
+ * erfundener Akteur müßte die Spalte leeren und die Fremdschlüssel aufgeben —
+ * nur um einen Namen zu sparen. Ein echtes Konto ist ehrlicher.
+ *
+ * ## Die Grenzen, und warum sie eng sind
+ *
+ * | Fall | Antwort |
+ * |---|---|
+ * | kein Token | `401 kein-token` — der Weg ist **kein** Ersatz für die Anmeldung |
+ * | kein aktives Administratorkonto | `409 kein-admin-konto` |
+ * | **mehrere** Administratorkonten, keine Wahl | `409 mehrere-admins` **mit der Liste** |
+ * | genannte Kennung ist kein aktiver Verwalter | `403 kein-verwalter` |
+ * | genau ein Konto oder eine gültige Wahl | `200` mit beiden Keksen |
+ *
+ * ## Warum die Wahl und nicht die Ablehnung
+ *
+ * Früher antwortete der Weg bei mehreren Administratoren mit `409` und einem
+ * Satz. Das war sicher, aber eine Sackgasse: wer den Token des Wirts hat, ist der
+ * Besitzer der Maschine — und durfte sich trotzdem nicht anmelden, weil der
+ * Server nicht raten wollte, wer gemeint ist.
+ *
+ * **Die Wahl ist keine Vermutung.** Der Aufrufer nennt die Kennung ausdrücklich
+ * (`userId`); der Server prüft, daß sie zu einem **aktiven** Administratorkonto
+ * gehört. Geraten wird nichts, und die Spur nennt weiterhin `token-tuer` samt der
+ * Kennung, für die die Sitzung ausgestellt wurde. Ohne Wahl bleibt es beim
+ * `409` — dann steht die Liste im Körper, damit der Mensch wählen kann.
+ *
+ * @param umg - die Umgebung
+ * @param eingabe - ob der Token des Wirts vorliegt, die Herkunft und die Wahl
+ * @returns die Antwort mit den beiden Keksen
+ */
+export async function betreiberAnmelden(
+  umg: Umgebung,
+  eingabe: Herkunft & { readonly beweis: boolean; readonly userId?: string },
+): Promise<Antwort> {
+  if (!eingabe.beweis) {
+    return schlecht(
+      401,
+      'kein-token',
+      'Diese Anfrage trägt den Token des Harness nicht. Der Betreiber-Weg ist kein Ersatz für die Anmeldung.',
+    )
+  }
+
+  const alle = await umg.speicher.listeBenutzer(BENUTZER_LISTE_MAX)
+  const admins = alle.filter((zeile) => zeile.role === 'admin' && zeile.disabledAt === undefined)
+  if (admins.length === 0) {
+    return schlecht(
+      409,
+      'kein-admin-konto',
+      'Es gibt kein aktives Administratorkonto. Lege zuerst eines an (Erstinbetriebnahme über den Claim).',
+    )
+  }
+
+  // **Die Wahl ist ausdrücklich oder gar nicht.** Wer den Token hat, ist der
+  // Besitzer der Maschine; er darf sagen, als welcher Verwalter er handelt. Der
+  // Server prüft nur, daß die genannte Kennung wirklich ein aktiver Verwalter
+  // ist — geraten wird nichts.
+  const gewuenscht = (eingabe.userId ?? '').trim()
+  let konto = admins[0]
+  if (gewuenscht !== '') {
+    const treffer = admins.find((zeile) => zeile.id === gewuenscht)
+    if (treffer === undefined) {
+      return schlecht(403, 'kein-verwalter', 'Das genannte Konto ist kein aktives Administratorkonto.')
+    }
+    konto = treffer
+  } else if (admins.length > 1) {
+    // **Keine Vermutung über die Identität.** Die Liste ist die Wahl; das
+    // älteste still zu nehmen wäre eine Entscheidung, die niemand getroffen hat.
+    return {
+      status: 409,
+      koepfe: {},
+      koerper: {
+        ok: false,
+        error: {
+          code: 'mehrere-admins',
+          message: 'Es gibt mehrere Administratorkonten — bitte wähle, wer handelt.',
+        },
+        konten: admins.map((zeile) => ({
+          id: zeile.id,
+          email: zeile.email,
+          displayName: zeile.displayName,
+        })),
+      },
+    }
+  }
+  if (konto === undefined) {
+    return schlecht(409, 'kein-admin-konto', 'Es gibt kein aktives Administratorkonto.')
+  }
+
+  const sitzung = await createSession(umg.speicher.sitzungen, konto.id, {
+    ...(eingabe.userAgent === undefined ? {} : { userAgent: eingabe.userAgent }),
+    ...(eingabe.ip === undefined ? {} : { ip: eingabe.ip }),
+  })
+
+  // **Die Spur nennt den Weg.** Ein Eintrag `login-success` ohne diesen Vermerk
+  // sähe aus wie eine Anmeldung mit Paßwort — und die Frage „wer kam über den
+  // Token herein?" wäre später nicht mehr zu beantworten.
+  await umg.speicher.spur.record({
+    kind: 'login-success',
+    userId: konto.id,
+    email: konto.email,
+    ...(eingabe.ip === undefined ? {} : { ip: eingabe.ip }),
+    userAgent: eingabe.userAgent ?? '',
+    detail: { ueber: 'token-tuer' },
+  })
+
+  const cookieOptionen = { secure: umg.sicher, maxAgeSeconds: cookieFristSekunden() }
+  return gut(
+    {
+      id: konto.id,
+      email: konto.email,
+      displayName: konto.displayName,
+      role: konto.role,
+    } satisfies BenutzerAnsicht,
+    {
+      'set-cookie': [sessionCookie(sitzung.token, cookieOptionen), csrfCookie(sitzung.csrf, cookieOptionen)],
+    },
+  )
+}
+
+/** Ein Konto, wie es die Verwaltung sieht — **ohne** Hash, ohne Sitzung. */
+export interface BenutzerAnsichtAdmin {
+  readonly id: string
+  readonly email: string
+  readonly displayName: string
+  readonly role: 'user' | 'admin'
+  /** Gesperrt heißt: dieser Benutzer kommt nicht mehr durch die Anmeldung. */
+  readonly gesperrt: boolean
+  readonly erstelltAm: string
+}
+
+/**
+ * Die Konten — **nur für einen Administrator**.
+ *
+ * **Was hier NICHT drinsteht.** Keine Chats, keine Werke, keine Notizen, keine
+ * Schlüssel. Diese Dinge sind je Benutzer getrennt (`user_id`, teils zusätzlich
+ * Row Level Security); sie in einer Verwaltungsliste zusammenzutragen hieße,
+ * den Mandanten für jede Zeile zu wechseln — also die Trennung aufzuheben, um
+ * sie anzuzeigen. Wer als Administrator in fremde Daten sehen will, braucht
+ * dafür einen eigenen Weg mit eigener Begründung, nicht eine Liste.
+ *
+ * @param umg - die Umgebung
+ * @param eingabe - das Sitzungstoken
+ * @returns die Kontenliste
+ */
+export async function benutzerListe(
+  umg: Umgebung,
+  eingabe: { readonly token: string | undefined },
+): Promise<Antwort> {
+  const wer = await alsAdmin(umg, eingabe.token, undefined, 'lesen')
+  if (!wer.ok) return wer.antwort
+
+  const zeilen = await umg.speicher.listeBenutzer(BENUTZER_LISTE_MAX)
+  return gut({
+    benutzer: zeilen.map(
+      (zeile) =>
+        ({
+          id: zeile.id,
+          email: zeile.email,
+          displayName: zeile.displayName,
+          role: zeile.role,
+          gesperrt: zeile.disabledAt !== undefined,
+          erstelltAm: zeile.createdAt,
+        }) satisfies BenutzerAnsichtAdmin,
+    ),
+  })
+}
+
+/** Die Eingabe zum Sperren oder Freigeben. */
+export interface BenutzerStatusEingabe {
+  readonly token: string | undefined
+  readonly csrfKopf: string | undefined
+  readonly id: unknown
+  readonly gesperrt: unknown
+}
+
+/**
+ * Sperrt oder gibt ein Konto frei.
+ *
+ * ## Die drei Regeln, und warum sie hier stehen
+ *
+ * | Regel | Warum |
+ * |---|---|
+ * | **nicht sich selbst sperren** | Der Administrator, der den Knopf drückt, wäre sofort draußen — und der nächste, der es merkt, ist niemand |
+ * | **nicht den letzten Administrator sperren** | Ein System ohne Administrator ist ausgesperrt: niemand könnte Konten anlegen, Einladungen erzeugen oder Rechte vergeben. Dieselbe Aussperrung, die `registrieren` mit `admins === 0` abfedert |
+ * | **Sperren widerruft alle Sitzungen** | Ein gesperrtes Konto, dessen Sitzung noch gilt, ist nicht gesperrt — es ist nur nicht mehr anmeldbar. `revokeAllForUser` macht die Sperre sofort wirksam |
+ *
+ * @param umg - die Umgebung
+ * @param eingabe - Kennung, Zielzustand und Nachweise
+ * @returns der neue Zustand
+ */
+export async function benutzerSperren(umg: Umgebung, eingabe: BenutzerStatusEingabe): Promise<Antwort> {
+  const wer = await alsAdmin(umg, eingabe.token, eingabe.csrfKopf, 'schreiben')
+  if (!wer.ok) return wer.antwort
+
+  if (typeof eingabe.id !== 'string' || eingabe.id.trim() === '') {
+    return schlecht(400, 'eingabe-fehlt', 'Die Kennung des Kontos fehlt.')
+  }
+  if (typeof eingabe.gesperrt !== 'boolean') {
+    // **Kein stilles „dann eben sperren".** Ein fehlendes Feld könnte auch ein
+    // Tippfehler im Aufrufer sein; raten wäre hier die falsche Freundlichkeit.
+    return schlecht(400, 'eingabe-fehlt', 'Es fehlt die Angabe, ob gesperrt oder freigegeben werden soll.')
+  }
+
+  if (eingabe.id === wer.benutzer.id && eingabe.gesperrt) {
+    return schlecht(409, 'selbst-sperren', 'Du kannst dein eigenes Konto nicht sperren.')
+  }
+
+  const ziel = await umg.speicher.benutzer.findById(eingabe.id)
+  if (ziel === undefined) {
+    return schlecht(404, 'konto-unbekannt', 'Dieses Konto gibt es nicht.')
+  }
+
+  if (eingabe.gesperrt && ziel.role === 'admin') {
+    const admins = await umg.speicher.anzahlAdmins()
+    // **`<= 1` und nicht `< 1`.** Der letzte Administrator ist der, der gerade
+    // gesperrt werden soll — nach der Sperre wären es null.
+    if (admins <= 1) {
+      return schlecht(
+        409,
+        'letzter-admin',
+        'Das ist der letzte Administrator. Ein System ohne Administrator kann keine Konten mehr verwalten.',
+      )
+    }
+  }
+
+  const jetzt = umg.jetzt()
+  const geaendert = await umg.speicher.setzeGesperrt(eingabe.id, eingabe.gesperrt, jetzt)
+  if (!geaendert) {
+    // Zwischen `findById` und dem Schreiben gelöscht. Kein Erfolg vortäuschen.
+    return schlecht(404, 'konto-unbekannt', 'Dieses Konto gibt es nicht.')
+  }
+
+  if (eingabe.gesperrt) {
+    // **Sofort wirksam.** Ohne diesen Schritt bliebe eine offene Sitzung gültig,
+    // bis sie von selbst abläuft — und die Sperre wäre nur eine Ankündigung.
+    await umg.speicher.sitzungen.revokeAllForUser(eingabe.id, jetzt.toISOString(), 'konto-gesperrt')
+  }
+
+  return gut({
+    id: eingabe.id,
+    email: ziel.email,
+    gesperrt: eingabe.gesperrt,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Konten anlegen, löschen, Rolle ändern — und der Passwort-Link
+// ---------------------------------------------------------------------------
+
+/**
+ * Baut den Passwort-Link.
+ *
+ * **Ein Pfad, keine absolute Adresse.** Denselben Grund wie bei den Einladungen:
+ * die Adresse hängt am Ursprung, und den kennt die Oberfläche. Ein `Host`-Kopf
+ * wäre frei wählbar.
+ *
+ * @param token - der Klartext des Einmal-Tokens
+ * @returns der Pfad auf der Anmeldeseite
+ */
+export function passwortLink(token: string): string {
+  return `/anmeldung/?reset=${encodeURIComponent(token)}`
+}
+
+/** Die Eingabe zum Anlegen eines Kontos. */
+export interface BenutzerAnlegenEingabe {
+  readonly token: string | undefined
+  readonly csrfKopf: string | undefined
+  readonly email: unknown
+  readonly displayName: unknown
+  readonly rolle: unknown
+}
+
+/**
+ * Legt ein Konto an — **ohne Passwort, mit einem Passwort-Link**.
+ *
+ * ## Warum ohne Passwort
+ *
+ * Ein Administrator, der ein Passwort eintippt, kennt danach das fremde
+ * Passwort. Das ist kein Angriff, sondern die Bauart: ein geteiltes Geheimnis
+ * bleibt geteilt. Das Konto entsteht deshalb **passwortlos** (`password_hash =
+ * NULL`), und der Mensch setzt sein Passwort über den Link — derselbe
+ * Einmal-Token-Mechanismus wie beim Zurücksetzen.
+ *
+ * Bis dahin ist das Konto sichtbar (in der Liste), aber **nicht anmeldbar**:
+ * `authenticate` weist ein Konto ohne Hash genauso ab wie ein falsches Passwort.
+ *
+ * @param umg - die Umgebung
+ * @param eingabe - Adresse, Name, Rolle und die Nachweise des Admins
+ * @returns das Konto und **einmalig** den Link
+ */
+export async function benutzerAnlegen(umg: Umgebung, eingabe: BenutzerAnlegenEingabe): Promise<Antwort> {
+  const wer = await alsAdmin(umg, eingabe.token, eingabe.csrfKopf, 'schreiben')
+  if (!wer.ok) return wer.antwort
+
+  const adresse = typeof eingabe.email === 'string' ? eingabe.email.trim() : ''
+  const pruefung = checkEmail(adresse)
+  if (!pruefung.ok) {
+    return schlecht(400, 'adresse-unbrauchbar', `Die Adresse ist unbrauchbar (${pruefung.reason}).`)
+  }
+
+  // **Nur zwei Rollen, und die Vorgabe ist `user`.** Ein Tippfehler im Körper
+  // darf nicht versehentlich einen Administrator erzeugen.
+  const rolle: 'user' | 'admin' = eingabe.rolle === 'admin' ? 'admin' : 'user'
+  const anzeige = typeof eingabe.displayName === 'string' ? eingabe.displayName.trim().slice(0, 80) : ''
+
+  const jetzt = umg.jetzt()
+  const kennung = await umg.speicher.benutzer.create({
+    id: randomUUID(),
+    email: adresse,
+    passwordHash: null,
+    displayName: anzeige,
+    role: rolle,
+  })
+  if (kennung === undefined) {
+    return schlecht(409, 'adresse-vergeben', 'Diese Adresse ist schon vergeben.')
+  }
+
+  const reset = await erzeugeResetToken(umg.speicher.tokenAblage, kennung, jetzt, 10)
+  return gut(
+    {
+      id: kennung,
+      email: adresse,
+      displayName: anzeige,
+      role: rolle,
+      link: passwortLink(reset.token),
+      laeuftAb: reset.laeuftAb.toISOString(),
+    },
+    {},
+    201,
+  )
+}
+
+/** Die Eingabe zum Löschen. */
+export interface KontoEingabe {
+  readonly token: string | undefined
+  readonly csrfKopf: string | undefined
+  readonly id: unknown
+}
+
+/**
+ * Löscht ein Konto — **endgültig**.
+ *
+ * | Regel | Warum |
+ * |---|---|
+ * | **nicht sich selbst** | wer den Knopf drückt, wäre sofort draußen — und die Sitzung zeigte auf ein Konto, das es nicht mehr gibt |
+ * | **nicht den letzten Administrator** | dieselbe Aussperrung wie beim Sperren |
+ *
+ * **Was mitgelöscht wird.** Sitzungen, API-Schlüssel, Geheimnisse und
+ * Einmal-Token hängen mit `ON DELETE CASCADE` an `users`. Das ist gewollt: wer
+ * gelöscht ist, soll keine gültige Sitzung und keinen Schlüssel zurücklassen.
+ *
+ * @param umg - die Umgebung
+ * @param eingabe - Kennung und Nachweise
+ * @returns die gelöschte Kennung
+ */
+export async function benutzerLoeschen(umg: Umgebung, eingabe: KontoEingabe): Promise<Antwort> {
+  const wer = await alsAdmin(umg, eingabe.token, eingabe.csrfKopf, 'schreiben')
+  if (!wer.ok) return wer.antwort
+
+  if (typeof eingabe.id !== 'string' || eingabe.id.trim() === '') {
+    return schlecht(400, 'eingabe-fehlt', 'Die Kennung des Kontos fehlt.')
+  }
+  if (eingabe.id === wer.benutzer.id) {
+    return schlecht(409, 'selbst-loeschen', 'Du kannst dein eigenes Konto nicht löschen.')
+  }
+
+  const ziel = await umg.speicher.benutzer.findById(eingabe.id)
+  if (ziel === undefined) {
+    return schlecht(404, 'konto-unbekannt', 'Dieses Konto gibt es nicht.')
+  }
+  if (ziel.role === 'admin') {
+    const admins = await umg.speicher.anzahlAdmins()
+    if (admins <= 1) {
+      return schlecht(
+        409,
+        'letzter-admin',
+        'Das ist der letzte Administrator. Ein System ohne Administrator kann keine Konten mehr verwalten.',
+      )
+    }
+  }
+
+  const weg = await umg.speicher.loescheBenutzer(eingabe.id)
+  if (!weg) return schlecht(404, 'konto-unbekannt', 'Dieses Konto gibt es nicht.')
+
+  return gut({ id: eingabe.id, email: ziel.email })
+}
+
+/** Die Eingabe zum Rollenwechsel. */
+export interface RolleEingabe {
+  readonly token: string | undefined
+  readonly csrfKopf: string | undefined
+  readonly id: unknown
+  readonly rolle: unknown
+}
+
+/**
+ * Ändert die Rolle eines Kontos.
+ *
+ * **Warum man sich selbst nicht ändern kann.** Die eigene Rolle zu senken
+ * nähme einem die Verwaltung mitten im Satz; sie zu heben wäre ein No-Op mit
+ * Spur. Beides ist keine Funktion, sondern eine Verwechslung.
+ *
+ * @param umg - die Umgebung
+ * @param eingabe - Kennung, neue Rolle und Nachweise
+ * @returns die neue Rolle
+ */
+export async function benutzerRolle(umg: Umgebung, eingabe: RolleEingabe): Promise<Antwort> {
+  const wer = await alsAdmin(umg, eingabe.token, eingabe.csrfKopf, 'schreiben')
+  if (!wer.ok) return wer.antwort
+
+  if (typeof eingabe.id !== 'string' || eingabe.id.trim() === '') {
+    return schlecht(400, 'eingabe-fehlt', 'Die Kennung des Kontos fehlt.')
+  }
+  if (eingabe.rolle !== 'user' && eingabe.rolle !== 'admin') {
+    return schlecht(400, 'rolle-unbekannt', 'Es gibt nur die Rollen „user" und „admin".')
+  }
+  if (eingabe.id === wer.benutzer.id) {
+    return schlecht(409, 'selbst-rolle', 'Du kannst deine eigene Rolle nicht ändern.')
+  }
+
+  const ziel = await umg.speicher.benutzer.findById(eingabe.id)
+  if (ziel === undefined) {
+    return schlecht(404, 'konto-unbekannt', 'Dieses Konto gibt es nicht.')
+  }
+  if (ziel.role === 'admin' && eingabe.rolle === 'user') {
+    const admins = await umg.speicher.anzahlAdmins()
+    if (admins <= 1) {
+      return schlecht(409, 'letzter-admin', 'Das ist der letzte Administrator.')
+    }
+  }
+
+  const geaendert = await umg.speicher.setzeRolle(eingabe.id, eingabe.rolle, umg.jetzt())
+  if (!geaendert) return schlecht(404, 'konto-unbekannt', 'Dieses Konto gibt es nicht.')
+
+  return gut({ id: eingabe.id, email: ziel.email, role: eingabe.rolle })
+}
+
+/**
+ * Erzeugt einen **Passwort-Link** für ein bestehendes Konto.
+ *
+ * Der übliche Fall: jemand hat sein Passwort vergessen. Der Admin erzeugt den
+ * Link und gibt ihn weiter; das Konto bleibt, die Sitzungen werden beim
+ * Einlösen widerrufen.
+ *
+ * @param umg - die Umgebung
+ * @param eingabe - Kennung und Nachweise
+ * @returns der Link, **einmalig**
+ */
+export async function passwortLinkErzeugen(umg: Umgebung, eingabe: KontoEingabe): Promise<Antwort> {
+  const wer = await alsAdmin(umg, eingabe.token, eingabe.csrfKopf, 'schreiben')
+  if (!wer.ok) return wer.antwort
+
+  if (typeof eingabe.id !== 'string' || eingabe.id.trim() === '') {
+    return schlecht(400, 'eingabe-fehlt', 'Die Kennung des Kontos fehlt.')
+  }
+  const ziel = await umg.speicher.benutzer.findById(eingabe.id)
+  if (ziel === undefined) {
+    return schlecht(404, 'konto-unbekannt', 'Dieses Konto gibt es nicht.')
+  }
+  if (ziel.disabledAt !== undefined) {
+    // **Ein gesperrtes Konto bleibt gesperrt.** Sonst wäre der Passwort-Link die
+    // Hintertür an der Sperre vorbei.
+    return schlecht(409, 'konto-gesperrt', 'Dieses Konto ist gesperrt. Gib es zuerst frei.')
+  }
+
+  const reset = await erzeugeResetToken(umg.speicher.tokenAblage, eingabe.id, umg.jetzt(), 10)
+  return gut({
+    id: eingabe.id,
+    email: ziel.email,
+    link: passwortLink(reset.token),
+    laeuftAb: reset.laeuftAb.toISOString(),
+  })
+}
+
+/** Die Eingabe zum Setzen eines Passworts über den Link. */
+export interface PasswortSetzenEingabe extends Herkunft {
+  readonly resetToken: unknown
+  readonly passwort: unknown
+}
+
+/**
+ * Setzt ein Passwort über einen Einmal-Link — **ohne Sitzung**.
+ *
+ * **Warum ohne Sitzung.** Wer den Link öffnet, ist genau der Mensch, der noch
+ * kein Passwort hat. Eine Sitzung zu verlangen wäre die Anforderung „melde dich
+ * an, um dir ein Passwort zu geben".
+ *
+ * **Warum danach angemeldet wird.** Der Link ist ein Nachweis; ihn einzulösen
+ * und dann noch einmal das gerade gesetzte Passwort abzufragen wäre eine
+ * Zeremonie ohne Sicherheitsgewinn.
+ *
+ * @param umg - die Umgebung
+ * @param eingabe - Token, neues Passwort und Herkunft
+ * @returns das Konto, mit den beiden Keksen
+ */
+export async function passwortSetzen(umg: Umgebung, eingabe: PasswortSetzenEingabe): Promise<Antwort> {
+  if (typeof eingabe.resetToken !== 'string' || eingabe.resetToken.trim() === '') {
+    return schlecht(400, 'eingabe-fehlt', 'Der Link enthält kein Token.')
+  }
+  if (typeof eingabe.passwort !== 'string') {
+    return schlecht(400, 'eingabe-fehlt', 'Es fehlt das neue Passwort.')
+  }
+
+  const jetzt = umg.jetzt()
+  const urteil = await loeseResetTokenEin(
+    {
+      ablage: umg.speicher.tokenAblage,
+      benutzer: umg.speicher.benutzer,
+      sitzungen: umg.speicher.sitzungen,
+      hasher: umg.hasher,
+      spur: umg.speicher.spur,
+    },
+    eingabe.resetToken,
+    eingabe.passwort,
+    jetzt,
+  )
+  if (!urteil.ok) {
+    // **Der Grund ist hier unterscheidbar** — anders als bei einer Anmeldung.
+    // Es gibt genau einen Berechtigten (den, der den Link hat); ihm zu sagen,
+    // ob das Passwort zu schwach war oder der Link abgelaufen ist, ist die
+    // Auskunft, die ihm hilft.
+    return schlecht(403, `passwort-${urteil.regel}`, urteil.grund)
+  }
+
+  const konto = await umg.speicher.benutzer.findById(urteil.userId)
+  if (konto === undefined) {
+    return schlecht(403, 'passwort-unbekannt', 'Zu diesem Link gibt es kein Konto mehr.')
+  }
+
+  const sitzung = await createSession(umg.speicher.sitzungen, konto.id, {
+    ...(eingabe.userAgent === undefined ? {} : { userAgent: eingabe.userAgent }),
+    ...(eingabe.ip === undefined ? {} : { ip: eingabe.ip }),
+  })
+
+  const cookieOptionen = { secure: umg.sicher, maxAgeSeconds: cookieFristSekunden() }
+  return gut(
+    { id: konto.id, email: konto.email, displayName: konto.displayName, role: konto.role } satisfies BenutzerAnsicht,
+    {
+      'set-cookie': [sessionCookie(sitzung.token, cookieOptionen), csrfCookie(sitzung.csrf, cookieOptionen)],
+    },
+  )
 }

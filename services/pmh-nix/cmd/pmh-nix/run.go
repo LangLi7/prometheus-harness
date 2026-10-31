@@ -41,18 +41,23 @@ const (
 const usageText = `pmh-nix %s — Selbstaenderung des Systems als gestufter, umkehrbarer Vorgang
 
 Aufruf:
-  pmh-nix [--backend stub|nix] [--state <datei>] <unterbefehl> [flags]
+  pmh-nix [--backend stub|nix] [--mode local|remote] [--state <datei>] <unterbefehl> [flags]
 
 Unterbefehle:
   detect                               meldet, ob echte Actuation moeglich ist
-  propose --flake <pfad> [--target h]  nimmt einen Vorschlag auf und zeigt den Diff
-  check   --proposal <id>              prueft statisch; Befund der Schwere error sperrt
-  apply   --proposal <id>              wendet an; nur geprueft und zugelassen
+  propose --flake <pfad> [--target h]  legt einen Branch mit Diff an; aktiviert NIE
+  check   --proposal <id>              Pruefbau ohne Aktivierung; Befund error sperrt
+  approve --proposal <id> --by <wer>   ausdrueckliche menschliche Freigabe
+  apply   --proposal <id>              Activation (switch); nur geprueft UND freigegeben
   generations                          listet die Generationen, neueste zuerst
-  rollback --to <generation-id>        schaltet auf eine Generation zurueck
+  rollback --to <generation-id>        schaltet auf die vorige Generation zurueck
 
 Globale Flags:
   --backend <name>   stub (Vorgabe) oder nix; Umgebung: PMH_NIX_BACKEND
+  --mode <art>       local (Vorgabe) oder remote; Umgebung: PMH_NIX_MODE
+                     local  = Flake im Repository, Diff und Pruefbau, keine Aktivierung
+                     remote = Branch im Git-Repository, Pruefbau auf der Zielmaschine,
+                              Freigabe, dann switch; Rollback ueber die Generation
   --state <datei>    Ablage der Buchfuehrung
                      Vorgabe: PMH_HOME/state/pmh-nix.json, sonst ~/.pmh/state/pmh-nix.json
   --json             genau ein JSON-Objekt nach stdout
@@ -61,26 +66,30 @@ Globale Flags:
 Exit-Codes: 0 Erfolg · 1 Politik- oder Pruefungsfehler · 2 Aufruffeher · 125 Backendfehler
 
 Regel: das Modell empfiehlt, die Policy entscheidet — ein Modell loest niemals
-einen Systemwechsel aus. Anwenden ist nur nach propose UND check moeglich.
+einen Systemwechsel aus. Der Ablauf ist propose -> check -> approve -> apply;
+ohne ausdrueckliche Freigabe laeuft keine Anwendung. Netzwerk, Nutzerrechte und
+Geheimnisse brauchen sie zwingend.
 `
 
 // response ist die eine Antwort, die der Dienst ausgibt. Bei --json ist sie
 // genau ein JSON-Objekt, nie mehr.
 type response struct {
-	Command   string `json:"command"`
-	Backend   string `json:"backend,omitempty"`
-	Schema    int    `json:"schema"`
-	OK        bool   `json:"ok"`
-	ExitCode  int    `json:"exit_code"`
-	Error     string `json:"error,omitempty"`
-	Message   string `json:"message,omitempty"`
-	Data      any    `json:"data,omitempty"`
-	StatePath string `json:"state_path,omitempty"`
+	Command   string   `json:"command"`
+	Backend   string   `json:"backend,omitempty"`
+	Mode      api.Mode `json:"mode,omitempty"`
+	Schema    int      `json:"schema"`
+	OK        bool     `json:"ok"`
+	ExitCode  int      `json:"exit_code"`
+	Error     string   `json:"error,omitempty"`
+	Message   string   `json:"message,omitempty"`
+	Data      any      `json:"data,omitempty"`
+	StatePath string   `json:"state_path,omitempty"`
 }
 
 // options sind die geparsten globalen Flags.
 type options struct {
 	backend string
+	mode    string
 	state   string
 	jsonOut bool
 	version bool
@@ -94,6 +103,7 @@ type options struct {
 // den Unterbefehl.
 var globalFlags = map[string]bool{
 	"-backend": true, "--backend": true,
+	"-mode": true, "--mode": true,
 	"-state": true, "--state": true,
 	"-json": true, "--json": true,
 	"-version": true, "--version": true,
@@ -121,28 +131,45 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return ExitUsage
 	}
 
+	// Die Betriebsart ist Teil des Vertrags: unbekannt ist ein Aufruffeher.
+	mode, ok := api.ParseMode(opts.mode)
+	if !ok {
+		err := fmt.Errorf("unbekannte Betriebsart %q (erlaubt: %s, %s)", opts.mode, api.ModeLocal, api.ModeRemote)
+		fmt.Fprintf(stderr, "pmh-nix: %v\n", err)
+		fmt.Fprint(stderr, usage(version))
+		writeJSON(stdout, opts.jsonOut, response{
+			Command: opts.command, Backend: opts.backend, Schema: api.Schema, OK: false,
+			ExitCode: ExitUsage, Error: err.Error(),
+		})
+		return ExitUsage
+	}
+
 	// Die Buchfuehrung ist die Voraussetzung jeder Handlung. Laesst sie sich
 	// nicht oeffnen, ist das ein Startfehler (125), kein Aufruffeher.
 	store, err := state.Open(opts.state)
 	if err != nil {
 		fmt.Fprintf(stderr, "pmh-nix: %v\n", err)
 		writeJSON(stdout, opts.jsonOut, response{
-			Command: opts.command, Schema: api.Schema, OK: false,
+			Command: opts.command, Backend: opts.backend, Mode: mode, Schema: api.Schema, OK: false,
 			ExitCode: ExitBackend, Error: err.Error(),
 		})
 		return ExitBackend
 	}
-	backend, err := newBackend(opts.backend, store)
+	backend, err := newBackend(opts.backend, mode, store)
 	if err != nil {
 		fmt.Fprintf(stderr, "pmh-nix: %v\n", err)
 		fmt.Fprint(stderr, usage(version))
+		writeJSON(stdout, opts.jsonOut, response{
+			Command: opts.command, Backend: opts.backend, Mode: mode, Schema: api.Schema, OK: false,
+			ExitCode: ExitUsage, Error: err.Error(),
+		})
 		return ExitUsage
 	}
 	svc, err := service.New(store, backend)
 	if err != nil {
 		fmt.Fprintf(stderr, "pmh-nix: %v\n", err)
 		writeJSON(stdout, opts.jsonOut, response{
-			Command: opts.command, Schema: api.Schema, OK: false,
+			Command: opts.command, Backend: backend.Name(), Mode: mode, Schema: api.Schema, OK: false,
 			ExitCode: ExitBackend, Error: err.Error(),
 		})
 		return ExitBackend
@@ -151,6 +178,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	base := response{
 		Command:   opts.command,
 		Backend:   svc.Backend(),
+		Mode:      mode,
 		Schema:    api.Schema,
 		StatePath: svc.Path(),
 	}
@@ -159,9 +187,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "detect":
 		return doDetect(svc, opts, base, stdout, stderr)
 	case "propose":
-		return doPropose(svc, opts, base, stdout, stderr)
+		return doPropose(svc, opts, base, mode, stdout, stderr)
 	case "check":
 		return doCheck(svc, opts, base, stdout, stderr)
+	case "approve":
+		return doApprove(svc, opts, base, stdout, stderr)
 	case "apply":
 		return doApply(svc, opts, base, stdout, stderr)
 	case "generations":
@@ -171,8 +201,22 @@ func run(args []string, stdout, stderr io.Writer) int {
 	default:
 		fmt.Fprintf(stderr, "pmh-nix: unbekannter unterbefehl %q\n", opts.command)
 		fmt.Fprint(stderr, usage(version))
-		return ExitUsage
+		base.ExitCode = ExitUsage
+		base.Error = fmt.Sprintf("unbekannter unterbefehl %q", opts.command)
+		return finish(stdout, opts.jsonOut, base, stdout, stderr)
 	}
+}
+
+// flagError meldet einen fehlerhaften Flag-Aufruf: Exit 2, Meldung nach
+// stderr, und bei --json genau ein Objekt nach stdout.
+func flagError(base response, stdout, stderr io.Writer, jsonOut bool, err error) int {
+	base.ExitCode = ExitUsage
+	if errors.Is(err, flag.ErrHelp) {
+		base.ExitCode = ExitOK
+	} else {
+		base.Error = err.Error()
+	}
+	return finish(stdout, jsonOut, base, stdout, stderr)
 }
 
 // parseGlobal zieht die globalen Flags aus der ganzen Argumentliste, egal ob
@@ -182,6 +226,9 @@ func parseGlobal(args []string) (options, error) {
 	opts := options{backend: "stub"}
 	if v := envOr("PMH_NIX_BACKEND", ""); v != "" {
 		opts.backend = v
+	}
+	if v := envOr("PMH_NIX_MODE", ""); v != "" {
+		opts.mode = v
 	}
 	if v := envOr("PMH_NIX_STATE", ""); v != "" {
 		opts.state = v
@@ -211,6 +258,12 @@ func parseGlobal(args []string) (options, error) {
 				return opts, err
 			}
 			opts.backend = v
+		case "-mode", "--mode":
+			v, err := takeValue()
+			if err != nil {
+				return opts, err
+			}
+			opts.mode = v
 		case "-state", "--state":
 			v, err := takeValue()
 			if err != nil {
@@ -267,10 +320,12 @@ func envOr(name, fallback string) string {
 	return fallback
 }
 
-func newBackend(name string, store *state.Store) (actuation.Backend, error) {
+func newBackend(name string, mode api.Mode, store *state.Store) (actuation.Backend, error) {
 	switch strings.ToLower(strings.TrimSpace(name)) {
 	case "", stub.Name:
-		return stub.New(store), nil
+		b := stub.New(store)
+		b.Mode = mode
+		return b, nil
 	case nix.Name:
 		// Das echte Backend ist vorhanden, aber inert: ohne nix auf dem
 		// Suchpfad scheitert jeder Aufruf laut (fail-closed).

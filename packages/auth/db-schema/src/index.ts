@@ -36,6 +36,9 @@ import m0007 from '../migrations/0007_obsidian.sql' with { type: 'text' }
 import m0008 from '../migrations/0008_sitzungsprotokoll.sql' with { type: 'text' }
 import m0009 from '../migrations/0009_arbeitsbereich-ordner.sql' with { type: 'text' }
 import m0010 from '../migrations/0010_zusatzordner-zugriff.sql' with { type: 'text' }
+import m0011 from '../migrations/0011_credential_records.sql' with { type: 'text' }
+import m0012 from '../migrations/0012_einladungen.sql' with { type: 'text' }
+import m0013 from '../migrations/0013_crew.sql' with { type: 'text' }
 
 // **Wer ist die Betriebsdatenbank?** Der Riegel der Prüfungen — siehe die Datei selbst für die
 // zwei Messungen, die zu dieser Regel geführt haben.
@@ -95,6 +98,23 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 8, name: 'sitzungsprotokoll-und-schreibherrschaft', sql: m0008 },
   { version: 9, name: 'arbeitsbereich-mit-mehreren-ordnern', sql: m0009 },
   { version: 10, name: 'zusatzordner-lesen-oder-schreiben', sql: m0010 },
+  // **Die Records der Credential-Seam.** `user_secrets` traegt Referenzen
+  // (`DEEPSEEK_API_KEY`); ein Record ist `<scope>/<id>` und hat einen Rumpf, den
+  // nur sein Besitzer versteht. Die Tabelle haelt beide Adressraeume getrennt.
+  { version: 11, name: 'credential-records-scope-id', sql: m0011 },
+  // **Die Einladungen.** Der dritte Weg zu einem Konto: ein Admin erzeugt einen
+  // Link mit Ablauf, der Eingeladene legt sein Konto selbst an — und setzt dabei
+  // sein eigenes Passwort, das der Admin nie sieht. Die Tabelle traegt **nur**
+  // den Hash des Tokens (wie `sessions` und `api_keys`) und ist bewusst ohne
+  // Row Level Security: sie wird gelesen, **bevor** es eine Identitaet gibt.
+  { version: 12, name: 'einladungen', sql: m0012 },
+  // **Die Crews je Konto.** Die Crew war bis zum 21.10.2026 eine Datei
+  // (`<home>/crew/config.json`) — ohne Eigentuemer. `crew_definitionen` und
+  // `crew_einstellungen` geben ihr einen Mandanten; die Kennung ist zugleich der
+  // Modellname und deshalb **global** eindeutig. Warum hier kein Row Level
+  // Security steht, steht im Kopf der Datei (der Host baut EINEN Adapter aus den
+  // Crews aller aktiven Konten — eine Bedingung wuerde diese Abfrage still leeren).
+  { version: 13, name: 'crew-je-konto', sql: m0013 },
 ]
 
 /** Die Fassung, die dieses Paket erzeugt — die höchste Migrationsnummer. */

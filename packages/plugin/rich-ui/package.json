@@ -1,0 +1,43 @@
+{
+  "name": "@prometheus-harness/rich-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Rich answer components in the chat: the render_ui tool describes a card, chart, table, image, or note, and the browser half renders it as a first-class Chat node.",
+  "main": "src/server.ts",
+  "exports": {
+    ".": "./src/server.ts",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-chat",
+        "@deepseek-ai/dsh-client-ui-tool"
+      ]
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "files": [
+    "src",
+    "lib/client.js",
+    "cordis.patch.yml"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "preview": "bun run preview.mjs",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.client.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@chenglou/pretext": "^1.0.0",
+    "prejs": "^1.2.6"
+  }
+}

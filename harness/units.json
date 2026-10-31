@@ -1,0 +1,46 @@
+{
+  "format": 1,
+  "core": {
+    "version": "0.2.1-alpha.2",
+    "contract": "^0.2.0"
+  },
+  "platform": "windows",
+  "schema": 7,
+  "roots": ["units", "services", "native", "packages/units"],
+  "units": [
+    { "name": "pmh-attach", "reload": "idle" },
+    { "name": "pmh-nix", "reload": "boot" },
+    { "name": "pmh-sandbox", "reload": "boot" },
+    { "name": "pmh-supervisor", "reload": "idle" },
+    { "name": "pmh-research", "reload": "idle" },
+    { "name": "pmh-atomicfs", "reload": "boot" },
+    { "name": "pmh-crypto", "reload": "boot" },
+    { "name": "pmh-flock", "reload": "boot" },
+    { "name": "pmh-index", "reload": "boot" },
+    { "name": "pmh-landlock-run", "reload": "boot" },
+    { "name": "pmh-pty", "reload": "boot" },
+    { "name": "unit-export", "reload": "hot" },
+    { "name": "unit-system", "reload": "idle" },
+    { "name": "pmh-status", "reload": "hot" }
+  ],
+  "files": [
+    { "path": "docker-compose.yml", "required": true }
+  ],
+  "checks": [
+    {
+      "name": "go-tests",
+      "command": "go",
+      "args": ["test", "./..."],
+      "cwd": "services/pmh-research",
+      "env": {
+        "GOCACHE": "../../.pmh-build/go-cache",
+        "GOTELEMETRY": "off"
+      },
+      "timeoutMs": 300000
+    },
+    { "name": "ts-tests", "command": "bun", "args": ["test", "packages/units/unit-system/tests", "packages/units/unit-export/tests"], "timeoutMs": 300000 },
+    { "name": "ts-typen", "command": "bun", "args": ["run", "typecheck"], "timeoutMs": 900000 }
+  ],
+  "policy": { "requireCheck": true },
+  "reason": "Erste Generation: der Bestand, der heute laeuft, deklariert. schema 7 ist die Fassung, die packages/api/readiness erwartet (ERWARTETE_SCHEMAFASSUNG) — die Betriebsdatenbank steht gemessen auf 5, deshalb ist dieser Bau bewusst NICHT scharf geschaltet."
+}

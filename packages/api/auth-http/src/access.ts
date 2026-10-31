@@ -61,6 +61,52 @@ interface Verbindung {
 }
 
 /**
+ * **Fragt den Wirt, ob diese Anfrage seinen Token trägt.**
+ *
+ * ## Warum eine stille Antwort
+ *
+ * `authorizeIndex` ist die Sperre des Kerns: erlaubt sie nicht, schreibt sie ihre **401** selbst in
+ * die Antwort. Hier wird sie nur **gefragt** — also bekommt sie eine Attrappe statt der echten
+ * Antwort. Was sie dort hineinschreibt, ist damit weggeworfen, und die Anfrage kann hinterher
+ * normal beantwortet werden.
+ *
+ * ## Warum `=== true`
+ *
+ * Der Rückgabewert ist ein `boolean`; alles andere (fehlende Funktion, Ausnahme) gilt als „kein
+ * Token". Ein Fehler beim Prüfen darf **nie** zu „erlaubt" werden.
+ *
+ * @param verbindung - der Verbindungsdienst (oder `undefined`)
+ * @param req - die Anfrage
+ * @returns ob der Token des Wirts gültig ist
+ */
+export function hatToken(verbindung: Verbindung | undefined, req: IncomingMessage): boolean {
+  const pruefe = verbindung?.authorizeIndex
+  if (pruefe === undefined) return false
+
+  interface StilleAntwort {
+    statusCode: number
+    headersSent: boolean
+    writeHead: () => StilleAntwort
+    setHeader: () => StilleAntwort
+    end: () => StilleAntwort
+    write: () => boolean
+  }
+  const still = {} as StilleAntwort
+  still.statusCode = 200
+  still.headersSent = false
+  still.writeHead = () => still
+  still.setHeader = () => still
+  still.end = () => still
+  still.write = () => true
+
+  try {
+    return pruefe(req, still as unknown as ServerResponse) === true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Holt den Verbindungsdienst aus einem Kontext.
  *
  * **Zwei Wege, und beide werden gebraucht.**

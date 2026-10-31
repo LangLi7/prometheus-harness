@@ -63,6 +63,15 @@ export interface Weg {
    * während ein erfundener Pfad **404** gibt.
    */
   readonly gemessenAm?: string
+  /**
+   * Wann die **Form** (`felder`, `aus`) lebend gemessen wurde — oder `undefined`.
+   *
+   * **Warum das getrennt vom Pfad steht.** Beim Bild-Weg lagen beide Messungen vier Tage
+   * auseinander: der Pfad antwortete schon am 15.10. auf einen leeren Auftrag, die Feldnamen
+   * kannte erst die Messung vom 19.10. Ein gemeinsames Datum wäre für eines von beiden falsch —
+   * und „der Weg ist da" ist nicht „die Fähigkeit wirkt" (Regel 37).
+   */
+  readonly formGemessenAm?: string
 }
 
 /** Wie weit ein Weg belegt ist. */
@@ -164,21 +173,28 @@ export const OPENROUTER: Familie = {
       gemessenAm: GEMESSEN_AM,
     },
     bild: {
-      // **Der Pfad ist bestätigt, die Form NICHT.** Gemessen am 15.10.2026: 400 auf einen leeren
-      // Auftrag, während ein erfundener Pfad 404 gibt — der Weg ist also da. Welches Feld den Text
-      // trägt und welche Kennung ein Bild liefert, ist **ungemessen**; deshalb stehen hier KEINE
-      // Feldnamen. Genau dafür gibt es `pfad-bestaetigt`.
+      // **Seit dem 19.10.2026 ist auch die FORM gemessen** — und zwar mit einem echten Auftrag:
+      // `google/gemini-2.5-flash-image` antwortete mit 200 und einem Bild. Der erste Versuch
+      // (`nano-banana`) gab 429, also einen Fehler des Anbieters und keinen der Form.
+      //
+      // **Der Befund, der die Feldnamen rechtfertigt:** die Antwort steht in `data[0].b64_json`.
+      // Der Behälter war ein **PNG** — die Sonde hatte die Datei nur `.png` genannt, und das war
+      // eine Annahme der Endung. Der Typ gehört deshalb aus den Bytes gelesen; im Anbieter tut
+      // `bildArt` das.
       pfad: '/images/generations',
       art: 'json',
+      felder: { modell: 'model', beschreibung: 'prompt', anzahl: 'n', format: 'response_format' },
+      aus: 'data[0].b64_json (Base64) oder data[0].url — der Typ kommt aus den ersten Bytes',
       gemessenAm: GEMESSEN_AM,
+      formGemessenAm: '2026-10-19',
     },
   },
   stand:
-    'Vier Fähigkeiten lebend aufgerufen (Ton 140160 Bytes, Transkription mit Kosten, Einbettung ' +
-    '3072 Dimensionen). `bild`: der Weg /images/generations ist als PFAD bestätigt, die Form ist ' +
-    'ungemessen — deshalb `pfad-bestaetigt`, nicht `benutzbar`. Die Modellliste nennt 462 Einträge ' +
-    'und verschweigt darin TTS, Transkription und Einbetten: eine Liste ist kein Beweis für ' +
-    'Abwesenheit.',
+    'Fünf Fähigkeiten lebend aufgerufen (Ton 140160 Bytes, Transkription mit Kosten, Einbettung ' +
+    '3072 Dimensionen, Bild als JPEG aus Base64). `bild`: Pfad UND Form sind gemessen (19.10.2026, ' +
+    '`gemini-2.5-flash-image`) — der erste Versuch mit `nano-banana` gab 429, das war ein ' +
+    'Kontingent und kein Formfehler. Die Modellliste nennt 462 Einträge und verschweigt darin TTS, ' +
+    'Transkription, Einbetten und Bild: eine Liste ist kein Beweis für Abwesenheit.',
 }
 
 /**
@@ -342,6 +358,41 @@ export const OPENCODE: Familie = {
     'da, der Dienst scheitert aber daran. Einbettung, Ton und Bild: 404. Formen ungemessen.',
 }
 
+/**
+ * TypeSafe (Jev) — **kein Chat, sondern typisierte Fragen**.
+ *
+ * ## Warum diese Familie anders aussieht als die übrigen
+ *
+ * Alle anderen Familien sprechen über `messages`/`input` und antworten mit **Text**. TypeSafe
+ * nimmt einen `state` und benannte `questions` entgegen und antwortet mit `answers` — je Frage
+ * ein typisierter Wert samt `confidence`. Das ist der Grund, aus dem es einen eigenen Anbieter
+ * gibt (`@prometheus-harness/typesafe`) und nicht der OpenAI-kompatible Weg genügt: über
+ * `response_format` käme das JSON, aber **nicht** die `confidence`.
+ *
+ * ## Warum hier KEIN `gemessenAm` steht
+ *
+ * Der Pfad stammt aus der Dokumentation (`docs.typesafe.ai/api/system-one`, gelesen am
+ * 28.10.2026) — **nicht** aus einem eigenen Aufruf. Ein Datum daranzuschreiben wäre die
+ * Behauptung einer Messung, die nicht stattgefunden hat. Der Weg ist damit `unbestaetigt`, und
+ * das ist die ehrliche Auskunft.
+ */
+export const TYPESAFE: Familie = {
+  id: 'typesafe',
+  name: 'TypeSafe (Jev)',
+  basis: 'https://api.typesafe.ai',
+  kopf: (schluessel) => ({ authorization: `Bearer ${schluessel}` }),
+  modellWeg: '/v1/models',
+  wege: {
+    entscheiden: { pfad: '/v1/systemone', art: 'json' },
+  },
+  stand:
+    'Pfad aus der Dokumentation, nicht selbst gemessen — kein Datum daran. Besonderheit: die ' +
+    'Antwort ist kein Text, sondern typisierte Antworten mit `confidence`; `sicherheit` kommt von ' +
+    'dort und wird nicht erfragt. Freier Text und freie Zahlen gehen NICHT (Jev generiert nicht). ' +
+    'Preis (Dokumentation): $42 pro Milliarde Input-Token, Output kostenlos. Kontext 64k je ' +
+    'Anfrage / 32k je Frage, per Kopf auf 262k erhöhbar.',
+}
+
 /** Alle bekannten Familien. */
 export const FAMILIEN: readonly Familie[] = [
   OPENROUTER,
@@ -351,6 +402,7 @@ export const FAMILIEN: readonly Familie[] = [
   ZENMUX,
   NOUS,
   OPENCODE,
+  TYPESAFE,
 ]
 
 /**

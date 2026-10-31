@@ -1,0 +1,8 @@
+# Das Usage-Plugin als eigenes Bündel.
+#
+# Es bringt **beides** mit: die Host-Routen (Stand und Schätzung) und das
+# Browser-Panel. Wer nur Usage will, installiert nur dieses Paket.
+- insert:
+    - id: pmh-usage
+      name: '@prometheus-harness/usage'
+      inject: [webServer]

@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/speech-whisper-local",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Lokaler Spracherkenner Whisper base (int8) über sherpa-onnx: Deutsch und Englisch, ohne Netz, auf der CPU. Meldet sich als Anbieter 'whisper-local' am Dienst ctx.speechToText.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/speech-local-base": "workspace:*"
+  }
+}

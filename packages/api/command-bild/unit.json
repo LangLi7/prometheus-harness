@@ -1,0 +1,19 @@
+{
+  "name": "command-bild",
+  "version": "0.1.0",
+  "kind": "plugin",
+  "language": "typescript",
+  "description": "Der Befehl /bild: erzeugt ein Bild aus einer Zeile, mit Stil (foto|illustration|icon), Seitenverhaeltnis, Aufloesung und Zielpfad — ueber dieselbe Kette wie das Werkzeug image_generate.",
+  "core": "optional",
+  "contract": "^0.2.0",
+  "provides": ["command-bild"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Art plugin, weil der Befehl einen Lebenszyklus hat: export const name = 'pmh-command-bild', inject ['commands'], apply(ctx) mit ctx.effect(() => ctx.commands.register(...)).",
+    "Fundstelle: Betreiber-Anfrage 'Der /bild-Befehl ... Soll ich den jetzt bauen?' und 'damit man es richtig mitgeben kann wie zb bild referenz ect format bild prompt'.",
+    "Der Befehl ruft dieselbe Kette wie das Werkzeug (baueKette + faehigkeiten.waehle('bild')) — keine zweite Wahrheit.",
+    "Unbekannte Flags sind ein Fehler: ein Tippfehler soll nicht im Prompt landen und ein anderes Bild erzeugen, als bestellt war.",
+    "Die Flags entsprechen den gemessenen Feldern der Bild-API (aspect_ratio, resolution); ob ein Modell sie kennt, entscheidet der Dienst mit 400 — hier wird nichts geraten."
+  ]
+}

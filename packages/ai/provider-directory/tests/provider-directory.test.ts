@@ -142,18 +142,27 @@ describe('Die Familien', () => {
     }
   })
 
-  test('KORREKTUR: `bild` steht jetzt doch in der Tabelle — aber als `pfad-bestaetigt`', () => {
+  test('KORREKTUR: `bild` ist seit dem 19.10.2026 `benutzbar` — Pfad UND Form gemessen', () => {
     // **Die frühere Fassung dieser Prüfung hieß: „`bild` nennt KEINE Familie — der Weg ist bei
     // keiner gemessen."** Das war zu streng formuliert, und die Messung hat es überholt: der PFAD
     // ist inzwischen gemessen (400 auf einen leeren Auftrag, während ein erfundener Pfad 404 gibt).
     //
-    // Die richtige Antwort auf „ist das gemessen?" ist deshalb kein Ja/Nein, sondern ein ZUSTAND.
-    // Die alte Aussage bleibt hier stehen — wer die Geschichte löscht, lernt nichts (Regel 12).
+    // **Die zweite Fassung hieß `pfad-bestaetigt`** — richtig bis zum 19.10.2026. An diesem Tag
+    // antwortete `google/gemini-2.5-flash-image` mit 200 und einem Bild, und damit sind auch die
+    // Feldnamen belegt. Beide Aussagen bleiben hier stehen: wer die Geschichte löscht, lernt nichts
+    // (Regel 12).
     const bild = OPENROUTER.wege.bild
     expect(bild?.pfad).toBe('/images/generations')
-    expect(bild === undefined ? 'fehlt' : standDesWeges(bild)).toBe('pfad-bestaetigt')
-    // Und die Form ist weiterhin NICHT geraten: keine erfundenen Feldnamen.
-    expect(bild?.felder).toBeUndefined()
+    expect(bild === undefined ? 'fehlt' : standDesWeges(bild)).toBe('benutzbar')
+    // Die Form ist jetzt belegt — und zwar an einem ANDEREN Tag als der Pfad.
+    expect(bild?.gemessenAm).toBe(GEMESSEN_AM)
+    expect(bild?.formGemessenAm).toBe('2026-10-19')
+    expect(bild?.felder).toEqual({
+      modell: 'model',
+      beschreibung: 'prompt',
+      anzahl: 'n',
+      format: 'response_format',
+    })
   })
 
   test('DeepSeek: der Chat-Pfad ist gemessen, die FORM der strukturierten Ausgabe nicht', () => {

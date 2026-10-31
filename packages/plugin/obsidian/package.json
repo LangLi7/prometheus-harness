@@ -1,0 +1,41 @@
+{
+  "name": "@prometheus-harness/obsidian",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Obsidian als eigenes DSH-Plugin: ein Sidebar-Eintrag, ein Vault-Panel mit Suche und Notizvorschau, ein Tab im rechten Dock, ein Knopf zum Öffnen des Programms, dazu die Routen /api/world/obsidian.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
+      ]
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@prometheus-harness/world-obsidian-provider": "workspace:*"
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "cordis.patch.yml"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.client.json"
+  }
+}

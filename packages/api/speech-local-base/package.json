@@ -1,0 +1,12 @@
+{
+  "name": "@prometheus-harness/speech-local-base",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Gemeinsame Mechanik der lokalen Spracherkenner: Herkunft der Gewichte (Hugging Face, festgenagelte Revision, Größe, SHA-256), Vorbereitung mit Fortschritt, Kindprozeß mit sherpa-onnx und Erkennung über eine Schleifenschnittstelle. Wird von @prometheus-harness/speech-whisper-local und @prometheus-harness/speech-nemo-de-local benutzt.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./worker": "./src/worker.ts",
+    "./manifest": "./src/manifest.ts"
+  }
+}

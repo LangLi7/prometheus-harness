@@ -72,6 +72,57 @@ desktop.ini
 *.key
 credentials.json
 
+# --- Datenbank-Dateien (nie versionieren) ---
+#
+# Eine Datenbank traegt echte Zeilen: Konten, Sitzungen, verschluesselte Ruempfe.
+# Ein Dump ist kein Nachweis, sondern eine Kopie fremder Daten -- er gehoert in
+# keine History, die oeffentlich werden kann.
+#
+# Gemessen am 24.10.2026: **keine** Datei dieser Art ist getrackt oder je
+# committet worden (`git ls-files`, `git log --all` bleiben leer). Die `.db`-
+# Dateien im Arbeitsbaum stammen alle von Chromium-Caches unter `.pmh-build/`
+# und sind durch die Regel oben schon abgedeckt.
+#
+# Diese Regeln sind deshalb ein **Riegel auf Vorrat**, keine Reparatur.
+# `*.sql` fehlt hier absichtlich: die Migrationen unter
+# `packages/auth/db-schema/migrations/` sind Quelltext und bleiben versioniert.
+*.db
+*.db3
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.dump
+*.pgdump
+*.mdb
+*.accdb
+# Sicherungen vor einer Schema-Migration, z. B. `pmh-schema-vor-0011-....sql`
+*schema-vor-*.sql
+/backups/
+
+# --- Docker-Stack: echte Werte und Datenverzeichnisse ---
+#
+# `docker-compose.yml` und `docker/postgres-init/` sind ABSICHTLICH versioniert:
+# sie sind der Nachweis, wie der Stack gebaut ist, und enthalten nur Platzhalter
+# (`${VAR:-bitte-aendern-...}`). Die echten Kennwoerter stehen in `.env` -- oben
+# schon ignoriert. Gemessen am 24.10.2026 fuehrt `.env` fuenf PASSWORD-Zeilen mit
+# echten Werten; die Datei wurde nie committet.
+#
+# Was hier NICHT hereingehoert, obwohl es nach Konfiguration aussieht:
+#   - die oertliche Ueberschreibung des Stacks. Dort stehen die echten
+#     Kennwoerter bequem direkt neben dem Dienst, den sie oeffnen.
+#   - ein gebundenes Datenverzeichnis. Postgres legt darin `base/`, `global/`
+#     und `pg_wal/` an -- das sind die Daten selbst, nur ohne Dateiendung.
+docker-compose.override.yml
+docker-compose.override.yaml
+compose.override.yml
+compose.override.yaml
+pgdata/
+postgres-data/
+docker/volumes/
+docker/data/
+
 # --- Test- und Messartefakte ---
 coverage/
 *.heapsnapshot
@@ -126,3 +177,29 @@ coverage/
 # Code-Units (Plugins, Bibliotheken) bleiben davon unberuehrt und liegen weiter
 # als Package im Monorepo.
 /units/skills/
+
+# repo-intel plugin artifacts
+.repo-intel/
+gitingest/
+
+# --- Erzeugte Artefakte aus Werkzeuglaeufen ---
+# Gemessen am 31.10.2026: `graphify-out/` 112 MB, `.tmp/` 108 MB,
+# `brag-output-*/` 97 MB (davon ein vollstaendiges node_modules), zusammen
+# rund 325 MB. Kein Mensch hat diese Dateien geschrieben; sie entstehen aus
+# einem Lauf und lassen sich wiederholen. `graphify-out/` ist der Graph aus
+# `graphify extract`, und der wird laut AGENTS.md nicht ungefragt committet.
+graphify-out/
+.tmp/
+
+# Das gemeinsame Geheimnis der MiroFish-Bridge (`BRIDGE_TOKEN`). Es steht
+# zusaetzlich in MiroFish' `.env`; ein eingecheckter Wert waere ein offener
+# Zugang. Die Datei bleibt auf der Platte, nur nicht in der History.
+integrations/mirofish-bridge/token.txt
+brag-output-*/
+data-gym-cache/
+.playwright-mcp/
+/dist/
+
+# --- Eigenstaendige Repositories unter units/ (eigene Historie, eigener Takt) ---
+/units/plugins/
+

@@ -1,0 +1,20 @@
+{
+  "name": "@prometheus-harness/world-obsidian",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Liest einen Obsidian-Vault (Markdown, Kopfbereich, Marken, Wikilinks) als Graphen und schreibt ihn über `einleser` nach Postgres. Ausgeliefert wird er von `auth-http` unter /api/pmh/notizen — dieses Paket hat keine eigene Route und ist kein Plugin. Liest ausschließlich, verfolgt keine symbolischen Verweise und überspringt .obsidian.",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./einleser": "./src/einleser.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@prometheus-harness/store-postgres": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

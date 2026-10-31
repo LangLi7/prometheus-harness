@@ -1,0 +1,40 @@
+{
+  "name": "@prometheus-harness/ponytail",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Ponytail als DSH-Plugin: ein Prompt-Abschnitt, ein Skill und ein Schalter im Composer (aus | lite | full | ultra).",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@prometheus-harness/ai-capabilities": "workspace:*",
+    "@prometheus-harness/home-paths": "workspace:*"
+  },
+  "files": [
+    "src",
+    "lib/client.js",
+    "cordis.patch.yml"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.client.json",
+    "test": "bun test"
+  }
+}

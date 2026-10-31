@@ -1,0 +1,14 @@
+{
+  "meta": {
+    "title": "Launcher",
+    "description": "One entry for many panels: lists the panels of the other plugins and opens the chosen one."
+  },
+  "launcher": {
+    "panel": "Launcher",
+    "title": "Panels",
+    "intro": "One click opens the panel. The list lives in this plugin’s settings.",
+    "empty": "No panels configured — the list lives in the settings.",
+    "open": "Open",
+    "close": "Close"
+  }
+}

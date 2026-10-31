@@ -1,0 +1,302 @@
+/*
+ * ══ DIE VORLAGE „PROMETHEUS" ════════════════════════════════════════════════════════════════
+ *
+ * **Was der Betreiber dazu gesagt hat:** *„für den style denke ich ein Kombination inklusive SVG und
+ * Theme ect inklusive Font, Richtung Rust, Prometheus Mythologie, Golang Ts7 fokus auf Rust so scifi
+ * und Mythologie flame like idk in diese richtung like a phoenix flame mit rust"*.
+ *
+ * ## Was hier drin steht — und was nicht
+ *
+ * Dieses Blatt **definiert keine einzige Regel neu**, die es schon gibt. Es belegt denselben Satz
+ * Token aus `app.css` mit anderen Werten (Abschnitt 1) und ändert danach nur die **Behandlung**:
+ * wie eine Fläche glüht, wie eine Überschrift steht, wie eine Zahl geschrieben wird (Abschnitt 2 ff.).
+ * Wer eine Regel hier nicht findet, findet sie in `app.css` — und sie gilt weiter.
+ *
+ * **Warum das der einzige Weg ist, der hält.** `app.css` ist die eine Quelle für Kamera, Insel,
+ * Panels und Dialog. Eine zweite Regel daneben („der Dialog ist jetzt eckiger") wäre eine zweite
+ * Wahrheit: sie stimmt heute und fällt beim nächsten Umbau um. Deshalb steht unten **kein**
+ * `#settingsOverlay .set-dialog { border-radius: … }` — der Radius kommt aus `--r-lg`, und `--r-lg`
+ * steht hier. Eine Zeile, und alle zwanzig Flächen ziehen mit.
+ *
+ * ## Die Richtung, in Worten
+ *
+ * *Rust* ist zweierlei: der **Rost** und die **Sprache**. Beides ist hier gemeint — das Bild ist die
+ * Schmiede (Ruß, Zunder, Bronze, glühendes Eisen), die Formensprache ist die einer technischen
+ * Anlage (eckige Platten, gesperrte Großbuchstaben, Zahlen in Monoschrift). Kein Kostüm: die
+ * Flächen bleiben ruhig, und die Hitze sitzt an **einer** Stelle — der Marke.
+ *
+ * Der Mythos trägt das Bild: Prometheus stahl das Feuer, Hephaistos' Amboss steht in
+ * `@prometheus-harness/icons` (`anvil`, `hammer`, `flamme`), und der **Phönix** ist die Marke dieser
+ * Vorlage — der Vogel, der aus genau diesem Feuer steigt.
+ *
+ * ## Warum „Ruß" und nicht „Braun"
+ *
+ * Ein warmes Dunkelbraun wirkt mit einem Schlag nach Möbel. Der Grund hier ist **Ruß**: fast
+ * schwarz, mit einer Spur Rot (`#0b0908`), damit das Feuer darauf *leuchten* kann. Erst ein
+ * neutraler bis kalter Grund macht eine warme Lichtfarbe sichtbar — läge die Welt selbst schon im
+ * Warmen, wäre der Zunder nur noch eine zweite Braunnuance.
+ *
+ * ## Was NICHT mitkommt
+ *
+ * * **Keine neue Schriftdatei.** `--sans` bleibt die des Harness und `--mono` die des Systems (siehe
+ *   `app.css`, dort steht, warum ein *Wunsch* nach einer Schrift, die es nicht gibt, eine stille Lüge
+ *   wäre). Was diese Vorlage tut, ist **Schriftbehandlung**: gesperrte Großbuchstaben für Marken,
+ *   Monoschrift für Zahlen. Eine echte Display-Schrift ist ein eigener Schritt — sie braucht eine
+ *   Datei, eine Lizenz und eine Messung, und sie wird **dort** eingetragen (bei `--sans`), nicht hier.
+ * * **Kein `!important`.** Wer eine Vorlage mit `!important` durchsetzt, hat die nächste Vorlage
+ *   unmöglich gemacht. Es gibt keinen einzigen Fall in dieser Datei.
+ * * **Keine Zahlen, die es schon gibt.** Jede Dauer, jeder Radius und jeder Schatten ist ein Token.
+ *   Die Prüfung `tests/stil.test.ts` und `tests/design.test.ts` rechnen das nach.
+ */
+
+/* ══ 1. DER TOKENSATZ ═══════════════════════════════════════════════════════════════════════
+ *
+ * Er steht **vollständig** hier und nicht in Häppchen. Der Grund ist eine Eigenschaft von
+ * `:root[data-stil='prometheus']`: dieser Selektor hat eine **höhere Spezifität** als `:root`, und
+ * damit gewinnt er gegen *jeden* Wert aus dem Grundsatz. Ein Token, das hier **fehlt**, gilt deshalb
+ * weiter aus `app.css` — was harmlos klingt, aber nicht ist: eine halb gesetzte Vorlage sieht nicht
+ * „fast richtig" aus, sondern **falsch**, weil ein einzelner kalter Grauton zwischen lauter warmen
+ * steht. `tests/stil.test.ts` prüft deshalb auf **Vollständigkeit**, nicht auf „ein paar Werte".
+ */
+:root[data-stil='prometheus'] {
+  /* ── Die Flächen: Ruß, Zunder, verlöschende Glut ──────────────────────────────────────── */
+  --bg: #0b0908;
+  --s: #171310;
+  --s2: #100d0b;
+  /* Der Strich zwischen den Flächen ist **Bronze** und nicht Grau: er ist das einzige, was die
+   * eckigen Platten zusammenhält, und ein neutraler Strich nähme dem Bild den Werkstoff. */
+  --b: #4a3a2c;
+  --b2: #241c16;
+
+  /* ── Die Schrift: warmes Weiß statt reinem ────────────────────────────────────────────── */
+  /*
+   * **Kein reines Weiß.** `#ffffff` auf Ruß sieht nach Bildschirm aus, nicht nach Licht: die
+   * glühende Fläche daneben wirkt dann schmutzig, weil das Weiß kälter ist als das Feuer. `#f6efe6`
+   * ist derselbe Kontrast (18:1) mit demselben Farbton wie die Glut.
+   */
+  --t: #f6efe6;
+  --t2: #cdbfb2;
+  --t3: #b3a496;
+
+  /* ── Das Feuer: Zunder, Glut, Flamme ──────────────────────────────────────────────────── */
+  /* Der Akzent ist **Glut** (`#ff6a2a`) und nicht das Orange des Grundsatzes (`#ff5a1f`): zwei
+   * Grad wärmer, damit er neben dem Ruß als Licht liest und nicht als Warnfarbe. */
+  --a: #ff6a2a;
+  --a2: #ffc078;
+  --blue: #8fb4ff;
+  --g: #4fbf7a;
+
+  /*
+   * **Das Glas ist der Ruß, nicht ein eigener Wert.** Insel und Dialog liegen *über* der Welt und
+   * sollen sie durchscheinen lassen (`backdrop-filter`). Hier stand im Grundsatz `#101010f2` — ein
+   * neutraler Wert. Für diese Vorlage ist es derselbe Ruß mit derselben Deckkraft: was durchscheint,
+   * ist die Welt, und die ist bereits warm.
+   */
+  --glas: #171310f2;
+  --glas-unschaerfe: 10px;
+
+  /* ── Die Form: eckige Platten statt weicher Karten ───────────────────────────────────── */
+  /*
+   * **Die eine Entscheidung, die man sofort sieht.** Der Grundsatz rundet auf 8 px (Karten, Knöpfe,
+   * Zeilen) und 16 px (Dialog) — das ist die Formensprache einer App. Eine Anlage, eine Platte, ein
+   * Blech hat **Radien von 1 bis 4 px**: genug, daß die Ecke nicht schneidet, zu wenig, um rund zu
+   * wirken. Der Sprung von 8 auf 4 ist die halbe Wirkung dieser Vorlage.
+   *
+   * **`--r-rund` bleibt.** Ein Punkt ist rund, nicht „abgerundet" — Marken, Punkte und Pillen haben
+   * keine Ecke, die man eckig machen könnte.
+   */
+  --r-fein: 1px;
+  --r-xs: 2px;
+  --r-sm: 3px;
+  --r: 4px;
+  --r-lg: 8px;
+  --r-rund: 9999px;
+
+  /* ── Die Höhe: dichter und wärmer ───────────────────────────────────────────────────── */
+  /* Dieselben drei Stufen wie im Grundsatz (die Prüfung lässt keine vierte zu), aber **enger und
+   * wärmer**: drei Mal derselbe Ruß-Ton statt dreimal Schwarz. Ein Schatten ist eine Aussage über
+   * Abstand — hier ist er zusätzlich eine über das Material. */
+  --sch-1: 0 1px 2px #05030299;
+  --sch-2: 0 8px 22px #050302b3;
+  --sch-3: 0 20px 54px #030201d9;
+
+  /* ── Die Bewegung: schwerer und langsamer ───────────────────────────────────────────── */
+  /*
+   * **Warum eine Vorlage die Dauern ändern darf.** Eisen ist träge; die vier Dauern des Grundsatzes
+   * sind auf eine App abgestimmt, nicht auf eine Schmiede. Alle vier werden um **rund ein Fünftel**
+   * länger — das ist wenig genug, um nicht „hakelig" zu wirken, und viel genug, um sich anders
+   * anzufühlen. Es bleiben **vier**; eine fünfte gäbe es nur mit einem Grund, der hier nicht steht.
+   *
+   * **Die Kurven.** `--e-standard` und die beiden Ein-/Aus-Kurven bleiben unangetastet (sie sind die
+   * ruhigen). Nur `--e-feder` verliert sein Überschwingen: 1,22 → 1,12. Ein Nachfedern ist die
+   * Bewegung von Gummi; eine Platte, die aufsetzt, schwingt nicht nach.
+   */
+  --t-schnell: 140ms;
+  --t-mittel: 200ms;
+  --t-gross: 300ms;
+  --t-feder: 520ms;
+  --e-standard: cubic-bezier(0.2, 0, 0, 1);
+  --e-ein: cubic-bezier(0.4, 0, 1, 1);
+  --e-aus: cubic-bezier(0, 0, 0.2, 1);
+  --e-feder: cubic-bezier(0.34, 1.12, 0.64, 1);
+
+  /*
+   * **Und die Glut — eine Dauer, die keine Bewegung ist.**
+   *
+   * Sie treibt **eine Anzeige**: das ruhige Atmen des Lichts an der Marke. Dieselbe Unterscheidung
+   * wie bei `--puls-dauer` in `app.css` („ein Puls ist keine Bewegung von A nach B, sondern ein
+   * *hier passiert etwas*"). Sie steht deshalb in **Sekunden** und darf länger sein als jeder
+   * Übergang: 3,4 s sind ein Atemzug, 300 ms wären ein Zucken.
+   */
+  --glut-dauer: 3.4s;
+}
+
+/* ══ 2. DIE BEHANDLUNG ══════════════════════════════════════════════════════════════════════
+ *
+ * Ab hier wird nicht mehr „eingestellt", sondern **gezeichnet**: Hintergrund, Marke, Flächen,
+ * Schriftbehandlung. Jede Regel liest ihre Farben und Maße aus dem Tokensatz oben — keine einzige
+ * Zahl steht hier fest, mit **einer** Ausnahme, die unten begründet wird (die Sperrung).
+ */
+
+/*
+ * **Der Grund ist eine Esse, kein Farbtopf.**
+ *
+ * Zwei Lichter, beide sehr schwach: unten in der Mitte die Glut (`--a`, 7 %), oben rechts ein
+ * kaltes Gegenlicht (`--blue`, 4 %). Das zweite ist der Grund, warum das erste leuchtet — ein
+ * einzelnes warmes Licht auf warmem Grund sieht nach Verlauf aus, zwei gegenläufige nach **Raum**.
+ *
+ * `fixed`, damit die Esse beim Drehen der Welt **stehen bleibt**: sie ist der Raum, nicht ein Körper
+ * darin. `pointer-events: none` gibt es hier nicht zu setzen — ein Hintergrundbild fängt nichts.
+ */
+:root[data-stil='prometheus'] body {
+  background-image:
+    radial-gradient(120% 80% at 50% 118%, color-mix(in srgb, var(--a) 7%, transparent) 0%, transparent 62%),
+    radial-gradient(90% 70% at 88% -10%, color-mix(in srgb, var(--blue) 4%, transparent) 0%, transparent 60%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+/*
+ * **Die Marke ist der eine Ort, an dem es heiß ist.**
+ *
+ * Der Schein kommt über `filter` und nicht über `text-shadow`: ein Schatten läge hinter dem *Text*,
+ * das Zeichen ist aber ein `svg` und malt mit `currentColor` (`@prometheus-harness/icons`) — nur
+ * `drop-shadow` folgt seiner Silhouette. Und `drop-shadow` erbt die Farbe **nicht** aus
+ * `currentColor` in allen Browsern, deshalb steht sie als `color-mix` ausdrücklich da.
+ */
+:root[data-stil='prometheus'] .hud .wm svg {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--a) 60%, transparent));
+  animation: glut var(--glut-dauer) var(--e-standard) infinite;
+}
+
+/* Der Name atmet mit — aber nur ein wenig. Ein Text, der pulsiert, ist unlesbar; 8 % Helligkeit
+ * nimmt man als „warm" wahr und nicht als „bewegt". */
+:root[data-stil='prometheus'] .hud .wm {
+  text-shadow: 0 0 12px color-mix(in srgb, var(--a) 32%, transparent);
+  letter-spacing: 0.16em;
+}
+
+/*
+ * **Die Glut selbst.** `opacity` und nicht `filter`: eine Animation über `filter` zwingt den Browser,
+ * den Weichzeichner in **jedem** Bild neu zu rechnen — auf einer 3D-Fläche mit 4000 Sternen ist das
+ * der Unterschied zwischen „ruhig" und „ruckelig". Ein Wert zwischen 1 und 0,86 tut dieselbe Arbeit
+ * für nichts.
+ */
+@keyframes glut {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.86;
+  }
+}
+
+/*
+ * **Eine Marke ist ein Etikett, kein Satz.**
+ *
+ * Hier steht die eine Zahl, die in diesem Blatt fest vorkommt: die **Sperrung** (`letter-spacing`).
+ * Sie ist kein Maß der Vorlage, sondern eine Eigenschaft der Schriftbehandlung — sie hängt an der
+ * Schriftgröße (11 px) und nicht an einer Fläche, und `app.css` führt für sie bewusst kein Token
+ * (dort steht, warum: eine Sperrung ist ein Mittel für **kurze** Auszeichnungen). Wer sie ändern
+ * will, ändert sie **hier an einer Stelle** — genau das ist der Zweck dieser Regel.
+ */
+:root[data-stil='prometheus'] .set-grp h4,
+:root[data-stil='prometheus'] .set-navitem,
+:root[data-stil='prometheus'] .panelhead b,
+:root[data-stil='prometheus'] .panelbar-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+/*
+ * **Zahlen in Monoschrift.**
+ *
+ * Ein Wert, der sich ändert (Drehgeschwindigkeit, Zoomfaktor), springt in einer Proportionalschrift
+ * bei jeder Stelle in der Breite — und beim Ziehen eines Reglers sieht man dann das **Zittern**,
+ * nicht den Wert. `--mono` steht in `app.css`; hier wird es nur **benutzt**: die Zahlenfelder, die
+ * Wertanzeige und die Kopfzeile der Welt (Abstand, Ebene, Bilder je Sekunde).
+ */
+:root[data-stil='prometheus'] .set-wert,
+:root[data-stil='prometheus'] .set-zahl,
+:root[data-stil='prometheus'] .hud small {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * **Die Platten bekommen eine Kante — eine einzige.**
+ *
+ * Ein Blech hat eine **obere** Kante, an der das Licht hängt, und keine vier. Deshalb steht hier eine
+ * Linie über `border-top` und kein Rahmen ringsum: der Grundrahmen der Panels bleibt, wie er ist,
+ * und diese eine Linie aus Bronze sagt, wo das Licht herkommt. Zwei Striche (oben **und** unten)
+ * ergäben eine Schachtel — und eine Schachtel ist keine Platte.
+ */
+:root[data-stil='prometheus'] .panelhead,
+:root[data-stil='prometheus'] .set-dialog {
+  border-top-color: var(--b);
+}
+
+/* Und der Dialog bekommt den Schein der Esse auf seiner Oberkante — das Licht, das von unten kommt. */
+:root[data-stil='prometheus'] .set-dialog {
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--a) 6%, transparent) 0,
+    transparent 96px
+  );
+}
+
+/*
+ * **Die gewählte Zeile ist glühend, nicht blau.**
+ *
+ * Der Grundsatz färbt die aktive Navigationszeile mit dem Akzent (`--a`) — in dieser Vorlage ist
+ * das die Glut, und sie steht damit zum ersten Mal **im** Dialog und nicht nur an der Marke. Der
+ * linke Strich ist die Andeutung einer Schiene; er kommt aus dem Rahmen (`border-left`), damit die
+ * Zeile ihre Höhe behält und beim Wechsel nichts springt.
+ */
+:root[data-stil='prometheus'] .set-navitem.on {
+  border-left: 2px solid var(--a);
+  background-image: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--a) 10%, transparent) 0,
+    transparent 70%
+  );
+}
+
+/*
+ * ══ 3. WER KEINE BEWEGUNG WILL, BEKOMMT KEINE ═══════════════════════════════════════════════
+ *
+ * Dieselbe Regel wie in `app.css` — und dieselbe Begründung: `prefers-reduced-motion` ist keine
+ * Vorliebe, sondern eine Auskunft über den Menschen. Die vier Dauern setzt bereits `app.css` auf
+ * `1ms`; hier steht deshalb nur, was **diese** Vorlage hinzugefügt hat: die Glut.
+ *
+ * **Warum die Marke stehenbleibt statt zu verschwinden.** Der Schein (`filter`) ist keine Bewegung,
+ * sondern eine **Anzeige** — dieselbe Unterscheidung wie beim Leuchtring der „live"-Marke. Was
+ * verschwindet, ist allein das Atmen (`animation: none`); der Schein bleibt, sonst verlöre die
+ * Vorlage an dieser Stelle ihr einziges Licht.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-stil='prometheus'] .hud .wm svg {
+    animation: none;
+  }
+}

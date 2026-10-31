@@ -69,6 +69,33 @@ export interface Registrierung {
    * zuerst erreicht" das Adminkonto bekommt.
    */
   readonly claimToken?: string
+  /**
+   * Das **Einladungs-Token** aus dem Link (`?token=…`).
+   *
+   * Der dritte Weg zu einem Konto: er braucht weder Claim noch Sitzung. Wer den
+   * Link hat, legt **ein** Konto an — und setzt dabei sein eigenes Paßwort, das
+   * niemand sonst kennt. Siehe `packages/api/auth-http/src/einladung.ts`.
+   */
+  readonly einladungToken?: string
+}
+
+/** Eine Einladung, wie sie der Server zurückgibt. */
+export interface EinladungZeile {
+  readonly id: string
+  readonly note: string
+  readonly zustand: 'offen' | 'eingeloest' | 'abgelaufen' | 'zurueckgezogen'
+  readonly erstelltAm: string
+  readonly laeuftAb: string
+  readonly eingeloestAm?: string
+}
+
+/** Das Ergebnis des Anlegens — der Klartext-Token kommt **genau einmal**. */
+export interface NeueEinladung {
+  readonly id: string
+  readonly token: string
+  readonly note: string
+  readonly laeuftAb: string
+  readonly dauerSekunden: number
 }
 
 /** Liest einen Kekswert; leer, wenn er fehlt. */
@@ -145,6 +172,16 @@ export function ich(): Promise<Ergebnis<Konto>> {
   return ruf<Konto>('/api/pmh/auth/me')
 }
 
+/**
+ * Setzt ein Passwort über einen Einmal-Link.
+ *
+ * **Ohne Sitzung.** Wer den Link hat, hat den Nachweis; der Server legt danach
+ * eine Sitzung an und schickt beide Kekse — man ist also sofort angemeldet.
+ */
+export function passwortSetzen(resetToken: string, passwort: string): Promise<Ergebnis<Konto>> {
+  return ruf<Konto>('/api/pmh/auth/passwort/setzen', { resetToken, passwort })
+}
+
 /** Meldet ab — mit dem CSRF-Wert aus dem lesbaren Keks. */
 export function abmelden(): Promise<Ergebnis<unknown>> {
   return ruf('/api/pmh/auth/logout', {}, { [CSRF_KOPF]: keksWert(CSRF_KEKS) })
@@ -159,4 +196,36 @@ export function abmelden(): Promise<Ergebnis<unknown>> {
  */
 export function zugang(): Promise<Ergebnis<{ readonly url?: string }>> {
   return ruf<{ readonly url?: string }>('/api/pmh/auth/zugang')
+}
+
+// ---------------------------------------------------------------------------
+// Einladungen — der Administrator lädt Menschen ein
+// ---------------------------------------------------------------------------
+
+/**
+ * Erzeugt eine Einladung.
+ *
+ * **Nur ein Administrator.** Der Server antwortet sonst 403 `kein-admin`, und
+ * ohne CSRF-Wert 403 `csrf-fehlt` — beides kommt hier unverändert an.
+ *
+ * @param dauerSekunden - die gewünschte Gültigkeit (60 … 30 Tage)
+ * @param notiz - ein Merker für den Admin
+ * @returns die Einladung **mit** dem Klartext-Token (einmalig)
+ */
+export function einladungAnlegen(dauerSekunden: number, notiz: string): Promise<Ergebnis<NeueEinladung>> {
+  return ruf<NeueEinladung>(
+    '/api/pmh/auth/einladungen/neu',
+    { dauerSekunden, notiz },
+    { [CSRF_KOPF]: keksWert(CSRF_KEKS) },
+  )
+}
+
+/** Die Einladungen des angemeldeten Administrators. */
+export function einladungen(): Promise<Ergebnis<{ readonly einladungen?: readonly EinladungZeile[] }>> {
+  return ruf<{ readonly einladungen?: readonly EinladungZeile[] }>('/api/pmh/auth/einladungen')
+}
+
+/** Zieht eine Einladung zurück — der Link ist danach tot. */
+export function einladungZuruecknehmen(id: string): Promise<Ergebnis<unknown>> {
+  return ruf('/api/pmh/auth/einladungen/zuruecknehmen', { id }, { [CSRF_KOPF]: keksWert(CSRF_KEKS) })
 }

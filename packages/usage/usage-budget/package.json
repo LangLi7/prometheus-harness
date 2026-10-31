@@ -1,0 +1,17 @@
+{
+  "name": "@prometheus-harness/usage-budget",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Kosten und Budget je NUTZER und je Schluessel: Token mal Tarif, Grenzen, Warnschwellen. Reines Rechnen ohne Harness, ohne Netz, ohne Modell.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/tariffs": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

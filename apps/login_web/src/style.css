@@ -225,4 +225,117 @@ h1 {
   font-size: 12px;
 }
 
+/*
+ * Die Einladungen — der Verwaltungsbereich.
+ *
+ * **Warum abgesetzt und nicht als weitere Zeile.** Ein Link mit Ablauf ist ein
+ * Geheimnis; er soll nicht zwischen „Abmelden" und „Weiter" stehen, wo man ihn
+ * versehentlich weiterklickt.
+ */
+.einladungen {
+  margin: 22px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--rand);
+}
+
+.einladungen h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.einladungen h3 {
+  margin: 18px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--still);
+}
+
+.einladungen form {
+  margin: 0 0 12px;
+}
+
+/* Dasselbe Feld wie ein `input` — ein Auswahlfeld ohne eigenen Grund und ohne
+   eigene Schriftfarbe malt der Browser im dunklen Schema selbst. */
+.feld select {
+  padding: 9px 11px;
+  border: 1px solid var(--rand);
+  border-radius: 8px;
+  background: var(--feld);
+  color: var(--schrift);
+  font: inherit;
+}
+
+.feld select:focus-visible {
+  outline: 2px solid var(--akzent);
+  outline-offset: 1px;
+}
+
+.neuerlink {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin: 12px 0 0;
+  padding: 12px;
+  border: 1px solid var(--rand);
+  border-radius: 10px;
+  background: var(--feld);
+}
+
+.neuerlink code.link {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.neuerlink small {
+  color: var(--still);
+  font-size: 12px;
+}
+
+.liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.liste li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--rand);
+  border-radius: 8px;
+}
+
+.liste li small {
+  flex-basis: 100%;
+  color: var(--still);
+  font-size: 11px;
+}
+
+.liste .notiz {
+  overflow-wrap: anywhere;
+}
+
+.knopf.klein {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
+.zustand {
+  padding: 1px 7px;
+  border: 1px solid var(--rand);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--still);
+}
+
+.zustand.offen {
+  border-color: var(--akzent);
+  color: var(--akzent);
+}
+
 

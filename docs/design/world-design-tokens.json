@@ -1,0 +1,174 @@
+{
+  "$hinweis": "Erzeugt aus apps/universe/src/app.css von tools/design-tokens.mjs. Nicht von Hand ändern — die Quelle ist das Blatt.",
+  "farben": {
+    "bg": {
+      "wert": "#050507",
+      "was": "Der Grund der Welt"
+    },
+    "s": {
+      "wert": "#101010",
+      "was": "Fläche, eine Stufe über dem Grund"
+    },
+    "glas": {
+      "wert": "#101010f2",
+      "was": "Glas: Insel und Panel (durchscheinend)"
+    },
+    "b": {
+      "wert": "#3d3a39",
+      "was": "Rahmen, sichtbar"
+    },
+    "b2": {
+      "wert": "#1d1b1a",
+      "was": "Rahmen, leise"
+    },
+    "t": {
+      "wert": "#f2f2f2",
+      "was": "Haupttext"
+    },
+    "t2": {
+      "wert": "#b8b3b0",
+      "was": "Nebentext"
+    },
+    "t3": {
+      "wert": "#8b949e",
+      "was": "gedämpft: Etiketten, Zusätze, Marken"
+    },
+    "a": {
+      "wert": "#ff5a1f",
+      "was": "Akzent: Zeichen, aktive Zeile"
+    },
+    "a2": {
+      "wert": "#ffb35c",
+      "was": "Akzent, hell: Marke, Überschriften"
+    },
+    "blue": {
+      "wert": "#6ba3ff",
+      "was": "Information, Auswahl"
+    },
+    "g": {
+      "wert": "#3fb970",
+      "was": "Zustand „an\" (Punkt, live)"
+    }
+  },
+  "schrift": {
+    "titel": {
+      "wert": "14px",
+      "was": "Überschrift"
+    },
+    "text": {
+      "wert": "12px",
+      "was": "Fließtext"
+    },
+    "klein": {
+      "wert": "11px",
+      "was": "Etiketten und Marken — die untere Grenze"
+    },
+    "mono": {
+      "wert": "'JetBrains Mono', Consolas, monospace",
+      "was": "Zahlen, Kennungen, Terminal"
+    },
+    "sans": {
+      "wert": "var(--dsw-font-family, system-ui, sans-serif)",
+      "was": "Text — aus dem Harness, nicht gewünscht"
+    }
+  },
+  "form": {
+    "r-fein": {
+      "wert": "2px",
+      "was": "Der Strich selbst",
+      "wofuer": "Griff und Ticks der Ansichtsleiste"
+    },
+    "r-xs": {
+      "wert": "4px",
+      "was": "Chips, kleine Schalter",
+      "wofuer": "Zahlenfelder, Reset"
+    },
+    "r-sm": {
+      "wert": "6px",
+      "was": "Felder, Etiketten",
+      "wofuer": "Suchtreffer, Marke der Kopfzeile"
+    },
+    "r": {
+      "wert": "8px",
+      "was": "Die Norm",
+      "wofuer": "Karten, Knöpfe, Zeilen der Insel"
+    },
+    "r-lg": {
+      "wert": "16px",
+      "was": "Große Flächen",
+      "wofuer": "aufgeklappte Insel, Dialog"
+    },
+    "r-rund": {
+      "wert": "9999px",
+      "was": "Keine Ecke",
+      "wofuer": "Pillen und Punkte"
+    }
+  },
+  "hoehe": {
+    "sch-1": {
+      "wert": "0 1px 2px #00000080",
+      "was": "Auf der Fläche",
+      "wofuer": "Felder, Karten, Zeilen"
+    },
+    "sch-2": {
+      "wert": "0 8px 24px #000000a6",
+      "was": "Schwebt",
+      "wofuer": "Insel, Panel, Leiste"
+    },
+    "sch-3": {
+      "wert": "0 20px 60px #000000c4",
+      "was": "Über allem",
+      "wofuer": "Dialog, Schleier"
+    }
+  },
+  "bewegung": {
+    "dauer": {
+      "t-schnell": {
+        "wert": "120ms",
+        "ms": 120,
+        "was": "Ein Zustand wechselt",
+        "wofuer": "Farbe, Rahmen, Sichtbarkeit einer Marke"
+      },
+      "t-mittel": {
+        "wert": "180ms",
+        "ms": 180,
+        "was": "Eine Fläche antwortet",
+        "wofuer": "Hover, Fokus, ein Knopf drückt sich"
+      },
+      "t-gross": {
+        "wert": "260ms",
+        "ms": 260,
+        "was": "Eine Sache erscheint",
+        "wofuer": "Panel, Dialog, Ansicht, Zeile in der Liste"
+      },
+      "t-feder": {
+        "wert": "440ms",
+        "ms": 440,
+        "was": "Der große Übergang",
+        "wofuer": "die Insel klappt auf"
+      }
+    },
+    "kurve": {
+      "standard": {
+        "wert": "cubic-bezier(0.2, 0, 0, 1)",
+        "was": "Die ruhige: schnell los, sanft ankommen"
+      },
+      "ein": {
+        "wert": "cubic-bezier(0.4, 0, 1, 1)",
+        "was": "Etwas verschwindet"
+      },
+      "aus": {
+        "wert": "cubic-bezier(0, 0, 0.2, 1)",
+        "was": "Etwas kommt herein"
+      },
+      "feder": {
+        "wert": "cubic-bezier(0.34, 1.22, 0.64, 1)",
+        "was": "Der große Übergang — mit kleinem Überschwingen"
+      }
+    },
+    "puls": {
+      "wert": "1.2s",
+      "was": "Anzeige, kein Übergang: der Ring um die Insel beim Ziehen"
+    }
+  }
+}

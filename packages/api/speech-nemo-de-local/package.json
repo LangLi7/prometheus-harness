@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/speech-nemo-de-local",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Lokaler deutscher Spracherkenner NVIDIA NeMo German fastconformer (int8) über sherpa-onnx: nur Deutsch, dafür sehr genau, ohne Netz, auf der CPU. Meldet sich als Anbieter 'nemo-de-local'.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/speech-local-base": "workspace:*"
+  }
+}

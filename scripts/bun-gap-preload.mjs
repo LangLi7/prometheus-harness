@@ -1,5 +1,5 @@
 /**
- * `scripts/bun-luecken-vorladen.mjs` — der Einstieg für `bun --preload`.
+ * `scripts/bun-gap-preload.mjs` — der Einstieg für `bun --preload`.
  *
  * **Warum diese Datei existiert.** Der Core hat Teilsysteme, die **Node
  * voraussetzen**. Unter Bun brechen sie — und zwar **stumm**, als Werkzeug- oder
@@ -26,13 +26,13 @@
  * Plugin registrieren und damit den laufenden Prozeß verändern. Die Logik bleibt
  * dort (prüfbar ohne Host), die Einhängung steht hier.
  *
- * @module scripts/bun-luecken-vorladen
+ * @module scripts/bun-gap-preload
  */
 
 import { plugin } from 'bun'
 import { readFileSync } from 'node:fs'
 
-import { ergaenzungNoetig as ptcNoetig, richteEin as ptcEin } from './ptc-typentfernung.mjs'
+import { ergaenzungNoetig as ptcNoetig, richteEin as ptcEin } from './ptc-type-stripping.mjs'
 import {
   ergaenzungNoetig as argvNoetig,
   richteEin as argvEin,
@@ -41,6 +41,14 @@ import {
   ergaenzungNoetig as metadatenNoetig,
   richteEin as metadatenEin,
 } from './plugin-metadata-resolver.mjs'
+import {
+  ergaenzungNoetig as undiciNoetig,
+  richteEin as undiciEin,
+} from './undici-echte-aufloesung.mjs'
+import {
+  ergaenzungNoetig as beobachtungNoetig,
+  richteEin as beobachtungEin,
+} from './fs-beobachtung-lebensdauer.mjs'
 
 const lies = (pfad) => readFileSync(pfad, 'utf8')
 
@@ -65,6 +73,22 @@ if (metadatenNoetig()) {
   } else {
     metadatenEin(plugin, lies)
     ANGEWANDT.push('Paket-Metadaten (Bun hat keinen Node-Modulauflöser)')
+  }
+}
+if (undiciNoetig()) {
+  undiciEin(plugin, lies)
+  ANGEWANDT.push('undici-Auflösung (Bun liefert für "undici" eine Attrappe aus)')
+}
+if (beobachtungNoetig()) {
+  // **Diagnose-Schalter, gemessen am 18.10.2026.** Diese Ergänzung ändert die Schlüsselung einer
+  // Sicherheits-Policy (Objekt -> Sitzungs-id). Sie muß sich abschalten lassen, ohne den Baum
+  // anzufassen: `PMH_OHNE_BEOBACHTUNGS_FIX=1`. Wie beim Metadaten-Schalter steht sie im
+  // Startbericht, wenn sie greift — **kein** stiller Ausweg.
+  if (process.env.PMH_OHNE_BEOBACHTUNGS_FIX === '1') {
+    process.stderr.write('[pmh] ACHTUNG: Beobachtungs-Ergänzung ist ABGESCHALTET (PMH_OHNE_BEOBACHTUNGS_FIX=1)\n')
+  } else {
+    beobachtungEin(plugin, lies)
+    ANGEWANDT.push('Beobachtungs-Lebensdauer (die Sitzung wird pro Turn wiederhergestellt)')
   }
 }
 

@@ -1,0 +1,13 @@
+# The rich answer UI as its own bundle.
+#
+# The package carries both halves: the `render_ui` Host tool and the browser card
+# renderer. Installed as a bundle it is visible and switchable in the plugin list,
+# like Usage, Crew, and the AI stack.
+- insert:
+    - id: pmh-rich-ui
+      name: '@prometheus-harness/rich-ui'
+      inject: [tools]
+      # Set to false to stop offering `render_ui` (saves ~640 tokens per request)
+      # while the renderer keeps old cards visible.
+      config:
+        offerTool: true

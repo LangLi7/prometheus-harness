@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 /**
  * Prometheus Harness — eigener Anwendungs-Einstieg (Host).
  *
@@ -58,6 +59,8 @@ import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { maybeRunCommand } from './commands/index.ts'
 
 /** Diagnose-Präfix aller Zeilen dieses Hosts auf stderr. */
 const BIN = 'pmh'
@@ -409,7 +412,13 @@ function overlaysFor(flags: HostFlags): readonly PatchOptions[] {
  * aufgelöst, nicht über den Interzeptor. Die Grenze steht im README.
  */
 async function main(): Promise<void> {
-  const flags = parseHostFlags(process.argv.slice(2))
+  const argv = process.argv.slice(2)
+
+  // Verwaltungskommandos (`plugin`, `skill`, `mcp`) laufen **vor** dem Boot: sie
+  // brauchen keinen Baum. `pmh web` und die übrigen Profile gehen unverändert weiter.
+  if (await maybeRunCommand(argv)) return
+
+  const flags = parseHostFlags(argv)
   const profileName = flags.profile ?? PROFILE_NAME
 
   // **Das eigene Home, bevor irgendetwas aufgelöst wird.** `--home` setzt

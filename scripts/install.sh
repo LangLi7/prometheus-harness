@@ -160,6 +160,16 @@ for t in curl git; do
   fi
 done
 
+# **Bash für Bun — und zwar nur, wenn Bun wirklich fehlt.**
+# Das offizielle Installationsskript von Bun beginnt mit `#!/usr/bin/env bash`
+# (gemessen am 31.10.2026 an https://bun.sh/install). Auf Alpine gibt es nur
+# BusyBox-`sh`; ohne diese Zeile scheiterte `curl … | bash` dort mit
+# „bash: not found" — und zwar an einer Stelle, die nach einem Fehler des
+# Skripts aussieht. Steht Bun schon, wird bash nicht gebraucht.
+if ! command -v bun >/dev/null 2>&1 && ! command -v bash >/dev/null 2>&1; then
+  fehlende="$fehlende bash"
+fi
+
 # -----------------------------------------------------------------------------
 # 4. Fehlende Pakete installieren — oder sichtbar abbrechen
 # -----------------------------------------------------------------------------
@@ -265,7 +275,56 @@ echo "Bun: $(bun --version)"
 echo
 
 # -----------------------------------------------------------------------------
-# 6. Übergeben an die eigentliche Installation
+# 6. Docker: die Datenbank braucht es
+# -----------------------------------------------------------------------------
+# Warum das hier geschieht und nicht in `install.mjs`. Auf Linux ist Docker
+# über das offizielle Skript installierbar; das braucht root. `sudo` ist hier
+# schon geprüft (Schritt 2) — in Bun müsste dieselbe Rechteprüfung ein zweites
+# Mal stehen.
+#
+# Der unangenehme Teil danach. `usermod -aG docker` wirkt erst nach einer
+# neuen Anmeldung. Ohne diese Prüfung scheiterte Schritt 4 des Installers mit
+# „permission denied while trying to connect to the Docker daemon" — und das
+# sieht nach einem Fehler des Installers aus, nicht nach einer Gruppenregel.
+#
+# Übersteuerbar: `PMH_OHNE_DOCKER=1` überspringt die Installation (wer den Stapel
+# nicht will oder Docker schon anders bereitstellt).
+if [ "${PMH_OHNE_DOCKER:-0}" != '1' ] && ! command -v docker >/dev/null 2>&1; then
+  echo
+  echo "Docker fehlt — wird installiert (PostgreSQL und Redis laufen darin)."
+  if [ -z "$rechte" ]; then
+    echo "FEHLER: Docker zu installieren braucht root, und sudo gibt es nicht."
+    echo "  Als root ausführen, oder: curl -fsSL https://get.docker.com | sudo sh"
+    echo "  Ohne Docker: PMH_OHNE_DOCKER=1 sh scripts/install.sh"
+    exit 1
+  fi
+  if [ "$rechte" = 'sudo' ]; then docker_root='sudo'; else docker_root=''; fi
+  if ! $docker_root sh -c 'curl -fsSL https://get.docker.com | sh'; then
+    echo "FEHLER: die Docker-Installation ist gescheitert."
+    echo "  Von Hand: curl -fsSL https://get.docker.com | sudo sh"
+    echo "  Ohne Docker: PMH_OHNE_DOCKER=1 sh scripts/install.sh"
+    exit 1
+  fi
+  # Die Gruppe gibt es erst mit dem Paket; `|| true`, weil sie auf manchen
+  # Systemen schon existiert und `usermod` dann nichts zu tun hat.
+  if [ "$(id -u)" != '0' ]; then
+    $docker_root usermod -aG docker "$USER" || true
+  fi
+fi
+
+# Die Rechteprüfung, die den Unterschied macht. `docker info` fragt den
+# Daemon, nicht die Binärdatei: installiert und trotzdem gesperrt ist genau der
+# Zustand nach `usermod`, solange die Sitzung alt ist.
+if command -v docker >/dev/null 2>&1 && ! docker info >/dev/null 2>&1; then
+  echo
+  echo "Docker ist installiert, aber dieser Benutzer darf es noch nicht benutzen."
+  echo "  Einmal ab- und wieder anmelden (oder: newgrp docker), dann erneut starten."
+  echo "  Ohne Docker: PMH_OHNE_DOCKER=1 sh scripts/install.sh"
+  exit 1
+fi
+
+# -----------------------------------------------------------------------------
+# 7. Übergeben an die eigentliche Installation
 # -----------------------------------------------------------------------------
 # **Warum `exec`.** `exec` ersetzt diesen Prozeß; der Exit-Code des Skripts ist
 # damit der Exit-Code dieses Skripts — ohne Zwischenvariable, die man vergessen

@@ -1,0 +1,37 @@
+{
+  "name": "@prometheus-harness/pdf-export",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Export a session or a single answer as a typeset PDF: Typst document, Host route, two entry points in the Web client.",
+  "main": "src/server.ts",
+  "exports": {
+    ".": "./src/server.ts",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-chat"
+      ]
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "files": [
+    "src",
+    "lib/client.js",
+    "cordis.patch.yml"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.client.json",
+    "test": "bun test"
+  }
+}

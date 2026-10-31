@@ -27,7 +27,7 @@
  *
  * ## Was es tut
  *
- * Es sucht jedes `tsconfig.json` unter `packages/` und `apps/`, läuft sie
+ * Es sucht jedes `tsconfig.json` unter `packages/`, `apps/` und `units/`, läuft sie
  * **nacheinander** durch und meldet am Ende eine Zeile je Paket.
  *
  * **Warum nacheinander und nicht gleichzeitig.** `tsgo` ist ein Compiler in
@@ -80,10 +80,18 @@ export function tsgoEinstieg(wurzel = ROOT) {
  */
 export function findePakete(wurzel = ROOT) {
   const gefunden = []
-  for (const oben of ['packages', 'apps']) {
+  for (const oben of ['packages', 'apps', 'units']) {
     const basis = join(wurzel, oben)
     if (!existsSync(basis)) continue
-    // Zwei Ebenen: `packages/<gruppe>/<paket>` und `apps/<paket>`.
+    // Zwei Ebenen: `packages/<gruppe>/<paket>` und `apps/<paket>`, dazu
+    // `units/<name>` mit eigener `tsconfig.json`.
+    //
+    // **Warum `units/` mitgeprüft wird.** `units/` steht nicht im Bun-Arbeits-
+    // bereich — es ist keine Paketquelle, sondern der Ort für Plugins und Skills
+    // ohne eigenen Sprachbaum. Genau deshalb wäre ein TypeScript-Unit dort sonst
+    // **untypgeprüft**: es liefe, und niemand merkte einen Typfehler. Ein
+    // Prüfwerkzeug, das ein Verzeichnis überspringt, prüft in Wahrheit „alles
+    // andere" — und sagt es nicht.
     for (const eintrag of readdirSync(basis, { withFileTypes: true })) {
       if (!eintrag.isDirectory()) continue
       const tief = join(basis, eintrag.name)

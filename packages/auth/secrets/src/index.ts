@@ -153,6 +153,15 @@ export function standardQuellen(
 /** Die Umgebungsvariable der Hauptschlüssel-Fassung. */
 export const VERSION_VARIABLE = 'PMH_MASTER_KEY_VERSION'
 
+/**
+ * Ein Umschlag in **einem** Blob — für Spalten, die nur `bytea` kennen.
+ *
+ * `user_secrets` hat für jeden Teil des Umschlags eine Spalte; `chunks.content_cipher` und
+ * `documents.content_cipher` haben **eine**. Ohne den eingewickelten Datenschlüssel wäre der Text
+ * nicht mehr zu öffnen. Das Format steht in `umschlag.ts`, ausgeschrieben und mit eigener Fassung.
+ */
+export { entpackeUmschlag, packeUmschlag, UMSCHLAG_FASSUNG } from './umschlag.ts'
+
 /** Eine verschlüsselte Zeile, so wie sie in `user_secrets` steht. */
 export interface Umschlag {
   /** `version || nonce || ciphertext || tag`, verschlüsselt mit dem Datenschlüssel. */

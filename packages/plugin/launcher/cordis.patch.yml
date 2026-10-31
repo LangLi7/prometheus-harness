@@ -1,0 +1,7 @@
+# Der Starter als eigenes Bündel.
+#
+# Er bringt **nur** die Fläche mit, die andere Panels öffnet — die Panels selbst bleiben, wo sie
+# sind. Wer ihn nicht einbindet, bekommt die Leiste wie vorher: eine Zeile je Plugin.
+- insert:
+    - id: pmh-launcher
+      name: '@prometheus-harness/launcher'

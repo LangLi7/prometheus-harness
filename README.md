@@ -17,14 +17,20 @@ English | [Deutsch](README.de.md)
 <a id="summary"></a>
 ## Summary
 
-Clone the repository and run one command — `scripts\install.cmd` on Windows,
-`./scripts/install.sh` on Linux and macOS. It installs Bun and the base packages,
-generates `.env` with fresh secrets, starts PostgreSQL 17 and Redis 7, waits for
-their health checks, runs the migrations, and type-checks every package. Then
-`bun run start` serves the interface and prints an address carrying a token; the
-interface answers **401** without it. Measured: `bun run typecheck` reports **23
-packages green, 0 red**, and `bun test packages scripts apps` reports **1189 pass ·
-87 skip · 0 fail** across 55 files on Linux.
+One line on Windows. It fetches the repository itself and installs:
+
+```powershell
+irm https://raw.githubusercontent.com/LangLi7/prometheus-harness/main/scripts/install.ps1 | iex
+```
+
+On Linux and macOS, clone the repository and run `./scripts/install.sh`. The
+installer installs Bun and the base packages, generates `.env` with fresh secrets,
+starts PostgreSQL 17 and Redis 7 (installing Docker first when it is missing on
+Linux), waits for their health checks, runs the migrations, and type-checks every
+package. Then `bun run start` serves the interface and prints an address carrying a
+token; the interface answers **401** without it. Measured: `bun run typecheck`
+reports **23 packages green, 0 red**, and `bun test packages scripts apps` reports
+**1189 pass · 87 skip · 0 fail** across 55 files on Linux.
 
 <a id="table-of-contents"></a>
 ## Table of Contents
@@ -67,7 +73,7 @@ Nothing here is an estimate.
 | Type check | **23 packages green, 0 red** | `bun run typecheck` |
 | Test suite | **1189 pass · 87 skip · 0 fail** across 55 files (Linux, CI) | `bun test packages scripts apps` |
 | Own CI | green | [ci-nachweis.md](docs/status/ci-nachweis.md) |
-| Install | one command, seven reported steps | `scripts\install.cmd` / `./scripts/install.sh` |
+| Install | one line (Windows) / one command (Linux) | `irm … install.ps1 \| iex` / `./scripts/install.sh` |
 | Host start | **~1.1 s** to the first HTTP 200 (1107–1232 ms) | `bun run start` |
 | Authentication | first claim creates the administrator; **Argon2id** `m=19456, t=2, p=1` | `bun test packages scripts apps` |
 | Storage | PostgreSQL 17 with **pgvector**; migrations to version 7 | `bun scripts/migrate.mjs` |
@@ -79,9 +85,11 @@ Nothing here is an estimate.
 ## Quickstart
 
 ```sh
-# Windows — Command Prompt, PowerShell, or double-click the file
-git clone https://github.com/LangLi7/prometheus-harness.git
-cd prometheus-harness
+# Windows: PowerShell, one line. No clone first, and no change to the
+# execution policy. `iex` loads no file, so `Restricted` does not apply.
+irm https://raw.githubusercontent.com/LangLi7/prometheus-harness/main/scripts/install.ps1 | iex
+
+# Windows: fallback if you already cloned (also works from cmd.exe)
 scripts\install.cmd
 
 # Linux and macOS
@@ -91,7 +99,7 @@ cd prometheus-harness
 ```
 
 ```sh
-# Start with Bun
+# Start with Bun (after the Windows one-liner: cd prometheus-harness)
 cd prometheus-harness
 $env:PATH = "$env:USERPROFILE\.bun\bin;$env:PATH"
 bun run start

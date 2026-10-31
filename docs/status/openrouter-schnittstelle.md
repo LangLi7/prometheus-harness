@@ -20,9 +20,14 @@ Einstellung — genau wie im Vertrag `@prometheus-harness/faehigkeiten` vorgeseh
 |---|---|---|---|
 | `entscheiden` | `POST /api/v1/chat/completions` | `response_format: {type:'json_schema',json_schema:{name,strict,schema}}` | JSON **im Textfeld** `content` |
 | `text-zu-sprache` | `POST /api/v1/audio/speech` | `{model, input, voice, response_format:'pcm'}` | **rohe Bytes**, Kopfzeile nennt das Format |
-| `sprache-zu-text` | `POST /api/v1/audio/transcriptions` | `multipart/form-data`: `file`, `model` | `{"text": …, "usage": {…}}` |
+| `sprache-zu-text` | `POST /api/v1/audio/transcriptions` | `multipart/form-data`: `file` **mit Endung** (`.wav`/`.mp3`/`.ogg`), `model` | `{"text": …, "usage": {…}}` |
 | `einbetten` | `POST /api/v1/embeddings` | `{model, input}` | `data[0].embedding` |
-| `bild` | **noch nicht gemessen** | — | — |
+| `bild` | `POST /api/v1/images/generations` | `{model, prompt, n:1, response_format:'b64_json'}` | `data[0].b64_json` (Base64) |
+
+**Die Endung ist keine Höflichkeit, sondern Pflicht** — nachgetragen am 19.10.2026: mit
+`file: 'ton'` und `application/octet-stream` antwortet der Dienst **200** und `{"text":""}`.
+Mit `ton.wav` und `audio/wav` kam derselbe Satz vollständig zurück. Der Anbieter liest den Behälter
+deshalb aus den ersten Bytes (`tonArt`). Einzelheiten: [`bild-und-plugin.md`](bild-und-plugin.md) §5.
 
 Überall derselbe Kopf: `Authorization: Bearer <Schlüssel>`.
 
@@ -115,9 +120,13 @@ Zusammen **unter 0,004 $**. Der Zähler des Schlüssels stand währenddessen unv
 
 ## Was noch fehlt
 
-- **Bild** (`google/gemini-nano-banana-2.1`): der Weg ist nicht gemessen. Vermutlich
-  `/api/v1/images/generations` oder der Chat-Weg mit `modalities` — **nicht geraten, sondern als
-  nächste Messung vorgesehen.**
+- ~~**Bild** (`google/gemini-nano-banana-2.1`): der Weg ist nicht gemessen.~~ **Erledigt am
+  19.10.2026 — mit einem Umweg:** `nano-banana` gab an diesem Tag nur **429** (Google-Kontingent);
+  `google/gemini-2.5-flash-image` antwortete mit **200**. Die Form ist
+  `{model, prompt, n, response_format:'b64_json'}` → `data[0].b64_json`. Der Behälter war ein PNG.
+  Einzelheiten: [`bild-und-plugin.md`](bild-und-plugin.md).
+- **Der `url`-Weg** ist weiterhin ungemessen: der Code holt ihn, aber niemand hat ihn lebend
+  gesehen.
 - **Der lebende Nachweis im Betrieb**: die Aufrufe oben waren Messungen von Hand. Im Anbieter
   gehört ein Aufruf hinter den Schalter `PMH_OPENROUTER_LEBEND=1`, damit kein Testlauf ungefragt
   Geld ausgibt.

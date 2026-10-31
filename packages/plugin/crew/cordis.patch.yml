@@ -1,0 +1,21 @@
+# Die Crew als eigenes Bündel.
+#
+# **Was diese Datei tut.** Sie hängt genau eine Zeile in das Ladeprogramm des
+# Hosts: die Host-Hälfte (Wege unter `/api/pmh/crew`, Adapter am Kern-Seam, die
+# Werkzeuge, die Buchung) und die Browser-Hälfte (Sidebar-Eintrag und Panel).
+# Wer das Bündel im Plugin-Fenster abschaltet, nimmt beides mit.
+#
+# **Warum `inject` hier drei Dienste nennt und nicht die Vorgabe `[webServer]`.**
+# Die Host-Hälfte braucht den Webserver für die Wege, den Modell-Seam für den
+# Adapter (`registerAdapter(['crew'], …)`) und die Werkzeug-Registry für
+# `crew_plan`, `crew_todo`, `crew_todo_status`, `crew_workspace`. Ein Warten auf
+# nur den Webserver hieße: das Plugin hängt sich ein, sieht keinen Seam und tut
+# still halb nichts.
+#
+# **Warum diese Zeile NICHT zusätzlich in `scripts/profile-patch.mjs` steht.**
+# Der Kern wirft bei doppelter Kennung `(kind, path)`; ein Paket als Bündel UND
+# als Patch-Zeile ist kein zweiter Weg, sondern ein Host, der nicht startet.
+- insert:
+    - id: pmh-crew
+      name: '@prometheus-harness/crew'
+      inject: [webServer, llm, tools]

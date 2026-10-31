@@ -1,0 +1,13 @@
+{
+  "name": "mirofish",
+  "owner": {
+    "name": "Prometheus Harness"
+  },
+  "plugins": [
+    {
+      "name": "mirofish",
+      "source": "./plugin",
+      "description": "MiroFish als synthetische Zielgruppe fuer Website- und Positionierungs-Tests: Seed-Dossier, Simulation, Report, Design-Entscheidungen."
+    }
+  ]
+}

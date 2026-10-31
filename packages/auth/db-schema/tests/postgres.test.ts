@@ -355,6 +355,8 @@ run('PostgreSQL: Migrationen gegen eine echte Datenbank', () => {
       'session_events',
       // **Neu mit Migration 0009.** Die Quellordner: mehrere je Arbeitsbereich.
       'workspace_folders',
+      // **Neu mit Migration 0011.** Die Records der Credential-Seam.
+      'credential_records',
       // **Kein `CREATE TABLE` in einer Migration.** Diese Tabelle legt der
       // Migrationsläufer selbst an — deshalb steht sie in `migrate.test.ts`
       // nicht in der Liste und hier doch.

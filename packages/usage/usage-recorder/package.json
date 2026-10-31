@@ -1,0 +1,19 @@
+{
+  "name": "@prometheus-harness/usage-recorder",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Vom Modellaufruf zum bezahlten Datensatz: Token und Route werden einem Nutzer und einem Schluesselnamen zugeordnet, mit Tarif gepreist und abgelegt.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/llm": "workspace:*",
+    "@prometheus-harness/tariffs": "workspace:*",
+    "@prometheus-harness/usage-budget": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

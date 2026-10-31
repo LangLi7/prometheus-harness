@@ -54,7 +54,20 @@ export interface UserRecord {
 export interface NewUser {
   readonly id: string
   readonly email: string
-  readonly passwordHash: string
+  /**
+   * Der Passwort-Hash — oder `null`.
+   *
+   * **`null` ist kein Versehen, sondern ein Zustand:** das Konto existiert, hat
+   * aber noch kein Passwort. Genau so entsteht es, wenn ein Administrator es
+   * anlegt und der Mensch es erst über einen Link setzt. Die Spalte ist in der
+   * Datenbank dafür `NULL`-fähig; gelesen wird sie als `undefined` (siehe
+   * {@link UserRecord.passwordHash}).
+   *
+   * **Warum nicht der leere Text.** `''` wäre ein Hash, der nie paßt — und
+   * `authenticate` könnte ihn nicht von einem echten Hash unterscheiden. `null`
+   * ist dagegen dieselbe Aussage wie `undefined`: kein Passwort gesetzt.
+   */
+  readonly passwordHash: string | null
   readonly displayName: string
   /**
    * Die Rolle des neuen Kontos; ohne Angabe `user`.

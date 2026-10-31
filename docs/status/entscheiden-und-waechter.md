@@ -128,3 +128,64 @@ Zeitpunkten, oder wenn ein Schlüssel fehlt (Vorbild: `github.com/tashfeenahmed/
 Damit wird aus „ein Anbieter je API von Hand" ein **Verzeichnis**, das sich selbst nachführt.
 
 **D. Später:** Tev lokal (`packages/ai/local`), der 1:1-Ordnerdialog, das Admin-Konto.
+
+## 9. Der Anbieter TypeSafe — gebaut und geprüft (28.10.2026)
+
+`packages/ai/typesafe` erfüllt `entscheiden` über `POST /v1/systemone`. **Er ist der erste
+Anbieter, der `sicherheit` wirklich liefert.**
+
+### Warum ein eigener Anbieter und nicht `typesafe/jev-router` über OpenRouter
+
+Über OpenRouter spricht Jev das Chat-Format: man bekommt ein JSON-Objekt nach Schema — und
+**keine** `confidence`. Damit bleibt das Feld leer, das `umgangFuer` braucht, und jedes Urteil
+landet beim Menschen. Dazu trägt `jev-router` dort den Preis `-1` (unbekannt, gemessen am
+15.10.2026); die TypeSafe-API nennt **$42 pro Milliarde Input-Token, Output kostenlos**.
+
+### Die Übersetzung: ein Schema-Feld wird eine Frage
+
+| Schema-Feld | Primitiv | `wert` | `sicherheit` |
+|---|---|---|---|
+| `auswahl: [...]` | `choice` | `answers[x].choice` | `answers[x].confidence` |
+| `art: 'wahrheitswert'` | `noul` | `p >= 0.5` | `\|2p − 1\|` |
+| `art: 'zahl'` ohne Auswahl | — | **abgelehnt** | — |
+| `art: 'text'` ohne Auswahl | — | **abgelehnt** | — |
+
+Die letzten beiden Zeilen sind die harte Grenze: **Jev generiert nicht.** Ein Feld, das Jev
+nicht kann, wird **vor** dem Aufruf abgelehnt — es kostet nichts, und der Aufrufer liest, welches
+Feld es war. Ein Ersatzformat zu erfinden hieße: ein Urteil, das aussieht wie eine Antwort.
+
+**Mehrere Felder gehen in EINEM Aufruf** (die Fragen laufen dort parallel).
+
+### Zwei Entscheidungen, die begründet sind
+
+1. **`sicherheit` ist das Minimum über alle Felder, nicht der Durchschnitt.** Ein Urteil über
+   fünf Felder ist nur so sicher wie sein unsicherstes; zu mitteln hieße, Sicherheit zu erfinden.
+2. **`Feld.beschreibung` wurde ergänzt** (`packages/ai/capabilities`). Ohne sie kennt das Modell
+   nur den Feldnamen — und Jev beantwortet die geschriebene Frage, nicht die gemeinte.
+
+### Der Schlüssel
+
+`TYPESAFE_API_KEY` — **erst der Anmeldedienst** (`credentials.resolve`), dann die Umgebung.
+Dieselbe Regel wie bei OpenRouter (`schluesselquelleFuer`). Die Modellkennung kommt aus der Wahl
+des Endnutzers; `$TYPESAFE_MODELL` ist der Ausweichweg, keine Vorgabe im Quelltext.
+
+**Geprüft:** 23 Prüfungen in `packages/ai/typesafe` (Form des Aufrufs über einen echten Socket,
+Sicherheit aus `confidence` und aus dem Noul-Abstand, Ablehnung vor dem Aufruf, Bereitschaft,
+Fehler), 93 Pakete im Typecheck grün.
+
+### Was daran noch offen ist
+
+- **Die Messung fehlt.** Daß `confidence` ankommt, ist geprüft; ob sie für *unsere* Fälle
+  brauchbar ist, nicht. Dafür braucht es gelabelte Fälle und eine Risk-Coverage-Kurve.
+- **Der `state` ist untrusted.** Datadog hat am 15.10.2026 gezeigt: eine umformulierte Policy im
+  State drückt den Injection-Recall von 82,9 % auf 3,88 %. Für den Wächter bleibt Stufe 1
+  (Regeln) der Hauptträger.
+- **Das Zugangs-Verzeichnis** (`packages/plugin/zugaenge`) kennt jetzt zwei Familien mit
+  Umsetzung: `openrouter` und `typesafe`. TypeSafe ist damit über die Oberfläche eintragbar
+  („Modellanbieter hinzufügen"). Der Pfad `/v1/systemone` steht dort **ohne Messdatum** — er
+  stammt aus der Dokumentation, nicht aus einem Aufruf.
+- **Ein externer Schlüsseldienst** (Bitwarden o. ä.) ist nicht angebunden. Die Naht dafür ist
+  da: `Schluesselablage` in `packages/plugin/zugaenge/src/speicher.ts` mit
+  `beschreibe`/`lies`/`setze`/`entferne`. Eine zweite Umsetzung dieser Schnittstelle wäre der
+  Weg — nicht ein Umbau der Aufrufer.
+

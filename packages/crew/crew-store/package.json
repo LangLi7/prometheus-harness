@@ -1,0 +1,18 @@
+{
+  "name": "@prometheus-harness/crew-store",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Die Ablage der Crews: je Konto in PostgreSQL (crew_definitionen, crew_einstellungen), Rückfall auf <home>/crew/config.json. Prüft die Eingabe, bevor sie gespeichert wird.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/crew-core-adapter": "workspace:*",
+    "@prometheus-harness/crew-plan": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

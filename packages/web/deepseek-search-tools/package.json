@@ -1,0 +1,17 @@
+{
+  "name": "@prometheus-harness/deepseek-search-tools",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Die DeepSeek-Suche und der Abruf als eigene Wege (/v1/tools/search, /v1/tools/fetch): Anfrage, Antwort, Abrechenbarkeit und Kosten je Anfrage. Kein Netzzugriff im Paket selbst — fetch wird gereicht.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/agent-tools": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

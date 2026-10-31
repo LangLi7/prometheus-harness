@@ -1147,6 +1147,7 @@
         "viewOptions.hideArchived": "Hide archived",
         "viewOptions.showArchived": "All conversations (show archived)",
         "viewOptions.onlyArchived": "Archived only",
+        "viewOptions.onlyFavorites": "Favorites only",
         "sessions.expand": "Show {n} more sessions",
         "sessions.collapse": "Show less",
         "empty.none": "No sessions yet",

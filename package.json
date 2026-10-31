@@ -8,16 +8,20 @@
     "packages/*/*",
     "apps/web",
     "apps/login_web",
-    "apps/cli"
+    "apps/cli",
+    "apps/universe"
   ],
   "scripts": {
     "typecheck": "bun run scripts/typecheck.mjs",
     "build": "bun run scripts/typecheck.mjs",
     "check:readme": "bun run scripts/readme-pairing.mjs",
+    "check:slop": "node scripts/slop-check.mjs",
     "bench": "bun run benchmarks/lauf.mjs",
     "test": "bun test",
     "install:alles": "bun run scripts/install.mjs",
     "start": "bun run scripts/start.mjs",
+    "units:host": "bun run scripts/units-host.mjs",
+    "gen": "bun run packages/units/unit-system/src/cli.ts",
     "start:web": "bun run scripts/start.mjs --no-go",
     "start:go": "bun run scripts/start.mjs --no-host",
     "migrate": "bun run scripts/migrate.mjs",
@@ -27,6 +31,9 @@
     "@types/bun": "^1.4.3",
     "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "postgres": "^3.4.9"
+  },
+      "patchedDependencies": {
+    "@deepseek-ai/dsh-client-ui-workspace@0.2.1-alpha.2": "patches/dsh-client-ui-workspace@0.2.1-alpha.2.patch"
   },
   "engines": {
     "bun": ">=1.4.0"

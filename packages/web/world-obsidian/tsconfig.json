@@ -1,0 +1,11 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    // **Die Basiskonfiguration kennt kein DOM** (`lib: ["ES2022"]`), und dieses Paket braucht es auch
+    // nicht: es arbeitet auf der Rechner-Seite mit `node:http` und `node:fs`. Die Typen des Webservers
+    // (`WebRoute`) bringt `@deepseek-ai/dsh-host-webserver` mit.
+    "lib": ["ES2022"],
+    "types": ["bun"]
+  },
+  "include": ["src", "tests"]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/tariffs",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Was ein Modell kostet: die Tabelle als Saat, die Messung als Wahrheit. Jeder Eintrag traegt seinen Stand, denn ein Preis ohne Datum altert nie. Ein unbekannter Preis ist kein niedriger Preis.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

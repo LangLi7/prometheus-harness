@@ -330,14 +330,17 @@ fn identity_of_file(file: &std::fs::File) -> Result<DescriptorIdentity, LockErro
 fn lock_raw(raw: i32, kind: LockKind, wait_ms: Option<u64>) -> Result<(), LockError> {
     // SAFETY: in `--fd` mode the caller guarantees the descriptor is open and
     // stays open; this program never closes it, which is the contract's rule.
-    let fd = unsafe { pmh_flock::borrow_raw(raw) };
+    // `try_borrow_raw` rather than `borrow_raw`: the contract requires an
+    // invalid descriptor to be *reported* as `EBADF`, and a panic would replace
+    // a JSON diagnostic with a crash.
+    let fd = unsafe { pmh_flock::try_borrow_raw(raw)? };
     try_lock(fd, kind, wait_ms)
 }
 
 #[cfg(unix)]
 fn identity_of_raw(raw: i32) -> Result<DescriptorIdentity, LockError> {
-    // SAFETY: as in `lock_raw`.
-    let fd = unsafe { pmh_flock::borrow_raw(raw) };
+    // SAFETY: as in `lock_raw`; same non-panicking path for the same reason.
+    let fd = unsafe { pmh_flock::try_borrow_raw(raw)? };
     identity_of(fd)
 }
 

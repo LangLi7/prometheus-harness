@@ -107,7 +107,6 @@ type Session struct {
 	view     string
 	windowID string
 	streamID string
-	queue    int
 	maxDrops uint64
 
 	mu       sync.Mutex
@@ -130,7 +129,6 @@ func (h *Hub) neueSession(sink Sink, s Statement) *Session {
 		view:     s.View,
 		windowID: s.WindowID,
 		streamID: s.StreamID(),
-		queue:    h.config.Queue,
 		maxDrops: uint64(h.config.MaxDrops),
 		outbox:   make(chan api.ServerMessage, h.config.Queue),
 		finished: make(chan struct{}),
@@ -321,17 +319,15 @@ func (s *Session) zurueck(frames []api.ServerMessage) bool {
 //
 //  1. der aelteste als droppable markierte Rahmen — derselbe Verlust, den die
 //     Ueberlaufpolitik ohnehin erlaubt,
-//  2. danach der ready-Rahmen: die Generation, die er eroeffnet, endet gerade,
-//     also bedeutet er nichts mehr, waehrend die Erklaerung der Trennung alles
-//     bedeutet.
+//  2. danach der ready-Rahmen. Er ist der einzige nicht droppable Rahmen, der
+//     ohne Bedeutungsverlust gehen darf: die Generation, die er eroeffnet,
+//     endet gerade. Dass Enqueue ihn nie anfasst, ist kein Widerspruch —
+//     Enqueue schuetzt die laufende Generation, Fail beendet sie.
 //
-// Dass Fail den ready-Rahmen opfern darf, waehrend Enqueue ihn nie anfasst, ist
-// kein Widerspruch: Enqueue schuetzt die laufende Generation, Fail beendet sie.
-// Nach dem Ende bedeutet ein ready-Rahmen nichts mehr, die Erklaerung der
-// Trennung dagegen alles. Reicht der Platz danach immer noch nicht — etwa weil
-// die Warteschlange nur aus nicht droppbaren Rahmen besteht —, bleibt der
-// Close-Code des Traegers die Meldung: lieber kein Rahmen als ein stiller
-// Verlust. Nutzinhalt wird nie still verworfen.
+// Nutzinhalt ohne droppable-Merkmal wird nie still verworfen. Reicht der Platz
+// auch dann nicht — etwa weil der Puffer nur aus solchem Nutzinhalt besteht —,
+// bleibt der Close-Code des Traegers die Meldung: lieber kein Rahmen als ein
+// stiller Verlust.
 func (s *Session) Fail(f *api.Failure) {
 	s.mu.Lock()
 	if s.closed {

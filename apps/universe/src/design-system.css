@@ -1,0 +1,43 @@
+/**
+ * Das **Design-System des DeepSeek-Harness** — wörtlich übernommen.
+ *
+ * **Was der Betreiber erlaubt hat:** „weisst du was du darfst auch wenn du es quasi 1:1 übernimmst
+ * mit dem aktuellen harness komplett übernehmen das es auch funktioniert".
+ *
+ * **Warum das der richtige Weg ist und nicht bloß der bequeme.** Bis hierher standen die Farben
+ * dieses Prototyps **abgeschrieben** in `app.css` — aus `design-platform.css` herausgelesen und von
+ * Hand eingetragen. Abgeschriebene Werte sind eine **zweite Wahrheit**: sie stimmen heute und
+ * driften morgen. Genau daran ist das Aussehen gescheitert, das der Betreiber verglichen hat
+ * („siehst du der unterschied???"): die **Maße** waren aus dem Harness, die **Farben** waren meine.
+ *
+ * **Was hier importiert wird** — fünf Dateien aus `ui-theme`, jede selbstständig (keine `@import`s,
+ * keine `url()` außer den Schriften, die daneben liegen):
+ *
+ *   `brand-font.css`       die Markenschrift **Montserrat** samt Lizenz (SIL OFL)
+ *   `base.css`             Schriftfamilien, Bewegungskurven, Radien
+ *   `design-platform.css`  **alle** Token-Sätze: hell `body`, dunkel `body[data-ds-dark-theme]`
+ *   `scrollbar.css`        die Bildlaufleiste — ohne sie zeichnet der Browser eine **helle** Leiste
+ *                          über die dunkle Fläche
+ *   `focus.css`            der Fokusring
+ *
+ * **Warum ein relativer Pfad in einen fremden Checkout statt einer Kopie.** Der Betreiber hat den
+ * Harness auf dieser Maschine liegen (`C:\Users\Chang\harness\deepseek-harness`). Eine Kopie wäre
+ * wieder eine zweite Wahrheit; der Import folgt dem Original. Vite löst den Pfad auf und **bündelt**
+ * die Dateien — im gebauten Stand liegt also eine Kopie, im Quelltext steht der Ursprung.
+ *
+ * **Der Preis, offen benannt:** der Prototyp hängt damit an einem **Ort auf dieser Maschine**. Wer
+ * ihn weitergeben will, muss die fünf Dateien mitnehmen — oder den Import durch eine Kopie
+ * ersetzen. Für einen Prototyp auf diesem Rechner ist das der richtige Tausch: das Aussehen stimmt
+ * **nachweislich**, statt „ungefähr".
+ *
+ * **Was NICHT importiert wird** — und warum: die Komponenten-Blätter der 63 Client-Pakete
+ * (`AppFrame`, `SidebarRoot`, `ChatView`, `MessageItem`, `InputBar`, …). Sie sind auf die
+ * Schichtung des Harness zugeschnitten (`data-slot`, CSS-Module-Hashes, Container-Queries) und
+ * ergeben ohne dessen React-Baum kein Bild. Der **Aufbau** dieses Chats ist deshalb nachgebaut — mit
+ * den echten Tokens, sodass jede Farbe und jeder Radius aus dem Original kommt.
+ */
+@import 'C:/Users/Chang/harness/deepseek-harness/packages/client/ui-theme/src/styles/brand-font.css';
+@import 'C:/Users/Chang/harness/deepseek-harness/packages/client/ui-theme/src/styles/base.css';
+@import 'C:/Users/Chang/harness/deepseek-harness/packages/client/ui-theme/src/styles/design-platform.css';
+@import 'C:/Users/Chang/harness/deepseek-harness/packages/client/ui-theme/src/styles/scrollbar.css';
+@import 'C:/Users/Chang/harness/deepseek-harness/packages/client/ui-theme/src/styles/focus.css';

@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prometheus — Zeichensatz (36 Zeichen)</title>
+    <!--
+      Erzeugt von build.mjs aus src/shapes.ts. Nicht von Hand ändern — die Quelle ist der Code.
+    -->
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 32px;
+        font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+        background: #0d0d0f; color: #e8e6e3;
+      }
+      h1 { margin: 0 0 4px; font-size: 20px; font-weight: 600; letter-spacing: .04em; }
+      h1 span { color: #ff9d3f; }
+      p.hinweis { margin: 0 0 28px; color: #8b8781; }
+      h2 { margin: 36px 0 12px; font-size: 12px; font-weight: 600; letter-spacing: .18em;
+           text-transform: uppercase; color: #8b8781; }
+      .reihe { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+      .karte { margin: 0; display: flex; gap: 14px; align-items: center; padding: 12px 14px;
+               border: 1px solid #232326; border-radius: 10px; background: #141417; }
+      .karte svg { flex: none; }
+      .karte figcaption { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+      .karte code { font: 12px/1.4 ui-monospace, "Cascadia Mono", monospace; color: #ff9d3f; }
+      .karte span { font-size: 12px; color: #a9a5a0; }
+      /* Der Prüfstand: derselbe Satz auf hellem Grund. Die **Farbe** muss dort mitgesetzt werden —
+         currentColor bliebe sonst hell auf hell, und die Zeile wäre leer (gemessen im ersten Blatt:
+         die Zeichen waren praktisch unsichtbar, und das lag nicht an den Zeichen).
+         ACHTUNG: in diesem Template-String dürfen **keine Backticks** stehen — sie beenden die
+         Zeichenkette, und der Fehler zeigt dann auf eine ganz andere Stelle. */
+      .hell { background: #f4f2ef; border-color: #ddd8d2; color: #2a2724; }
+      .hell code { color: #a8551a; }
+      .hell span { color: #5d5852; }
+      .leiste { display: flex; flex-wrap: wrap; gap: 26px; margin-top: 10px; }
+      .leiste div { display: flex; gap: 10px; align-items: center; }
+      .leiste small { color: #8b8781; font-size: 11px; }
+      .groessen { display: flex; gap: 18px; align-items: flex-end; margin-top: 12px; }
+      .groessen svg { color: #e8e6e3; }
+    </style>
+  </head>
+  <body>
+    <h1><span>Prometheus</span> — Zeichensatz</h1>
+    <p class="hinweis">36 Zeichen, 24×24 Raster, Strichlinie, <code>currentColor</code>. Erzeugt aus <code>src/shapes.ts</code>.</p>
+
+    <h2>Alle Zeichen — dunkler Grund</h2>
+    <div class="reihe">
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.4a6.4 6.4 0 0 0 6.4-6.4c0-3.4-2.4-4.9-3.4-7.1-.6-1.3-.7-2.5-.3-3.8-2.9 1.5-4.5 3.9-4.5 6.3 0 1.3.5 2.2.5 3a1.9 1.9 0 0 1-3.8.2c-.1-.6 0-1.2.2-1.8A6.4 6.4 0 0 0 12 21.4z"/><path d="M12 20.2a2.9 2.9 0 0 0 2.9-2.9c0-1.8-1.4-2.4-1.4-4.2-1.1 1.2-1.9 2.1-1.9 3.4 0 .6.4.9.4 1.4a1.4 1.4 0 0 1-2.1 1.2"/></svg>
+        <figcaption><code>prometheus</code><span>Die Flamme mit zwei Zungen — die Marke. Sie steht für das gestohlene Feuer.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5.8" r="1.5"/><path d="M13.3 5.5 15.4 6.5"/><path d="M12 7.4c-1 2.4-0.9 4.8 0.3 7.2"/><path d="M11.6 9.2C9 7.2 6.4 7.3 3.6 9.8c2.8 1 4.8 2 6.6 3.4"/><path d="M12.4 9.2c2.6-2 5.2-1.9 8 0.6-2.8 1-4.8 2-6.6 3.4"/><path d="M12.3 14.6c1.4 2.2 1.6 4.2 0.6 6.4"/><path d="M11.7 14.6c-1.4 2.2-1.6 4.2-0.6 6.4"/><path d="M12 15.2 12 20.8"/></svg>
+        <figcaption><code>phoenix</code><span>Der Phönix — aus der Asche aufsteigend. Für „Neuanfang", „Wiederaufbau", „Weiter nach dem Fehler".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8c2.4 3.2 3.6 5 3.6 7a3.6 3.6 0 0 1-7.2 0c0-2 1.2-3.8 3.6-7z"/><path d="M12 9.6c1.1 1.5 1.6 2.4 1.6 3.4a1.6 1.6 0 0 1-3.2 0c0-1 0.5-1.9 1.6-3.4z"/><path d="M6.2 12.4c1.4 1.9 2.1 3.1 2.1 4.5a2.1 2.1 0 0 1-4.2 0c0-1.4 0.7-2.6 2.1-4.5z"/><path d="M17.8 12.4c1.4 1.9 2.1 3.1 2.1 4.5a2.1 2.1 0 0 1-4.2 0c0-1.4 0.7-2.6 2.1-4.5z"/><path d="M3.2 21 20.8 21"/></svg>
+        <figcaption><code>flamme</code><span>Das Feuer — drei Zungen über dem Grund. Für „Schmiede", „Hitze", „in Betrieb".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.4c2.3 2.9 3.5 4.5 3.5 6.3a3.5 3.5 0 0 1-7 0c0-1.8 1.2-3.4 3.5-6.3z"/><path d="M12 8.4c1 1.2 1.5 1.9 1.5 2.7a1.5 1.5 0 0 1-3 0c0-.8.5-1.5 1.5-2.7z"/><path d="M8.8 10.4 L15.2 10.4 L14.4 12.2 L9.6 12.2 Z"/><path d="M10.9 12.2 10.2 20.6M13.1 12.2 13.8 20.6"/><path d="M9.2 20.6 14.8 20.6"/></svg>
+        <figcaption><code>torch</code><span>Die Fackel — das Feuer wird getragen. Für „weitergeben" und „in Betrieb".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.8 3.2 14.2 3.2"/><path d="M10 3.2c0 1.5.9 2.1.9 3.4 0 1-.9 1.4-.9 2.8 0 3.6 1.1 6.2 3 6.2s3-2.6 3-6.2c0-1.4-.9-1.8-.9-2.8 0-1.3.9-1.9.9-3.4"/><path d="M9.4 7.4C7.6 8 6.6 9.4 6.6 11s1 3 2.8 3.6"/><path d="M14.6 7.4c1.8.6 2.8 2 2.8 3.6s-1 3-2.8 3.6"/><path d="M10.6 15.6 9.8 20.8h4.4l-.8-5.2"/></svg>
+        <figcaption><code>vessel</code><span>Das Gefäß (Narthex), in dem das Feuer kam. Für „Behälter", „Bestand", „Sitzung".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.3" y="8.3" width="11" height="7.4" rx="3.7" transform="rotate(-45 8.8 12)"/><rect x="9.7" y="8.3" width="11" height="7.4" rx="3.7" transform="rotate(-45 15.2 12)"/></svg>
+        <figcaption><code>chain</code><span>Zwei verschlungene Glieder — Prometheus war an den Felsen gebunden. Für „festgelegt".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.8h12.2c1 1.6 2.6 2.6 4.6 3.2-2 1.2-3.4 2.2-4.2 3.4H8.8l-1.2 1.8H4.4z"/><path d="M8.8 15.4h6.6l1.4 3.4H7.4z"/><path d="M5.4 20.4 18.6 20.4"/></svg>
+        <figcaption><code>anvil</code><span>Der Amboss — die Werkstatt des Hephaistos. Für „Bauen", „Umsetzen".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 3.8 L16.6 3.8 L20.2 5.4 L20.2 7.4 L16.6 9 L3.4 9 Z"/><path d="M12 9 12 20.2"/><path d="M9.8 20.2 14.2 20.2"/></svg>
+        <figcaption><code>hammer</code><span>Der Hammer — das Werkzeug der Schmiede. Für „formen", „schlagen", „umbauen".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.6" ry="4.4" transform="rotate(-28 12 12)"/><circle cx="20.48" cy="7.49" r="2.2" fill="currentColor" stroke="none"/><circle cx="3.52" cy="16.51" r="2.2" fill="currentColor" stroke="none"/></svg>
+        <figcaption><code>orbit</code><span>Eine Bahn mit zwei Körpern darauf — der kosmische Überblick, der Weg in die Welt.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="4.4" width="18.8" height="12.6" rx="2.8"/><path d="M8.2 17v4l4.2-4"/><path d="M6.4 8.6 17.6 8.6"/><path d="M6.4 12.6 13.4 12.6"/></svg>
+        <figcaption><code>chat</code><span>Eine Sprechblase mit zwei Zeilen — der Chat.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.4A7.6 7.6 0 1 0 19.6 12"/><path d="M12 4.4 14.6 2.2M12 4.4 14.6 6.6"/><circle cx="12" cy="12.6" r="1.5" fill="currentColor" stroke="none"/></svg>
+        <figcaption><code>reset-view</code><span>Die Kamera kehrt zurück — „Ansicht zurücksetzen".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7 5.2 7"/><path d="M10 7 21 7"/><circle cx="7.6" cy="7" r="2.4"/><path d="M3 12 13.4 12"/><path d="M18.6 12 21 12"/><circle cx="16" cy="12" r="2.4"/><path d="M3 17 7.4 17"/><path d="M12.6 17 21 17"/><circle cx="10" cy="17" r="2.4"/></svg>
+        <figcaption><code>settings</code><span>Drei Schienen mit Knöpfen — Einstellungen.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.13 2.38 L13.87 2.38 L13.52 4.55 L16.19 5.66 L17.48 3.88 L20.12 6.52 L18.34 7.81 L19.45 10.48 L21.62 10.13 L21.62 13.87 L19.45 13.52 L18.34 16.19 L20.12 17.48 L17.48 20.12 L16.19 18.34 L13.52 19.45 L13.87 21.62 L10.13 21.62 L10.48 19.45 L7.81 18.34 L6.52 20.12 L3.88 17.48 L5.66 16.19 L4.55 13.52 L2.38 13.87 L2.38 10.13 L4.55 10.48 L5.66 7.81 L3.88 6.52 L6.52 3.88 L7.81 5.66 L10.48 4.55 Z"/><circle cx="12" cy="12" r="3.3"/></svg>
+        <figcaption><code>gear</code><span>Ein Zahnrad — Einstellungen als Gruppe, „Mechanik".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 6.6 17.4 17.4"/><path d="M17.4 6.6 6.6 17.4"/></svg>
+        <figcaption><code>close</code><span>Ein Kreuz — schließen, abstecken, abbrechen.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.6 5.8 L15.8 12 L9.6 18.2"/></svg>
+        <figcaption><code>chevron-right</code><span>Ein Pfeil nach rechts — „weiter", „aufklappen".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(90 12 12)"><path d="M9.6 5.8 L15.8 12 L9.6 18.2"/></g></svg>
+        <figcaption><code>chevron-down</code><span>Ein Pfeil nach unten — „öffnen", „mehr davon".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(180 12 12)"><path d="M9.6 5.8 L15.8 12 L9.6 18.2"/></g></svg>
+        <figcaption><code>chevron-left</code><span>Ein Pfeil nach links — „zurück", „einklappen".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(270 12 12)"><path d="M9.6 5.8 L15.8 12 L9.6 18.2"/></g></svg>
+        <figcaption><code>chevron-up</code><span>Ein Pfeil nach oben — „zuklappen", „eine Ebene höher".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.6 12 18.4"/><path d="M5.6 12 18.4 12"/></svg>
+        <figcaption><code>plus</code><span>Ein Kreuz aus zwei gleichen Strichen — hinzufügen, öffnen.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.4 7.4 L9.8 12 L5.4 16.6"/><path d="M12.6 16.6 18.6 16.6"/></svg>
+        <figcaption><code>prompt</code><span>Eine Eingabeaufforderung: Winkel und Strich. Für das Terminal.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.4" width="18" height="15.2" rx="2.4"/><path d="M3 10.2h18M10.2 10.2v9.4"/></svg>
+        <figcaption><code>panels</code><span>Eine Fläche mit einer Trennlinie — die Panels.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 21 7.8 12 12.4 3 7.8z"/><path d="M3 12.4 12 17l9-4.6"/><path d="M3 16.6 12 21.2l9-4.6"/></svg>
+        <figcaption><code>layers</code><span>Drei übereinanderliegende Ebenen — Ansichten, Bezugsebenen.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.4" cy="10.4" r="6.4"/><path d="M15.2 15.2 20.8 20.8"/></svg>
+        <figcaption><code>search</code><span>Eine Lupe — suchen, finden, einen Körper aufspüren.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.6c0 0 6.6-6.6 6.6-11.2a6.6 6.6 0 1 0-13.2 0c0 4.6 6.6 11.2 6.6 11.2z"/><circle cx="12" cy="10.2" r="2.4"/></svg>
+        <figcaption><code>place</code><span>Eine Marke im Raum — ein Ort.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.2 17.4 11.8 7.2"/><path d="M11.8 7.2 19.2 13.2"/><path d="M5.2 17.4 9.4 20"/><circle cx="11.8" cy="7.2" r="1.7" fill="currentColor" stroke="none"/><circle cx="5.2" cy="17.4" r="1.7" fill="currentColor" stroke="none"/><circle cx="19.2" cy="13.2" r="1.7" fill="currentColor" stroke="none"/><circle cx="9.4" cy="20" r="1.2" fill="currentColor" stroke="none"/></svg>
+        <figcaption><code>constellation</code><span>Verbunde Punkte — der kosmische Überblick.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.4" y="15.6" width="15.2" height="5" rx="1.2"/><rect x="6.8" y="9.6" width="10.4" height="5" rx="1.2"/><rect x="9.2" y="3.6" width="5.6" height="5" rx="1.2"/></svg>
+        <figcaption><code>stack</code><span>Gestapelte Kästen — ein Stapel, ein Bauwerk, „projekt-stack".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.6" ry="4.6" transform="rotate(-22 12 12)"/><circle cx="12" cy="12" r="3.6"/><circle cx="20.9" cy="8.4" r="1.4" fill="currentColor" stroke="none"/></svg>
+        <figcaption><code>solar-system</code><span>Eine Sonne mit einer Bahn und einem Körper darauf — das Sonnensystem.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.8" ry="3.6" transform="rotate(-32 12 12)"/><ellipse cx="12" cy="12" rx="3.6" ry="9.8" transform="rotate(-32 12 12)"/><circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none"/></svg>
+        <figcaption><code>galaxy</code><span>Zwei gekreuzte Bahnen — eine Galaxie.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.2" cy="8.6" r="2.3" fill="currentColor" stroke="none"/><circle cx="16.2" cy="10.4" r="1.6" fill="currentColor" stroke="none"/><circle cx="11.4" cy="15.8" r="2.6" fill="currentColor" stroke="none"/><circle cx="17.6" cy="17.2" r="1.4" fill="currentColor" stroke="none"/><circle cx="5.8" cy="16.4" r="1.4" fill="currentColor" stroke="none"/></svg>
+        <figcaption><code>cluster</code><span>Mehrere Punkte dicht beieinander — ein Sternhaufen.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.4"/><path d="M14.53 5.9 15.6 3.32"/><path d="M18.1 9.47 20.68 8.4"/><path d="M18.1 14.53 20.68 15.6"/><path d="M14.53 18.1 15.6 20.68"/><path d="M9.47 18.1 8.4 20.68"/><path d="M5.9 14.53 3.32 15.6"/><path d="M5.9 9.47 3.32 8.4"/><path d="M9.47 5.9 8.4 3.32"/></svg>
+        <figcaption><code>star</code><span>Ein Stern: Kern und acht Strahlen. Für die Sonne und die Marke „stern".</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="11.2" r="5.8"/><path d="M8.2 13.4c1.6 1 2.8.2 4.2 1 1.2.7 1.4 2 .8 3"/><ellipse cx="12" cy="13.8" rx="10.4" ry="3.1" transform="rotate(-18 12 13.8)"/></svg>
+        <figcaption><code>planet</code><span>Ein Körper mit Ring und einer Küstenlinie — ein Planet, die Erde.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.6"/><path d="M7.4 8.6a6.6 6.6 0 0 1 3.6-2.8"/><circle cx="15.2" cy="15.4" r="1.8"/></svg>
+        <figcaption><code>object</code><span>Eine Kugel mit Lichtkante und Krater — ein beliebiger Körper.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.8 2.8H7A1.8 1.8 0 0 0 5.2 4.6v14.8A1.8 1.8 0 0 0 7 21.2h10a1.8 1.8 0 0 0 1.8-1.8V7.8z"/><path d="M13.8 2.8v5h5"/><path d="M10.4 12.6 8.6 14.8l1.8 2.2M13.6 12.6l1.8 2.2-1.8 2.2"/></svg>
+        <figcaption><code>code-file</code><span>Ein Blatt mit geknickter Ecke und zwei Klammern — eine Datei mit Text.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 12.4h3.8l2.2-5.8 3.6 11.2 2.4-5.4h6.8"/></svg>
+        <figcaption><code>pulse</code><span>Ein Ausschlag in einer ruhigen Linie — „live", ein Messwert, Gesundheit.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8c.7 4.6 2.6 6.5 7.2 7.2-4.6.7-6.5 2.6-7.2 7.2-.7-4.6-2.6-6.5-7.2-7.2 4.6-.7 6.5-2.6 7.2-7.2z"/><path d="M18.4 16.6c.3 1.9 1.1 2.7 3 3-1.9.3-2.7 1.1-3 3-.3-1.9-1.1-2.7-3-3 1.9-.3 2.7-1.1 3-3z"/></svg>
+        <figcaption><code>spark</code><span>Ein vierzackiger Funke — ein Hinweis, „neu", ein einzelnes Ereignis.</span></figcaption>
+      </figure>
+      <figure class="karte">
+        <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6.4" y="6.4" width="11.2" height="11.2" rx="2.2"/><rect x="9.8" y="9.8" width="4.4" height="4.4" rx="1.2"/><path d="M9.8 3.2 9.8 6.4"/><path d="M14.2 3.2 14.2 6.4"/><path d="M9.8 17.6 9.8 20.8"/><path d="M14.2 17.6 14.2 20.8"/><path d="M3.2 9.8 6.4 9.8"/><path d="M3.2 14.2 6.4 14.2"/><path d="M17.6 9.8 20.8 9.8"/><path d="M17.6 14.2 20.8 14.2"/></svg>
+        <figcaption><code>chip</code><span>Ein Baustein mit Anschlüssen — ein Gerät, ein Prozess.</span></figcaption>
+      </figure>
+    </div>
+
+    <h2>Alle Zeichen — heller Grund</h2>
+    <div class="reihe">
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.4a6.4 6.4 0 0 0 6.4-6.4c0-3.4-2.4-4.9-3.4-7.1-.6-1.3-.7-2.5-.3-3.8-2.9 1.5-4.5 3.9-4.5 6.3 0 1.3.5 2.2.5 3a1.9 1.9 0 0 1-3.8.2c-.1-.6 0-1.2.2-1.8A6.4 6.4 0 0 0 12 21.4z"/><path d="M12 20.2a2.9 2.9 0 0 0 2.9-2.9c0-1.8-1.4-2.4-1.4-4.2-1.1 1.2-1.9 2.1-1.9 3.4 0 .6.4.9.4 1.4a1.4 1.4 0 0 1-2.1 1.2"/></svg><figcaption><code>prometheus</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5.8" r="1.5"/><path d="M13.3 5.5 15.4 6.5"/><path d="M12 7.4c-1 2.4-0.9 4.8 0.3 7.2"/><path d="M11.6 9.2C9 7.2 6.4 7.3 3.6 9.8c2.8 1 4.8 2 6.6 3.4"/><path d="M12.4 9.2c2.6-2 5.2-1.9 8 0.6-2.8 1-4.8 2-6.6 3.4"/><path d="M12.3 14.6c1.4 2.2 1.6 4.2 0.6 6.4"/><path d="M11.7 14.6c-1.4 2.2-1.6 4.2-0.6 6.4"/><path d="M12 15.2 12 20.8"/></svg><figcaption><code>phoenix</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8c2.4 3.2 3.6 5 3.6 7a3.6 3.6 0 0 1-7.2 0c0-2 1.2-3.8 3.6-7z"/><path d="M12 9.6c1.1 1.5 1.6 2.4 1.6 3.4a1.6 1.6 0 0 1-3.2 0c0-1 0.5-1.9 1.6-3.4z"/><path d="M6.2 12.4c1.4 1.9 2.1 3.1 2.1 4.5a2.1 2.1 0 0 1-4.2 0c0-1.4 0.7-2.6 2.1-4.5z"/><path d="M17.8 12.4c1.4 1.9 2.1 3.1 2.1 4.5a2.1 2.1 0 0 1-4.2 0c0-1.4 0.7-2.6 2.1-4.5z"/><path d="M3.2 21 20.8 21"/></svg><figcaption><code>flamme</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.4c2.3 2.9 3.5 4.5 3.5 6.3a3.5 3.5 0 0 1-7 0c0-1.8 1.2-3.4 3.5-6.3z"/><path d="M12 8.4c1 1.2 1.5 1.9 1.5 2.7a1.5 1.5 0 0 1-3 0c0-.8.5-1.5 1.5-2.7z"/><path d="M8.8 10.4 L15.2 10.4 L14.4 12.2 L9.6 12.2 Z"/><path d="M10.9 12.2 10.2 20.6M13.1 12.2 13.8 20.6"/><path d="M9.2 20.6 14.8 20.6"/></svg><figcaption><code>torch</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.8 3.2 14.2 3.2"/><path d="M10 3.2c0 1.5.9 2.1.9 3.4 0 1-.9 1.4-.9 2.8 0 3.6 1.1 6.2 3 6.2s3-2.6 3-6.2c0-1.4-.9-1.8-.9-2.8 0-1.3.9-1.9.9-3.4"/><path d="M9.4 7.4C7.6 8 6.6 9.4 6.6 11s1 3 2.8 3.6"/><path d="M14.6 7.4c1.8.6 2.8 2 2.8 3.6s-1 3-2.8 3.6"/><path d="M10.6 15.6 9.8 20.8h4.4l-.8-5.2"/></svg><figcaption><code>vessel</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.3" y="8.3" width="11" height="7.4" rx="3.7" transform="rotate(-45 8.8 12)"/><rect x="9.7" y="8.3" width="11" height="7.4" rx="3.7" transform="rotate(-45 15.2 12)"/></svg><figcaption><code>chain</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.8h12.2c1 1.6 2.6 2.6 4.6 3.2-2 1.2-3.4 2.2-4.2 3.4H8.8l-1.2 1.8H4.4z"/><path d="M8.8 15.4h6.6l1.4 3.4H7.4z"/><path d="M5.4 20.4 18.6 20.4"/></svg><figcaption><code>anvil</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 3.8 L16.6 3.8 L20.2 5.4 L20.2 7.4 L16.6 9 L3.4 9 Z"/><path d="M12 9 12 20.2"/><path d="M9.8 20.2 14.2 20.2"/></svg><figcaption><code>hammer</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.6" ry="4.4" transform="rotate(-28 12 12)"/><circle cx="20.48" cy="7.49" r="2.2" fill="currentColor" stroke="none"/><circle cx="3.52" cy="16.51" r="2.2" fill="currentColor" stroke="none"/></svg><figcaption><code>orbit</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="4.4" width="18.8" height="12.6" rx="2.8"/><path d="M8.2 17v4l4.2-4"/><path d="M6.4 8.6 17.6 8.6"/><path d="M6.4 12.6 13.4 12.6"/></svg><figcaption><code>chat</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.4A7.6 7.6 0 1 0 19.6 12"/><path d="M12 4.4 14.6 2.2M12 4.4 14.6 6.6"/><circle cx="12" cy="12.6" r="1.5" fill="currentColor" stroke="none"/></svg><figcaption><code>reset-view</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7 5.2 7"/><path d="M10 7 21 7"/><circle cx="7.6" cy="7" r="2.4"/><path d="M3 12 13.4 12"/><path d="M18.6 12 21 12"/><circle cx="16" cy="12" r="2.4"/><path d="M3 17 7.4 17"/><path d="M12.6 17 21 17"/><circle cx="10" cy="17" r="2.4"/></svg><figcaption><code>settings</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.13 2.38 L13.87 2.38 L13.52 4.55 L16.19 5.66 L17.48 3.88 L20.12 6.52 L18.34 7.81 L19.45 10.48 L21.62 10.13 L21.62 13.87 L19.45 13.52 L18.34 16.19 L20.12 17.48 L17.48 20.12 L16.19 18.34 L13.52 19.45 L13.87 21.62 L10.13 21.62 L10.48 19.45 L7.81 18.34 L6.52 20.12 L3.88 17.48 L5.66 16.19 L4.55 13.52 L2.38 13.87 L2.38 10.13 L4.55 10.48 L5.66 7.81 L3.88 6.52 L6.52 3.88 L7.81 5.66 L10.48 4.55 Z"/><circle cx="12" cy="12" r="3.3"/></svg><figcaption><code>gear</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 6.6 17.4 17.4"/><path d="M17.4 6.6 6.6 17.4"/></svg><figcaption><code>close</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.6 5.8 L15.8 12 L9.6 18.2"/></svg><figcaption><code>chevron-right</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(90 12 12)"><path d="M9.6 5.8 L15.8 12 L9.6 18.2"/></g></svg><figcaption><code>chevron-down</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(180 12 12)"><path d="M9.6 5.8 L15.8 12 L9.6 18.2"/></g></svg><figcaption><code>chevron-left</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(270 12 12)"><path d="M9.6 5.8 L15.8 12 L9.6 18.2"/></g></svg><figcaption><code>chevron-up</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.6 12 18.4"/><path d="M5.6 12 18.4 12"/></svg><figcaption><code>plus</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.4 7.4 L9.8 12 L5.4 16.6"/><path d="M12.6 16.6 18.6 16.6"/></svg><figcaption><code>prompt</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.4" width="18" height="15.2" rx="2.4"/><path d="M3 10.2h18M10.2 10.2v9.4"/></svg><figcaption><code>panels</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2 21 7.8 12 12.4 3 7.8z"/><path d="M3 12.4 12 17l9-4.6"/><path d="M3 16.6 12 21.2l9-4.6"/></svg><figcaption><code>layers</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.4" cy="10.4" r="6.4"/><path d="M15.2 15.2 20.8 20.8"/></svg><figcaption><code>search</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.6c0 0 6.6-6.6 6.6-11.2a6.6 6.6 0 1 0-13.2 0c0 4.6 6.6 11.2 6.6 11.2z"/><circle cx="12" cy="10.2" r="2.4"/></svg><figcaption><code>place</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5.2 17.4 11.8 7.2"/><path d="M11.8 7.2 19.2 13.2"/><path d="M5.2 17.4 9.4 20"/><circle cx="11.8" cy="7.2" r="1.7" fill="currentColor" stroke="none"/><circle cx="5.2" cy="17.4" r="1.7" fill="currentColor" stroke="none"/><circle cx="19.2" cy="13.2" r="1.7" fill="currentColor" stroke="none"/><circle cx="9.4" cy="20" r="1.2" fill="currentColor" stroke="none"/></svg><figcaption><code>constellation</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4.4" y="15.6" width="15.2" height="5" rx="1.2"/><rect x="6.8" y="9.6" width="10.4" height="5" rx="1.2"/><rect x="9.2" y="3.6" width="5.6" height="5" rx="1.2"/></svg><figcaption><code>stack</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.6" ry="4.6" transform="rotate(-22 12 12)"/><circle cx="12" cy="12" r="3.6"/><circle cx="20.9" cy="8.4" r="1.4" fill="currentColor" stroke="none"/></svg><figcaption><code>solar-system</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.8" ry="3.6" transform="rotate(-32 12 12)"/><ellipse cx="12" cy="12" rx="3.6" ry="9.8" transform="rotate(-32 12 12)"/><circle cx="12" cy="12" r="1.9" fill="currentColor" stroke="none"/></svg><figcaption><code>galaxy</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.2" cy="8.6" r="2.3" fill="currentColor" stroke="none"/><circle cx="16.2" cy="10.4" r="1.6" fill="currentColor" stroke="none"/><circle cx="11.4" cy="15.8" r="2.6" fill="currentColor" stroke="none"/><circle cx="17.6" cy="17.2" r="1.4" fill="currentColor" stroke="none"/><circle cx="5.8" cy="16.4" r="1.4" fill="currentColor" stroke="none"/></svg><figcaption><code>cluster</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.4"/><path d="M14.53 5.9 15.6 3.32"/><path d="M18.1 9.47 20.68 8.4"/><path d="M18.1 14.53 20.68 15.6"/><path d="M14.53 18.1 15.6 20.68"/><path d="M9.47 18.1 8.4 20.68"/><path d="M5.9 14.53 3.32 15.6"/><path d="M5.9 9.47 3.32 8.4"/><path d="M9.47 5.9 8.4 3.32"/></svg><figcaption><code>star</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="11.2" r="5.8"/><path d="M8.2 13.4c1.6 1 2.8.2 4.2 1 1.2.7 1.4 2 .8 3"/><ellipse cx="12" cy="13.8" rx="10.4" ry="3.1" transform="rotate(-18 12 13.8)"/></svg><figcaption><code>planet</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7.6"/><path d="M7.4 8.6a6.6 6.6 0 0 1 3.6-2.8"/><circle cx="15.2" cy="15.4" r="1.8"/></svg><figcaption><code>object</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.8 2.8H7A1.8 1.8 0 0 0 5.2 4.6v14.8A1.8 1.8 0 0 0 7 21.2h10a1.8 1.8 0 0 0 1.8-1.8V7.8z"/><path d="M13.8 2.8v5h5"/><path d="M10.4 12.6 8.6 14.8l1.8 2.2M13.6 12.6l1.8 2.2-1.8 2.2"/></svg><figcaption><code>code-file</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.6 12.4h3.8l2.2-5.8 3.6 11.2 2.4-5.4h6.8"/></svg><figcaption><code>pulse</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8c.7 4.6 2.6 6.5 7.2 7.2-4.6.7-6.5 2.6-7.2 7.2-.7-4.6-2.6-6.5-7.2-7.2 4.6-.7 6.5-2.6 7.2-7.2z"/><path d="M18.4 16.6c.3 1.9 1.1 2.7 3 3-1.9.3-2.7 1.1-3 3-.3-1.9-1.1-2.7-3-3 1.9-.3 2.7-1.1 3-3z"/></svg><figcaption><code>spark</code></figcaption></figure>
+      <figure class="karte hell"><svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6.4" y="6.4" width="11.2" height="11.2" rx="2.2"/><rect x="9.8" y="9.8" width="4.4" height="4.4" rx="1.2"/><path d="M9.8 3.2 9.8 6.4"/><path d="M14.2 3.2 14.2 6.4"/><path d="M9.8 17.6 9.8 20.8"/><path d="M14.2 17.6 14.2 20.8"/><path d="M3.2 9.8 6.4 9.8"/><path d="M3.2 14.2 6.4 14.2"/><path d="M17.6 9.8 20.8 9.8"/><path d="M17.6 14.2 20.8 14.2"/></svg><figcaption><code>chip</code></figcaption></figure>
+    </div>
+
+    <h2>Die Größen, in denen sie wirklich stehen</h2>
+    <div class="groessen">
+      <div style="text-align:center"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.6" ry="4.4" transform="rotate(-28 12 12)"/><circle cx="20.48" cy="7.49" r="2.2" fill="currentColor" stroke="none"/><circle cx="3.52" cy="16.51" r="2.2" fill="currentColor" stroke="none"/></svg><br><small style="color:#8b8781;font-size:10px">12px</small></div>
+      <div style="text-align:center"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.6" ry="4.4" transform="rotate(-28 12 12)"/><circle cx="20.48" cy="7.49" r="2.2" fill="currentColor" stroke="none"/><circle cx="3.52" cy="16.51" r="2.2" fill="currentColor" stroke="none"/></svg><br><small style="color:#8b8781;font-size:10px">14px</small></div>
+      <div style="text-align:center"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.6" ry="4.4" transform="rotate(-28 12 12)"/><circle cx="20.48" cy="7.49" r="2.2" fill="currentColor" stroke="none"/><circle cx="3.52" cy="16.51" r="2.2" fill="currentColor" stroke="none"/></svg><br><small style="color:#8b8781;font-size:10px">16px</small></div>
+      <div style="text-align:center"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.6" ry="4.4" transform="rotate(-28 12 12)"/><circle cx="20.48" cy="7.49" r="2.2" fill="currentColor" stroke="none"/><circle cx="3.52" cy="16.51" r="2.2" fill="currentColor" stroke="none"/></svg><br><small style="color:#8b8781;font-size:10px">18px</small></div>
+      <div style="text-align:center"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.6" ry="4.4" transform="rotate(-28 12 12)"/><circle cx="20.48" cy="7.49" r="2.2" fill="currentColor" stroke="none"/><circle cx="3.52" cy="16.51" r="2.2" fill="currentColor" stroke="none"/></svg><br><small style="color:#8b8781;font-size:10px">22px</small></div>
+      <div style="text-align:center"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="9.6" ry="4.4" transform="rotate(-28 12 12)"/><circle cx="20.48" cy="7.49" r="2.2" fill="currentColor" stroke="none"/><circle cx="3.52" cy="16.51" r="2.2" fill="currentColor" stroke="none"/></svg><br><small style="color:#8b8781;font-size:10px">32px</small></div>
+    </div>
+
+    <h2>Das Thema — Prometheus</h2>
+    <div class="leiste">
+      <div><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#ff9d3f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.4a6.4 6.4 0 0 0 6.4-6.4c0-3.4-2.4-4.9-3.4-7.1-.6-1.3-.7-2.5-.3-3.8-2.9 1.5-4.5 3.9-4.5 6.3 0 1.3.5 2.2.5 3a1.9 1.9 0 0 1-3.8.2c-.1-.6 0-1.2.2-1.8A6.4 6.4 0 0 0 12 21.4z"/><path d="M12 20.2a2.9 2.9 0 0 0 2.9-2.9c0-1.8-1.4-2.4-1.4-4.2-1.1 1.2-1.9 2.1-1.9 3.4 0 .6.4.9.4 1.4a1.4 1.4 0 0 1-2.1 1.2"/></svg><small>prometheus</small></div>
+      <div><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#ff9d3f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.4c2.3 2.9 3.5 4.5 3.5 6.3a3.5 3.5 0 0 1-7 0c0-1.8 1.2-3.4 3.5-6.3z"/><path d="M12 8.4c1 1.2 1.5 1.9 1.5 2.7a1.5 1.5 0 0 1-3 0c0-.8.5-1.5 1.5-2.7z"/><path d="M8.8 10.4 L15.2 10.4 L14.4 12.2 L9.6 12.2 Z"/><path d="M10.9 12.2 10.2 20.6M13.1 12.2 13.8 20.6"/><path d="M9.2 20.6 14.8 20.6"/></svg><small>torch</small></div>
+      <div><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#ff9d3f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.8 3.2 14.2 3.2"/><path d="M10 3.2c0 1.5.9 2.1.9 3.4 0 1-.9 1.4-.9 2.8 0 3.6 1.1 6.2 3 6.2s3-2.6 3-6.2c0-1.4-.9-1.8-.9-2.8 0-1.3.9-1.9.9-3.4"/><path d="M9.4 7.4C7.6 8 6.6 9.4 6.6 11s1 3 2.8 3.6"/><path d="M14.6 7.4c1.8.6 2.8 2 2.8 3.6s-1 3-2.8 3.6"/><path d="M10.6 15.6 9.8 20.8h4.4l-.8-5.2"/></svg><small>vessel</small></div>
+      <div><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#ff9d3f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.3" y="8.3" width="11" height="7.4" rx="3.7" transform="rotate(-45 8.8 12)"/><rect x="9.7" y="8.3" width="11" height="7.4" rx="3.7" transform="rotate(-45 15.2 12)"/></svg><small>chain</small></div>
+      <div><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#ff9d3f" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 8.8h12.2c1 1.6 2.6 2.6 4.6 3.2-2 1.2-3.4 2.2-4.2 3.4H8.8l-1.2 1.8H4.4z"/><path d="M8.8 15.4h6.6l1.4 3.4H7.4z"/><path d="M5.4 20.4 18.6 20.4"/></svg><small>anvil</small></div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "ai-capabilities",
+  "version": "0.1.0",
+  "kind": "plugin",
+  "language": "typescript",
+  "description": "Die KI-Faehigkeiten als Host-Plugin: baut die Kette aus Einstellungen und OpenRouter, haengt die geschuetzten Endpunkte GET /api/ai/capabilities und POST /api/ai/{decide,speak,transcribe,embed,draw} ein und meldet fuenf Agent-Werkzeuge an (image_generate, speech_speak, speech_transcribe, text_embed, ai_decide).",
+  "core": "optional",
+  "contract": "^0.2.0",
+  "provides": ["ai-capabilities"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Art plugin, weil das Paket im JS-Kern laeuft und eine Faehigkeit als Cordis-Plugin anbietet: export const name = 'pmh-ai-capabilities', inject ['webServer'], apply(ctx) mit sechs ctx.webServer.register und ctx.effect fuer die Abmeldung.",
+    "Fundstelle: Betreiber-Anfrage 'ist schon ein plugin implementiert fuer bild generierung? ... TTS/STT? ... ja implementieren als plugin'. Bis zum 19.10.2026 waren die Faehigkeiten gebaut und geprueft, aber im Host nicht angeschlossen.",
+    "requires ist leer, weil die Abhaengigkeiten (capabilities, openrouter, settings, composition, agent-tools) PAKETE sind, keine Units. Das Unit-Modell kennt nur Unit-Abhaengigkeiten.",
+    "Der Schluessel kommt aus ctx.credentials.resolve('OPENROUTER_API_KEY') und nur ersatzweise aus der Umgebung; er erscheint in keiner Antwort. Die Auskunft nennt nur 'gesetzt' oder 'nicht gesetzt'.",
+    "Die Werkzeuge sind freiwillig: fehlt der Dienst ctx.tools, bleiben die sechs Endpunkte stehen. Ein hartes inject ['tools'] wuerde das Plugin sonst gar nicht einhaengen.",
+    "Bild ist seit dem 19.10.2026 gemessen (google/gemini-2.5-flash-image, data[0].b64_json, JPEG). Der Typ wird aus den ersten Bytes gelesen, nicht aus dem Wunsch."
+  ]
+}

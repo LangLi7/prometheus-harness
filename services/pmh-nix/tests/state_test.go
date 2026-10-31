@@ -138,6 +138,9 @@ func TestFullCycleLeavesNoFilesBehind(t *testing.T) {
 	if _, code := runExe("check", "--proposal", "prop-0001", "--json", "--state", statePath); code != 0 {
 		t.Fatalf("check endete mit %d", code)
 	}
+	if _, code := runExe("approve", "--proposal", "prop-0001", "--by", "betreiber@test", "--json", "--state", statePath); code != 0 {
+		t.Fatalf("approve endete mit %d", code)
+	}
 	out, code := runExe("apply", "--proposal", "prop-0001", "--json", "--state", statePath)
 	if code != 0 {
 		t.Fatalf("apply endete mit %d: %s", code, out)

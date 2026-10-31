@@ -32,23 +32,33 @@
  * @module @prometheus-harness/auth-http/ordner
  */
 
-import type { IncomingMessage } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import { verifyCsrf, verifySession } from '@prometheus-harness/auth'
 import {
   entferneOrdner,
   ladeZugriffspfade,
   legeOrdnerAn,
   listeOrdner,
   setzeZugriff,
+  stelleBereit,
   type SqlZugang,
   type Zugriff,
 } from '@prometheus-harness/store-postgres'
 import { leseKoerper, macheWeg, sende, type Weg } from './http.ts'
-import { cookieWert, gut, schlecht, sitzungsCookieName, type Antwort, type Umgebung } from './paths.ts'
+import { gut, schlecht, type Antwort, type Umgebung } from './paths.ts'
+import { csrfFehlt, pruefeSitzung as angemeldet } from './sitzung.ts'
 
 /** Die Sammlung der Ordner eines Arbeitsbereichs. */
 export const PFAD_ORDNER = '/api/pmh/ordner'
+
+/**
+ * Den Arbeitsbereich für diesen Mandanten anlegen — **die Brücke zum Host**.
+ *
+ * **Warum es diesen Weg gibt.** Der Host führt seine Arbeitsbereiche selbst; unsere Datenbank
+ * kannte sie nicht, und `workspace_folders` verweist auf `workspaces (id, user_id)`. Ohne diese
+ * Zeile lief jeder Ordner in einen Fremdschlüssel-Fehler (23503). Der Dialog ruft diesen Weg
+ * **vor** dem Lesen der Liste — danach steht der Arbeitsplatz als erster Ordner da.
+ */
+export const PFAD_ORDNER_BEREICH = '/api/pmh/ordner/bereich'
 
 /** Einen Ordner eintragen. */
 export const PFAD_ORDNER_ANLEGEN = '/api/pmh/ordner/anlegen'
@@ -59,57 +69,9 @@ export const PFAD_ORDNER_ZUGRIFF = '/api/pmh/ordner/zugriff'
 /** Einen Zusatzordner entfernen. */
 export const PFAD_ORDNER_ENTFERNEN = '/api/pmh/ordner/entfernen'
 
-/** Der CSRF-Kopf, wie überall. */
-const CSRF_KOPFZEILE = 'x-pmh-csrf'
-
-/** Was ein angemeldeter Aufrufer ist. */
-interface Handelnder {
-  readonly userId: string
-  readonly csrfKopf: string | undefined
-  /** Der Sitzungsdatensatz — für `verifyCsrf`. */
-  readonly session: Parameters<typeof verifyCsrf>[0]
-}
-
-/**
- * Prüft die Sitzung.
- *
- * @param umg - die Umgebung
- * @param req - die Anfrage
- * @returns der Handelnde oder die Antwort, die statt seiner geht
- */
-async function angemeldet(
-  umg: Umgebung,
-  req: IncomingMessage,
-): Promise<{ readonly ok: true; readonly wer: Handelnder } | { readonly ok: false; readonly antwort: Antwort }> {
-  const token = cookieWert(req.headers.cookie, sitzungsCookieName(umg))
-  if (token === undefined || token === '') {
-    return { ok: false, antwort: schlecht(401, 'nicht-angemeldet', 'Nicht angemeldet.') }
-  }
-  const geprueft = await verifySession(umg.speicher.sitzungen, token).catch(() => undefined)
-  if (geprueft === undefined) {
-    return { ok: false, antwort: schlecht(401, 'nicht-angemeldet', 'Nicht angemeldet.') }
-  }
-  const kopf = req.headers[CSRF_KOPFZEILE]
-  return {
-    ok: true,
-    wer: {
-      userId: geprueft.session.userId,
-      csrfKopf: typeof kopf === 'string' ? kopf : undefined,
-      session: geprueft.session,
-    },
-  }
-}
-
-/**
- * Prüft den CSRF-Wert.
- *
- * @param wer - der Handelnde
- * @returns die Antwort, wenn der Wert fehlt oder nicht stimmt
- */
-function csrfFehlt(wer: Handelnder): Antwort | undefined {
-  if (verifyCsrf(wer.session, wer.csrfKopf ?? '')) return undefined
-  return schlecht(403, 'csrf-fehlt', 'Der CSRF-Wert fehlt oder stimmt nicht.')
-}
+// **Die Sitzungs- und CSRF-Prüfung liegt in `sitzung.ts`** — eine Wahrheit für alle Wege dieses
+// Pakets, seit die Notizen dazukamen. Sie wird hier unter dem Namen `angemeldet` benutzt, damit
+// die Wege darunter unverändert lesbar bleiben.
 
 /**
  * Übersetzt einen Datenbankfehler in eine Meldung für Menschen.
@@ -321,6 +283,57 @@ export function wegOrdnerEntfernen(umg: Umgebung, sql: SqlZugang): Weg {
 }
 
 /**
+ * `POST /api/pmh/ordner/bereich` — den Arbeitsbereich für diesen Mandanten anlegen.
+ *
+ * **Die Brücke.** Der Host kennt den Arbeitsbereich (Kennung, Titel, Pfad), unsere Datenbank nicht.
+ * Ohne diese Zeile schlüge jeder Ordner mit **23503** fehl. Der Weg ist **idempotent** und
+ * **schreibend** — deshalb POST mit CSRF, nicht GET.
+ *
+ * @param umg - die Umgebung
+ * @param sql - der Datenbankzugang
+ * @returns der Weg
+ */
+export function wegOrdnerBereich(umg: Umgebung, sql: SqlZugang): Weg {
+  return async (req, res) => {
+    const wer = await angemeldet(umg, req)
+    if (!wer.ok) {
+      sende(res, wer.antwort)
+      return
+    }
+    const ohneCsrf = csrfFehlt(wer.wer)
+    if (ohneCsrf !== undefined) {
+      sende(res, ohneCsrf)
+      return
+    }
+    const koerper = await leseKoerper(req)
+    if (!koerper.ok) {
+      sende(res, schlecht(koerper.status, koerper.code, koerper.message))
+      return
+    }
+    const daten = koerper.wert as {
+      readonly workspaceId?: unknown
+      readonly name?: unknown
+      readonly pfad?: unknown
+    }
+    const workspaceId = typeof daten.workspaceId === 'string' ? daten.workspaceId.trim() : ''
+    if (workspaceId === '') {
+      sende(res, schlecht(400, 'eingabe-fehlt', 'Es fehlt der Arbeitsbereich.'))
+      return
+    }
+    try {
+      await stelleBereit(sql, wer.wer.userId, {
+        workspaceId,
+        name: typeof daten.name === 'string' ? daten.name : '',
+        ...(typeof daten.pfad === 'string' && daten.pfad.trim() !== '' ? { pfad: daten.pfad.trim() } : {}),
+      })
+      sende(res, gut({ workspaceId }))
+    } catch (fehler) {
+      sende(res, fehlerAntwort(fehler))
+    }
+  }
+}
+
+/**
  * Alle Wege dieses Moduls, fertig für `ctx.webServer.register`.
  *
  * @param umg - die Umgebung
@@ -328,11 +341,13 @@ export function wegOrdnerEntfernen(umg: Umgebung, sql: SqlZugang): Weg {
  * @returns die Wege
  */
 export function ordnerWege(umg: Umgebung, sql: SqlZugang): readonly WebRoute[] {
+  const bereich = macheWeg('POST', wegOrdnerBereich(umg, sql), 'ordner-bereich')
   const liste = macheWeg('GET', wegOrdnerListe(umg, sql), 'ordner-liste')
   const anlegen = macheWeg('POST', wegOrdnerAnlegen(umg, sql), 'ordner-anlegen')
   const zugriff = macheWeg('POST', wegOrdnerZugriff(umg, sql), 'ordner-zugriff')
   const entfernen = macheWeg('POST', wegOrdnerEntfernen(umg, sql), 'ordner-entfernen')
   const wege: readonly WebRoute[] = [
+    { kind: 'exact', path: PFAD_ORDNER_BEREICH, handler: bereich },
     { kind: 'exact', path: PFAD_ORDNER, handler: liste },
     { kind: 'exact', path: PFAD_ORDNER_ANLEGEN, handler: anlegen },
     { kind: 'exact', path: PFAD_ORDNER_ZUGRIFF, handler: zugriff },

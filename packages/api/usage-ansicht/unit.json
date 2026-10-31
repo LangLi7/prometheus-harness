@@ -1,0 +1,20 @@
+{
+  "name": "usage-ansicht",
+  "version": "0.1.0",
+  "kind": "plugin",
+  "language": "typescript",
+  "description": "Verbrauch und Kostenschaetzung: GET /api/ai/usage, das Werkzeug ai_usage und der Befehl /verbrauch (bzw. /usage) — die Sprache kommt aus den Einstellungen.",
+  "core": "optional",
+  "contract": "^0.2.0",
+  "provides": ["usage-ansicht"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Fundstelle: Betreiber-Anfrage 21.10.2026 — 'Plugin ... namens Usage, dort zeigt es an wie viel budget nutzung ect' und 'der harness eine kosten schaetzung macht wie viel ein bild generierung kostet'.",
+    "Der Verbrauch ist GEMESSEN: GET https://openrouter.ai/api/v1/key liefert usage, usage_daily, limit, limit_remaining.",
+    "Die Kostenschaetzung ist eine SCHAETZUNG und nennt ihre Grundlage: ein gemessener Anker (0,0387 USD fuer 1344x768 mit gemini-2.5-flash-image), skaliert ueber die Pixelzahl und die Anzahl. Ohne Anker gibt es keine Zahl.",
+    "Die Sprache wird in dieser Reihenfolge gelesen: Einstellungsdienst (locale/language/sprache), PMH_SPRACHE, sonst Deutsch. Daraus folgt der Befehlsname: /verbrauch (de) bzw. /usage (en).",
+    "Alles ist freiwillig einghaengt: fehlt der Werkzeug- oder Befehlsdienst, bleiben die uebrigen Flaechen stehen.",
+    "Die Route ist gesperrt wie die uebrigen KI-Flaechen: ohne Anmeldung 401, ohne Verbindungsdienst 503."
+  ]
+}

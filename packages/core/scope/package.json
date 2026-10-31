@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "description": "Scope-Primitiv: createScope, Scoped<T>, ScopeCarrier",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "typecheck": "tsgo --noEmit",
     "test": "bun test"

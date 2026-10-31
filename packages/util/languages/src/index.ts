@@ -105,6 +105,39 @@ export interface Texte {
   readonly zweiTuerenTitel: string
   /** Der Hinweis selbst. */
   readonly zweiTueren: string
+
+  // --- Einladungen ---------------------------------------------------------
+  /** Überschrift des Verwaltungsbereichs. */
+  readonly einladungTitel: string
+  /** Was eine Einladung ist — und was sie nicht ist. */
+  readonly einladungHinweis: string
+  readonly einladungFeldNotiz: string
+  readonly einladungFeldDauer: string
+  readonly einladungDauerStunde: string
+  readonly einladungDauerTag: string
+  readonly einladungDauerWoche: string
+  readonly einladungDauerMonat: string
+  readonly einladungErzeugen: string
+  readonly einladungLinkTitel: string
+  readonly einladungKopieren: string
+  readonly einladungKopiert: string
+  readonly einladungListeTitel: string
+  readonly einladungLeer: string
+  readonly einladungZuruecknehmen: string
+  readonly einladungOffen: string
+  readonly einladungEingeloest: string
+  readonly einladungAbgelaufen: string
+  readonly einladungZurueckgezogen: string
+  /** Überschrift, wenn die Seite über einen Einladungslink geöffnet wurde. */
+  readonly eingeladenTitel: string
+  /** Was der Eingeladene tun soll. */
+  readonly eingeladenHinweis: string
+  /** Die Ueberschrift der Seite, die ein Passwort setzt. */
+  readonly passwortTitel: string
+  /** Der Satz darunter. */
+  readonly passwortSeiteHinweis: string
+  /** Die Beschriftung des einen Feldes. */
+  readonly passwortFeld: string
 }
 
 /** Deutsch — die Sprache, in der dieses Projekt geschrieben ist. */
@@ -150,6 +183,34 @@ const DE: Texte = {
     'sie sagt nur, daß jemand den Rechner bedienen darf. Der Token steht in der Konsole des Rechners ' +
     'und wechselt bei jedem Start. Deshalb steht er hier nicht — er gilt für alles, und in einer ' +
     'Adreßzeile stünde er im Verlauf und im Zugriffsprotokoll.',
+
+  einladungTitel: 'Einladungen',
+  einladungHinweis:
+    'Ein Link mit Ablauf. Wer ihn öffnet, legt sein eigenes Konto an — das Paßwort sieht niemand außer ihm. ' +
+    'Jeder Link gilt genau einmal.',
+  einladungFeldNotiz: 'Notiz (nur für dich)',
+  einladungFeldDauer: 'Gültig für',
+  einladungDauerStunde: '1 Stunde',
+  einladungDauerTag: '1 Tag',
+  einladungDauerWoche: '7 Tage',
+  einladungDauerMonat: '30 Tage',
+  einladungErzeugen: 'Einladung erzeugen',
+  einladungLinkTitel: 'Der Link — jetzt kopieren',
+  einladungKopieren: 'Kopieren',
+  einladungKopiert: 'Kopiert.',
+  einladungListeTitel: 'Deine Einladungen',
+  einladungLeer: 'Noch keine Einladung.',
+  einladungZuruecknehmen: 'Zurücknehmen',
+  einladungOffen: 'offen',
+  einladungEingeloest: 'eingelöst',
+  einladungAbgelaufen: 'abgelaufen',
+  einladungZurueckgezogen: 'zurückgezogen',
+  eingeladenTitel: 'Du wurdest eingeladen',
+  eingeladenHinweis:
+    'Lege hier dein Konto an. Der Link gilt einmal und läuft ab — danach ist er verbraucht.',
+  passwortTitel: 'Passwort setzen',
+  passwortSeiteHinweis: 'Wähle ein Passwort mit mindestens 8 Zeichen. Danach bist du angemeldet.',
+  passwortFeld: 'Neues Passwort',
 }
 
 /** Englisch. */
@@ -195,6 +256,33 @@ const EN: Texte = {
     'it only says that someone may operate this machine. The token is printed in the machine console ' +
     'and changes on every start. That is why it is not shown here — it grants everything, and in an ' +
     'address line it would end up in the browser history and in access logs.',
+
+  einladungTitel: 'Invitations',
+  einladungHinweis:
+    'A link that expires. Whoever opens it creates their own account — nobody else ever sees their ' +
+    'password. Each link works exactly once.',
+  einladungFeldNotiz: 'Note (just for you)',
+  einladungFeldDauer: 'Valid for',
+  einladungDauerStunde: '1 hour',
+  einladungDauerTag: '1 day',
+  einladungDauerWoche: '7 days',
+  einladungDauerMonat: '30 days',
+  einladungErzeugen: 'Create invitation',
+  einladungLinkTitel: 'The link — copy it now',
+  einladungKopieren: 'Copy',
+  einladungKopiert: 'Copied.',
+  einladungListeTitel: 'Your invitations',
+  einladungLeer: 'No invitation yet.',
+  einladungZuruecknehmen: 'Revoke',
+  einladungOffen: 'open',
+  einladungEingeloest: 'redeemed',
+  einladungAbgelaufen: 'expired',
+  einladungZurueckgezogen: 'revoked',
+  eingeladenTitel: 'You have been invited',
+  eingeladenHinweis: 'Create your account here. The link works once and expires — after that it is spent.',
+  passwortTitel: 'Set a password',
+  passwortSeiteHinweis: 'Pick a password of at least 8 characters. You are signed in afterwards.',
+  passwortFeld: 'New password',
 }
 
 /** Die Tabelle. */

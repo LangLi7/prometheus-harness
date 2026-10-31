@@ -1,0 +1,31 @@
+{
+  "name": "@prometheus-harness/programmatic-tools",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Ein zusammengesetztes Werkzeug: native Werkzeuge bleiben sichtbar, run_program buendelt sie in einem Sandkasten-Programm. Der Hybride zwischen Standardmodus und PTC.",
+  "main": "src/server.ts",
+  "exports": {
+    ".": "./src/server.ts",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/cordis": "~4.0.5-alpha.1",
+    "@deepseek-ai/dsh-llm": "0.2.1-alpha.2",
+    "@deepseek-ai/dsh-tools": "0.2.1-alpha.2"
+  },
+  "files": [
+    "src",
+    "cordis.patch.yml"
+  ],
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

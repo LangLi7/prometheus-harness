@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/search-route",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Der billigste Suchweg je Bedarf (answer, links, extract, render) — Stichtag, Firecrawl-Kontingent und Preis je erfolgreicher Anfrage. Kein Netz, keine Latenzmessung.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

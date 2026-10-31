@@ -1,0 +1,18 @@
+{
+  "name": "ai-ranking",
+  "version": "0.1.0",
+  "kind": "plugin",
+  "language": "typescript",
+  "description": "Die Schnittstelle zur KI-Rangliste: der Dienst ctx.aiRanking, bei dem Familien, Katalog, Anbieter, Tarife und gemessene Modelllisten sich anmelden, und der geschuetzte Endpunkt GET /api/ai/ranking (?faehigkeit=, ?text=1). Sammelt und rechnet, ruft nichts auf.",
+  "core": "optional",
+  "contract": "^0.2.0",
+  "provides": ["ai-ranking"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Art plugin, weil das Paket im JS-Kern laeuft und eine Faehigkeit als Cordis-Plugin anbietet: export const name = 'pmh-ai-ranking', inject ['webServer'], apply(ctx) mit ctx.provide(DIENST, register) und ctx.effect fuer die Route.",
+    "Fundstelle: Betreiber-Anfrage nach einer bevorzugten Liste der Free-API-Modelle mit Funktionalitaet, Verdrahtung und Ranking. Doku: docs/status/ki-rangliste.md",
+    "requires ist leer, weil die Abhaengigkeiten (tariffs, ranking, router, capabilities, provider-directory, directory-curator) PAKETE sind, keine Units. Das Unit-Modell kennt nur Unit-Abhaengigkeiten - eine Paketabhaengigkeit dort einzutragen waere eine Zeile, die die Aufloesung nicht findet.",
+    "Der Endpunkt antwortet ohne Anmeldung mit 401 und ohne Verbindungsdienst mit 503 - nie mit 200 und nie ungeschuetzt. Am 18.10.2026 gegen den laufenden Host auf Port 3081 gemessen: 401 statt 404 heisst, die Route ist registriert."
+  ]
+}

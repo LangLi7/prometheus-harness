@@ -1,0 +1,20 @@
+services:
+  zepshim:
+    build: .
+    image: mirofish-memory:dev
+    container_name: mirofish-memory
+    ports:
+      # Published on the host so the MiroFish container can reach it as
+      # host.docker.internal:8798.
+      - "8798:8798"
+    environment:
+      # PostgreSQL 17 from the Prometheus install, database mirofish_memory.
+      # Dedicated role and database: PMH's own credentials stay untouched.
+      - DATABASE_URL=postgresql://mirofish_memory:mirofish-local-dev@host.docker.internal:5432/mirofish_memory
+      # Entity extraction runs through the existing Prometheus bridge.
+      - BRIDGE_URL=http://host.docker.internal:8799/v1
+      - BRIDGE_TOKEN=${BRIDGE_TOKEN:?set BRIDGE_TOKEN to the bridge token}
+      - SHIM_MODEL=${SHIM_MODEL:-qwen/qwen-plus}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

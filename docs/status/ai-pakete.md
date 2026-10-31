@@ -1,6 +1,7 @@
 # Die KI-Pakete — Bestand und Nachweise
 
-Stand: 15.10.2026. **Alle Zahlen stammen aus einem Lauf**, nicht aus der Erinnerung:
+Stand: 15.10.2026, nachgetragen am 19.10.2026 (Bild und Host-Plugin). **Alle Zahlen stammen aus
+einem Lauf**, nicht aus der Erinnerung:
 
 ```
 bun test   in jedem Paketverzeichnis einzeln
@@ -9,17 +10,18 @@ bun test   in jedem Paketverzeichnis einzeln
 | Paket | Prüfungen | Was es beweist |
 |---|---|---|
 | `ai/capabilities` | **31** | Der Vertrag: sechs Fähigkeiten, die Registratur, die drei Stufen (`handeln`/`rueckfrage`/`mensch`), der Mensch als letzter Anbieter |
-| `ai/openrouter` | **50** | Ein Anbieter, **vier** Fähigkeiten über **vier** Wege — über einen echten Socket; dazu die **Denkstufe** |
+| `ai/openrouter` | **56** | Ein Anbieter, **fünf** Fähigkeiten über **fünf** Wege — über einen echten Socket; dazu die **Denkstufe** und seit dem 19.10. das **Bild** |
 | `ai/guard` | **20** | Die Kontrolle **vor** der Tat: neun Formregeln + eingetragene Werte; bei einem Fund **kein** Modellaufruf |
-| `ai/provider-directory` | **32** | Das Verzeichnis **als Daten**: sieben Anbieter, je Fähigkeit der Weg, mit drei Zuständen statt Ja/Nein |
+| `ai/provider-directory` | **43** | Das Verzeichnis **als Daten**: sieben Anbieter, je Fähigkeit der Weg, mit drei Zuständen statt Ja/Nein |
 | `ai/settings` | **40** | Die Wahl des Endnutzers als Datei — ohne Schlüssel, ohne Vorgabemodell, mit der **Denkstufe** und dem Riegel gegen fremde Zuhause |
 | `ai/directory-curator` | **42** | Der Katalog, der Ausleger, der Lauf: Widerspruchsprüfung in **beide** Richtungen |
 | `ai/composition` | **10** | Das Zusammenfügen: der Mensch **zuletzt**, unbekannter Anbieter **gemeldet** |
 | `ai/local` | **20** | Gewichte holen, **prüfen**, ablegen — ohne Prüfsumme kein „heil" |
+| `api/ai-capabilities` | **29** | Die Fähigkeiten **im Host**: Kette aus Einstellungen + Schlüssel, sechs Endpunkte, fünf Werkzeuge — ohne Netz geprüft |
 | `client/source-folders` | **47** | Der Ordnerdialog: Oberfläche, vier Wege, Keks + Arbeitsbereich, Bündel |
-| **zusammen** | **292** | **0 rot** |
+| **zusammen** | **338** | **0 rot** |
 
-Dazu: **`bun run scripts/typecheck.mjs` → 37 Pakete grün, 0 rot.**
+Dazu: **`bun run scripts/typecheck.mjs` → 66 Pakete grün, 0 rot** (19.10.2026).
 
 ## Die lebenden Messungen (nicht nur Prüfungen)
 

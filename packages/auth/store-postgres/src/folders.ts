@@ -208,6 +208,64 @@ export async function entferneOrdner(sql: SqlZugang, userId: string, ordnerId: s
 }
 
 /**
+ * Der Ausdruck, den die Tabelle für einen absoluten Pfad verlangt (`workspace_folders_pfad_absolut`).
+ *
+ * **Hier gespiegelt, nicht erfunden:** dieselbe Regel steht in Migration 9. Sie wird nur benutzt,
+ * um offensichtlich Unbrauchbares gar nicht erst zu senden — die Wahrheit bleibt die Datenbank.
+ */
+const ABSOLUT = /^([A-Za-z]:[\\/]|\/)/
+
+/**
+ * Stellt sicher, daß der Arbeitsbereich **dieses Mandanten** in der Datenbank steht.
+ *
+ * ## Warum das hier steht
+ *
+ * Die Arbeitsbereiche führt der **Host** (`dsh-workspace`): er kennt Kennung, Titel und Pfad.
+ * Unsere Datenbank kannte ihn nicht — und `workspace_folders` verweist auf
+ * `workspaces (id, user_id)`. Ein Ordner für einen Arbeitsbereich **ohne** Zeile lief deshalb in
+ * einen Fremdschlüssel-Fehler (**23503**). Genau das war der Grund, warum die Quellordner gebaut,
+ * aber nie benutzt wurden.
+ *
+ * ## Was sie ausdrücklich **nicht** tut
+ *
+ * * Sie **ändert keinen vorhandenen Namen** (`do nothing`): der Name gehört dem Host, und eine
+ *   zweite Wahrheit darüber wäre eine, die irgendwann falsch ist.
+ * * Sie legt den **Arbeitsplatz** nur an, wenn es noch **keinen** Ordner gibt. Eine bewußte Wahl
+ *   des Betreibers (ein anderer Primärordner) wird nicht überschrieben.
+ * * Sie erfindet **keine** Zeile für einen fremden Mandanten: der `insert` läuft unter
+ *   `mitMandant`, die Zeile gehört also `userId`.
+ *
+ * @param sql - Zugang mit `begin`
+ * @param userId - der Mandant
+ * @param eingabe - Kennung und Titel des Arbeitsbereichs, dazu sein Pfad (falls bekannt)
+ */
+export async function stelleBereit(
+  sql: SqlZugang,
+  userId: string,
+  eingabe: { readonly workspaceId: string; readonly name: string; readonly pfad?: string },
+): Promise<void> {
+  const name = eingabe.name.trim() === '' ? 'Arbeitsbereich' : eingabe.name.trim()
+  const pfad = eingabe.pfad?.trim() ?? ''
+  await mitMandant(sql, userId, async (innerhalb) => {
+    await innerhalb.unsafe(
+      `insert into workspaces (id, user_id, name) values ($1, $2, $3)
+        on conflict (id) do nothing`,
+      [eingabe.workspaceId, userId, name],
+    )
+    // **Der Arbeitsplatz.** Ohne ihn zeigte der Dialog eine leere Liste, obwohl der Bereich einen
+    // Ordner hat — und „Ordner hinzufügen" wäre der einzige Weg zu einem Ziel, das es schon gibt.
+    if (pfad === '' || !ABSOLUT.test(pfad)) return
+    await innerhalb.unsafe(
+      `insert into workspace_folders (id, workspace_id, user_id, pfad, ist_primaer, zugriff, sortierung)
+       select gen_random_uuid(), $1, $2, $3, true, 'schreiben', 0
+        where not exists (select 1 from workspace_folders where workspace_id = $1 and user_id = $2)
+       on conflict do nothing`,
+      [eingabe.workspaceId, userId, pfad],
+    )
+  })
+}
+
+/**
  * Die Zugriffspfade — für Aufrufer, die nur sie brauchen.
  *
  * @param sql - Zugang mit `begin`

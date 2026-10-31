@@ -1,5 +1,5 @@
 /**
- * `scripts/schema-stand.mjs` — Prüfung der **reinen** Teile.
+ * `scripts/schema-version.mjs` — Prüfung der **reinen** Teile.
  *
  * ## Was hier geht und was nicht
  *
@@ -11,14 +11,14 @@
  * **Einschub** entgegen, damit lassen sich alle Lagen fahren, ohne Docker zu brauchen
  * (gleich / zurück / nicht erreichbar / halb erreichbar). Was **fehlt**, ist der Beweis,
  * daß `fassungAus` gegen einen echten Container die Wahrheit liest — dafür steht weiterhin
- * der Lauf von Hand (`bun scripts/schema-stand.mjs`).
+ * der Lauf von Hand (`bun scripts/schema-version.mjs`).
  */
 
 import { describe, expect, test } from 'bun:test'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { DATENBANKEN, QUELLEN, fuehreAus, zahlAus } from './schema-stand.mjs'
+import { DATENBANKEN, QUELLEN, fuehreAus, zahlAus } from './schema-version.mjs'
 
 /** Ein Wegwerf-Verzeichnis mit einer Datei. */
 function mit(inhalt) {

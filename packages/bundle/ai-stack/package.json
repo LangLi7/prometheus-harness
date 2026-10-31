@@ -1,0 +1,43 @@
+{
+  "name": "@prometheus-harness/ai-stack",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Das KI-Bündel: trägt die KI-Rangliste als Eintrag in den Host — mit Marker, Zeichen und Beschreibung.",
+  "icon": "./icon.svg",
+  "license": "MIT",
+  "keywords": [
+    "dsh-bundle",
+    "prometheus-harness",
+    "ai",
+    "ranking"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LangLi7/prometheus-harness.git",
+    "directory": "packages/bundle/ai-stack"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "icon.svg",
+    "locale/*.json",
+    "cordis.patch.yml",
+    "src"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

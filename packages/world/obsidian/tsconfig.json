@@ -1,0 +1,10 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    // Rechner-Seite: `node:http`, `node:fs`, keine DOM-Typen. Die Typen des
+    // Webservers (`WebRoute`) bringt `@deepseek-ai/dsh-host-webserver` mit.
+    "lib": ["ES2022"],
+    "types": ["bun"]
+  },
+  "include": ["src", "tests"]
+}

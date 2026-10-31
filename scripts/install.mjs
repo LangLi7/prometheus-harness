@@ -50,7 +50,30 @@
  * | 4 | Stapel starten (PostgreSQL, Redis) und auf Gesundheit **warten** |
  * | 5 | Migrationen |
  * | 6 | Typecheck (unser „build") |
- * | 7 | Prüfen, was läuft — und den nächsten Befehl nennen |
+ * | 7 | **Mitgaben**: Graphify nachziehen, Obsidian nennen (oder auf Wunsch installieren) |
+ * | 8 | **Fähigkeiten (Skills)**: holen und in den Benutzer-Scope verknüpfen |
+ * | 9 | **Plugins (Units)**: holen, verknüpfen und in `harness/units.json` eintragen |
+ * | 10 | Prüfen, was läuft — und den nächsten Befehl nennen |
+ *
+ * ## Die beiden Mitgaben (Schritt 7)
+ *
+ * Graphify und Obsidian sind **keine** Voraussetzungen — ohne sie startet der
+ * Harness. Aber ihre Panels wären ohne Weg eine Sackgasse. `scripts/mitgaben.mjs`
+ * kennt die Wege je Plattform; hier wird nur entschieden, wer geht:
+ *
+ * | Schalter | Wirkung |
+ * |---|---|
+ * | *(keiner)* | Graphify **und** Obsidian werden installiert |
+ * | `--ohne-obsidian` | Obsidian nur nennen, nicht installieren |
+ * | `--ohne-mitgaben` | beide nur prüfen und nennen |
+ *
+ * **Warum Obsidian nicht von selbst.** Es ist ein Programm mit Oberfläche und
+ * eigener Lizenz (gewerblich kostenpflichtig) — dieselbe Zurückhaltung wie bei
+ * Docker Desktop weiter unten. Graphify ist ein PyPI-Paket (Apache-2.0, ohne
+ * Rechte, mit `uv tool uninstall` rücknehmbar).
+ *
+ * **Kein Scheitern.** Fehlt am Ende eine Mitgabe, steht das als Zeile da und der
+ * Abschluß nennt den Befehl. Eine fehlende Beigabe ist kein Installationsfehler.
  *
  * **Jeder Schritt ist wiederholbar.** Ein zweiter Lauf ändert nichts, was schon
  * richtig ist — und sagt das auch.
@@ -86,8 +109,12 @@ import {
   setzeWerte,
   umgebungsHinweise,
   werkzeugBefehl,
+  werkzeugFolge,
   wslLage,
 } from './install-parts.mjs'
+// **Die beiden Mitgaben.** Eigene Datei, weil die Plattform-Matrix und die Rezepte
+// eine eigene Wahrheit sind — und weil sie ohne Installation prüfbar sein sollen.
+import { MITGABEN, installiere as installiereMitgabe, pruefeAlle, wirdInstalliert, zeilen } from './mitgaben.mjs'
 
 /** Wurzel des Projekts, abgeleitet aus dem Modulpfad. */
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -509,7 +536,7 @@ async function starteStapel(schreibe = aus) {
  * @returns das Ergebnis des Körpers
  */
 async function schritt(nummer, titel, koerper) {
-  aus(`\n[${String(nummer)}/7] ${titel}\n`)
+  aus(`\n[${String(nummer)}/10] ${titel}\n`)
   return await koerper()
 }
 
@@ -523,6 +550,7 @@ export async function installiere(optionen = {}) {
   const wurzel = optionen.wurzel ?? ROOT
   const schreibe = optionen.schreibe ?? aus
   const ueberspringeStapel = optionen.ohneStapel === true
+  const ueberspringeMitgaben = optionen.ohneMitgaben === true
 
   schreibe(`Prometheus Harness — Installation (${familie()})\n`)
   schreibe(`Projekt: ${wurzel}\n`)
@@ -549,8 +577,40 @@ export async function installiere(optionen = {}) {
     const hinweise = umgebungsHinweise(umgebung, dockerLaeuft)
     if (hinweise.length > 0) schreibe(`\n${hinweise.join('\n')}\n`)
 
-    if (!zusammen.allesDa) {
-      schreibe('\nEs fehlt noch etwas. Die Adressen stehen oben neben FEHLT.\n')
+    if (zusammen.fehlend.length > 0) {
+      // **Nur Pflicht-Werkzeuge blockieren.** `WERKZEUG_FOLGEN` trennt `pflicht:
+      // true` (Bun, git) von `pflicht: false` (Docker, Go, WSL2). Diese
+      // Einstufung war bis zum 31.10.2026 **wirkungslos**: `allesDa` wurde aus
+      // allen Ergebnissen gebildet, und ein fehlendes Docker brach die
+      // Installation ab — obwohl `--ohne-stapel` genau dafür gedacht ist und die
+      // Tabelle selbst sagt, Docker sei „Komfort, keine Bedingung".
+      const blockierend = zusammen.fehlend.filter((e) => werkzeugFolge(e.name).pflicht)
+      if (blockierend.length > 0) {
+        schreibe('\nOhne diese Werkzeuge geht es nicht weiter:\n')
+        for (const e of blockierend) schreibe(`  ${e.name} — ${werkzeugFolge(e.name).folge}\n`)
+        if (!dockerDa) {
+          if (familie() === 'windows') {
+            schreibe(
+              '\nDocker auf Windows: **Docker Desktop** installieren (Programm mit Oberfläche\n' +
+                'und eigener Lizenz — das installiert dieses Skript nicht ungefragt):\n' +
+                '  https://docs.docker.com/desktop/install/windows-install/\n' +
+                'Alternative über winget:\n' +
+                '  winget install --id Docker.DockerDesktop\n',
+            )
+          } else {
+            schreibe(
+              '\nDocker auf Linux (braucht root — deshalb hier nur genannt, nicht getan):\n' +
+                '  curl -fsSL https://get.docker.com | sudo sh\n' +
+                '  sudo usermod -aG docker "$USER"   # danach neu anmelden\n',
+            )
+          }
+        }
+        return null
+      }
+      schreibe('\nEs fehlt noch etwas — die Installation läuft trotzdem weiter:\n')
+      for (const e of zusammen.fehlend) {
+        schreibe(`  ${e.name}: ${werkzeugFolge(e.name).folge}\n`)
+      }
       if (!dockerDa) {
         if (familie() === 'windows') {
           schreibe(
@@ -571,7 +631,23 @@ export async function installiere(optionen = {}) {
       if (dockerDa && !dockerLaeuft && hinweise.length === 0) {
         schreibe('\nDocker läuft nicht — Docker Desktop bzw. den Docker-Dienst starten.\n')
       }
-      return null
+
+      // **Docker fehlt und der Stapel ist nicht abgeschaltet: hier ist Schluss.**
+      // Ohne Datenbank scheitert Schritt 4 ohnehin — nur später, nach `bun install`,
+      // mit einer Meldung, die nach einem Fehler des Installers aussieht. Zwei
+      // Wege, beide ehrlich: Docker holen, oder ohne Stapel installieren.
+      if (!dockerDa && !ueberspringeStapel) {
+        schreibe(
+          '\nDocker fehlt — und ohne Docker gibt es keine Datenbank. Es geht so weiter:\n' +
+            '\n' +
+            '  1) Docker Desktop holen (einmalig, danach dieses Skript erneut):\n' +
+            '       winget install --id Docker.DockerDesktop\n' +
+            '\n' +
+            '  2) oder ohne Datenbank installieren (der Host startet, die Anmeldung nicht):\n' +
+            '       bun run install:alles -- --ohne-stapel\n',
+        )
+        return null
+      }
     }
     return ergebnisse
   })
@@ -626,7 +702,11 @@ export async function installiere(optionen = {}) {
     return await starteStapel((t) => schreibe(t))
   })
   if (!stapel) {
-    schreibe('\nDer Stapel läuft nicht. Ohne Datenbank kann die Anwendung nicht arbeiten.\n')
+    schreibe(
+      '\nDer Stapel läuft nicht. Ohne Datenbank kann die Anwendung nicht arbeiten.\n' +
+        'Ohne Datenbank installieren (nur zum Ansehen, die Anmeldung fehlt):\n' +
+        '  bun run install:alles -- --ohne-stapel\n',
+    )
     return 1
   }
 
@@ -702,7 +782,173 @@ export async function installiere(optionen = {}) {
   if (!geprueft) return 1
 
   // ── 7 ────────────────────────────────────────────────────────────────────
-  await schritt(7, 'Fertig', async () => {
+  /*
+   * **Mitgaben — die beiden optionalen Panels.**
+   *
+   * Ohne sie startet der Harness, und ihre Panels sagen, was fehlt. Nur: ein
+   * Panel, das „nicht installiert" sagt und keinen Weg nennt, ist eine Sackgasse.
+   * Hier wird der Weg gangbar — mit der Zurückhaltung aus `mitgaben.mjs`:
+   * Graphify (PyPI, Apache-2.0, ohne Rechte) wird installiert, Obsidian (eigene
+   * Lizenz, Oberfläche) nur auf ausdrücklichen Wunsch `--mit-obsidian`.
+   *
+   * **Dieser Schritt kann die Installation nicht scheitern lassen.** Eine fehlende
+   * Mitgabe ist eine fehlende Beigabe; der Harness läuft ohne sie. Was fehlt,
+   * steht als Zeile da — und im Abschluß mit dem Befehl, der es nachholt.
+   */
+  await schritt(7, 'Mitgaben (Graphify, Obsidian)', async () => {
+    const wahl = {
+      ohneMitgaben: ueberspringeMitgaben,
+      // **Obsidian ist Standard seit dem 31.10.2026.** Ohne Vault-Panel ist der
+      // Wissensspeicher eine Sackgasse; die Lizenzfrage (gewerblich
+      // kostenpflichtig) nennt die Ausgabe, und `--ohne-obsidian` wählt ab.
+      mitObsidian: ueberspringeMitgaben ? false : optionen.ohneObsidian !== true,
+      mitGraphen: !ueberspringeMitgaben,
+    }
+    const vorher = await pruefeAlle()
+    for (const befund of vorher) {
+      if (befund.da) {
+        for (const zeile of zeilen(befund, { installiert: false })) schreibe(`${zeile}\n`)
+        continue
+      }
+      const soll = wirdInstalliert(befund.name, wahl)
+      if (!soll) {
+        for (const zeile of zeilen(befund, { installiert: false })) schreibe(`${zeile}\n`)
+        schreibe(`  ${' '.repeat(9)}   ${MITGABEN[befund.name].ohne}\n`)
+        continue
+      }
+      schreibe(`  ${befund.titel}: nicht da — wird installiert …\n`)
+      const ergebnis = await installiereMitgabe(befund.name)
+      for (const zeile of zeilen(ergebnis.danach, { installiert: ergebnis.ok })) schreibe(`${zeile}\n`)
+      schreibe(`  ${' '.repeat(9)}   Weg: ${ergebnis.weg}\n`)
+      if (!ergebnis.ok) {
+        for (const zeile of ergebnis.text.split('\n')) {
+          if (zeile.trim() !== '') schreibe(`  ${' '.repeat(9)}   ${zeile}\n`)
+        }
+      }
+    }
+    const fehltNoch = (await pruefeAlle()).filter((befund) => !befund.da)
+    if (fehltNoch.length > 0) {
+      schreibe(
+        '\n  Fehlt weiterhin: ' +
+          `${fehltNoch.map((befund) => befund.titel).join(', ')}. ` +
+          'Die Panels sagen es, der Harness läuft.\n',
+      )
+      if (fehltNoch.some((befund) => befund.name === 'obsidian')) {
+        schreibe('  Obsidian nachziehen (eigene Lizenz, für gewerbliche Nutzung kostenpflichtig):\n')
+        schreibe('    bun run install:alles\n')
+      }
+    }
+    return true
+  })
+
+  // ── 8 ────────────────────────────────────────────────────────────────────
+  /*
+   * Fähigkeiten: der Bestand, der nicht zum Kern gehört.
+   *
+   * Die Skills liegen seit dem 31.10.2026 in `github.com/LangLi7/pmh-skills`
+   * (eigenes Repository: eigene Historie, eigene Lizenz, eigener Takt). Sie
+   * werden **nicht** in dieses Repository kopiert — 45 MB Inhalt, den niemand
+   * hier pflegt. Stattdessen: holen, wenn sie fehlen, und in den
+   * Benutzer-Scope verknüpfen, den der Katalog liest.
+   *
+   * Warum das ein eigener Schritt ist und nicht Teil der Mitgaben. Ohne
+   * Fähigkeiten startet der Harness, aber `/hilfe` ist leer. Das ist kein
+   * fehlendes Beiwerk, sondern der Unterschied zwischen „läuft" und „nutzbar".
+   *
+   * Kein Scheitern. Fehlt das Netz oder git, steht das da, und die
+   * Installation endet trotzdem mit 0 — der Rest ist fertig.
+   */
+  await schritt(8, 'Fähigkeiten (Skills)', async () => {
+    const quelle = join(wurzel, 'units', 'skills')
+    if (!existsSync(quelle)) {
+      schreibe('  units/skills fehlt — wird geholt …\n')
+      schreibe('  git clone --depth 1 https://github.com/LangLi7/pmh-skills.git units/skills\n')
+      const { code, text } = await laufe(
+        werkzeugBefehl('git'),
+        ['clone', '--depth', '1', 'https://github.com/LangLi7/pmh-skills.git', quelle],
+        { cwd: wurzel },
+      )
+      if (code !== 0) {
+        schreibe(`  FEHLER (exit ${String(code)}) — die Fähigkeiten fehlen weiterhin:\n`)
+        for (const zeile of text.trimEnd().split('\n').slice(-6)) schreibe(`    ${zeile}\n`)
+        schreibe('  Nachholen: bun run install:alles   (oder den Skill `prometheus-package`)\n')
+        return true
+      }
+    }
+
+    // **Das Verknüpfen bleibt in den Skripten, die es schon gibt.** Eine zweite
+    // Fassung in JavaScript wäre eine zweite Wahrheit über dieselbe Regel; die
+    // Sammlungsliste und der `index.json`-Schreibweg stehen in `link-skills.ps1`.
+    const skript =
+      familie() === 'windows'
+        ? join(quelle, 'link-skills.ps1')
+        : join(quelle, 'link-skills.sh')
+    if (!existsSync(skript)) {
+      schreibe('  FEHLER: das Verknüpfungsskript fehlt im Bestand.\n')
+      return true
+    }
+    const befehl = familie() === 'windows' ? 'powershell' : 'sh'
+    const argumente =
+      familie() === 'windows' ? ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', skript] : [skript]
+    const { code, text } = await laufe(befehl, argumente, { cwd: wurzel })
+    for (const zeile of text.trimEnd().split('\n').slice(-6)) {
+      if (zeile.trim() !== '') schreibe(`  ${zeile}\n`)
+    }
+    if (code !== 0) {
+      schreibe(`  FEHLER beim Verknüpfen (exit ${String(code)}) — der Bestand liegt da, ist aber unsichtbar.\n`)
+      return true
+    }
+    return true
+  })
+
+  // ── 9 ────────────────────────────────────────────────────────────────────
+  /*
+   * **Plugins (Units) — der Bestand, der sich einhängt.**
+   *
+   * Ein Plugin ist ein Unit: `unit.json`, `README.md`, `src/index.ts` unter
+   * `units/<name>`. Der Harness lädt nicht, was auf der Platte liegt, sondern was
+   * in `harness/units.json` deklariert ist. Das Verknüpfungsskript tut beides:
+   * Verweis anlegen und eintragen.
+   *
+   * Die Quelle ist `github.com/LangLi7/pmh-plugins` (eigenes Repository, wie bei
+   * den Fähigkeiten). Fehlt das Netz, steht der Hinweis da, und die Installation
+   * endet trotzdem mit 0.
+   */
+  await schritt(9, 'Plugins (Units)', async () => {
+    const quelle = join(wurzel, 'units', 'plugins')
+    if (!existsSync(quelle)) {
+      schreibe('  units/plugins fehlt — wird geholt …\n')
+      const { code, text } = await laufe(
+        werkzeugBefehl('git'),
+        ['clone', '--depth', '1', 'https://github.com/LangLi7/pmh-plugins.git', quelle],
+        { cwd: wurzel },
+      )
+      if (code !== 0) {
+        schreibe(`  FEHLER (exit ${String(code)}) — die Plugins fehlen weiterhin:\n`)
+        for (const zeile of text.trimEnd().split('\n').slice(-6)) schreibe(`    ${zeile}\n`)
+        schreibe('  Nachholen: bun run install:alles   (oder den Skill `prometheus-package`)\n')
+        return true
+      }
+    }
+
+    const skript = join(quelle, 'link-plugins.mjs')
+    if (!existsSync(skript)) {
+      schreibe('  FEHLER: link-plugins.mjs fehlt im Bestand.\n')
+      return true
+    }
+    const { code, text } = await laufe(BUN, [skript], { cwd: wurzel })
+    for (const zeile of text.trimEnd().split('\n').slice(-8)) {
+      if (zeile.trim() !== '') schreibe(`  ${zeile}\n`)
+    }
+    if (code !== 0) {
+      schreibe(`  FEHLER beim Verknüpfen (exit ${String(code)}) — die Deklaration bleibt unvollständig.\n`)
+      return true
+    }
+    return true
+  })
+
+  // ── 10 ───────────────────────────────────────────────────────────────────
+  await schritt(10, 'Fertig', async () => {
     schreibe(
       '\n  Starten:\n' +
         '\n' +
@@ -735,5 +981,7 @@ export async function installiere(optionen = {}) {
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const ohneStapel = process.argv.includes('--ohne-stapel')
-  process.exitCode = await installiere({ ohneStapel })
+  const ohneMitgaben = process.argv.includes('--ohne-mitgaben')
+  const ohneObsidian = process.argv.includes('--ohne-obsidian')
+  process.exitCode = await installiere({ ohneStapel, ohneMitgaben, ohneObsidian })
 }

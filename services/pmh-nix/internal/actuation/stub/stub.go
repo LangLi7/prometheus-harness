@@ -52,6 +52,10 @@ const System = "attrappe"
 // Note ist der Vermerk an jeder Attrappen-Generation.
 const Note = "nichts am System geaendert, nur Buchfuehrung"
 
+// RepoStandIn ist das Repository, das die Attrappe fuer ihre Branches nennt.
+// Es wird NICHT angefasst: der Branch ist ein Datensatz, kein Git-Aufruf.
+const RepoStandIn = "git+ssh://forgejo/nixos-config.git"
+
 // MaxTargetLength ist die Laenge, die ein Zielname hoechstens haben darf.
 const MaxTargetLength = 63
 
@@ -65,14 +69,26 @@ type Backend struct {
 	// Strict macht die Pruefung sperrend: die Attrappe erklaert sich dann
 	// fuer unverfuegbar und verweigert jede Anwendung.
 	Strict bool
+	// Mode ist die Betriebsart; leer heisst api.ModeLocal.
+	Mode api.Mode
 	// LookPath ist der Programmsucher; nil heisst exec.LookPath. Die Tests
 	// setzen ihn, damit die Antwort nicht von der Umgebung des Pruefrecihners
 	// abhaengt.
 	LookPath func(string) (string, error)
+	// OnActivate wird gerufen, wenn Apply wirklich ausfuehrt. Die Tests setzen
+	// ihn, um zu belegen, dass propose NIE aktiviert.
+	OnActivate func(diff api.Diff)
 }
 
-// New baut die Attrappe in der Vorgabe-Betriebsart Simulation.
+// New baut die Attrappe in der Vorgabe-Betriebsart Simulation und Mode local.
 func New(store *state.Store) *Backend { return &Backend{store: store} }
+
+func (b *Backend) mode() api.Mode {
+	if b.Mode == "" {
+		return api.ModeLocal
+	}
+	return b.Mode
+}
 
 // Name meldet den Kurznamen.
 func (b *Backend) Name() string { return Name }
@@ -112,18 +128,31 @@ func (b *Backend) Detect() (api.Capability, error) {
 	} else {
 		cap.Details = append(cap.Details, "Betriebsart Simulation: der Vertrag laeuft durch, ohne etwas zu aendern")
 	}
+	cap.Details = append(cap.Details,
+		fmt.Sprintf("Betriebsart der Actuation: %s (local = Flake im Repository mit Pruefbau, remote = Branch im Git-Repository mit switch auf der Zielmaschine)", b.mode()),
+		"Branch und Commit sind Datensaetze: die Attrappe ruft kein git auf",
+		"Grenze G1: NixOS laeuft nur auf Linux; auf diesem Wirt findet keine Actuation statt")
 	return cap, nil
 }
 
-// Propose erzeugt den textuellen Diff, den die Aenderung bewirken wuerde. Der
-// Diff ist reiner Text: er beschreibt die Aenderung, er fuehrt sie nicht aus.
-func (b *Backend) Propose(req api.Proposal) (api.Diff, error) {
+// Propose erzeugt den Branch mit dem textuellen Diff, den die Aenderung
+// bewirken wuerde — und zeichnet Commit, Diff und Basisgeneration auf.
+//
+// Propose aktiviert NIE. Es ruft kein nix, kein nixos-rebuild und kein git
+// auf; der Branch ist ein Datensatz. Der Aufruf von OnActivate belegt das in
+// den Tests.
+func (b *Backend) Propose(req api.Proposal) (api.Diff, api.Branch, error) {
 	flake := strings.TrimSpace(req.Flake)
 	if flake == "" {
-		return api.Diff{}, fmt.Errorf("propose: --flake fehlt: ohne Flake-Pfad gibt es keine Systembeschreibung")
+		return api.Diff{}, api.Branch{}, fmt.Errorf("propose: --flake fehlt: ohne Flake-Pfad gibt es keine Systembeschreibung")
 	}
 	target := strings.TrimSpace(req.Target)
+	mode := req.Mode
+	if mode == "" {
+		mode = b.mode()
+	}
 	diff := api.Diff{
+		Mode:   mode,
 		Flake:  flake,
 		Target: target,
 		Files: []api.FileDiff{{
@@ -139,14 +168,31 @@ func (b *Backend) Propose(req api.Proposal) (api.Diff, error) {
 		}},
 	}
 	diff.Hash = state.HashDiff(diff)
-	return diff, nil
+	branch := api.Branch{
+		Repo: RepoStandIn,
+		Push: mode == api.ModeRemote,
+	}
+	if mode == api.ModeRemote {
+		branch.Name = "agent/nixos-" + actuation.Slug(orLocal(target))
+		branch.Base = "main"
+	} else {
+		branch.Name = "local/agent-" + actuation.Slug(orLocal(target))
+		branch.Base = "HEAD"
+	}
+	branch.Commit = actuation.CommitHash(branch.Name, diff.Hash)
+	return diff, branch, nil
 }
 
-// Check prueft den Diff statisch. Befunde tragen Schwere und Text.
+// Check ist der Pruefbau ohne Aktivierung. Befunde tragen Schwere und Text.
 //
 // In der Betriebsart Simulation sind die Befunde Hinweise: die Attrappe
 // berichtet, was sie nicht kann, ohne den Vertrag zu sperren. In der
 // Betriebsart streng ist genau dieser Befund ein Fehler und sperrt.
+//
+// Eine Ausnahme von "Simulation sperrt nicht" gibt es: ein KLARTEXT-GEHEIMNIS
+// ist IMMER ein Befund der Schwere error (Betreiber-Vorgabe G4). Der Nix-Store
+// ist world-readable; ein Geheimnis dort ist offen, gleich welches Backend
+// laeuft.
 func (b *Backend) Check(diff api.Diff) ([]api.Finding, error) {
 	findings := []api.Finding{}
 	if strings.TrimSpace(diff.Flake) == "" {
@@ -181,6 +227,22 @@ func (b *Backend) Check(diff api.Diff) ([]api.Finding, error) {
 				Location: t,
 			})
 		}
+	}
+
+	// G4: Klartext-Geheimnisse sperren immer.
+	findings = append(findings, actuation.SecretFindings(diff)...)
+
+	// Die strengeren Kategorien werden benannt. Sie sperren nicht von sich aus,
+	// verlangen aber eine ausdrueckliche Freigabe (G3, entschieden in
+	// internal/policy).
+	categories := actuation.Classify(diff)
+	if restricted := restrictedOf(categories); len(restricted) > 0 {
+		findings = append(findings, api.Finding{
+			Code:     "strengere-kategorie",
+			Severity: api.SeverityWarning,
+			Message: "der Diff beruehrt eine Kategorie, die eine ausdrueckliche Freigabe verlangt: " +
+				actuation.CategoryHint(restricted) + " (Netzwerk, Nutzerrechte, Geheimnisse)",
+		})
 	}
 
 	// Der Befund, der alles traegt: echte Actuation ist hier nicht moeglich.
@@ -219,8 +281,18 @@ func (b *Backend) Apply(diff api.Diff) (api.Generation, error) {
 	if b.store == nil {
 		return api.Generation{}, fmt.Errorf("apply: Attrappe ohne Buchfuehrung gebaut")
 	}
+	// Ab hier waere die Activation. Der Haken belegt, dass propose hier nie
+	// ankommt.
+	if b.OnActivate != nil {
+		b.OnActivate(diff)
+	}
+	mode := diff.Mode
+	if mode == "" {
+		mode = b.mode()
+	}
 	return b.store.AddGeneration(api.Generation{
 		Label:      "Attrappe: " + diff.Flake,
+		Mode:       mode,
 		ProposalID: diff.ProposalID,
 		Target:     diff.Target,
 		System:     System,
@@ -269,6 +341,20 @@ func orLocal(target string) string {
 		return "lokaler Wirt"
 	}
 	return target
+}
+
+// restrictedOf liefert die Kategorien, die eine ausdrueckliche Freigabe
+// verlangen, in fester Reihenfolge.
+func restrictedOf(categories []api.Category) []api.Category {
+	var out []api.Category
+	for _, want := range []api.Category{api.CategorySecrets, api.CategoryUsers, api.CategoryNetwork} {
+		for _, c := range categories {
+			if c == want {
+				out = append(out, c)
+			}
+		}
+	}
+	return out
 }
 
 // IsSimulatedGeneration meldet, ob eine Generation aus der Attrappe stammt.

@@ -13,6 +13,9 @@
     "apps/cli": {
       "name": "@prometheus-harness/cli",
       "version": "0.0.0",
+      "bin": {
+        "pmh": "src/main.ts",
+      },
       "dependencies": {
         "@deepseek-ai/cordis": "~4.0.5-alpha.1",
         "@deepseek-ai/cordis-plugin-group": "~1.0.5-alpha.1",
@@ -28,6 +31,10 @@
         "@deepseek-ai/dsh-mcp-client": "0.2.1-alpha.2",
         "@deepseek-ai/dsh-web-app": "0.2.1-alpha.2",
         "@deepseek-ai/schemastery": "~3.18.5-alpha.1",
+        "@prometheus-harness/home-paths": "workspace:*",
+        "@prometheus-harness/plugin-hooks": "workspace:*",
+        "@prometheus-harness/skill-marketplace": "workspace:*",
+        "@prometheus-harness/skillspector": "workspace:*",
         "sherpa-onnx-node": "1.13.8",
       },
     },
@@ -132,6 +139,10 @@
     },
     "packages/ai/tariffs": {
       "name": "@prometheus-harness/tariffs",
+      "version": "0.0.0",
+    },
+    "packages/ai/typesafe": {
+      "name": "@prometheus-harness/typesafe",
       "version": "0.0.0",
     },
     "packages/api/ai-capabilities": {
@@ -245,16 +256,32 @@
         "@prometheus-harness/client-world": "workspace:*",
       },
     },
+    "packages/client/command-glyphs": {
+      "name": "@prometheus-harness/client-command-glyphs",
+      "version": "0.1.0",
+    },
     "packages/client/locale": {
       "name": "@prometheus-harness/client-locale",
+      "version": "0.1.0",
+    },
+    "packages/client/media-preview": {
+      "name": "@prometheus-harness/client-media-preview",
       "version": "0.1.0",
     },
     "packages/client/select-contrast": {
       "name": "@prometheus-harness/client-select-contrast",
       "version": "0.1.0",
     },
+    "packages/client/skills-by-package": {
+      "name": "@prometheus-harness/client-skills-by-package",
+      "version": "0.2.0",
+    },
     "packages/client/source-folders": {
       "name": "@prometheus-harness/client-source-folders",
+      "version": "0.1.0",
+    },
+    "packages/client/tabs": {
+      "name": "@prometheus-harness/client-tabs",
       "version": "0.1.0",
     },
     "packages/client/world": {
@@ -397,6 +424,14 @@
       "name": "@prometheus-harness/launcher",
       "version": "0.1.0",
     },
+    "packages/plugin/model-catalog": {
+      "name": "@prometheus-harness/model-catalog",
+      "version": "0.1.0",
+      "dependencies": {
+        "@prometheus-harness/ai-capabilities": "workspace:*",
+        "@prometheus-harness/provider-directory": "workspace:*",
+      },
+    },
     "packages/plugin/obsidian": {
       "name": "@prometheus-harness/obsidian",
       "version": "0.1.0",
@@ -408,6 +443,13 @@
       "name": "@prometheus-harness/pdf-export",
       "version": "0.1.0",
     },
+    "packages/plugin/plugin-hooks": {
+      "name": "@prometheus-harness/plugin-hooks",
+      "version": "0.1.0",
+      "dependencies": {
+        "@prometheus-harness/home-paths": "workspace:*",
+      },
+    },
     "packages/plugin/ponytail": {
       "name": "@prometheus-harness/ponytail",
       "version": "0.1.0",
@@ -416,11 +458,21 @@
         "@prometheus-harness/home-paths": "workspace:*",
       },
     },
+    "packages/plugin/programmatic-tools": {
+      "name": "@prometheus-harness/programmatic-tools",
+      "version": "0.1.0",
+      "dependencies": {
+        "@deepseek-ai/cordis": "~4.0.5-alpha.1",
+        "@deepseek-ai/dsh-llm": "0.2.1-alpha.2",
+        "@deepseek-ai/dsh-tools": "0.2.1-alpha.2",
+      },
+    },
     "packages/plugin/rich-ui": {
       "name": "@prometheus-harness/rich-ui",
       "version": "0.1.0",
       "dependencies": {
         "@chenglou/pretext": "^1.0.0",
+        "prejs": "^1.2.6",
       },
     },
     "packages/plugin/usage": {
@@ -456,6 +508,15 @@
         "yaml": "^2.9.1",
       },
     },
+    "packages/skill/skill-marketplace": {
+      "name": "@prometheus-harness/skill-marketplace",
+      "version": "0.1.0",
+      "dependencies": {
+        "@prometheus-harness/home-paths": "workspace:*",
+        "@prometheus-harness/skillspector": "workspace:*",
+        "yaml": "^2.9.1",
+      },
+    },
     "packages/skill/skill-plugin": {
       "name": "@prometheus-harness/skill-plugin",
       "version": "0.0.0",
@@ -464,6 +525,14 @@
         "@prometheus-harness/home-paths": "workspace:*",
         "@prometheus-harness/skill": "workspace:*",
         "@prometheus-harness/skill-filesystem": "workspace:*",
+      },
+    },
+    "packages/skill/skillspector": {
+      "name": "@prometheus-harness/skillspector",
+      "version": "0.1.0",
+      "dependencies": {
+        "@prometheus-harness/home-paths": "workspace:*",
+        "yaml": "^2.9.1",
       },
     },
     "packages/skill/tool-skill": {
@@ -561,6 +630,17 @@
         "@prometheus-harness/world-graph": "workspace:*",
       },
     },
+    "packages/world/knowledge": {
+      "name": "@prometheus-harness/world-knowledge",
+      "version": "0.1.0",
+      "dependencies": {
+        "@deepseek-ai/dsh-tools": "0.2.1-alpha.2",
+        "@prometheus-harness/home-paths": "workspace:*",
+        "@prometheus-harness/secrets": "workspace:*",
+        "@prometheus-harness/store-postgres": "workspace:*",
+        "postgres": "^3.4.9",
+      },
+    },
     "packages/world/obsidian": {
       "name": "@prometheus-harness/world-obsidian-provider",
       "version": "0.1.0",
@@ -570,6 +650,9 @@
         "@prometheus-harness/world-obsidian": "workspace:*",
       },
     },
+  },
+  "patchedDependencies": {
+    "@deepseek-ai/dsh-client-ui-workspace@0.2.1-alpha.2": "patches/dsh-client-ui-workspace@0.2.1-alpha.2.patch",
   },
   "packages": {
     "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.129.0", "", { "dependencies": { "json-schema-to-ts": "^3.1.1", "standardwebhooks": "^1.0.0" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-MH7LB20kNpGLUpPTe2OG5XvL/KhX8HUO9XyBaFjgFk6TLS4Xjt0VPIuMKywe7POKKPslX+QxSlVok9e+8kG5Nw=="],
@@ -1320,11 +1403,19 @@
 
     "@prometheus-harness/cli": ["@prometheus-harness/cli@workspace:apps/cli"],
 
+    "@prometheus-harness/client-command-glyphs": ["@prometheus-harness/client-command-glyphs@workspace:packages/client/command-glyphs"],
+
     "@prometheus-harness/client-locale": ["@prometheus-harness/client-locale@workspace:packages/client/locale"],
+
+    "@prometheus-harness/client-media-preview": ["@prometheus-harness/client-media-preview@workspace:packages/client/media-preview"],
 
     "@prometheus-harness/client-select-contrast": ["@prometheus-harness/client-select-contrast@workspace:packages/client/select-contrast"],
 
+    "@prometheus-harness/client-skills-by-package": ["@prometheus-harness/client-skills-by-package@workspace:packages/client/skills-by-package"],
+
     "@prometheus-harness/client-source-folders": ["@prometheus-harness/client-source-folders@workspace:packages/client/source-folders"],
+
+    "@prometheus-harness/client-tabs": ["@prometheus-harness/client-tabs@workspace:packages/client/tabs"],
 
     "@prometheus-harness/client-world": ["@prometheus-harness/client-world@workspace:packages/client/world"],
 
@@ -1380,6 +1471,8 @@
 
     "@prometheus-harness/login-web": ["@prometheus-harness/login-web@workspace:apps/login_web"],
 
+    "@prometheus-harness/model-catalog": ["@prometheus-harness/model-catalog@workspace:packages/plugin/model-catalog"],
+
     "@prometheus-harness/modlens": ["@prometheus-harness/modlens@workspace:packages/vision/modlens"],
 
     "@prometheus-harness/obsidian": ["@prometheus-harness/obsidian@workspace:packages/plugin/obsidian"],
@@ -1390,7 +1483,11 @@
 
     "@prometheus-harness/permissions": ["@prometheus-harness/permissions@workspace:packages/auth/permissions"],
 
+    "@prometheus-harness/plugin-hooks": ["@prometheus-harness/plugin-hooks@workspace:packages/plugin/plugin-hooks"],
+
     "@prometheus-harness/ponytail": ["@prometheus-harness/ponytail@workspace:packages/plugin/ponytail"],
+
+    "@prometheus-harness/programmatic-tools": ["@prometheus-harness/programmatic-tools@workspace:packages/plugin/programmatic-tools"],
 
     "@prometheus-harness/provider-directory": ["@prometheus-harness/provider-directory@workspace:packages/ai/provider-directory"],
 
@@ -1422,7 +1519,11 @@
 
     "@prometheus-harness/skill-filesystem": ["@prometheus-harness/skill-filesystem@workspace:packages/skill/skill-filesystem"],
 
+    "@prometheus-harness/skill-marketplace": ["@prometheus-harness/skill-marketplace@workspace:packages/skill/skill-marketplace"],
+
     "@prometheus-harness/skill-plugin": ["@prometheus-harness/skill-plugin@workspace:packages/skill/skill-plugin"],
+
+    "@prometheus-harness/skillspector": ["@prometheus-harness/skillspector@workspace:packages/skill/skillspector"],
 
     "@prometheus-harness/speech-local-base": ["@prometheus-harness/speech-local-base@workspace:packages/api/speech-local-base"],
 
@@ -1439,6 +1540,8 @@
     "@prometheus-harness/token-meter": ["@prometheus-harness/token-meter@workspace:packages/llm/token-meter"],
 
     "@prometheus-harness/tool-skill": ["@prometheus-harness/tool-skill@workspace:packages/skill/tool-skill"],
+
+    "@prometheus-harness/typesafe": ["@prometheus-harness/typesafe@workspace:packages/ai/typesafe"],
 
     "@prometheus-harness/unit-api": ["@prometheus-harness/unit-api@workspace:packages/api/unit-api"],
 
@@ -1465,6 +1568,8 @@
     "@prometheus-harness/world-graph": ["@prometheus-harness/world-graph@workspace:packages/world/graph"],
 
     "@prometheus-harness/world-graphify": ["@prometheus-harness/world-graphify@workspace:packages/world/graphify"],
+
+    "@prometheus-harness/world-knowledge": ["@prometheus-harness/world-knowledge@workspace:packages/world/knowledge"],
 
     "@prometheus-harness/world-obsidian": ["@prometheus-harness/world-obsidian@workspace:packages/web/world-obsidian"],
 
@@ -1879,6 +1984,8 @@
     "postgres": ["postgres@3.4.9", "", {}, "sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw=="],
 
     "powershell-utils": ["powershell-utils@0.2.1", "", {}, "sha512-C+y9x90UElAddDZmV4qOx9W53B61PO7cIqWz2dQsWlwswuq4mr8NEwytdGKboYbQlGZ3awrkTeNvcZiZNHnQ8A=="],
+
+    "prejs": ["prejs@1.2.6", "", {}, "sha512-XGVbJaJw+c9qJbRFQUTxIuX2IFOUQfvq3uM/f7LZuQAyGZB4vUmSws6nWf3JDffMs83QPmrUSYozjO1U5DgL5g=="],
 
     "pretty-ms": ["pretty-ms@9.3.1", "", { "dependencies": { "parse-ms": "^4.0.0" } }, "sha512-HzMy3Geq23nVALD/M2LliU+F+M+gVNsvkQWWqeBZ8HDiCgzo6YPJ/Omrmtq24EFrIsk0a3EkQGEd7bDOo+IhGA=="],
 

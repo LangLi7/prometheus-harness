@@ -1,4 +1,10 @@
-# Umzugsliste: snapshots/web -> apps/world
+# Umzugsliste: snapshots/web -> apps/universe   [AUSGEFÜHRT am 15.10.2026]
+
+# NACHTRAG: Der Umzug ist geschehen — Ziel ist apps/universe (Ansage des Betreibers), nicht
+# apps/world. Die Liste unten ist damit die Aufzählung dessen, was den Ort gewechselt hat:
+# 143 Dateien, SHA-256 je Datei verglichen (0 fehlend, 0 abweichend, 0 zusätzlich).
+# Der alte Ort snapshots/web wurde danach gelöscht. Nachweis: docs/status/welt-ein-port.md
+# OFFEN und nicht Teil dieses Umzugs: das Festschreiben in git — es wurde nichts eingestuft.
 
 Stand: 2026-10-15 18:58, gemessen mit Get-ChildItem (ohne node_modules/ und dist/)
 

@@ -1,0 +1,17 @@
+{
+  "name": "@prometheus-harness/modlens",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Die Bildbruecke als Unit: die modlens-CLI wird gerufen, ihre strukturierte Evidenz gelesen und als Werkzeug in den Loop gehaengt. Keine Netzverbindung im Paket selbst.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/agent-tools": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

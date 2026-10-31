@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/ai-capabilities",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Die KI-Faehigkeiten als Host-Plugin: baut die Kette aus Einstellungen und OpenRouter, haengt gesicherte Endpunkte unter /api/ai/* ein und meldet fuenf Agent-Werkzeuge an (Bild, TTS, STT, Einbetten, Entscheiden).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

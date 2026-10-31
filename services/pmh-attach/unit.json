@@ -1,0 +1,23 @@
+{
+  "name": "pmh-attach",
+  "version": "0.1.0",
+  "kind": "service",
+  "language": "go",
+  "description": "HTTP-/WebSocket-Anhaengepunkt der Oberflaeche: verteilt einen Upstream-Strom auf mehrere Clients und Ansichten und macht Luecken, Ueberlauf und einen fehlenden Upstream sichtbar.",
+  "entry": {
+    "command": "pmh-attach",
+    "args": ["--host", "127.0.0.1", "--port", "8090"]
+  },
+  "core": "optional",
+  "provides": ["web-attach", "websocket-gateway", "stream-fan-out"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Arbeitspaket aus docs/decisions/hybrid-then-self-build.md Abschnitt 3.3 (Web-Attach-Dienst).",
+    "Tritt NEBEN den TypeScript-Gateway-Seam, nicht an seine Stelle (docs/stack.md).",
+    "Protokollnamen sind woertlich aus dem Core-Gateway-Seam uebernommen, wo sie belegbar sind; eigene Ergaenzungen (attach, detach, resync, snapshot, event, seq, droppable) sind in der README als eigene gekennzeichnet.",
+    "Regel 3 aus docs/concept.md: /healthz laeuft ohne Harness; ein fehlender Upstream scheitert beim Anhaengen sichtbar.",
+    "Wildcard-Bind nur mit --allow-wildcard, dieselbe Haltung wie der Upstream-Host.",
+    "Ehrliche Luecke: der Upstream-Strom (NDJSON) ist eine vereinbarte Form, kein laufender Harness; ein Uplink (Client-Eingabe) ist nicht angeschlossen."
+  ]
+}

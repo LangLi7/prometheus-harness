@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "description": "Prometheus Harness — Anwendungs-Einstieg (Host). Startet den Core über die Cordis-Profil-Komposition und liefert die Oberfläche aus. An der in MAPPING.md §3.5 geplanten Stelle apps/cli.",
+  "bin": {
+    "pmh": "src/main.ts"
+  },
   "scripts": {
     "start": "bun run src/main.ts",
     "typecheck": "tsgo --noEmit -p tsconfig.json"
@@ -20,8 +23,13 @@
     "@deepseek-ai/dsh-credentials-local": "0.2.1-alpha.2",
     "@deepseek-ai/dsh-experimental-voice-input-bundle": "0.2.1-alpha.2",
     "@deepseek-ai/dsh-home-paths": "0.2.1-alpha.2",
+    "@deepseek-ai/dsh-mcp-client": "0.2.1-alpha.2",
     "@deepseek-ai/dsh-web-app": "0.2.1-alpha.2",
     "@deepseek-ai/schemastery": "~3.18.5-alpha.1",
+    "@prometheus-harness/home-paths": "workspace:*",
+    "@prometheus-harness/plugin-hooks": "workspace:*",
+    "@prometheus-harness/skill-marketplace": "workspace:*",
+    "@prometheus-harness/skillspector": "workspace:*",
     "sherpa-onnx-node": "1.13.8"
   }
 }

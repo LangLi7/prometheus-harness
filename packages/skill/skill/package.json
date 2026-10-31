@@ -1,0 +1,17 @@
+{
+  "name": "@prometheus-harness/skill",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Die geschichtete Skill-Registry: Anbieter fuehren Skills, die Registry mischt sie je Scope, loest den Gewinner je Name und laedt den Rumpf auf Abruf. Reines Rechnen ohne Harness.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/scope": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

@@ -1,0 +1,8 @@
+# Das Zugänge-Plugin als eigenes Bündel.
+#
+# Es bringt beides mit: die Host-Routen (Verwaltung und Sonde) und das
+# Browser-Panel. Wer nur die Zugänge will, installiert nur dieses Paket.
+- insert:
+    - id: pmh-zugaenge
+      name: '@prometheus-harness/zugaenge'
+      inject: [webServer]

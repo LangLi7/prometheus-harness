@@ -26,7 +26,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { Schema } from '@prometheus-harness/capabilities'
-import { OpenrouterFehler, VORSCHLAEGE, entschaerfe, openrouter } from '../src/index.ts'
+import { OpenrouterFehler, VORSCHLAEGE, bildArt, entschaerfe, openrouter, tonArt } from '../src/index.ts'
 import { UrteilFehler, liesUrteil, zuJsonSchema } from '../src/schema.ts'
 
 /** Ein Schlüssel für die Prüfung — **kein echter**, und genau deshalb darf er hier stehen. */
@@ -317,20 +317,23 @@ describe('Bereitschaft — je Fähigkeit, und ohne Netz', () => {
     })
   })
 
-  test('für `bild` ist er nicht bereit — der Weg ist nicht gemessen', async () => {
+  test('für `bild` ist er ohne Modell nicht bereit — mit Modell schon', async () => {
     const b = await macheBuehne()
-    const stand = await mitModell(b.basis, 'entscheiden', 'x/y').bereit('bild')
-    expect(stand.bereit).toBe(false)
-    expect(stand.bereit === false ? stand.grund : '').toContain('Bild')
+    const ohne = await mitModell(b.basis, 'entscheiden', 'x/y').bereit('bild')
+    expect(ohne.bereit).toBe(false)
+    expect(ohne.bereit === false ? ohne.grund : '').toContain('Bild')
+    expect(await mitModell(b.basis, 'bild', 'google/gemini-2.5-flash-image').bereit('bild')).toEqual({
+      bereit: true,
+    })
   })
 
-  test('er nennt `bild` und `gespraech` gar nicht erst als Fähigkeit', async () => {
+  test('er nennt `bild` — aber `gespraech` nicht', async () => {
     const b = await macheBuehne()
     const a = openrouter({ schluessel: () => SCHLUESSEL, basis: b.basis })
-    expect(a.faehigkeiten).not.toContain('bild')
+    expect(a.faehigkeiten).toContain('bild')
     expect(a.faehigkeiten).not.toContain('gespraech')
-    expect(a.zeichner).toBeUndefined()
-    expect(a.modelle('bild')).toEqual([])
+    expect(a.zeichner).toBeDefined()
+    expect(a.modelle('bild').length).toBeGreaterThan(0)
     expect(a.modelle('gespraech')).toEqual([])
   })
 
@@ -596,7 +599,10 @@ describe('Sprache zu Text', () => {
     b.antworte({ status: 200, koerper: JSON.stringify({ text: 'Guten Tag.', usage: { cost: 0.000576 } }) })
     const a = mitModell(b.basis, 'sprache-zu-text', 'google/gemini-3.5-transcribe')
 
-    const ergebnis = await a.hoerer?.hoere(new Uint8Array([82, 73, 70, 70, 1, 2, 3]))
+    // Ein **echter** WAV-Kopf: `RIFF` vorn und `WAVE` an Byte 8. Nur `RIFF` wäre kein WAV —
+    // und dann dürfte der Anbieter auch keine WAV-Endung behaupten.
+    const wav = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x41, 0x56, 0x45, 1, 2, 3])
+    const ergebnis = await a.hoerer?.hoere(wav)
     expect(ergebnis).toEqual({ text: 'Guten Tag.' })
 
     const ruf = b.aufzeichnungen[0]
@@ -608,6 +614,26 @@ describe('Sprache zu Text', () => {
     expect(ruf?.koerper).toContain('google/gemini-3.5-transcribe')
     expect(ruf?.koerper).toContain('name="file"')
     expect(ruf?.koerper).toContain('RIFF')
+    // **Die Endung ist Pflicht** — ohne sie kommt 200 mit leerem Text zurück (19.10.2026).
+    expect(ruf?.koerper).toContain('filename="ton.wav"')
+    expect(ruf?.koerper).toContain('Content-Type: audio/wav')
+  })
+
+  test('der Behälter wird an den Bytes erkannt — nicht am Wunsch', () => {
+    const wav = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x41, 0x56, 0x45])
+    expect(tonArt(wav)).toEqual({ typ: 'audio/wav', endung: 'wav' })
+    expect(tonArt(new Uint8Array([0x49, 0x44, 0x33, 0x04]))).toEqual({ typ: 'audio/mpeg', endung: 'mp3' })
+    expect(tonArt(new Uint8Array([0xff, 0xfb, 0x90]))).toEqual({ typ: 'audio/mpeg', endung: 'mp3' })
+    expect(tonArt(new Uint8Array([0x4f, 0x67, 0x67, 0x53]))).toEqual({ typ: 'audio/ogg', endung: 'ogg' })
+    expect(tonArt(new Uint8Array([1, 2, 3]))).toEqual({ typ: 'application/octet-stream', endung: 'bin' })
+  })
+
+  test('ein MP3 bekommt seine Endung — nicht `ton.bin`', async () => {
+    const b = await macheBuehne()
+    b.antworte({ status: 200, koerper: JSON.stringify({ text: 'x' }) })
+    const a = mitModell(b.basis, 'sprache-zu-text', 'm')
+    await a.hoerer?.hoere(new Uint8Array([0x49, 0x44, 0x33, 0x04, 0x00]))
+    expect(b.aufzeichnungen[0]?.koerper).toContain('filename="ton.mp3"')
   })
 
   test('ohne Sprache wird kein Sprachfeld gesendet', async () => {
@@ -704,6 +730,147 @@ describe('Einbetten', () => {
     const a = mitModell(b.basis, 'einbetten', 'm')
     expect(await a.einbetter?.betteEin([])).toEqual([])
     // Wer nichts fragt, gibt auch nichts aus.
+    expect(b.aufzeichnungen.length).toBe(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 8b. Bild
+// ---------------------------------------------------------------------------
+
+describe('Bild', () => {
+  /** Ein winziges JPEG — die ersten drei Bytes sind der Behälter, der Rest ist Beiwerk. */
+  const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46])
+
+  test('der gesendete Körper trägt die GEMESSENE Form', async () => {
+    const b = await macheBuehne()
+    b.antworte({
+      status: 200,
+      koerper: JSON.stringify({ data: [{ b64_json: Buffer.from(JPEG).toString('base64') }] }),
+    })
+    const a = mitModell(b.basis, 'bild', 'google/gemini-2.5-flash-image')
+
+    const bild = await a.zeichner?.zeichne('ein Avatar mit Flammerkopf')
+    expect(b.aufzeichnungen[0]?.pfad).toBe('/images/generations')
+    expect(b.aufzeichnungen[0]?.methode).toBe('POST')
+
+    const koerper = JSON.parse(b.aufzeichnungen[0]?.koerper ?? '{}') as Record<string, unknown>
+    expect(koerper['model']).toBe('google/gemini-2.5-flash-image')
+    expect(koerper['prompt']).toBe('ein Avatar mit Flammerkopf')
+    expect(koerper['n']).toBe(1)
+    // Ohne dieses Feld käme ein Verweis statt der Bytes — gemessen am 19.10.2026.
+    expect(koerper['response_format']).toBe('b64_json')
+
+    expect(bild?.bytes).toEqual(JPEG)
+    // **Der Typ kommt aus den Bytes.** Die Endung einer Datei ist eine Annahme; hier steht die
+    // Prüfung, daß aus `FF D8 FF` wirklich `image/jpeg` wird.
+    expect(bild?.typ).toBe('image/jpeg')
+  })
+
+  test('der Behälter wird an den ersten Bytes erkannt', () => {
+    expect(bildArt(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))).toBe('image/png')
+    expect(bildArt(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe('image/jpeg')
+    expect(bildArt(new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39]))).toBe('image/gif')
+    expect(
+      bildArt(new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50])),
+    ).toBe('image/webp')
+    expect(bildArt(new Uint8Array([1, 2, 3]))).toBe('application/octet-stream')
+  })
+
+  test('kommt ein VERWEIS statt Bytes, wird er geholt — nicht verworfen', async () => {
+    const gesehen: string[] = []
+    const abruf = async (adresse: string): Promise<Response> => {
+      gesehen.push(adresse)
+      if (adresse.endsWith('/images/generations')) {
+        return new Response(JSON.stringify({ data: [{ url: 'https://bild.example/a.png' }] }))
+      }
+      return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+    }
+    const a = openrouter({
+      schluessel: () => SCHLUESSEL,
+      basis: 'https://openrouter.example',
+      modelle: { bild: 'm' },
+      abruf,
+    })
+    const bild = await a.zeichner?.zeichne('x')
+    expect(gesehen[0]).toBe('https://openrouter.example/images/generations')
+    expect(gesehen[1]).toBe('https://bild.example/a.png')
+    expect(bild?.typ).toBe('image/png')
+  })
+
+  test('ohne eingestelltes Modell wird nichts gezeichnet — mit Vorschlägen', async () => {
+    const b = await macheBuehne()
+    const a = openrouter({ schluessel: () => SCHLUESSEL, basis: b.basis })
+    const fehler = await a.zeichner?.zeichne('x').catch((e: unknown) => e)
+    expect(fehler).toBeInstanceOf(OpenrouterFehler)
+    expect((fehler as Error).message).toContain(VORSCHLAEGE['bild']?.[0] ?? '')
+    expect(b.aufzeichnungen.length).toBe(0)
+  })
+
+  test('eine Antwort ohne Bild fliegt auf', async () => {
+    const b = await macheBuehne()
+    b.antworte({ status: 200, koerper: JSON.stringify({ data: [] }) })
+    const a = mitModell(b.basis, 'bild', 'm')
+    await expect(a.zeichner?.zeichne('x')).rejects.toThrow('kein `data`-Feld')
+  })
+
+  test('die Optionen gehen als FELDER hinaus — und nur die gesetzten', async () => {
+    const b = await macheBuehne()
+    b.antworte({
+      status: 200,
+      koerper: JSON.stringify({
+        data: [{ b64_json: Buffer.from(JPEG).toString('base64'), media_type: 'image/webp' }],
+        usage: { cost: 0.041 },
+      }),
+    })
+    const a = mitModell(b.basis, 'bild', 'google/gemini-3.1-flash-image')
+    const bild = await a.zeichner?.zeichne('x', {
+      seitenverhaeltnis: '16:9',
+      aufloesung: '2K',
+      qualitaet: 'high',
+      format: 'webp',
+      hintergrund: 'transparent',
+      anzahl: 2,
+      referenzen: ['https://example.com/a.png'],
+    })
+    const koerper = JSON.parse(b.aufzeichnungen[0]?.koerper ?? '{}') as Record<string, unknown>
+    expect(koerper['aspect_ratio']).toBe('16:9')
+    expect(koerper['resolution']).toBe('2K')
+    expect(koerper['quality']).toBe('high')
+    expect(koerper['output_format']).toBe('webp')
+    expect(koerper['background']).toBe('transparent')
+    expect(koerper['n']).toBe(2)
+    expect(koerper['input_references']).toEqual([
+      { type: 'image_url', image_url: { url: 'https://example.com/a.png' } },
+    ])
+    // **`media_type` schlägt das Raten.** Der Dienst sagt, was er geliefert hat.
+    expect(bild?.typ).toBe('image/webp')
+    // **Und der Preis steht in der Antwort** — ihn zu verschweigen wäre die einzige Zahl, die fehlt.
+    expect(bild?.kostenUsd).toBe(0.041)
+  })
+
+  test('ohne Optionen geht NICHTS davon hinaus — kein leeres Feld', async () => {
+    const b = await macheBuehne()
+    b.antworte({
+      status: 200,
+      koerper: JSON.stringify({ data: [{ b64_json: Buffer.from(JPEG).toString('base64') }] }),
+    })
+    const a = mitModell(b.basis, 'bild', 'm')
+    const bild = await a.zeichner?.zeichne('x')
+    const koerper = JSON.parse(b.aufzeichnungen[0]?.koerper ?? '{}') as Record<string, unknown>
+    for (const feld of ['aspect_ratio', 'resolution', 'quality', 'output_format', 'background', 'input_references']) {
+      expect(koerper[feld]).toBeUndefined()
+    }
+    expect(koerper['n']).toBe(1)
+    expect(bild?.kostenUsd).toBeUndefined()
+    // Ohne `media_type` entscheiden die Bytes.
+    expect(bild?.typ).toBe('image/jpeg')
+  })
+
+  test('ein leerer Auftrag geht gar nicht erst hinaus', async () => {
+    const b = await macheBuehne()
+    const a = mitModell(b.basis, 'bild', 'm')
+    await expect(a.zeichner?.zeichne('   ')).rejects.toThrow('leere Beschreibung')
     expect(b.aufzeichnungen.length).toBe(0)
   })
 })

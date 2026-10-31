@@ -97,7 +97,8 @@ func TestStubRunsTheWholeContract(t *testing.T) {
 		t.Fatalf("die Simulation meldet nicht, dass sie nichts anwendet: %v", checked.Findings)
 	}
 
-	// 3. Anwendung.
+	// 3. Freigabe und Anwendung.
+	approve(t, svc, first.Proposal.ID, "betreiber@test")
 	applied, err := svc.Apply(first.Proposal.ID)
 	if err != nil {
 		t.Fatalf("apply scheiterte: %v", err)
@@ -112,7 +113,7 @@ func TestStubRunsTheWholeContract(t *testing.T) {
 
 	// 4. Zweite Generation.
 	second := propose(t, svc, constFlake, "node2")
-	check(t, svc, second.Proposal.ID)
+	checkAndApprove(t, svc, second.Proposal.ID)
 	applied2, err := svc.Apply(second.Proposal.ID)
 	if err != nil {
 		t.Fatalf("zweites apply scheiterte: %v", err)
@@ -220,7 +221,7 @@ func TestStubPersistsAtomicallyAndSurvivesReload(t *testing.T) {
 
 	svc := newStub(t, path)
 	prop := propose(t, svc, constFlake, "node1")
-	check(t, svc, prop.Proposal.ID)
+	checkAndApprove(t, svc, prop.Proposal.ID)
 	applied, err := svc.Apply(prop.Proposal.ID)
 	if err != nil {
 		t.Fatalf("apply scheiterte: %v", err)
@@ -272,6 +273,15 @@ func TestStubPersistsAtomicallyAndSurvivesReload(t *testing.T) {
 	if rec.Checked == nil {
 		t.Fatal("das Pruefergebnis fehlt nach dem Neuladen")
 	}
+	if rec.Approval == nil {
+		t.Fatal("die Freigabe fehlt nach dem Neuladen")
+	}
+	if rec.Approval.By != "betreiber@test" {
+		t.Fatalf("die Freigabe nennt nach dem Neuladen %q", rec.Approval.By)
+	}
+	if rec.Proposal.Branch.Name == "" {
+		t.Fatal("der Branch fehlt nach dem Neuladen")
+	}
 	if !rec.Applied {
 		t.Fatal("der Anwendungsvermerk fehlt nach dem Neuladen")
 	}
@@ -321,7 +331,7 @@ func TestStateDefaultPathHonoursPMHHome(t *testing.T) {
 // Vorschlag entsteht.
 func TestStubProposeRejectsEmptyFlake(t *testing.T) {
 	svc := newStub(t, filepath.Join(t.TempDir(), "pmh-nix.json"))
-	if _, err := svc.Propose("   ", "", ""); err == nil {
+	if _, err := svc.Propose(api.ModeLocal, "   ", "", ""); err == nil {
 		t.Fatal("propose nahm einen leeren Flake-Pfad an")
 	}
 }
@@ -352,7 +362,7 @@ func TestStubCheckReportsUnusableTarget(t *testing.T) {
 func TestGenerationsKeepSimulatedMark(t *testing.T) {
 	svc := newStub(t, filepath.Join(t.TempDir(), "pmh-nix.json"))
 	prop := propose(t, svc, constFlake, "")
-	check(t, svc, prop.Proposal.ID)
+	checkAndApprove(t, svc, prop.Proposal.ID)
 	if _, err := svc.Apply(prop.Proposal.ID); err != nil {
 		t.Fatalf("apply scheiterte: %v", err)
 	}
