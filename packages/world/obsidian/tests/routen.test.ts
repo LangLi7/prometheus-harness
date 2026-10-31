@@ -9,9 +9,37 @@
  * Gestartet wird in keinem Fall etwas: der Erfolgsfall von `app/open` ist hier
  * absichtlich nicht abgedeckt — er würde Obsidian wirklich öffnen.
  */
-import { describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { appRoute, appOpenRoute } from '../src/index.ts'
+
+/**
+ * **Ein Vault für die Dauer dieser Datei.**
+ *
+ * `POST app/open` prüft den Pfad gegen den Vault. Ohne einen gibt es in CI nichts
+ * zu prüfen, und die Route antwortet mit einem Umgebungsfehler statt mit dem, was
+ * der Test meint. Die gespeicherte Einstellung liegt unter `DSH_HOME`; sie zeigt
+ * hier auf ein Wegwerf-Verzeichnis.
+ */
+let haus: string
+let vorher: string | undefined
+beforeAll(() => {
+  haus = mkdtempSync(join(tmpdir(), 'pmh-obsidian-'))
+  const vault = join(haus, 'vault')
+  mkdirSync(vault, { recursive: true })
+  mkdirSync(join(haus, 'world'), { recursive: true })
+  writeFileSync(join(haus, 'world', 'obsidian.json'), JSON.stringify({ vault }))
+  vorher = process.env.DSH_HOME
+  process.env.DSH_HOME = haus
+})
+afterAll(() => {
+  if (vorher === undefined) delete process.env.DSH_HOME
+  else process.env.DSH_HOME = vorher
+  rmSync(haus, { recursive: true, force: true })
+})
 
 /** Eine Antwort, die alles mitschreibt, statt es zu senden. */
 interface Aufzeichnung {

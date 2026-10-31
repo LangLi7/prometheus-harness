@@ -905,7 +905,7 @@ export function ObsidianGem({
  * @param props - Spaltenbreite und Übersetzer
  * @returns der Knopf, oder `null` ohne gefundenes Programm
  */
-function ObsidianSidebarAction({
+export function ObsidianSidebarAction({
   wide,
   t,
 }: {
@@ -1078,23 +1078,12 @@ export function apply(ctx: Context): void {
    */
 
   /*
-   * **Der Programm-Knopf in der Seitenleiste.**
+   * **Kein Programm-Knopf in der Seitenleiste.**
    *
-   * `sidebar.footer.action` ist der einzige Seitenleisten-Platz, der eine
-   * *Handlung* trägt statt eines Panels: `sidebar.panellist` adressiert ein
-   * Haupt-Panel, und ein Eintrag dort würde den Vault öffnen — nicht das
-   * Programm.
+   * Die Handlung liegt im Menue "Oeffnen in" neben Datei-Explorer, VS Code und
+   * Git Bash: dort sucht man ein Programm. Die Fusszeile traegt nur, was immer
+   * sichtbar sein muss, und das ist allein der Weg in die Einstellungen.
    */
-  ctx.effect(
-    () =>
-      ctx.slots.inject('sidebar.footer.action', () =>
-        ctx.slots.register(
-          { name: 'sidebar.footer.action', id: 'obsidian-app', order: 20, locale: NS },
-          ObsidianSidebarAction,
-        ),
-      ),
-    'obsidian: Programm-Aktion in der Seitenleiste',
-  )
 
   /*
    * **Die Anzeige kommt jetzt aus den Einstellungen.**

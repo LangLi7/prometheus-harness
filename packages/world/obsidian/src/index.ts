@@ -443,11 +443,15 @@ export function appRoute(_req: IncomingMessage, res: ServerResponse): void {
  * @param res - die Antwort
  */
 export async function appOpenRoute(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const app = findeApp()
-  if (!app.verfuegbar) {
-    json(res, 409, { ok: false, code: 'nicht-installiert', message: app.detail })
-    return
-  }
+  /*
+   * **Erst die Eingabe, dann die Umgebung.**
+   *
+   * Vorher stand die Installationsprüfung vorn. In CI, wo Obsidian fehlt,
+   * antwortete deshalb jeder Aufruf mit 409 — auch der mit leerem Rumpf, der
+   * offensichtlich ein Fehler des Aufrufers ist. Die Reihenfolge sagt jetzt, was
+   * der Aufrufer falsch gemacht hat, und nennt die Umgebung zuletzt: sie ist nur
+   * für den Start nötig, nicht für die Prüfung der Argumente.
+   */
   let rumpf: unknown = {}
   try {
     rumpf = await readJson(req)
@@ -475,7 +479,12 @@ export async function appOpenRoute(req: IncomingMessage, res: ServerResponse): P
     }
     ziel = geprueft.ziel
   }
-  const ergebnis = oeffneApp(ziel, app.exe)
+  const app = findeApp()
+  if (!app.verfuegbar) {
+    json(res, 409, { ok: false, code: 'nicht-installiert', message: app.detail })
+    return
+  }
+  const ergebnis = await oeffneApp(ziel, app.exe)
   json(res, ergebnis.ok ? 200 : 502, {
     ok: ergebnis.ok,
     url: ergebnis.url,

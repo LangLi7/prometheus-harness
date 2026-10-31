@@ -26,7 +26,7 @@
  * @module @prometheus-harness/world-obsidian-provider/app
  */
 
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -218,25 +218,36 @@ export function startBefehl(
  * @param plattform - `process.platform`
  * @returns das Ergebnis des Startversuchs
  */
-export function oeffneApp(
+export async function oeffneApp(
   ziel: string,
   exe: string | null = null,
   plattform: string = process.platform,
-): OeffnenErgebnis {
+): Promise<OeffnenErgebnis> {
   const url = obsidianUrl(ziel)
   const [befehl, argumente] = startBefehl(url, exe, plattform)
   try {
-    const lauf = spawnSync(befehl, argumente, {
+    /*
+     * Kein Warten auf das Programm. Obsidian ist ein Einzelinstanz-Programm und
+     * bleibt nach dem Öffnen laufen; `spawnSync` würde bis zum Timeout auf sein
+     * Ende warten und dabei den Ereignisschleifen-Handle des Hosts verlieren —
+     * unter Windows endet das mit "GetQueuedCompletionStatusEx: Handle ungültig".
+     * `spawn` meldet über `spawn`/error, ob der Start geklappt hat, und `unref`
+     * löst die Verbindung zum Host.
+     */
+    const kind = spawn(befehl, argumente, {
       windowsHide: true,
-      timeout: 8000,
       stdio: 'ignore',
+      detached: true,
     })
-    if (lauf.error !== undefined && lauf.error !== null) {
-      return { ok: false, url, detail: `Start fehlgeschlagen: ${lauf.error.message}` }
-    }
-    if (lauf.status !== 0) {
-      return { ok: false, url, detail: `Start fehlgeschlagen (${String(lauf.status)}): ${befehl}` }
-    }
+    await new Promise<void>((erfuellt, verworfen) => {
+      kind.once('spawn', () => {
+        erfuellt()
+      })
+      kind.once('error', (fehler: Error) => {
+        verworfen(fehler)
+      })
+    })
+    kind.unref()
     return { ok: true, url, detail: `Geöffnet: ${ziel}` }
   } catch (fehler) {
     return { ok: false, url, detail: `Start fehlgeschlagen: ${fehler instanceof Error ? fehler.message : String(fehler)}` }
