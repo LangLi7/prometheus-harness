@@ -629,6 +629,23 @@ export async function installiere(optionen = {}) {
       if (dockerDa && !dockerLaeuft && hinweise.length === 0) {
         schreibe('\nDocker läuft nicht — Docker Desktop bzw. den Docker-Dienst starten.\n')
       }
+
+      // **Docker fehlt und der Stapel ist nicht abgeschaltet: hier ist Schluss.**
+      // Ohne Datenbank scheitert Schritt 4 ohnehin — nur später, nach `bun install`,
+      // mit einer Meldung, die nach einem Fehler des Installers aussieht. Zwei
+      // Wege, beide ehrlich: Docker holen, oder ohne Stapel installieren.
+      if (!dockerDa && !ueberspringeStapel) {
+        schreibe(
+          '\nDocker fehlt — und ohne Docker gibt es keine Datenbank. Es geht so weiter:\n' +
+            '\n' +
+            '  1) Docker Desktop holen (einmalig, danach dieses Skript erneut):\n' +
+            '       winget install --id Docker.DockerDesktop\n' +
+            '\n' +
+            '  2) oder ohne Datenbank installieren (der Host startet, die Anmeldung nicht):\n' +
+            '       bun run install:alles -- --ohne-stapel\n',
+        )
+        return null
+      }
     }
     return ergebnisse
   })
@@ -683,7 +700,11 @@ export async function installiere(optionen = {}) {
     return await starteStapel((t) => schreibe(t))
   })
   if (!stapel) {
-    schreibe('\nDer Stapel läuft nicht. Ohne Datenbank kann die Anwendung nicht arbeiten.\n')
+    schreibe(
+      '\nDer Stapel läuft nicht. Ohne Datenbank kann die Anwendung nicht arbeiten.\n' +
+        'Ohne Datenbank installieren (nur zum Ansehen, die Anmeldung fehlt):\n' +
+        '  bun run install:alles -- --ohne-stapel\n',
+    )
     return 1
   }
 
