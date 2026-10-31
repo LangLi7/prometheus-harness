@@ -17,12 +17,18 @@ kind: "project"
 <a id="summary"></a>
 ## Zusammenfassung
 
-Repository klonen, ein Befehl — `scripts\install.cmd` unter Windows,
-`./scripts/install.sh` unter Linux und macOS. Er installiert Bun und die
-Basispakete, erzeugt `.env` mit frischen Geheimnissen, startet PostgreSQL 17 und
-Redis 7, wartet auf deren Gesundheitsprüfungen, fährt die Migrationen und typprüft
-jedes Paket. Danach bedient `bun run start` die Oberfläche und druckt eine Adresse
-**mit Token**; ohne dieses Token antwortet die Oberfläche mit **401**. Gemessen:
+Unter Windows ein Befehl — er holt das Repository selbst und installiert:
+
+```powershell
+irm https://raw.githubusercontent.com/LangLi7/prometheus-harness/main/scripts/install.ps1 | iex
+```
+
+Unter Linux und macOS: klonen und `./scripts/install.sh` aufrufen. Er installiert
+Bun und die Basispakete, erzeugt `.env` mit frischen Geheimnissen, startet
+PostgreSQL 17 und Redis 7 (unter Linux zuvor Docker, falls es fehlt), wartet auf
+deren Gesundheitsprüfungen, fährt die Migrationen und typprüft jedes Paket. Danach
+bedient `bun run start` die Oberfläche und druckt eine Adresse **mit Token**; ohne
+dieses Token antwortet die Oberfläche mit **401**. Gemessen:
 `bun run typecheck` meldet **23 Pakete grün, 0 rot**, und
 `bun test packages scripts apps` meldet **1189 pass · 87 skip · 0 fail** über 55
 Dateien auf Linux.
@@ -70,7 +76,7 @@ Nichts hier ist geschätzt.
 | Typprüfung | **23 Pakete grün, 0 rot** | `bun run typecheck` |
 | Prüfungen | **1189 pass · 87 skip · 0 fail** über 55 Dateien (Linux, CI) | `bun test packages scripts apps` |
 | Eigene CI | grün | [ci-nachweis.md](docs/status/ci-nachweis.md) |
-| Installation | ein Befehl, sieben gemeldete Schritte | `scripts\install.cmd` / `./scripts/install.sh` |
+| Installation | ein Befehl (Windows) / ein Befehl (Linux) | `irm … install.ps1 \| iex` / `./scripts/install.sh` |
 | Start des Hosts | **~1,1 s** bis zur ersten HTTP-200 (1107–1232 ms) | `bun run start` |
 | Anmeldung | der erste Claim legt den Administrator an; **Argon2id** `m=19456, t=2, p=1` | `bun test packages scripts apps` |
 | Speicher | PostgreSQL 17 mit **pgvector**; Migrationen bis Fassung 7 | `bun scripts/migrate.mjs` |
@@ -82,9 +88,11 @@ Nichts hier ist geschätzt.
 ## Schnellstart
 
 ```sh
-# Windows — Eingabeaufforderung, PowerShell oder Doppelklick auf die Datei
-git clone https://github.com/LangLi7/prometheus-harness.git
-cd prometheus-harness
+# Windows — PowerShell, ein Befehl. Kein Klonen vorher, und keine Änderung an
+# der Ausführungsrichtlinie: `iex` lädt keine Datei, `Restricted` greift nicht.
+irm https://raw.githubusercontent.com/LangLi7/prometheus-harness/main/scripts/install.ps1 | iex
+
+# Windows — Rückfall, wenn schon geklont (läuft auch aus cmd.exe)
 scripts\install.cmd
 
 # Linux und macOS
