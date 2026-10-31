@@ -48,7 +48,7 @@ async function leseStdin() {
  * @param umgebung - Umgebungsvariablen
  * @returns Zugang und Hauptschlüssel
  */
-async function aufbau(umgebung) {
+export async function aufbau(umgebung) {
   const adresse = umgebung.DATABASE_URL?.trim() ?? ''
   if (adresse === '') {
     throw new Error(

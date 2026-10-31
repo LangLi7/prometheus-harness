@@ -31,6 +31,7 @@
 
 import { entschaerfeText, findeBekannte } from '@prometheus-harness/guard'
 import type { Faehigkeit } from '@prometheus-harness/capabilities'
+import { alsZahl, jeMioToken, type Preis } from '@prometheus-harness/tariffs'
 import type { Familie, Weg, Wegart } from './families.ts'
 
 /** Ein austauschbarer Netzzugriff — für die Prüfung. */
@@ -148,6 +149,81 @@ export async function frageModelle(
   familie: Familie,
   optionen: SondeOptionen = {},
 ): Promise<readonly string[]> {
+  const daten = await holeModelldaten(familie, optionen)
+  return daten.map((eintrag) => eintrag.kennung)
+}
+
+/**
+ * Ein Modelleintrag, wie die Models-API ihn nennt.
+ *
+ * Der Preis ist **optional**: nicht jede Familie nennt einen. Genau diese Unterscheidung ist der
+ * Grund, warum es diesen Typ gibt und nicht bloß eine Zeichenkette — siehe
+ * {@link frageModelleMitPreis}.
+ */
+export interface Modellangabe {
+  /** Die Modellkennung. */
+  readonly kennung: string
+  /** Der Preis, **nur** wenn die API einen genannt hat. */
+  readonly preis?: Preis
+}
+
+/** Ein gelesener Modelleintrag, innen. */
+interface Modelleintrag {
+  readonly kennung: string
+  readonly preis?: Preis
+}
+
+/**
+ * Liest einen Preis aus einem Modelleintrag.
+ *
+ * ## Warum das nicht in `families.ts` steht
+ *
+ * Die Form des Preisfeldes ist eine Eigenschaft **einer Antwort**, nicht einer Familie. Sie hier zu
+ * lesen heißt: eine Familie, die morgen Preise nennt, wird ohne Änderung an der Tabelle gelesen.
+ *
+ * ## Was gemessen ist
+ *
+ * `GET /api/v1/models` von OpenRouter liefert je Eintrag
+ * `"pricing": {"prompt": "0.0000005", "completion": "0.0000015"}` — als **Zeichenketten** und je
+ * **einzelnem Token**. Beides wird hier behandelt: gelesen wird über `alsZahl`, gerechnet über
+ * `jeMioToken`. Ohne das stünde jedes Modell als „Preis unbekannt" in der Liste, obwohl die Zahl
+ * mitgeliefert wurde.
+ *
+ * ## Warum ein halber Preis als „kein Preis" gilt
+ *
+ * Nennt eine API nur `prompt`, ist die Antwort auf „was kostet das" nicht halb bekannt, sondern
+ * offen. Ein halber Preis, der als ganzer gelesen wird, vergleicht Äpfel mit Birnen.
+ *
+ * @param eintrag - der rohe Modelleintrag
+ * @returns der Eintrag mit Preis, soweit einer vollständig dasteht
+ */
+function leseModell(eintrag: Record<string, unknown>): Modelleintrag | undefined {
+  const kennung = eintrag['id']
+  if (typeof kennung !== 'string' || kennung.trim() === '') return undefined
+
+  const pricing = eintrag['pricing']
+  if (pricing === null || typeof pricing !== 'object') return { kennung }
+
+  const felder = pricing as Record<string, unknown>
+  const hinein = alsZahl(felder['prompt'])
+  const heraus = alsZahl(felder['completion'])
+  if (hinein === undefined || heraus === undefined) return { kennung }
+
+  return { kennung, preis: { hinein: jeMioToken(hinein), heraus: jeMioToken(heraus) } }
+}
+
+/**
+ * Holt die Rohdaten der Models-API — die **eine** Stelle, die dafür hinausruft.
+ *
+ * @param familie - die Familie
+ * @param optionen - Schlüssel, Netzzugriff, Frist
+ * @returns die gelesenen Einträge, in der Reihenfolge der Antwort
+ * @throws VerzeichnisFehler - wenn der Dienst nicht antwortet oder keine Liste liefert
+ */
+async function holeModelldaten(
+  familie: Familie,
+  optionen: SondeOptionen,
+): Promise<readonly Modelleintrag[]> {
   const abruf: Abruf = optionen.abruf ?? ((adresse, einstellung) => fetch(adresse, einstellung))
   const adresse = `${familie.basis}${familie.modellWeg}`
   let antwort: Response
@@ -186,13 +262,42 @@ export async function frageModelle(
       `Die Models-API von „${familie.name}" hatte kein Feld „data" mit einer Liste — die Form ist unbekannt.`,
     )
   }
-  const kennungen: string[] = []
-  for (const eintrag of daten) {
-    if (eintrag !== null && typeof eintrag === 'object' && typeof (eintrag as { id?: unknown }).id === 'string') {
-      kennungen.push((eintrag as { id: string }).id)
-    }
+  const eintraege: Modelleintrag[] = []
+  for (const roheintrag of daten) {
+    if (roheintrag === null || typeof roheintrag !== 'object') continue
+    const gelesenerEintrag = leseModell(roheintrag as Record<string, unknown>)
+    if (gelesenerEintrag !== undefined) eintraege.push(gelesenerEintrag)
   }
-  return kennungen
+  return eintraege
+}
+
+/**
+ * Fragt die Models-API und liefert **Kennung und Preis**.
+ *
+ * ## Warum diese Funktion die Liste erst brauchbar macht
+ *
+ * `openrouter/src/index.ts` trägt die Preise als **Tabelle in einem Kommentar** — sechs Zeilen,
+ * von Hand gepflegt, für jede Sortierung unerreichbar. Die Models-API nennt dieselben Zahlen, und
+ * zwar für **alle** Modelle, die sie führt. Sie zu lesen heißt: die Rangliste muß nicht raten und
+ * nicht abgeschrieben werden.
+ *
+ * **Was diese Funktion NICHT tut:** sie beziffert keinen Aufruf und ruft keine Fähigkeit auf. Sie
+ * liest eine Liste — deshalb kostet sie nichts.
+ *
+ * @param familie - die Familie
+ * @param optionen - Schlüssel, Netzzugriff, Frist
+ * @returns je Modell die Kennung und, soweit genannt, den Preis
+ * @throws VerzeichnisFehler - wenn der Dienst nicht antwortet oder keine Liste liefert
+ */
+export async function frageModelleMitPreis(
+  familie: Familie,
+  optionen: SondeOptionen = {},
+): Promise<readonly Modellangabe[]> {
+  const daten = await holeModelldaten(familie, optionen)
+  return daten.map((eintrag) =>
+    eintrag.preis === undefined
+      ? { kennung: eintrag.kennung }
+      : { kennung: eintrag.kennung, preis: eintrag.preis })
 }
 
 /**

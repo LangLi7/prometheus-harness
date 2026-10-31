@@ -172,13 +172,28 @@ export function createHostApi(contract: string, services: Readonly<Record<string
  * Getrennt von {@link prepare}, damit die Ablehnungsregeln **einzeln** prüfbar
  * sind und nicht in einem großen Ablauf verschwinden.
  *
+ * **`notes` wird ausdrücklich NICHT mitgelesen — und das ist eine Korrektur vom
+ * 18.10.2026.** Vorher ging die Suche über den rohen Text, also auch über die
+ * Notizen. Der erste Beweislauf der Laufzeit hat gezeigt, wohin das führt:
+ * `packages/units/unit-export/unit.json` wurde **abgewiesen**, weil seine
+ * Notizen den Interzeptor namentlich nennen — und zwar, um die **gemessene
+ * Lücke** festzuhalten (*„ohne den Laufzeit-Interzeptor node-addon-require-builtin,
+ * der unter Bun nicht ladbar ist"*). Die Prüfung bestrafte damit genau die
+ * Sorgfalt, die dieses Projekt verlangt: wer ein Risiko aufschreibt, wird
+ * abgewiesen; wer es verschweigt, kommt durch.
+ *
+ * **Notizen sind Prosa, kein Vertrag.** Geprüft werden die Felder, die eine
+ * Abhängigkeit ausdrücken können. Die Grenze bleibt trotzdem bestehen und steht
+ * im README: ein Addon, das **nur im Quelltext** steht, sieht diese Prüfung
+ * nicht — sie fängt Deklarationen, nicht versteckte `require`-Aufrufe.
+ *
  * @param manifest - das zu prüfende Manifest
  * @param raw - der rohe Manifest-Text (für die Textsuche nach Addon-Namen)
  * @returns die Befunde; leer heißt „unbedenklich"
  */
 export function checkNativeAddons(manifest: UnitManifest, raw: string): UnitError[] {
   const found = new Set<string>()
-  const haystack = raw.toLowerCase()
+  const haystack = ohneNotizen(raw).toLowerCase()
   for (const marker of NATIVE_ADDON_MARKERS) {
     if (haystack.includes(marker.toLowerCase())) found.add(marker)
   }
@@ -193,6 +208,26 @@ export function checkNativeAddons(manifest: UnitManifest, raw: string): UnitErro
       { unit: manifest.name, marker: [...found].join(', ') },
     ),
   ]
+}
+
+/**
+ * Entfernt das Feld `notes` aus dem Manifest-Text, bevor gesucht wird.
+ *
+ * Ist der Text kein JSON, wird er **unverändert** zurückgegeben: eine Prüfung,
+ * die bei kaputtem JSON stillschweigend nichts findet, wäre schlimmer als eine,
+ * die zu viel findet.
+ */
+function ohneNotizen(raw: string): string {
+  try {
+    const geparst = JSON.parse(raw) as unknown
+    if (typeof geparst !== 'object' || geparst === null || Array.isArray(geparst)) return raw
+    const kopie = { ...(geparst as Record<string, unknown>) }
+    delete kopie.notes
+    return JSON.stringify(kopie)
+  }
+  catch {
+    return raw
+  }
 }
 
 /**

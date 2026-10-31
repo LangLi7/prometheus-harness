@@ -1,0 +1,49 @@
+{
+  "name": "@prometheus-harness/zugaenge",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Zugänge als eigenes DSH-Plugin: ein Schlüsselverwalter über der Credential-Naht, eine einheitliche Anbieter-Schnittstelle für alle Fähigkeiten und eine aktive Sonde, die vor dem Eintragen misst statt rät.",
+  "icon": "./icon.svg",
+  "main": "src/server.ts",
+  "exports": {
+    ".": "./src/server.ts",
+    "./vertrag": "./src/vertrag.ts",
+    "./verzeichnis": "./src/verzeichnis.ts",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@prometheus-harness/ai-capabilities": "workspace:*",
+    "@prometheus-harness/capabilities": "workspace:*",
+    "@prometheus-harness/openrouter": "workspace:*",
+    "@prometheus-harness/provider-directory": "workspace:*"
+  },
+  "files": [
+    "src",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "icon.svg"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.client.json",
+    "test": "bun test"
+  }
+}

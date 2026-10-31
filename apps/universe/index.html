@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      **Die Marke im Browserreiter.**
+
+      Bis zum 15.10.2026 stand hier nichts — der Reiter zeigte das Vorgabezeichen des Browsers. Die
+      Datei entsteht aus dem Zeichensatz (`bun tools/write-favicon.mjs`), damit im Reiter **dieselbe**
+      Flamme steht wie in der Kopfzeile; `tests/favicon.test.ts` hält beide zusammen.
+    -->
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>Prometheus — Welt-Prototyp</title>
+  </head>
+  <body>
+    <!--
+      Prototyp der Prometheus-Oberfläche. Zwei Modi:
+
+        1. CHAT   — Verlauf, Denk-Karte, Codeblock, Eingabe. Kein Canvas.
+        2. OS     — die Welt: 3D-Universum mit Rotation, Tiefen-Zoom und
+                    Bezugswechsel (Galaxie → Sternhaufen → Sonnensystem → Planet),
+                    Koordinatensystem-Lineal, Objektsuche, Docking-Panels.
+
+      Ein Feld, kein Rahmen: alles wird aus `src/` aufgebaut.
+    -->
+    <div id="root"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

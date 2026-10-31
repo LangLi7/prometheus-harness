@@ -1,0 +1,9 @@
+# Ponytail als eigenes Bündel.
+#
+# Es bringt beides mit: den Prompt-Abschnitt samt Skill (Host) und den Pill im
+# Composer (Browser). Wer es nicht will, schaltet es im Plugin-Fenster ab; wer
+# nur den Skill will, drückt im Composer auf „aus".
+- insert:
+    - id: pmh-ponytail
+      name: '@prometheus-harness/ponytail'
+      inject: [systemPrompt, skills, webServer]

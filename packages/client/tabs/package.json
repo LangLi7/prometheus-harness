@@ -1,0 +1,33 @@
+{
+  "name": "@prometheus-harness/client-tabs",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Workspaces und Chat als zwei Ansichten unter einer Adresse: ein Panel, Deep-Links (?w, ?s=<Sitzung>) und 'In neuem Tab oeffnen' an jeder Sitzungszeile.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-client-ui-workspace"
+      ]
+    }
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

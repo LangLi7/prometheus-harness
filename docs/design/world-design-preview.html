@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>Prometheus — Gestaltung der Welt</title>
+    <!--
+      Erzeugt von tools/design-tokens.mjs aus src/app.css. Nicht von Hand ändern.
+      Das Blatt ist ein PRÜFSTAND, keine Ansicht: es zeigt jeden Wert auf seinem echten Untergrund.
+    -->
+    <style>
+      :root {
+        color-scheme: dark;
+        --grund: #050507;
+        --t: #f2f2f2;
+        --t2: #b8b3b0;
+        --t3: #8b949e;
+        --a: #ff5a1f;
+        --a2: #ffb35c;
+        --b: #3d3a39;
+        --r: 8px;
+        --r-sm: 6px;
+        --t-schnell: 120ms;
+        --e-feder: cubic-bezier(0.34, 1.22, 0.64, 1);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 34px 38px 60px;
+        background: var(--grund); color: var(--t);
+        font: 12px / 1.6 var(--dsw-font-family, system-ui, sans-serif);
+      }
+      h1 { margin: 0 0 6px; font-size: 14px; font-weight: 600; letter-spacing: .06em; }
+      h1 b { color: var(--a); font-weight: 600; }
+      p.hinweis { margin: 0 0 30px; color: var(--t3); max-width: 78ch; }
+      h2 {
+        margin: 38px 0 14px; font-size: 11px; font-weight: 600;
+        letter-spacing: .18em; text-transform: uppercase; color: var(--t3);
+      }
+      .reihe { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+      .karte {
+        margin: 0; display: flex; gap: 12px; align-items: center; padding: 12px;
+        border: 1px solid #1d1b1a; border-radius: var(--r);
+      }
+      .karte code { font: 11px / 1.4 'JetBrains Mono', Consolas, monospace; color: var(--a); }
+      .karte span { display: block; color: var(--t2); }
+      .karte small { display: block; color: var(--t3); font-size: 11px; }
+      .probe { flex: none; width: 46px; height: 46px; border-radius: var(--r-sm); border: 1px solid #ffffff14; }
+      .flaeche { flex: none; width: 46px; height: 46px; background: #101010; border: 1px solid #3d3a39; }
+      .dunkel { background: #00000059; }
+      .schweb { flex: none; width: 46px; height: 46px; border-radius: var(--r); background: #101010; }
+      .zeile { display: flex; align-items: baseline; gap: 16px; padding: 6px 0; border-bottom: 1px solid #1d1b1a; }
+      .zeile code { flex: none; width: 92px; font: 11px 'JetBrains Mono', Consolas, monospace; color: var(--a); }
+      .zeile small { margin-left: auto; color: var(--t3); font-size: 11px; }
+      .lauf {
+        display: grid; grid-template-columns: 26px 1fr; grid-template-rows: auto auto;
+        gap: 2px 12px; align-items: center; text-align: left; cursor: pointer;
+        padding: 12px; border: 1px solid #1d1b1a; border-radius: var(--r);
+        background: none; color: inherit; font: inherit;
+        transition: border-color var(--t-schnell) var(--e-feder);
+      }
+      .lauf:hover { border-color: #3d3a39; }
+      .lauf code { grid-column: 2; font: 11px 'JetBrains Mono', Consolas, monospace; color: var(--a); }
+      .lauf small { grid-column: 2; color: var(--t3); font-size: 11px; }
+      .lauf .punkt {
+        grid-row: 1 / span 2; width: 18px; height: 18px; border-radius: var(--r-rund);
+        background: var(--a); justify-self: start;
+      }
+      /* **Die Probe:** der Punkt läuft bei jedem Klick einmal — mit der Dauer und der Kurve des Tokens. */
+      .lauf.an .punkt { animation: lauf var(--d) var(--e-feder) both; }
+      @keyframes lauf {
+        from { transform: translateX(0) scale(.6); }
+        to { transform: translateX(190px) scale(1); }
+      }
+      footer { margin-top: 46px; color: var(--t3); font-size: 11px; }
+    </style>
+  </head>
+  <body>
+    <h1><b>Prometheus</b> — Gestaltung der Welt</h1>
+    <p class="hinweis">
+      Erzeugt aus <code>apps/universe/src/app.css</code>. Jeder Wert steht auf seinem echten
+      Untergrund, jede Dauer läuft auf Klick. Wer eine Zahl ändert, ändert sie im Blatt und läuft
+      dieses Werkzeug neu — die Datei hier ist ein Ergebnis, keine Quelle.
+    </p>
+
+    <h2>Farbe</h2>
+    <div class="reihe">
+      <figure class="karte">
+        <div class="probe" style="background:#050507"></div>
+        <figcaption>
+          <code>--bg</code>
+          <span>Der Grund der Welt</span>
+          <small>#050507 · 1.00 : 1 auf dem Grund</small>
+        </figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="probe" style="background:#101010"></div>
+        <figcaption>
+          <code>--s</code>
+          <span>Fläche, eine Stufe über dem Grund</span>
+          <small>#101010 · 1.07 : 1 auf dem Grund</small>
+        </figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="probe" style="background:#101010f2"></div>
+        <figcaption>
+          <code>--glas</code>
+          <span>Glas: Insel und Panel (durchscheinend)</span>
+          <small>#101010f2 · 1.07 : 1 auf dem Grund</small>
+        </figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="probe" style="background:#3d3a39"></div>
+        <figcaption>
+          <code>--b</code>
+          <span>Rahmen, sichtbar</span>
+          <small>#3d3a39 · 1.81 : 1 auf dem Grund</small>
+        </figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="probe" style="background:#1d1b1a"></div>
+        <figcaption>
+          <code>--b2</code>
+          <span>Rahmen, leise</span>
+          <small>#1d1b1a · 1.19 : 1 auf dem Grund</small>
+        </figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="probe" style="background:#f2f2f2"></div>
+        <figcaption>
+          <code>--t</code>
+          <span>Haupttext</span>
+          <small>#f2f2f2 · 18.19 : 1 auf dem Grund</small>
+        </figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="probe" style="background:#b8b3b0"></div>
+        <figcaption>
+          <code>--t2</code>
+          <span>Nebentext</span>
+          <small>#b8b3b0 · 9.81 : 1 auf dem Grund</small>
+        </figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="probe" style="background:#8b949e"></div>
+        <figcaption>
+          <code>--t3</code>
+          <span>gedämpft: Etiketten, Zusätze, Marken</span>
+          <small>#8b949e · 6.62 : 1 auf dem Grund</small>
+        </figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="probe" style="background:#ff5a1f"></div>
+        <figcaption>
+          <code>--a</code>
+          <span>Akzent: Zeichen, aktive Zeile</span>
+          <small>#ff5a1f · 6.53 : 1 auf dem Grund</small>
+        </figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="probe" style="background:#ffb35c"></div>
+        <figcaption>
+          <code>--a2</code>
+          <span>Akzent, hell: Marke, Überschriften</span>
+          <small>#ffb35c · 11.50 : 1 auf dem Grund</small>
+        </figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="probe" style="background:#6ba3ff"></div>
+        <figcaption>
+          <code>--blue</code>
+          <span>Information, Auswahl</span>
+          <small>#6ba3ff · 8.06 : 1 auf dem Grund</small>
+        </figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="probe" style="background:#3fb970"></div>
+        <figcaption>
+          <code>--g</code>
+          <span>Zustand „an" (Punkt, live)</span>
+          <small>#3fb970 · 8.13 : 1 auf dem Grund</small>
+        </figcaption>
+      </figure>
+    </div>
+
+    <h2>Schrift</h2>
+      <div class="zeile"><code>--f-titel</code><span class="muster" style="font-size:14px">Prometheus — Ebene Sonnensystem · 80 AE · 280 fps</span><small>14px</small></div>
+      <div class="zeile"><code>--f-text</code><span class="muster" style="font-size:12px">Prometheus — Ebene Sonnensystem · 80 AE · 280 fps</span><small>12px</small></div>
+      <div class="zeile"><code>--f-klein</code><span class="muster" style="font-size:11px">Prometheus — Ebene Sonnensystem · 80 AE · 280 fps</span><small>11px</small></div>
+
+    <h2>Form</h2>
+    <div class="reihe">
+      <figure class="karte">
+        <div class="flaeche" style="border-radius:2px"></div>
+        <figcaption><code>--r-fein</code><span>Der Strich selbst</span><small>2px · Griff und Ticks der Ansichtsleiste</small></figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="flaeche" style="border-radius:4px"></div>
+        <figcaption><code>--r-xs</code><span>Chips, kleine Schalter</span><small>4px · Zahlenfelder, Reset</small></figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="flaeche" style="border-radius:6px"></div>
+        <figcaption><code>--r-sm</code><span>Felder, Etiketten</span><small>6px · Suchtreffer, Marke der Kopfzeile</small></figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="flaeche" style="border-radius:8px"></div>
+        <figcaption><code>--r</code><span>Die Norm</span><small>8px · Karten, Knöpfe, Zeilen der Insel</small></figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="flaeche" style="border-radius:16px"></div>
+        <figcaption><code>--r-lg</code><span>Große Flächen</span><small>16px · aufgeklappte Insel, Dialog</small></figcaption>
+      </figure>
+      <figure class="karte">
+        <div class="flaeche" style="border-radius:9999px"></div>
+        <figcaption><code>--r-rund</code><span>Keine Ecke</span><small>9999px · Pillen und Punkte</small></figcaption>
+      </figure>
+    </div>
+
+    <h2>Höhe</h2>
+    <div class="reihe">
+      <figure class="karte dunkel">
+        <div class="schweb" style="box-shadow:0 1px 2px #00000080"></div>
+        <figcaption><code>--sch-1</code><span>Auf der Fläche</span><small>Felder, Karten, Zeilen</small></figcaption>
+      </figure>
+      <figure class="karte dunkel">
+        <div class="schweb" style="box-shadow:0 8px 24px #000000a6"></div>
+        <figcaption><code>--sch-2</code><span>Schwebt</span><small>Insel, Panel, Leiste</small></figcaption>
+      </figure>
+      <figure class="karte dunkel">
+        <div class="schweb" style="box-shadow:0 20px 60px #000000c4"></div>
+        <figcaption><code>--sch-3</code><span>Über allem</span><small>Dialog, Schleier</small></figcaption>
+      </figure>
+    </div>
+
+    <h2>Bewegung — zum Drücken</h2>
+    <div class="reihe">
+      <button class="lauf" data-dauer="120ms" data-kurve="cubic-bezier(0.34, 1.22, 0.64, 1)" style="--d:120ms">
+        <span class="punkt"></span>
+        <code>--t-schnell</code>
+        <small>120 ms · Ein Zustand wechselt — Farbe, Rahmen, Sichtbarkeit einer Marke</small>
+      </button>
+      <button class="lauf" data-dauer="180ms" data-kurve="cubic-bezier(0.34, 1.22, 0.64, 1)" style="--d:180ms">
+        <span class="punkt"></span>
+        <code>--t-mittel</code>
+        <small>180 ms · Eine Fläche antwortet — Hover, Fokus, ein Knopf drückt sich</small>
+      </button>
+      <button class="lauf" data-dauer="260ms" data-kurve="cubic-bezier(0.34, 1.22, 0.64, 1)" style="--d:260ms">
+        <span class="punkt"></span>
+        <code>--t-gross</code>
+        <small>260 ms · Eine Sache erscheint — Panel, Dialog, Ansicht, Zeile in der Liste</small>
+      </button>
+      <button class="lauf" data-dauer="440ms" data-kurve="cubic-bezier(0.34, 1.22, 0.64, 1)" style="--d:440ms">
+        <span class="punkt"></span>
+        <code>--t-feder</code>
+        <small>440 ms · Der große Übergang — die Insel klappt auf</small>
+      </button>
+    </div>
+
+    <footer>
+      Vier Dauern, vier Kurven, sechs Formen, drei Höhen. Wer keine Bewegung will, bekommt keine:
+      <code>@media (prefers-reduced-motion: reduce)</code> setzt die Dauern auf 1 ms — ohne ein
+      einziges <code>!important</code>.
+    </footer>
+
+    <script>
+      // Die Probe: einmal anklicken, einmal laufen lassen. Kein Rahmenwerk, keine Abhängigkeit.
+      for (const knopf of document.querySelectorAll('.lauf')) {
+        knopf.addEventListener('click', () => {
+          knopf.classList.remove('an')
+          void knopf.offsetWidth
+          knopf.classList.add('an')
+        })
+      }
+    </script>
+  </body>
+</html>

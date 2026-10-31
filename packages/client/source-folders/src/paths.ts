@@ -33,6 +33,7 @@ import type { Ordner } from './dialog.tsx'
 
 /** Die Wege, wie sie der Server führt. */
 export const PFAD_ORDNER = '/api/pmh/ordner'
+export const PFAD_ORDNER_BEREICH = '/api/pmh/ordner/bereich'
 export const PFAD_ORDNER_ANLEGEN = '/api/pmh/ordner/anlegen'
 export const PFAD_ORDNER_ZUGRIFF = '/api/pmh/ordner/zugriff'
 export const PFAD_ORDNER_ENTFERNEN = '/api/pmh/ordner/entfernen'
@@ -205,4 +206,33 @@ export async function entferneOrdner(id: string, optionen: WegeOptionen): Promis
     body: JSON.stringify({ id }),
   })
   await liesHuelle(antwort, PFAD_ORDNER_ENTFERNEN)
+}
+
+/**
+ * Stellt den Arbeitsbereich für diesen Benutzer in der Datenbank sicher — **die Brücke**.
+ *
+ * **Warum es das braucht.** Der Host führt seine Arbeitsbereiche selbst; `workspace_folders`
+ * verweist aber auf `workspaces (id, user_id)`. Ohne diese Zeile liefe jedes „Ordner hinzufügen"
+ * in einen Fremdschlüssel-Fehler (23503). Der Weg ist idempotent: er legt an, was fehlt, und
+ * ändert einen vorhandenen Namen nicht.
+ *
+ * Der Titel und der Pfad kommen **vom Host** (dem Client), weil nur er sie kennt — die Datenbank
+ * kennt den Arbeitsbereich ja noch nicht.
+ *
+ * @param eingabe - Kennung, Titel und Arbeitsplatzpfad
+ * @param optionen - CSRF-Quelle und Netzzugriff
+ */
+export async function stelleBereichSicher(
+  eingabe: { readonly workspaceId: string; readonly name: string; readonly pfad?: string },
+  optionen: WegeOptionen,
+): Promise<void> {
+  const abruf: Abruf = optionen.abruf ?? ((adresse, einstellung) => fetch(adresse, einstellung))
+  const koerper: Record<string, unknown> = { workspaceId: eingabe.workspaceId, name: eingabe.name }
+  if (eingabe.pfad !== undefined && eingabe.pfad.trim() !== '') koerper['pfad'] = eingabe.pfad.trim()
+  const antwort = await abruf(PFAD_ORDNER_BEREICH, {
+    method: 'POST',
+    headers: kopfMitCsrf(optionen),
+    body: JSON.stringify(koerper),
+  })
+  await liesHuelle(antwort, PFAD_ORDNER_BEREICH)
 }

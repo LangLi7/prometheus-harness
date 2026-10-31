@@ -1,5 +1,5 @@
 /**
- * `scripts/schema-stand.mjs` — hält **Code und Datenbanken** gegeneinander.
+ * `scripts/schema-version.mjs` — hält **Code und Datenbanken** gegeneinander.
  *
  * ## Warum es das gibt: ein gemessener Fund vom 13.10.2026
  *
@@ -29,7 +29,7 @@
  * noch laufen, wenn dort etwas im Umbau ist. Dasselbe Verfahren wie in
  * `packages/auth/db-schema/tests/migrate.test.ts` (dort mit Begründung).
  *
- * @module scripts/schema-stand
+ * @module scripts/schema-version
  */
 
 import { spawnSync } from 'node:child_process'
@@ -100,7 +100,7 @@ export function fuehreAus(argv, umgebung = process.env, schreibe = (t) => proces
   if (argv[0] !== 'pruefen') {
     schreibe(
       'Aufruf:\n' +
-        '  bun scripts/schema-stand.mjs pruefen\n' +
+        '  bun scripts/schema-version.mjs pruefen\n' +
         '\n' +
         '  Vergleicht die Schemafassung im CODE mit der in den DATENBANKEN (nur lesend).\n' +
         '  Exit 0 = alles gleich. Exit 1 = eine Datenbank ist zurück. Exit 2 = nicht meßbar.\n',
@@ -168,6 +168,6 @@ export function fuehreAus(argv, umgebung = process.env, schreibe = (t) => proces
   return 0
 }
 
-if (process.argv[1] !== undefined && process.argv[1].endsWith('schema-stand.mjs')) {
+if (process.argv[1] !== undefined && process.argv[1].endsWith('schema-version.mjs')) {
   process.exitCode = fuehreAus(process.argv.slice(2))
 }

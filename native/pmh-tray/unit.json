@@ -1,0 +1,22 @@
+{
+  "name": "pmh-tray",
+  "version": "0.1.0",
+  "kind": "service",
+  "language": "rust",
+  "description": "Symbol im Infobereich (Windows): Harness starten, stoppen, mit Token im Browser oeffnen und per Verknuepfung im Startup-Ordner automatisch starten.",
+  "entry": {
+    "command": "pmh-tray-gui.exe",
+    "args": []
+  },
+  "core": "optional",
+  "provides": ["desktop-tray", "harness-supervision", "token-address", "autostart-shortcut"],
+  "requires": [],
+  "platforms": ["windows"],
+  "notes": [
+    "Zwei Binaries: pmh-tray (Konsole, fuer --status/--autostart/--probe-tray) und pmh-tray-gui (ohne Konsolenfenster, Ziel der Autostart-Verknuepfung). Das Windows-Subsystem gilt je Binary, deshalb sind es zwei.",
+    "Startet den Harness als Prozess (bun scripts/start.mjs --port N) und haelt ihn in einem Job Object mit KILL_ON_JOB_CLOSE — Stopp beendet auch Host und Go-Dienste.",
+    "Autostart ueber eine Verknuepfung in %APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup; der Registry-Weg (HKCU\\...\\Run) wurde verworfen: mehr Code, unsichtbar, schwerer zu loeschen.",
+    "Die Anmeldeadresse MIT Token wird aus der Ausgabe gelesen (Regel aus scripts/token-address.mjs, in Rust nachgebaut und getestet).",
+    "NICHT gemessen: ob der Infobereich das Symbol in einer normalen Sitzung annimmt. In der Agent-Sandbox verweigert Shell_NotifyIconW jeden Aufrufer, auch die etablierte Bibliothek tray-icon. Pruefbefehl fuer den Betreiber: pmh-tray --probe-tray."
+  ]
+}

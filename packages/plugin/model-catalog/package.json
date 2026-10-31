@@ -1,0 +1,24 @@
+{
+  "name": "@prometheus-harness/model-catalog",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Model catalog as its own DSH plugin: keeps the live catalog of the routing providers as a cache and writes the model list into the llm-pi-ai routes, plus the routes /api/pmh/model-catalog/status and /api/pmh/model-catalog/refresh.",
+  "main": "src/server.ts",
+  "exports": {
+    ".": "./src/server.ts",
+    "./catalog": "./src/catalog.ts",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@prometheus-harness/ai-capabilities": "workspace:*",
+    "@prometheus-harness/provider-directory": "workspace:*"
+  }
+}

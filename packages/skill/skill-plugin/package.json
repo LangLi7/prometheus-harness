@@ -1,0 +1,20 @@
+{
+  "name": "@prometheus-harness/skill-plugin",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Die Bruecke in den laufenden Host: meldet den Prometheus-Skill-Anbieter an ctx.skills an, damit der Kern-Katalog die Faehigkeiten dieser Installation fuehrt.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-skill": "0.2.1-alpha.2",
+    "@prometheus-harness/home-paths": "workspace:*",
+    "@prometheus-harness/skill": "workspace:*",
+    "@prometheus-harness/skill-filesystem": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

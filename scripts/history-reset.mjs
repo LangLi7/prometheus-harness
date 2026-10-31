@@ -1,5 +1,5 @@
 /**
- * `scripts/verlauf-reset.mjs` — einen Neuanfang **ausgeben**, nicht vollziehen.
+ * `scripts/history-reset.mjs` — einen Neuanfang **ausgeben**, nicht vollziehen.
  *
  * ## Warum dieses Skript nichts tut
  *
@@ -36,7 +36,7 @@
  * beim **fünften** Mal wieder hineingelaufen. Die Typen stehen jetzt als JSDoc,
  * wo sie hingehören: in eine `.mjs`.
  *
- * @module scripts/verlauf-reset
+ * @module scripts/history-reset
  */
 
 import { spawnSync } from 'node:child_process'
@@ -192,8 +192,8 @@ export function fuehreAus(
   if (befehl === undefined || !['lage', 'anleitung'].includes(befehl)) {
     schreibe(
       'Aufruf:\n' +
-        '  bun scripts/verlauf-reset.mjs lage                          (nur lesen)\n' +
-        '  bun scripts/verlauf-reset.mjs anleitung "Grund des Neuanfangs"\n' +
+        '  bun scripts/history-reset.mjs lage                          (nur lesen)\n' +
+        '  bun scripts/history-reset.mjs anleitung "Grund des Neuanfangs"\n' +
         '\n' +
         '  Dieses Skript FASST DEN VERLAUF NICHT AN. Es liest den Zustand und gibt\n' +
         '  die Befehle aus. Ein „Reset", der den Verlauf umschreibt, ist nicht\n' +
@@ -232,6 +232,6 @@ export function fuehreAus(
   return 0
 }
 
-if (process.argv[1] !== undefined && process.argv[1].endsWith('verlauf-reset.mjs')) {
+if (process.argv[1] !== undefined && process.argv[1].endsWith('history-reset.mjs')) {
   process.exitCode = fuehreAus(process.argv.slice(2))
 }

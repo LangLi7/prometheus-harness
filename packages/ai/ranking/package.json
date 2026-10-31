@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/ranking",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Die bevorzugte Liste je Faehigkeit: erst die Verdrahtung, dann der gemessene Befund, dann der Preis, zuletzt der Name. Ein unbekannter Preis sortiert sich nach hinten. Kein Netzzugriff — alles wird hereingereicht.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

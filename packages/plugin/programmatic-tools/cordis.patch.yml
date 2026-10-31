@@ -1,0 +1,17 @@
+# Das zusammengesetzte Werkzeug als eigenes Bündel.
+#
+# **Was diese Datei tut.** Sie hängt genau eine Zeile in das Ladeprogramm: das
+# Werkzeug `run_program`, das die sichtbaren Werkzeuge als `tools.*` in einem
+# Sandkasten-Programm anbietet.
+#
+# **Warum sie NICHT in `scripts/profile-patch.mjs` steht.** Solange das Bündel
+# nicht eingetragen ist, lädt es niemand — und ein ungeprüftes Werkzeug im
+# Ladepfad könnte den Host beim Start mitnehmen. Wer es will, trägt es ein.
+#
+# **Wovon die Zeile abhängt.** `tools` (die Registry) und `ptcRuntime` (der
+# Sandkasten). Fehlt der Sandkasten, meldet das Werkzeug das im Ergebnis, statt
+# still nichts zu tun.
+- insert:
+    - id: pmh-programmatic-tools
+      name: '@prometheus-harness/programmatic-tools'
+      inject: [tools, ptcRuntime]

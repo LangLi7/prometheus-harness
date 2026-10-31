@@ -1,0 +1,18 @@
+// Die Browser-Hälfte dieses Pakets.
+//
+// **Warum es diese zweite Datei gibt.** Bei `usage` und `zugaenge` ist `tsconfig.json` das Projekt
+// der **Knoten**-Hälfte (`src/server.ts`) und diese Datei das der Browser-Hälfte. Hier ist die
+// Knoten-Hälfte handgeschriebenes JavaScript (`lib/index.js`) und damit kein TypeScript-Projekt;
+// geprüft wird also die Browser-Hälfte — hier ausdrücklich benannt, damit die Grenze zwischen den
+// beiden Hälften auch in der Prüfung steht und nicht nur im Dateibaum. Die Liste ist deshalb
+// dieselbe wie in `tsconfig.json`; jene Datei bleibt der Eintrag, den `scripts/typecheck.mjs` über
+// alle Pakete läuft.
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "resolveJsonModule": true
+  },
+  "include": ["src/index.tsx", "src/locales.ts"]
+}

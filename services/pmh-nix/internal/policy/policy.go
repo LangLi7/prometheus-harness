@@ -6,13 +6,19 @@
 //	Das Modell empfiehlt, die Policy entscheidet —
 //	ein Modell loest niemals einen Systemwechsel aus.
 //
+// Der Betreiber hat das verschaerft: der Agent aendert nicht das laufende
+// System, sondern die Konfiguration auf einem Branch; der Mensch sieht den
+// Diff und gibt frei, erst dann folgt der Wechsel. Deshalb verlangt die
+// Anwendung hier eine AUFGEZEICHNETE, AUSDRUECKLICHE FREIGABE (api.Approval)
+// — zusaetzlich zu Vorschlag, Pruefbau und unveraendertem Fingerabdruck.
+//
 // # Warum die Entscheidung nicht aus der Anfrage kommt
 //
 // Dieses Paket liest AUSSCHLIESSLICH die aufgezeichnete Buchfuehrung
-// (internal/state) und den Fingerabdruck des gespeicherten Diffs. Es liest
-// kein Feld einer Anfrage, das ein Aufrufer selbst fuellen koennte — kein
-// "checked: true", kein "safe: true", kein "policy_ok: true", kein
-// "approved_by". Ein Vorschlag ist eine Bitte, keine Erlaubnis.
+// (internal/state). Es liest kein Feld einer Anfrage, das ein Aufrufer selbst
+// fuellen koennte — kein "checked: true", kein "safe: true", kein
+// "policy_ok: true", kein "approved: true". Ein Vorschlag ist eine Bitte,
+// keine Erlaubnis.
 //
 // Der Test TestPolicyCannotBeBypassedByProposalFields belegt das: er baut
 // einen Vorschlag, der sich selbst fuer geprueft, sicher, genehmigt und
@@ -20,7 +26,15 @@
 // Aufzeichnung fehlt.
 //
 // Der Fingerabdruck bindet die geprueften Bytes: wer den Diff nach der
-// Pruefung austauscht, faellt durch (Grund "diff-geaendert").
+// Pruefung austauscht, faellt durch (Grund "diff-geaendert"), und wer ihn nach
+// der Freigabe austauscht, ebenfalls.
+//
+// # Zwei Stufen statt einer
+//
+// Die drei Kategorien network, users und secrets (Betreiber-Vorgabe G3:
+// Netzwerk, Nutzerrechte und Geheimnisse) bekommen eine EIGENE, strengere
+// Stufe: ihre Zulaessigkeit haengt an der ausdruecklichen Freigabe. Sie werden
+// nie allein aufgrund der allgemeinen Branch-Regel angewandt.
 package policy
 
 import (
@@ -38,9 +52,12 @@ type Action string
 const (
 	// ActionPropose ist das Aufnehmen eines Vorschlags.
 	ActionPropose Action = "propose"
-	// ActionCheck ist die statische Pruefung.
+	// ActionCheck ist die statische Pruefung (Pruefbau ohne Aktivierung).
 	ActionCheck Action = "check"
-	// ActionApply ist die Anwendung. Sie ist die einzige gesperrte Handlung.
+	// ActionApprove ist die ausdrueckliche menschliche Freigabe.
+	ActionApprove Action = "approve"
+	// ActionApply ist die Anwendung (Activation). Sie ist die einzige
+	// gesperrte Handlung.
 	ActionApply Action = "apply"
 	// ActionRollback ist der Rueckweg.
 	ActionRollback Action = "rollback"
@@ -57,6 +74,15 @@ const (
 	ReasonDiffChanged      = "diff-geaendert"
 	ReasonNoCheckRecord    = "keine-pruefaufzeichnung"
 	ReasonUnknownAction    = "unbekannte-handlung"
+
+	// ReasonNoApproval: es liegt keine ausdrueckliche Freigabe vor.
+	ReasonNoApproval = "keine-freigabe"
+	// ReasonApprovalStale: die Freigabe gilt fuer einen anderen Diff.
+	ReasonApprovalStale = "freigabe-veraltet"
+	// ReasonRestrictedCategory: der Diff beruehrt eine strengere Kategorie.
+	ReasonRestrictedCategory = "strengere-kategorie"
+	// ReasonBaseGenerationChanged: die Basisgeneration ist nicht mehr aktiv.
+	ReasonBaseGenerationChanged = "basisgeneration-geaendert"
 )
 
 // Request ist, was die Politik zu sehen bekommt. Es gibt genau zwei Felder
@@ -121,7 +147,7 @@ func (p *Policy) Decide(req Request) Decision {
 	}
 
 	switch req.Action {
-	case ActionPropose, ActionCheck, ActionRollback:
+	case ActionPropose, ActionCheck, ActionApprove, ActionRollback:
 		// Diese Handlungen aendern nichts am System. Sie sind immer
 		// zulaessig; geprueft wird nur, ob es den Vorschlag ueberhaupt gibt.
 		if req.Action != ActionPropose && strings.TrimSpace(req.ProposalID) != "" {
@@ -148,6 +174,17 @@ func (p *Policy) Decide(req Request) Decision {
 }
 
 // decideApply ist der Kern: die einzige gesperrte Handlung.
+//
+// Geprueft wird in dieser Reihenfolge, und jeder Schritt kann allein sperren:
+//
+//  1. der Vorschlag ist aufgenommen,
+//  2. er ist noch nicht angewandt,
+//  3. er traegt einen Pruefbau (check),
+//  4. der Diff ist unveraendert (Fingerabdruck),
+//  5. der Pruefbau hat keine Befunde der Schwere error,
+//  6. die Basisgeneration ist noch aktiv,
+//  7. es liegt eine ausdrueckliche Freigabe vor,
+//  8. die Freigabe gilt genau fuer diesen Diff UND diese Basisgeneration.
 func (p *Policy) decideApply(d Decision, req Request) Decision {
 	rec := p.store.Proposal(req.ProposalID)
 	if rec == nil {
@@ -176,7 +213,8 @@ func (p *Policy) decideApply(d Decision, req Request) Decision {
 		d.Message = "der vorliegende Diff ist nicht der gepruefte"
 		return d
 	}
-	if current := state.HashDiff(rec.Diff); rec.Checked.DiffHash != "" && current != rec.Checked.DiffHash {
+	current := state.HashDiff(rec.Diff)
+	if rec.Checked.DiffHash != "" && current != rec.Checked.DiffHash {
 		d.Allowed = false
 		d.Reasons = []string{ReasonDiffChanged}
 		d.Message = "der gespeicherte Diff wurde nach der Pruefung geaendert"
@@ -188,9 +226,53 @@ func (p *Policy) decideApply(d Decision, req Request) Decision {
 		d.Message = fmt.Sprintf("die Pruefung von %q hat Befunde der Schwere error ergeben", req.ProposalID)
 		return d
 	}
+
+	// Die Basisgeneration wird VOR der Freigabe geprueft: ist sie nicht mehr
+	// aktiv, hilft auch die schoenste Freigabe nicht — der Vorschlag ist dann
+	// auf einem veralteten Stand gebaut.
+	if rec.BaseGeneration != "" && rec.BaseGeneration != p.store.Current() {
+		d.Allowed = false
+		d.Reasons = []string{ReasonBaseGenerationChanged}
+		d.Message = fmt.Sprintf("die Basisgeneration %q ist nicht mehr aktiv (aktiv: %q): "+
+			"der Vorschlag muss auf dem heutigen Stand neu gebaut, geprueft und freigegeben werden",
+			rec.BaseGeneration, p.store.Current())
+		return d
+	}
+
+	// Ab hier die verschaerfte Stufe: ohne ausdrueckliche Freigabe laeuft
+	// nichts. Das ist die Betreiber-Vorgabe — der Mensch sieht den Diff und
+	// gibt frei, erst dann folgt der Wechsel.
+	if rec.Approval == nil {
+		d.Allowed = false
+		d.Reasons = []string{ReasonNoApproval}
+		if len(rec.Checked.Categories) > 0 && HasRestricted(rec.Checked.Categories) {
+			d.Reasons = append(d.Reasons, ReasonRestrictedCategory)
+		}
+		d.Message = fmt.Sprintf("vorschlag %q ist geprueft, aber nicht freigegeben: "+
+			"eine Anwendung ohne ausdrueckliche menschliche Freigabe ist nicht zulaessig", req.ProposalID)
+		return d
+	}
+	if rec.Approval.DiffHash != current {
+		d.Allowed = false
+		d.Reasons = []string{ReasonApprovalStale, ReasonDiffChanged}
+		d.Message = "die Freigabe gilt fuer einen anderen Diff: der Diff wurde nach der Freigabe geaendert"
+		return d
+	}
+	if rec.Approval.BaseGeneration != rec.BaseGeneration {
+		d.Allowed = false
+		d.Reasons = []string{ReasonBaseGenerationChanged}
+		d.Message = fmt.Sprintf("die Freigabe beruht auf Generation %q, der Vorschlag auf %q",
+			rec.Approval.BaseGeneration, rec.BaseGeneration)
+		return d
+	}
+
+	restricted := Restricted(rec.Checked.Categories)
 	d.Allowed = true
-	d.Message = fmt.Sprintf("vorschlag %q ist geprueft (%s) und darf angewandt werden",
-		req.ProposalID, rec.Checked.At.UTC().Format("2006-01-02T15:04:05Z"))
+	d.Message = fmt.Sprintf("vorschlag %q ist geprueft und freigegeben von %q (%s)",
+		req.ProposalID, rec.Approval.By, rec.Approval.At.UTC().Format("2006-01-02T15:04:05Z"))
+	if len(restricted) > 0 {
+		d.Message += fmt.Sprintf("; strengere Kategorie(n): %s", joinCategories(restricted))
+	}
 	return d
 }
 
@@ -212,4 +294,52 @@ func BlockingFindings(findings []api.Finding) []api.Finding {
 		}
 	}
 	return out
+}
+
+// ---------------------------------------------------------------------------
+// Sachkategorien — die zweite, strengere Stufe (Betreiber-Vorgabe G3)
+// ---------------------------------------------------------------------------
+//
+// Die Zuordnung Pfad -> Kategorie steht in internal/actuation (Classify), weil
+// sie eine Aussage ueber den Diff ist und nicht ueber die Zulaessigkeit. Hier
+// steht nur, was aus der Kategorie fuer die Entscheidung folgt: network, users
+// und secrets brauchen zwingend eine ausdrueckliche Freigabe.
+
+// HasRestricted meldet, ob eine der Kategorien die strengere Stufe verlangt.
+func HasRestricted(categories []api.Category) bool {
+	for _, c := range categories {
+		if c.Restricted() {
+			return true
+		}
+	}
+	return false
+}
+
+// Restricted liefert die strengeren Kategorien einer Liste, in fester
+// Reihenfolge.
+func Restricted(categories []api.Category) []api.Category {
+	var out []api.Category
+	for _, want := range []api.Category{api.CategorySecrets, api.CategoryUsers, api.CategoryNetwork} {
+		if containsCategory(categories, want) {
+			out = append(out, want)
+		}
+	}
+	return out
+}
+
+func containsCategory(list []api.Category, want api.Category) bool {
+	for _, c := range list {
+		if c == want {
+			return true
+		}
+	}
+	return false
+}
+
+func joinCategories(list []api.Category) string {
+	parts := make([]string, 0, len(list))
+	for _, c := range list {
+		parts = append(parts, string(c))
+	}
+	return strings.Join(parts, ", ")
 }

@@ -1,0 +1,31 @@
+{
+  "name": "@prometheus-harness/client-media-preview",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Video und Ton in der rechten Seitenleiste: ein Renderer im Dokumentvorschau-Platz, der MP4, WebM, MOV, MP3, WAV und Verwandte als Blob an <video>/<audio> gibt statt 'keine Vorschau verfuegbar' zu zeigen.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-sidebar-right",
+        "@deepseek-ai/dsh-client-ui-sidebar-documentpreview"
+      ]
+    }
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js"
+  ],
+  "scripts": {
+    "build": "bun run ../../../scripts/client-buendel.mjs --paket packages/client/media-preview",
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

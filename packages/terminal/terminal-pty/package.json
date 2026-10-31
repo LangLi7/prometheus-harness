@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/terminal-pty",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Startet Terminals über Buns eigenes ConPTY, solange node-pty unter Bun auf Windows funktionsunfähig ist — als Austausch genau einer Methode des Subprozess-Dienstes.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

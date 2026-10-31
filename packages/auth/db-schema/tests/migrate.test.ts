@@ -108,15 +108,15 @@ describe('Migrationsliste prüfen', () => {
     expect(() => assertWellFormed([{ version: 1, name: 'x', sql: '   ' }])).toThrow('kein SQL')
   })
 
-  test('die echten Migrationen sind wohlgeformt und heißen 1 bis 10', () => {
+  test('die echten Migrationen sind wohlgeformt und heißen 1 bis 13', () => {
     expect(() => assertWellFormed(MIGRATIONS)).not.toThrow()
     // **Die Liste steht hier ausgeschrieben, und das ist Absicht.** Eine Prüfung
     // gegen `MIGRATIONS.map(m => m.version)` wäre mit sich selbst verglichen und
     // damit leer. So fällt auf, wenn eine Migration **fehlt** (Lücke) oder
     // **doppelt** kommt — und der Name der Prüfung muß die Zahl mitführen, sonst
     // behauptet er etwas Falsches.
-    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    expect(SCHEMA_VERSION).toBe(10)
+    expect(MIGRATIONS.map((migration) => migration.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+    expect(SCHEMA_VERSION).toBe(13)
   })
 })
 
@@ -270,6 +270,16 @@ describe('Das echte Schema', () => {
       // **Neu mit Migration 0009.** Die Quellordner eines Arbeitsbereichs —
       // mehrere je Arbeitsbereich, genau einer davon primär.
       'workspace_folders',
+      // **Neu mit Migration 0011.** Die Records der Credential-Seam — eine
+      // eigene Tabelle, weil `<scope>/<id>` kein Umgebungsvariablen-Name ist.
+      'credential_records',
+      // **Neu mit Migration 0012.** Die Einladungen — der dritte Weg zu einem
+      // Konto: ein Link mit Ablauf, den der Eingeladene selbst einlöst.
+      'invitations',
+      // **Neu mit Migration 0013.** Die Crews je Konto — und die Einstellungen, die
+      // zu ihnen gehören. Bis dahin war die Crew eine Datei ohne Eigentümer.
+      'crew_definitionen',
+      'crew_einstellungen',
     ]) {
       expect({ table, created: created.has(table) }).toEqual({ table, created: true })
     }
@@ -280,7 +290,11 @@ describe('Das echte Schema', () => {
       'chats',
       'chunks',
       'conversation_sessions',
+      'credential_records',
+      'crew_definitionen',
+      'crew_einstellungen',
       'documents',
+      'invitations',
       'links',
       'messages',
       'note_tags',

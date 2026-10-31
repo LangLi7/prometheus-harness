@@ -19,7 +19,16 @@ describe('Der Umfang: was zählt als Benutzerausgabe?', () => {
     const { benutzernah, uebersprungen, zahlUebersprungen } = trenne({
       'scripts/install.mjs': 5,
       'docs/status/messsonden/strom-sonde.mjs': 15,
-      'snapshots/web/src/rotation.ts': 3,
+      // **Der Eintrag ist ausgetauscht, das Verhalten nicht.** Hier stand ein Pfad zum
+      // Welt-Prototypen, der bis zum 14.10.2026 unter `snapshots/` lag und seither `apps/universe`
+      // heißt (`docs/status/welt-ein-port.md`). Damit war dieser Prüfstands-Eintrag ein Verweis auf
+      // eine Datei, die es nicht mehr gibt — gefunden von `scripts/reference-guard.mjs`.
+      //
+      // Gemeint ist der Fall „ein Pfad unter `snapshots/`", und `snapshots/` trägt die
+      // sitzungsgetriebenen Erwartungen des Kerns. **Ohne Dateinamen**, damit hier eine **Vorlage**
+      // steht und keine Fundstelle: ein Wächter, der Prüfstands-Vorlagen für tote Verweise hält,
+      // meldet sonst genau die Zeile, die ihn prüft.
+      'snapshots/session/': 3,
       'services/pmh-nix/api/api.go': 20,
     })
     expect(Object.keys(benutzernah).sort()).toEqual(['scripts/install.mjs', 'services/pmh-nix/api/api.go'])

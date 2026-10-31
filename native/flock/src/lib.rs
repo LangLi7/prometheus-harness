@@ -395,9 +395,70 @@ mod imp {
     ///
     /// The caller guarantees the descriptor is open and stays open for the
     /// returned borrow's lifetime, and that closing it is not this crate's job.
+    ///
+    /// # Why a negative number panics instead of returning `EBADF`
+    ///
+    /// `BorrowedFd::borrow_raw` carries a **safety contract**: the number must
+    /// denote an open descriptor. In debug builds the standard library asserts
+    /// that contract and **panics**; in release builds the assertion is compiled
+    /// out. The same input therefore had two different outcomes depending on the
+    /// build profile — measured under Linux: `condition_13` was red in one run
+    /// and green in the next.
+    ///
+    /// The contract this crate implements says something else: an invalid
+    /// descriptor must be **reported** as `EBADF` with a positive `errno`, and
+    /// must not panic. A panic is also the wrong answer for a caller on the other
+    /// side of a process boundary: it turns an ordinary error into a crash with
+    /// no JSON diagnostic.
+    ///
+    /// Negative numbers are rejected here explicitly, because a negative number
+    /// is never a valid descriptor on any supported platform — that check is
+    /// portable and cannot misfire on a valid fd. A **closed** number that is
+    /// still non-negative cannot be detected without a syscall, so it flows
+    /// through and is reported by `fstat`/`flock` as `EBADF`, which the tests
+    /// cover separately.
+    ///
+    /// # Panics
+    ///
+    /// Never. Callers that must not panic should use [`try_borrow_raw`], which
+    /// returns a [`LockError`] instead.
     pub unsafe fn borrow_raw(raw: i32) -> BorrowedFd<'static> {
-        // SAFETY: the caller upholds openness and lifetime.
+        assert!(
+            raw >= 0,
+            "descriptor must not be negative; use try_borrow_raw to report EBADF instead of panicking"
+        );
+        // SAFETY: the caller upholds openness and lifetime; a non-negative
+        // number is the strongest check available without a syscall.
         unsafe { BorrowedFd::borrow_raw(raw) }
+    }
+
+    /// Wrap a raw descriptor number, reporting an invalid one as `EBADF`.
+    ///
+    /// This is the **non-panicking** counterpart to [`borrow_raw`]. It exists
+    /// because the contract's requirement is a *reported error*, not a panic:
+    /// a caller that has to answer with JSON — the CLI in `--fd` mode, or a
+    /// library user that must not abort — needs a `Result`, and this is where
+    /// the negative-number case becomes one.
+    ///
+    /// # Safety
+    ///
+    /// Same as [`borrow_raw`]: for a **non-negative** number the caller
+    /// guarantees the descriptor is open and stays open for the borrow.
+    ///
+    /// @param raw - the raw descriptor number
+    /// @returns the borrowed descriptor, or `EBADF` when the number is negative
+    pub unsafe fn try_borrow_raw(raw: i32) -> Result<BorrowedFd<'static>, LockError> {
+        if raw < 0 {
+            return Err(bad_descriptor());
+        }
+        // SAFETY: the caller upholds openness and lifetime for non-negative
+        // numbers, and this branch has already excluded the negative case.
+        Ok(unsafe { BorrowedFd::borrow_raw(raw) })
+    }
+
+    /// The `EBADF` error the contract names for an invalid descriptor.
+    fn bad_descriptor() -> LockError {
+        LockError::from_errno(libc::EBADF)
     }
 }
 
@@ -435,6 +496,9 @@ pub use imp::{identity_of, try_lock};
 
 #[cfg(unix)]
 pub use imp::borrow_raw;
+
+#[cfg(unix)]
+pub use imp::try_borrow_raw;
 
 #[cfg(test)]
 mod tests {

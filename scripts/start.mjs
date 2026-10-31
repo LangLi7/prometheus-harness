@@ -49,15 +49,17 @@
  * @module scripts/start
  */
 
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { choosePort, describePortChoice, portFromEnv } from './port-wahl.mjs'
-import { EIGENE_PAKETE, patchPfad, verdrahte } from './profile-patch.mjs'
+import { EIGENE_PAKETE, paketName, patchPfad, terminalUmgebung, verdrahte } from './profile-patch.mjs'
+import { wendeFavoritenFilterAn } from './client-favoriten.mjs'
 import { vorratBereitstellen } from './skill-vorrat.mjs'
-import { ergaenzungNoetig } from './ptc-typentfernung.mjs'
-import { announceAuthUrl } from './token-adresse.mjs'
+import { ergaenzungNoetig } from './ptc-type-stripping.mjs'
+import { announceAuthUrl } from './token-address.mjs'
+import { WORLD_APP_DIR, WORLD_PATH, worldUrl } from './world-path.mjs'
 
 /** Wurzel des Projekts, abgeleitet aus dem Modulpfad — nie aus dem Aufrufort. */
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -101,9 +103,9 @@ function log(name, chunk) {
  * Ein gestarteter Kindprozess mit Namen — die Einheit, die dieses Skript führt.
  *
  * `flush` ist gesetzt, wenn an der Ausgabe dieses Prozesses ein Beobachter hängt,
- * der einen **Abschluß** braucht (siehe {@link module:scripts/token-adresse}).
+ * der einen **Abschluß** braucht (siehe {@link module:scripts/token-address}).
  *
- * @typedef {{ name: string, child: import('node:child_process').ChildProcess, kind: 'host'|'go', flush?: () => void }} Managed
+ * @typedef {{ name: string, child: import('node:child_process').ChildProcess, kind: 'host'|'welt'|'go', flush?: () => void }} Managed
  */
 
 /** Alle laufenden Prozesse. Wird beim Beenden in umgekehrter Reihenfolge geleert. */
@@ -282,6 +284,7 @@ async function buildAndStartGo(dir, name, args) {
  * |---|---|
  * | `--no-host` | den Core-Host **nicht** starten (nur Go-Dienste) |
  * | `--no-go` | die Go-Dienste **nicht** starten (nur den Host) |
+ * | `--no-welt` | die **Welt** nicht bauen (`apps/universe`; dann antwortet `/universe/` mit 503) |
  * | `--port <n>` | **Startport** für den Host (Vorgabe 3080). Ist er belegt, wird der nächste freie genommen — siehe `port-wahl.mjs` |
  * | `--strict-port` | **nicht** ausweichen: ist der Port belegt, bricht der Start ab |
  * | `--profile <n>` | Profil für den Host (Vorgabe `web`) |
@@ -292,11 +295,12 @@ async function buildAndStartGo(dir, name, args) {
  * Benutzer schon kennt, und `PMH_PORT` überschreibt sie ohne Argument.
  *
  * @param {readonly string[]} argv
- * @returns {{host: boolean, go: boolean, port: number, strictPort: boolean, profile: string, home: string}}
+ * @returns {{host: boolean, go: boolean, welt: boolean, port: number, strictPort: boolean, profile: string, home: string}}
  */
 function parseArgs(argv) {
   let host = true
   let go = true
+  let welt = true
   let requested
   let strictPort = false
   let profile = 'web'
@@ -313,12 +317,15 @@ function parseArgs(argv) {
         'Aufruf: bun run start [Schalter]\n\n' +
           '  --no-host            nur die Go-Dienste, nicht den Core-Host\n' +
           '  --no-go              nur den Host, nicht die Go-Dienste\n' +
+          '  --no-welt            die Welt nicht bauen (dann antwortet /universe/ mit 503)\n' +
           '  --port <n>           Startport (Vorgabe 3080); ist er belegt, wird der naechste freie genommen\n' +
           '  --port=<n>           dasselbe in einem Argument\n' +
           '  --strict-port        nicht ausweichen: ist der Port belegt, bricht der Start ab\n' +
           '  --profile <n>        Profil des Hosts (Vorgabe web)\n' +
           '  --home <dir>         eigenes Harness-Home (Vorgabe .pmh-build/harness-home im Repo)\n' +
           '  --help, -h           diese Uebersicht\n\n' +
+          `Die Welt liegt NEBEN dem Chat, auf demselben Port: <adresse>${WORLD_PATH}/ (Pfad aus\n` +
+          'scripts/world-path.mjs). Im Chat fuehrt die Marke oben links dorthin, in der Welt zurueck.\n\n' +
           'Umgebung: PMH_PORT (Startport), PMH_HOME (Harness-Home).\n' +
           'Ein Schalter schlaegt die Umgebungsvariable, diese schlaegt den Standard.\n',
       )
@@ -326,6 +333,7 @@ function parseArgs(argv) {
     }
     if (arg === '--no-host') host = false
     else if (arg === '--no-go') go = false
+    else if (arg === '--no-welt') welt = false
     else if (arg === '--strict-port') strictPort = true
     else if (arg === '--port') { requested = argv[i + 1]; i += 1 }
     else if (arg.startsWith('--port=')) requested = arg.slice('--port='.length)
@@ -349,7 +357,65 @@ function parseArgs(argv) {
   // hat, und das ist die Art Überraschung, die niemand sucht.
   const fromArg = requested === undefined ? undefined : portFromEnv(requested, DEFAULT_PORT)
   const port = fromArg ?? portFromEnv(process.env.PMH_PORT, DEFAULT_PORT)
-  return { host, go, port, strictPort, profile, home }
+  return { host, go, welt, port, strictPort, profile, home }
+}
+
+/**
+ * **Baut die Welt — statt einen zweiten Server zu öffnen.**
+ *
+ * ## Was sich am 14.10.2026 geändert hat
+ *
+ * Hier stand `starteWelt()`: ein **Vite-Entwicklungsserver** auf einem eigenen Port (`5176`). Der
+ * Betreiber: *„der ganze port ist mir bisschen zu piss 2 port offen zu haben ich möchte es als ein
+ * port haben … und im folder: apps/universe anstatt in snapshot, dann alles in einem port."*
+ *
+ * Jetzt gibt es **einen** Port. Der Host liefert die Welt unter {@link WORLD_PATH} selbst aus
+ * (`packages/web/world-static`); dieser Start baut sie vorher. Damit ist der Umschalter ein
+ * **Pfadwechsel** auf derselben Herkunft — keine fremde Adresse, kein zweiter Keks-Speicher, kein
+ * belegter Port.
+ *
+ * ## Warum **immer** gebaut wird und nicht nur, wenn `dist/` fehlt
+ *
+ * Ein Vorhandensein-Test ist keine Frischeprüfung: nach jeder Änderung am Quelltext läge ein
+ * **alter** Bau unter dem Pfad, und man sucht den Fehler im Code, während der Browser den vorigen
+ * Stand zeigt. Der Bau dauert hier **rund eine Viertelsekunde** (gemessen: 220 ms) — das ist
+ * billiger als eine Stunde Suche an der falschen Stelle. Ist er rot, wird das **gesagt**, und der
+ * Rest startet trotzdem (Regel 3: ein Fehler bleibt sichtbar).
+ *
+ * ## Warum `stdio: 'inherit'` und nicht gesammelt
+ *
+ * Der Bau ist ein **einmaliger** Schritt, kein Dienst: seine Ausgabe gehört ungefiltert auf den
+ * Bildschirm, mit ihrem eigenen Präfix (`vite v8.3.4 building …`). Beim Sammeln müsste ich sie
+ * umschreiben, und ein Baufehler stünde dann ohne die Zeile da, die ihn erklärt.
+ *
+ * @returns {boolean} ob der Bau gelungen ist
+ */
+function baueWelt() {
+  const verzeichnis = join(ROOT, WORLD_APP_DIR)
+  const viteEinstieg = join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js')
+  if (!existsSync(join(verzeichnis, 'index.html')) || !existsSync(viteEinstieg)) {
+    process.stdout.write(
+      `[pmh] WARNUNG: die Welt ist nicht baubar — es fehlt ` +
+        `${existsSync(verzeichnis) ? '' : `${WORLD_APP_DIR}/index.html `}${existsSync(viteEinstieg) ? '' : 'node_modules/vite '}` +
+        '(bun install?). Unter dem Pfad antwortet der Host dann mit 503 und dem Grund.\n',
+    )
+    return false
+  }
+  process.stdout.write(`[pmh] Welt: baue ${WORLD_APP_DIR} (vite build) …\n`)
+  const bau = spawnSync(BUN, [viteEinstieg, 'build'], {
+    cwd: verzeichnis,
+    stdio: ['ignore', 'inherit', 'inherit'],
+    windowsHide: true,
+  })
+  if (bau.status !== 0) {
+    process.stdout.write(
+      `[pmh] FEHLER: der Bau der Welt ist gescheitert (exit ${String(bau.status ?? '?')}). ` +
+        `Unter ${WORLD_PATH}/ antwortet der Host mit 503; der Chat laeuft weiter.\n`,
+    )
+    return false
+  }
+  process.stdout.write(`[pmh] Welt: ${WORLD_PATH}/ auf DEMSELBEN Port — kein zweiter Server, keine zweite Adresse.\n`)
+  return true
 }
 
 /**
@@ -362,8 +428,17 @@ async function main() {
   process.stdout.write(`[pmh] Start — Bun ${process.versions.bun ?? '?'} auf ${process.platform}\n`)
   process.stdout.write(`[pmh] Laufzeit: ${BUN}\n`)
 
-  // Der Host zuerst: er liefert die Oberfläche und ist das, was ein Benutzer
-  // erwartet, wenn er „start" tippt. Die Dienste folgen.
+  /*
+   * **Zuerst die Welt bauen — vor dem Host.**
+   *
+   * Die Reihenfolge ist kein Geschmack: der Host liefert die Welt unter einem Pfad aus
+   * (`packages/web/world-static`). Wäre sie beim ersten Aufruf noch nicht gebaut, antwortete die
+   * Adresse mit **503** — und wer sie gleich nach dem Start öffnet, sähe einen Fehler, wo nur eine
+   * Reihenfolge falsch war. Der Bau dauert rund eine Viertelsekunde.
+   */
+  if (options.welt) baueWelt()
+
+  // Der Host danach: er liefert die Oberfläche — und ab jetzt auch die Welt.
   if (options.host) {
     const hostEntry = join(ROOT, 'apps', 'cli', 'src', 'main.ts')
     if (existsSync(hostEntry)) {
@@ -379,9 +454,32 @@ async function main() {
       // wird hier in die Profildatei geschrieben — idempotent, ein eigener
       // markierter Bereich, fremde Einträge bleiben unangetastet.
       try {
-        const eintrag = verdrahte(patchPfad(options.home, options.profile), EIGENE_PAKETE)
+        // **Was diese Maschine an Shells anbieten kann, wird hier gefragt und
+        // nicht geraten.** Auf Windows entscheidet das Vorhandensein von WSL2
+        // und Git-Bash darüber, welche Zeilen der Terminal-Controller bekommt
+        // (siehe `terminalZeilen` in `profile-patch.mjs`). Die Frage kostet einen
+        // kurzen `wsl.exe`-Aufruf mit Frist; sie liefert dafür eine Shell-Auswahl,
+        // die zur Maschine paßt — statt `powershell` auf Linux anzubieten.
+        const umgebung = terminalUmgebung()
+        const eintrag = verdrahte(patchPfad(options.home, options.profile), EIGENE_PAKETE, umgebung)
         const was = eintrag.geaendert ? 'eingetragen' : 'schon eingetragen'
-        process.stdout.write(`[pmh] Eigene Pakete ${was}: ${EIGENE_PAKETE.join(', ')}\n`)
+        process.stdout.write(`[pmh] Eigene Pakete ${was}: ${EIGENE_PAKETE.map(paketName).join(', ')}\n`)
+
+        // **Der Favoriten-Filter in der Seitenleiste — bei jedem Start neu.**
+        //
+        // Das Bündel liegt in `node_modules` und wird von `bun install` ersetzt
+        // (`node_modules` ist nicht versioniert). Die Änderung selbst steht im
+        // Repo (`scripts/client-favoriten.mjs`) und wird hier erneut angewendet:
+        // idempotent, mit Ankerprüfung. Paßt sie nach einem Kern-Update nicht
+        // mehr, bricht der Start **nicht** ab — er sagt es laut, und die Zeile
+        // muß nachgezogen werden.
+        const favoriten = wendeFavoritenFilterAn()
+        if (favoriten.status === 'passt-nicht' || favoriten.status === 'fehlt') {
+          process.stdout.write(`[pmh] WARNUNG: Favoriten-Filter — ${favoriten.meldung}\n`)
+          for (const zeile of favoriten.fehlend ?? []) process.stdout.write(`[pmh]   ${zeile}\n`)
+        } else {
+          process.stdout.write(`[pmh] Favoriten-Filter ${favoriten.meldung}\n`)
+        }
       } catch (cause) {
         // Fail-loud: ohne den Eintrag läuft unser Endpunkt nicht, und der Start
         // würde trotzdem „erfolgreich" aussehen. Das ist genau die stille
@@ -390,6 +488,41 @@ async function main() {
           `[pmh] FEHLER: eigene Pakete konnten nicht eingetragen werden — ` +
             `${cause instanceof Error ? cause.message : String(cause)}\n`,
         )
+      }
+
+      // **Der Bild-Absturz wird eingedaemmt — bei jedem Start.**
+      //
+      // **Der Befund.** libvips (in `sharp`) bringt GLib 2.90.0 **statisch** mit.
+      // Beim Abbau eines Threads schliesst GLib ein Win32-Handle ein zweites Mal;
+      // `win32_check_for_error` macht daraus ein `g_error`, und das ist im Wirt
+      // ein toedlicher Prozeßabbruch (`GLib-ERROR ... gthread-win32.c:420`).
+      // Gemessen: die letzte Bild-Annahme lag vier Sekunden vor dem Absturz.
+      //
+      // **Die Eindämmung.** `packages/attachment/sharp-safe` legt eine
+      // **nahestehende** `sharp`-Aufloesung nur fuer `dsh-attachment-local` an —
+      // libvips laeuft dann im Kindprozeß. Bricht es dort ab, sieht der Wirt eine
+      // abgelehnte Zusage statt eines eigenen Todes. Idempotent; die gemeinsame
+      // `sharp`-Fassung bleibt unberuehrt.
+      {
+        const schritt = spawnSync(BUN, [join(ROOT, 'scripts', 'sharp-safe-install.mjs')], {
+          cwd: ROOT,
+          encoding: 'utf8',
+          windowsHide: true,
+        })
+        const meldung = `${schritt.stdout ?? ''}${schritt.stderr ?? ''}`
+          .split(/\r?\n/)
+          .filter((zeile) => zeile.startsWith('[sharp-safe]'))
+          .join('\n')
+        if (schritt.status === 0) {
+          if (meldung !== '') process.stdout.write(`${meldung}\n`)
+        } else {
+          // Fail-loud, aber nicht fail-closed: der Harness laeuft ohne diesen
+          // Schritt — nur eben mit dem offenen Absturzrisiko. Wer das liest,
+          // soll wissen, was fehlt.
+          process.stdout.write(
+            `[pmh] FEHLER: sharp-safe nicht eingehaengt — Bild-Anhaenge koennen den Wirt weiterhin beenden\n${meldung}\n`,
+          )
+        }
       }
 
       // **Der Skill-Vorrat — aus dem Repo ins Home, bei jedem Start.**
@@ -454,7 +587,14 @@ async function main() {
         `[pmh] Oberfläche: http://127.0.0.1:${port}/  — ohne Token antwortet sie 401,\n` +
           `[pmh] die benutzbare Adresse folgt unten, sobald der Host sie meldet.\n`,
       )
-
+      // **Und die Welt liegt daneben — auf DEMSELBEN Port.** Sie wird ausgeliefert, sobald der Host
+      // läuft (`packages/web/world-static`, Pfad aus `scripts/world-path.mjs`). Die Adresse steht
+      // hier, weil ein Mensch sie sucht — nicht erst hinter einem Klick auf die Marke.
+      if (options.welt) {
+        process.stdout.write(
+          `[pmh] Welt: ${worldUrl(`http://127.0.0.1:${port}`)}  — dieselbe Adresse, anderer Pfad.\n`,
+        )
+      }
       // **Warum der Launcher ein eigenes Home mitgibt — mit dem Befund, der es
       // erzwungen hat.** Der Profilpfad des Hosts ist der **Auflösungsanker**
       // der Profil-Bündel. Steht im Harness-Home eine fremde Installation des
@@ -488,12 +628,12 @@ async function main() {
       // Beide werden durch **eine** Vorladung geschlossen: je **eine Zeile** in
       // **einer** fremden Datei, ersetzt über ein Bun-Plugin auf den Dateipfad.
       // **Kein** Eintrag in `patches/`, **kein** `patchedDependencies` — der
-      // Abhängigkeitsbaum bleibt unberührt. Siehe `scripts/bun-luecken-vorladen.mjs`.
+      // Abhängigkeitsbaum bleibt unberührt. Siehe `scripts/bun-gap-preload.mjs`.
       //
       // Findet eine Ergänzung ihren Anker nicht, **wirft sie** und der Host startet
       // nicht. Lieber laut scheitern als eine Ergänzung, die ins Leere greift und
       // den Fehler bestehen läßt.
-      const vorladen = ['--preload', join(ROOT, 'scripts', 'bun-luecken-vorladen.mjs')]
+      const vorladen = ['--preload', join(ROOT, 'scripts', 'bun-gap-preload.mjs')]
       launch('host', BUN, [...vorladen, hostEntry, options.profile, '--port', String(port), '--home', options.home, '--no-open'], {
         cwd: ROOT,
         kind: 'host',
@@ -521,7 +661,7 @@ async function main() {
   }
 
   if (running.length === 0) {
-    process.stdout.write('[pmh] Nichts zu starten — beide Teile waren abgeschaltet.\n')
+    process.stdout.write('[pmh] Nichts zu starten — alle Teile waren abgeschaltet.\n')
     process.exit(0)
   }
 

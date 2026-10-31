@@ -1,0 +1,27 @@
+{
+  "name": "@prometheus-harness/crew-provider",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Die Naht der Crew: ein Anbieter unter der Route crew, der je Anfrage eine Rolle waehlt, an deren Modell delegiert und die Planungsschleife ueber den echten Seam fuehrt.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/agent-tools": "workspace:*",
+    "@prometheus-harness/crew-plan": "workspace:*",
+    "@prometheus-harness/llm": "workspace:*"
+  },
+  "devDependencies": {
+    "@prometheus-harness/agent-loop": "workspace:*",
+    "@prometheus-harness/deepseek-search-tools": "workspace:*",
+    "@prometheus-harness/modlens": "workspace:*",
+    "@prometheus-harness/tariffs": "workspace:*",
+    "@prometheus-harness/usage-budget": "workspace:*",
+    "@prometheus-harness/usage-recorder": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

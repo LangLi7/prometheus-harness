@@ -1,0 +1,27 @@
+{
+  "name": "@prometheus-harness/crew-plugin",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Das Cordis-Plugin, das die Units in den HOST haengt: Crew-Adapter am Kern-Seam, die Werkzeuge in der Tool-Registry und die Buchung am llm/stream-Waterfall.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-llm": "0.2.1-alpha.2",
+    "@deepseek-ai/dsh-tools": "0.2.1-alpha.2",
+    "@prometheus-harness/agent-tools": "workspace:*",
+    "@prometheus-harness/crew-core-adapter": "workspace:*",
+    "@prometheus-harness/crew-plan": "workspace:*",
+    "@prometheus-harness/crew-provider": "workspace:*",
+    "@prometheus-harness/deepseek-search-tools": "workspace:*",
+    "@prometheus-harness/modlens": "workspace:*",
+    "@prometheus-harness/tariffs": "workspace:*",
+    "@prometheus-harness/usage-budget": "workspace:*",
+    "@prometheus-harness/usage-recorder": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

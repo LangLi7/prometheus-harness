@@ -1,0 +1,19 @@
+{
+  "name": "@prometheus-harness/skill-marketplace",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Claude-Code-kompatibler Plugin-Marketplace fuer Prometheus: marketplace.json und plugin.json lesen, Quellen (Pfad, GitHub, git-subdir, Archiv) holen, Skills und MCP-Server installieren, alles durch SkillSpector gegatet.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/home-paths": "workspace:*",
+    "@prometheus-harness/skillspector": "workspace:*",
+    "yaml": "^2.9.1"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "unit-system",
+  "version": "0.1.0",
+  "kind": "plugin",
+  "language": "typescript",
+  "description": "Der Plugin-Manager: Deklaration (harness/units.json), Abschluss, Generationen mit Fingerabdruck, zwei Zeiger (current/next), Journal — und Implementierungsbuendel mit Ed25519-Signatur. Rezept statt Inhalt.",
+  "core": "optional",
+  "contract": "^0.2.0",
+  "provides": ["unit-system", "generation-bookkeeping"],
+  "requires": ["unit-export"],
+  "platforms": ["windows", "linux", "darwin"],
+  "reload": "idle",
+  "notes": [
+    "Art plugin, weil das Paket im JS-Kern laeuft und seine Faehigkeit ueber src/index.ts anbietet; zugleich ohne Core ueber src/cli.ts benutzbar - deshalb core optional.",
+    "reload ist idle und NICHT hot: der Manager selbst haelt keinen Zustand im Speicher, aber er wird von einem Waechter aufgerufen, der waehrend eines Zuges nicht unterbrochen werden darf. 'hot' waere hier eine Behauptung ohne Pruefung.",
+    "requires: unit-export - die Registry, das Manifest und die Pfadpruefung werden NICHT nachgebaut. Eine zweite Kopie waere eine zweite Wahrheit.",
+    "Fundstelle: docs/design/harness-generationen.md (drei Takte, zwei Zeiger, Journal, Konflikt statt stiller Sieger)."
+  ]
+}

@@ -53,7 +53,7 @@ func TestNixRefusesEveryMutatingCallFailClosed(t *testing.T) {
 		name string
 		run  func() error
 	}{
-		{"propose", func() error { _, err := backend.Propose(proposal); return err }},
+		{"propose", func() error { _, _, err := backend.Propose(proposal); return err }},
 		{"check", func() error { _, err := backend.Check(diff); return err }},
 		{"apply", func() error { _, err := backend.Apply(diff); return err }},
 		{"generations", func() error { _, err := backend.Generations(); return err }},
@@ -126,7 +126,7 @@ func TestNixUnsupportedPathsAreTested(t *testing.T) {
 		name string
 		run  func() error
 	}{
-		{"propose", func() error { _, err := backend.Propose(api.Proposal{Flake: constFlake}); return err }},
+		{"propose", func() error { _, _, err := backend.Propose(api.Proposal{Flake: constFlake}); return err }},
 		{"check", func() error { _, err := backend.Check(api.Diff{Flake: constFlake}); return err }},
 		{"apply", func() error { _, err := backend.Apply(api.Diff{Flake: constFlake}); return err }},
 		{"generations", func() error { _, err := backend.Generations(); return err }},
@@ -150,7 +150,7 @@ func TestNixBackendThroughTheServiceFailsClosed(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "pmh-nix.json")
 	svc := newNix(t, path)
 
-	_, err := svc.Propose(constFlake, "node1", "")
+	_, err := svc.Propose(api.ModeLocal, constFlake, "node1", "")
 	if err == nil {
 		t.Fatal("das echte Backend nahm einen Vorschlag an, obwohl kein nix existiert")
 	}

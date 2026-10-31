@@ -1,5 +1,5 @@
 /**
- * `scripts/maschinenpfade.mjs` — findet Pfade, die nur auf **einem** Rechner gelten.
+ * `scripts/machine-paths.mjs` — findet Pfade, die nur auf **einem** Rechner gelten.
  *
  * ## Warum es das gibt (E4)
  *
@@ -33,7 +33,7 @@
  * Upstream gehören und nicht unsere sind. Eine Prüfung, die das meldet, erzeugt
  * Rauschen, und Rauschen wird ignoriert.
  *
- * @module scripts/maschinenpfade
+ * @module scripts/machine-paths
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -129,7 +129,7 @@ export function fuehreAus(argv, umgebung = process.env, schreibe = (t) => proces
   if (argv[0] !== 'pruefen') {
     schreibe(
       'Aufruf:\n' +
-        '  bun scripts/maschinenpfade.mjs pruefen [verzeichnis] [--streng]\n' +
+        '  bun scripts/machine-paths.mjs pruefen [verzeichnis] [--streng]\n' +
         '\n' +
         '  Findet Pfade, die nur auf EINEM Rechner gelten (C:\\Users\\<wer>, /home/<wer>).\n' +
         '  Ohne --streng: berichten, Exit 0. Mit --streng: Exit 1 bei Fund.\n' +
@@ -188,6 +188,6 @@ export function fuehreAus(argv, umgebung = process.env, schreibe = (t) => proces
   return streng && gesamt > 0 ? 1 : 0
 }
 
-if (process.argv[1] !== undefined && process.argv[1].endsWith('maschinenpfade.mjs')) {
+if (process.argv[1] !== undefined && process.argv[1].endsWith('machine-paths.mjs')) {
   process.exitCode = fuehreAus(process.argv.slice(2))
 }

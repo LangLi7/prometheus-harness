@@ -1,0 +1,12 @@
+{
+  "name": "@prometheus-harness/sharp-safe",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Drop-in sharp replacement that runs libvips in a child process, so a GLib thread abort cannot kill the host",
+  "type": "commonjs",
+  "main": "index.cjs",
+  "files": ["index.cjs", "worker.mjs", "README.md"],
+  "scripts": {
+    "test": "bun test tests"
+  }
+}

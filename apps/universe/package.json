@@ -1,0 +1,25 @@
+{
+  "name": "@prometheus-harness/universe",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Die Prometheus-Welt: drei Ansichten (Chat, Vorlage, 3D-Universum), andockbare Panels, Rotation, Tiefen-Zoom, Bezugswechsel und Objektsuche. Der Host liefert sie unter dem Pfad /universe/ aus — Chat und Welt auf EINEM Port.",
+  "scripts": {
+    "build": "vite build",
+    "icon": "bun run tools/write-favicon.mjs",
+    "design": "bun run tools/design-tokens.mjs",
+    "motion": "bun run tools/motion.js",
+    "typecheck": "tsgo --noEmit",
+    "test": "bun test",
+    "check": "bun run typecheck && bun test"
+  },
+  "dependencies": {
+    "@prometheus-harness/icons": "workspace:*",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.186.0",
+    "@typescript/native-preview": "^7.0.0-dev.20260707.2",
+    "vite": "^8.3.4"
+  }
+}

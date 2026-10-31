@@ -73,20 +73,34 @@ func newNix(t *testing.T, path string) *service.Service {
 	return newStubService(t, store, nix.New())
 }
 
-// propose nimmt einen Vorschlag auf und bricht ab, wenn das scheitert.
+// propose legt einen Vorschlag an (Branch mit Diff) und bricht ab, wenn das
+// scheitert.
 func propose(t *testing.T, svc *service.Service, flake, target string) service.ProposeResult {
 	t.Helper()
-	res, err := svc.Propose(flake, target, "Testvorschlag")
+	res, err := svc.Propose(api.ModeLocal, flake, target, "Testvorschlag")
 	if err != nil {
 		t.Fatalf("propose(%q, %q) scheiterte: %v", flake, target, err)
 	}
 	if res.Proposal.ID == "" {
 		t.Fatal("propose lieferte keine Kennung")
 	}
+	if res.Branch.Name == "" || res.Branch.Commit == "" {
+		t.Fatalf("propose lieferte keinen Branch: %+v", res.Branch)
+	}
 	return res
 }
 
-// check prueft und bricht ab, wenn das scheitert.
+// proposeIn legt einen Vorschlag in einer bestimmten Betriebsart an.
+func proposeIn(t *testing.T, svc *service.Service, mode api.Mode, flake, target string) service.ProposeResult {
+	t.Helper()
+	res, err := svc.Propose(mode, flake, target, "Testvorschlag")
+	if err != nil {
+		t.Fatalf("propose(%q, %q, %q) scheiterte: %v", mode, flake, target, err)
+	}
+	return res
+}
+
+// check prueft (Pruefbau ohne Aktivierung) und bricht ab, wenn das scheitert.
 func check(t *testing.T, svc *service.Service, id string) service.CheckResult {
 	t.Helper()
 	res, err := svc.Check(id)
@@ -94,6 +108,34 @@ func check(t *testing.T, svc *service.Service, id string) service.CheckResult {
 		t.Fatalf("check(%q) scheiterte: %v", id, err)
 	}
 	return res
+}
+
+// approve zeichnet die ausdrueckliche Freigabe auf.
+func approve(t *testing.T, svc *service.Service, id, by string) service.ApprovalResult {
+	t.Helper()
+	res, err := svc.Approve(id, by, "im Test freigegeben")
+	if err != nil {
+		t.Fatalf("approve(%q) scheiterte: %v", id, err)
+	}
+	if res.Approval.By != by {
+		t.Fatalf("die Freigabe nennt %q statt %q", res.Approval.By, by)
+	}
+	if res.Approval.DiffHash == "" {
+		t.Fatal("die Freigabe traegt keinen Diff-Fingerabdruck")
+	}
+	if res.Approval.At.IsZero() {
+		t.Fatal("die Freigabe traegt keinen Zeitstempel")
+	}
+	return res
+}
+
+// checkAndApprove ist die vollstaendige Vorbereitung einer Anwendung.
+func checkAndApprove(t *testing.T, svc *service.Service, id string) service.ApprovalResult {
+	t.Helper()
+	if res := check(t, svc, id); res.Blocked {
+		t.Fatalf("der Pruefbau sperrte unerwartet: %v", res.Findings)
+	}
+	return approve(t, svc, id, "betreiber@test")
 }
 
 // decode liest ein JSON-Objekt in ein Ziel.
@@ -141,4 +183,23 @@ func writeFile(path string, content []byte) error {
 		return err
 	}
 	return os.WriteFile(path, content, 0o644)
+}
+
+// mustStore oeffnet eine Buchfuehrung und bricht ab, wenn das scheitert.
+func mustStore(t *testing.T, path string) *state.Store {
+	t.Helper()
+	return open(t, path)
+}
+
+// mkdirAll legt einen Ordner an.
+func mkdirAll(path string) error { return os.MkdirAll(path, 0o755) }
+
+// mustReadDir liest einen Ordner und bricht ab, wenn das scheitert.
+func mustReadDir(t *testing.T, path string) []os.DirEntry {
+	t.Helper()
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		t.Fatalf("Ordner %s nicht lesbar: %v", path, err)
+	}
+	return entries
 }

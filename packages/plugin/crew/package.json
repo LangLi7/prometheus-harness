@@ -1,0 +1,52 @@
+{
+  "name": "@prometheus-harness/crew",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The crew as a DSH plugin: sidebar entry, panel for crews, roles, default and project, the routes /api/pmh/crew, and the host wiring of adapter, tools and booking. Stored per account in PostgreSQL, with the file as fallback. English first, German second.",
+  "icon": "./icon.svg",
+  "main": "src/server.ts",
+  "exports": {
+    ".": "./src/server.ts",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./icon.svg": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-llm": "0.2.1-alpha.2",
+    "@deepseek-ai/dsh-tools": "0.2.1-alpha.2",
+    "@prometheus-harness/auth": "workspace:*",
+    "@prometheus-harness/auth-http": "workspace:*",
+    "@prometheus-harness/crew-plugin": "workspace:*",
+    "@prometheus-harness/crew-plan": "workspace:*",
+    "@prometheus-harness/crew-store": "workspace:*",
+    "@prometheus-harness/home-paths": "workspace:*"
+  },
+  "files": [
+    "src",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "icon.svg"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.client.json",
+    "test": "bun test"
+  }
+}

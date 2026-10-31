@@ -1,0 +1,8 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["bun"]
+  },
+  "include": ["src/model.ts", "src/markdown.ts", "src/math.ts", "src/typst.ts", "src/compile.ts", "src/server.ts", "src/cli.ts", "tests"]
+}

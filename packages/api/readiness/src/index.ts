@@ -161,6 +161,10 @@ export const MIGRATIONSTABELLE = 'schema_migrations'
  * gegen `pmh` nachgezogen, am selben Tag 0009 (die Quellordner). Sie sind **anlegend**
  * (`CREATE TABLE`, `ADD COLUMN`), kein `DROP` an Daten — gemessen danach: `max(version)` = 9.
  *
+ * **Am 21.10.2026: 12 → 13.** Migration `0013_crew.sql` legt `crew_definitionen` und
+ * `crew_einstellungen` an (die Crew je Konto). Sie sind **anlegend**; die Datei-Crew bleibt als
+ * Rückfall lesbar.
+ *
  * **Was hier bewußt nicht steht: ein Import von `@prometheus-harness/db-schema`.**
  * Das wäre die automatisch richtige Zahl — und würde dieses Paket an das
  * Schema-Paket binden. Dann hinge eine Zustandsauskunft an dem, dessen Zustand
@@ -171,7 +175,7 @@ export const MIGRATIONSTABELLE = 'schema_migrations'
  * weil ein Import am Typsystem scheitert (sechs `TS2307` — die `.sql`-Deklaration
  * von `db-schema` ist im Programm von `readiness` nicht enthalten).
  */
-export const ERWARTETE_SCHEMAFASSUNG = 10
+export const ERWARTETE_SCHEMAFASSUNG = 13
 
 /**
  * Die Tabellen, ohne die die Anwendung nicht arbeiten kann.

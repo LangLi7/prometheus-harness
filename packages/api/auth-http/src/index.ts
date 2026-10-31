@@ -9,10 +9,16 @@
  *
  * | Weg | Methode | Was er tut |
  * |---|---|---|
- * | `/api/pmh/auth/register` | POST | Konto anlegen |
+ * | `/api/pmh/auth/register` | POST | Konto anlegen — per Claim, per Einladungslink oder als Admin |
  * | `/api/pmh/auth/login` | POST | anmelden, beide Cookies setzen |
  * | `/api/pmh/auth/logout` | POST | abmelden (verlangt CSRF) |
  * | `/api/pmh/auth/me` | GET | wer bin ich |
+ * | `/api/pmh/auth/einladungen` | GET | die Einladungen des Admins |
+ * | `/api/pmh/auth/einladungen/neu` | POST | Einladung mit Ablauf erzeugen (CSRF) |
+ * | `/api/pmh/auth/einladungen/zuruecknehmen` | POST | Einladung zurückziehen (CSRF) |
+ * | `/api/pmh/auth/benutzer` | GET | alle Konten (nur Admin) |
+ * | `/api/pmh/auth/benutzer/status` | POST | Konto sperren/freigeben (CSRF) |
+ * | `/api/pmh/auth/betreiber` | POST | aus dem Token des Wirts eine Admin-Sitzung |
  *
  * ## Warum der Weg frei ist — gemessen, nicht angenommen
  *
@@ -69,20 +75,63 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { Argon2PasswordHasher, DEFAULT_SESSION_POLICY, MemoryRateLimiter } from '@prometheus-harness/auth'
 import { resolveEigenesHome } from '@prometheus-harness/home-paths'
-import { erzeugeSpeicher, type SqlZugang, type TransaktionsZugang } from '@prometheus-harness/store-postgres'
+import { alleinigerVerwalter, erzeugeSpeicher, type SqlZugang, type TransaktionsZugang } from '@prometheus-harness/store-postgres'
 import { claimAblageImHome } from './claim-store.ts'
-import { wegAbmelden, wegAnmelden, wegIch, wegRegistrieren } from './http.ts'
-import { PFAD_ABMELDEN, PFAD_ANMELDEN, PFAD_ICH, PFAD_REGISTRIEREN, type Umgebung } from './paths.ts'
+import {
+  wegAbmelden,
+  wegAnmelden,
+  wegBenutzer,
+  wegBenutzerLoeschen,
+  wegBenutzerNeu,
+  wegBenutzerRolle,
+  wegBenutzerStatus,
+  wegBetreiber,
+  wegEinladungNeu,
+  wegEinladungZurueck,
+  wegEinladungen,
+  wegIch,
+  wegPasswortLink,
+  wegPasswortSetzen,
+  wegRegistrieren,
+} from './http.ts'
+import {
+  PFAD_ABMELDEN,
+  PFAD_ANMELDEN,
+  PFAD_BENUTZER,
+  PFAD_BENUTZER_LOESCHEN,
+  PFAD_BENUTZER_NEU,
+  PFAD_BENUTZER_ROLLE,
+  PFAD_BENUTZER_STATUS,
+  PFAD_BETREIBER,
+  PFAD_EINLADUNG_NEU,
+  PFAD_EINLADUNG_ZURUECK,
+  PFAD_EINLADUNGEN,
+  PFAD_ICH,
+  PFAD_PASSWORT_LINK,
+  PFAD_PASSWORT_SETZEN,
+  PFAD_REGISTRIEREN,
+  type Umgebung,
+} from './paths.ts'
 // **Die Anmeldeseite** — HTML und JavaScript, ausgeliefert von unserem eigenen Weg.
 // Sie ist additiv: sie entscheidet keine Regel, sie zeigt die Antworten der Wege.
 import { PFAD_SEITE, PFAD_SEITE_API, PFAD_SEITE_JS, seitenWege } from './page.ts'
+// **Die Hülle unter einem Pfad** — `/c/<Sitzung>` und `/w`. Der Wirt liefert sie nur auf `/` aus
+// (gemessen: `/c/abc` → 404), weil der SPA-Server bewusst keinen History-Fallback gibt. Diese
+// Wege sind die explizite Regel, die dort fehlt.
+import { huelleWege, type IndexRenderer } from './huelle.ts'
 // **Die gebaute Anmeldeseite und die Schnittstelle danach** — am Ursprung des Hosts.
 import { anmeldungsWege, bauVerzeichnis, bauVorhanden, PFAD_ANMELDUNG, PFAD_START } from './login.ts'
 // **Die Brücke zur Token-Tür**: aus der 401 des Kerns wird die Anmeldeseite, und ein
 // angemeldeter Administrator bekommt die Token-Adresse.
-import { PFAD_ZUGANG, sperreUmbiegen, verbindungAus, zugangsWege } from './access.ts'
+import { PFAD_ZUGANG, hatToken, sperreUmbiegen, verbindungAus, zugangsWege } from './access.ts'
+// **Der Weg `istLoopback`** — die zweite Tür der Notiz-Wege braucht die Herkunft, nicht einen Keks.
+import { istLoopback } from './http.ts'
 // **Die Quellordner**: lesen, anlegen, Zugriff setzen, entfernen — je Mandant aus der Sitzung.
 import { PFAD_ORDNER, ordnerWege } from './folders.ts'
+// **Die Notizen**: lesen, suchen, den Vault setzen, einlesen — aus Postgres, je Mandant aus der Sitzung.
+import { PFAD_NOTIZEN, notizenWege } from './notizen.ts'
+// **Die API-Token je Konto** — der Weg, der `user_secrets` endlich einen Aufrufer im Betrieb gibt.
+import { tokenWege } from './token.ts'
 
 export { ABLAGEDATEI, claimAblageImHome } from './claim-store.ts'
 
@@ -96,19 +145,51 @@ export {
 export {
   PFAD_ABMELDEN,
   PFAD_ANMELDEN,
+  PFAD_BENUTZER,
+  PFAD_BENUTZER_LOESCHEN,
+  PFAD_BENUTZER_NEU,
+  PFAD_BENUTZER_ROLLE,
+  PFAD_BENUTZER_STATUS,
+  PFAD_BETREIBER,
+  PFAD_EINLADUNG_NEU,
+  PFAD_EINLADUNG_ZURUECK,
+  PFAD_EINLADUNGEN,
   PFAD_ICH,
+  PFAD_PASSWORT_LINK,
+  PFAD_PASSWORT_SETZEN,
   PFAD_REGISTRIEREN,
+  BENUTZER_LISTE_MAX,
   CSRF_KOPFZEILE,
   MAX_KOERPER_BYTES,
   adresseBrauchbar,
   anmelden,
   abmelden,
+  benutzerAnlegen,
+  benutzerListe,
+  benutzerLoeschen,
+  benutzerRolle,
+  benutzerSperren,
+  betreiberAnmelden,
   cookieWert,
+  einladungAnlegen,
+  einladungZustand,
+  einladungenListe,
+  einladungZurueckziehen,
+  passwortLink,
+  passwortLinkErzeugen,
+  passwortSetzen,
   registrieren,
   sitzungsCookieName,
   werBinIch,
   type Antwort,
+  type BenutzerAnlegenEingabe,
+  type BenutzerAnsichtAdmin,
+  type EinladungAnsicht,
+  type EinladungZustand,
   type Herkunft,
+  type KontoEingabe,
+  type PasswortSetzenEingabe,
+  type RolleEingabe,
   type Umgebung,
 } from './paths.ts'
 
@@ -121,7 +202,18 @@ export {
   sende,
   wegAbmelden,
   wegAnmelden,
+  wegBenutzer,
+  wegBenutzerLoeschen,
+  wegBenutzerNeu,
+  wegBenutzerRolle,
+  wegBenutzerStatus,
+  wegBetreiber,
+  wegEinladungNeu,
+  wegEinladungZurueck,
+  wegEinladungen,
   wegIch,
+  wegPasswortLink,
+  wegPasswortSetzen,
   wegRegistrieren,
   type Weg,
 } from './http.ts'
@@ -155,6 +247,26 @@ export {
   wegOrdnerListe,
   wegOrdnerZugriff,
 } from './folders.ts'
+
+export {
+  PFAD_NOTIZEN,
+  PFAD_NOTIZEN_EINLESEN,
+  PFAD_NOTIZEN_VAULT,
+  notizenWege,
+  wegNotizenEinlesen,
+  wegNotizenListe,
+  wegNotizenVault,
+} from './notizen.ts'
+
+export { PFAD_TOKEN, TOKEN_ANBIETER, tokenWege, wegTokenEntfernen, wegTokenListe, wegTokenSetzen } from './token.ts'
+
+// **Wer da klopft — für Wege außerhalb dieses Pakets.**
+//
+// Anlaß (21.10.2026): das Crew-Plugin hängt eigene Wege unter `/api/pmh/crew` ein und braucht
+// dieselbe Sitzungsprüfung wie die Ordner- und Notizwege. Eine zweite Fassung der Prüfung wäre
+// genau die Stelle, an der ein Sicherheitsfehler an einer von zwei Stellen behoben wird — deshalb
+// wird die vorhandene hier veröffentlicht und nicht abgeschrieben.
+export { pruefeSitzung, type Handelnder, type SitzungsZusatz } from './sitzung.ts'
 
 export const name = 'pmh-auth-http'
 
@@ -377,9 +489,43 @@ export function apply(ctx: Context): void {
       { kind: 'exact', path: PFAD_ANMELDEN, handler: wegAnmelden(umgebung) },
       { kind: 'exact', path: PFAD_ABMELDEN, handler: wegAbmelden(umgebung) },
       { kind: 'exact', path: PFAD_ICH, handler: wegIch(umgebung) },
+      // **Die Einladungen** — der dritte Weg zu einem Konto. Anlegen und
+      // Zurücknehmen verlangen Sitzung **und** CSRF (Zustandsänderungen im Namen
+      // eines Angemeldeten); die Liste nur die Sitzung.
+      { kind: 'exact', path: PFAD_EINLADUNGEN, handler: wegEinladungen(umgebung) },
+      { kind: 'exact', path: PFAD_EINLADUNG_NEU, handler: wegEinladungNeu(umgebung) },
+      { kind: 'exact', path: PFAD_EINLADUNG_ZURUECK, handler: wegEinladungZurueck(umgebung) },
+      // **Die Konten** — die Liste für die Verwaltung, und das Sperren. Lesen
+      // braucht nur die Sitzung, Sperren zusätzlich CSRF.
+      { kind: 'exact', path: PFAD_BENUTZER, handler: wegBenutzer(umgebung) },
+      { kind: 'exact', path: PFAD_BENUTZER_STATUS, handler: wegBenutzerStatus(umgebung) },
+      // **Anlegen, Löschen, Rolle, Passwort-Link** — die Verwaltung, die mehr
+      // tut als zusehen. Alle vier verlangen Administrator **und** CSRF.
+      { kind: 'exact', path: PFAD_BENUTZER_NEU, handler: wegBenutzerNeu(umgebung) },
+      { kind: 'exact', path: PFAD_BENUTZER_LOESCHEN, handler: wegBenutzerLoeschen(umgebung) },
+      { kind: 'exact', path: PFAD_BENUTZER_ROLLE, handler: wegBenutzerRolle(umgebung) },
+      { kind: 'exact', path: PFAD_PASSWORT_LINK, handler: wegPasswortLink(umgebung) },
+      // **Der einzige Weg ohne Sitzung** — er ist für den Menschen, der noch
+      // keine hat. Der Nachweis ist der Einmal-Token im Körper.
+      { kind: 'exact', path: PFAD_PASSWORT_SETZEN, handler: wegPasswortSetzen(umgebung) },
+      // **Der Betreiber.** Wer die Oberfläche über den Token des Wirts geöffnet
+      // hat, ist stärker als jedes Konto — er bekommt hier eine Sitzung für das
+      // Administratorkonto, statt sich ein zweites Mal anzumelden. Der Beweis
+      // kommt aus der Verbindung des Kerns (`authorizeIndex`), nicht aus einem
+      // Kopf, den jeder setzen könnte.
+      {
+        kind: 'exact',
+        path: PFAD_BETREIBER,
+        handler: wegBetreiber(umgebung, (req) => hatToken(verbindungAus(ctx), req)),
+      },
       // **Die Anmeldeseite kommt dazu, die vier Wege bleiben unberührt.** Sie ist
       // additiv: sie entscheidet nichts, sie zeigt nur, was die Wege antworten.
       ...seitenWege(),
+      // **Die Oberfläche unter einem Pfad.** `/c/<Sitzung>` und `/w` liefern dieselbe gebaute
+      // Hülle wie `/`, aber durch `renderIndex` und mit `<base href="/">` — sonst lädt die Seite
+      // ihre `./assets/…` unter `/c/` und bleibt leer. Die Sitzungsprüfung ist dieselbe wie an
+      // jedem Weg dieses Pakets; ohne Sitzung geht es auf `/anmeldung/`.
+      ...huelleWege(umgebung, () => ctx.webServer as unknown as IndexRenderer),
       // **Die gebaute Seite und die Schnittstelle danach** — gleicher Ursprung wie die vier
       // Wege, damit der Sitzungskeks überhaupt mitkommt. `/start` liest die Sitzung über
       // **dieselbe** Funktion wie `GET /api/pmh/auth/me`.
@@ -388,6 +534,31 @@ export function apply(ctx: Context): void {
       ...zugangsWege(umgebung, ctx),
       // **Die Quellordner** — vier Wege, je Mandant aus der Sitzung, die drei ändernden mit CSRF.
       ...ordnerWege(umgebung, zugang),
+      // **Die Notizen** — drei Wege aus der Datenbank, die zwei ändernden mit CSRF.
+      //
+      // **Und die zweite Tür.** Wer den Token des Wirts hat, ist der Besitzer dieser Maschine und
+      // soll für ein Notizfenster kein zweites Konto aufmachen (der Betreiber: *„ich bin ja schon
+      // im Harness drinn warum nochmals ein login?"*).
+      //
+      // **Warum Loopback und nicht der Token.** Der Kern bietet **keine** Prüfung „trägt diese
+      // Anfrage deinen Keks?" für beliebige Pfade an: `authorizeIndex` erlaubt laut eigener
+      // Zusicherung nur die Index-Seite („true only when the caller may serve index.html"), und der
+      // Trust-Fence stellt ausdrücklich **keine** Identität fest (gemessen: der Token-Weg über
+      // `authorizeIndex` antwortete auf `/api/…` mit 401). Was bleibt, ist die Herkunft: die
+      // Anfrage kommt vom selben Rechner und hat den Trust-Fence schon passiert. Deshalb gilt die
+      // Erleichterung nur bei **genau einem** Verwalterkonto und nur lesend.
+      ...notizenWege(umgebung, zugang, {
+        // **Ausdrücklich, nicht beiläufig.** Die Welt schickt `x-pmh-welt: 1`; ein nacktes `curl`
+        // vom selben Rechner bekommt weiterhin **401**. Das ist keine Sicherheitsgrenze (ein
+        // lokaler Aufrufer kann den Kopf setzen), sondern eine Grenze der **Absicht**: wer die
+        // Erleichterung will, sagt es. Und ein fremder Browser kann sie nicht setzen, weil der
+        // Trust-Fence des Kerns ihn vorher abweist.
+        kommtAusDemHaus: (req) => istLoopback(req) && req.headers['x-pmh-welt'] === '1',
+        verwalterKonto: () => alleinigerVerwalter(zugang),
+      }),
+      // **Die API-Token** — drei Wege, je Mandant aus der Sitzung. Lesen ohne CSRF,
+      // Schreiben mit; der Klartext geht nie zurück.
+      ...tokenWege(umgebung, zugang),
     ]
     const ab = wege.map((weg) => ctx.webServer.register(weg))
 
@@ -440,7 +611,7 @@ export function apply(ctx: Context): void {
       sperreZurueck?.()
       for (const einer of ab.reverse()) einer()
     }
-  }, `${name} ${PFAD_REGISTRIEREN} ${PFAD_ANMELDEN} ${PFAD_ABMELDEN} ${PFAD_ICH} ${PFAD_SEITE} ${PFAD_SEITE_API} ${PFAD_SEITE_JS} ${PFAD_ANMELDUNG} ${PFAD_START} ${PFAD_ZUGANG} ${PFAD_ORDNER}`)
+  }, `${name} ${PFAD_REGISTRIEREN} ${PFAD_ANMELDEN} ${PFAD_ABMELDEN} ${PFAD_ICH} ${PFAD_SEITE} ${PFAD_SEITE_API} ${PFAD_SEITE_JS} ${PFAD_ANMELDUNG} ${PFAD_START} ${PFAD_ZUGANG} ${PFAD_ORDNER} ${PFAD_NOTIZEN}`)
 }
 
 export default apply

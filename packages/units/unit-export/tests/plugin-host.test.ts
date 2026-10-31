@@ -220,17 +220,28 @@ describe('prepare', () => {
     expect(result.errors.some((error) => error.code === ERROR_CONTRACT)).toBe(true)
   })
 
-  test('weist ein Unit mit nativem Addon ab (fail-closed)', async () => {
-    // Geprüft wird der ROHE Manifest-Text (so ist `checkNativeAddons` gebaut und
-    // dokumentiert). Nennt das Manifest ein natives Addon — hier in `notes`,
-    // weil das Manifest keine Abhängigkeitsliste führt —, wird das Unit schon
-    // beim Vorbereiten abgewiesen, bevor irgendetwas lädt.
+  test('eine Nennung in `notes` weist NICHT ab — Notizen sind Prosa, kein Vertrag', async () => {
+    // **Korrigiert am 18.10.2026.** Vorher galt das Gegenteil, und der erste
+    // Beweislauf der Laufzeit hat gezeigt, was das anrichtet: `unit-export`
+    // selbst wurde abgewiesen, weil seine Notizen den Interzeptor namentlich
+    // nennen — und zwar um die gemessene Lücke festzuhalten. Die Prüfung
+    // bestrafte damit die Sorgfalt, die dieses Projekt verlangt: wer ein Risiko
+    // aufschreibt, fliegt raus; wer es verschweigt, kommt durch.
     const dir = await unitDir(
-      gutesManifest('nativ', { notes: ['Braucht node-addon-require-builtin zum Umbiegen von Modulnamen.'] }),
+      gutesManifest('nativ-notes', { notes: ['Braucht node-addon-require-builtin zum Umbiegen von Modulnamen.'] }),
       { 'plugin.js': 'export const apply = () => {}\n' },
     )
     const result = await prepare(dir, { hostContract: HOST_CONTRACT })
-    expect(result.ok).toBe(false)
+    expect(result.ok).toBe(true)
+    expect(result.errors.some((error) => error.code === ERROR_NATIVE_ADDON)).toBe(false)
+  })
+
+  test('eine Nennung außerhalb von `notes` weist weiterhin ab', async () => {
+    const dir = await unitDir(
+      gutesManifest('nativ-feld', { requires: ['node-addon-require-builtin'] }),
+      { 'plugin.js': 'export const apply = () => {}\n' },
+    )
+    const result = await prepare(dir, { hostContract: HOST_CONTRACT })
     expect(result.errors.some((error) => error.code === ERROR_NATIVE_ADDON)).toBe(true)
   })
 

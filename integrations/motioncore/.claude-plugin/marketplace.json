@@ -1,0 +1,13 @@
+{
+  "name": "motioncore",
+  "owner": {
+    "name": "Prometheus Harness"
+  },
+  "plugins": [
+    {
+      "name": "motioncore",
+      "source": "./plugin",
+      "description": "Motion-Tokens, Audit und Review fuer Websites: Dauer, Easing, Staffelung, reduced-motion."
+    }
+  ]
+}

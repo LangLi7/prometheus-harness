@@ -1,0 +1,24 @@
+# Das KI-Bündel — die Zeilen, die es in den Host einträgt.
+#
+# **Warum hier nur EINE Zeile steht.** Ein Bündel trägt bei, was der Host als *Eintrag* braucht.
+# Von den vier Units der KI-Rangliste ist genau **eines** ein Cordis-Plugin: `ai-ranking` mit
+# seinem Endpunkt `GET /api/ai/ranking`. Die drei anderen (`tariffs`, `ranking`, `router`) sind
+# Bibliotheken — sie haben kein `apply`, keinen `inject` und keinen Lebenszyklus. Sie hier
+# einzutragen wäre eine Zeile, die nichts tut und einen Fehler verdeckt.
+#
+# **Die Kollisionsregel, die man kennen muß.** Der Core **wirft** bei einem doppelten
+# `(kind, path)`. Wird dieselbe Kennung ein zweites Mal eingetragen, startet der Host nicht.
+# Deshalb gilt: **entweder** das Bündel **oder** die Zeile in `scripts/profile-patch.mjs`
+# (`EIGENE_PAKETE`) — **nie beides**. Ein Test hält diese Regel fest.
+- insert:
+    - id: pmh-ai-ranking
+      name: '@prometheus-harness/ai-ranking'
+      # **Der Eintrag ist die Quelle der Abhängigkeiten, nicht das Plugin.**
+      # Der Loader löst `options.inject` des Eintrags in den Fiber auf
+      # (`cordis-plugin-loader/lib/index.js:631`:
+      # `Inject.resolve(fiber.entry.options.inject, fiber.inject)`), erst danach
+      # greift `ctx.webServer`. Ohne diese Zeile hing der Eintrag beim Start ab
+      # („cannot get property webServer without inject", 1 entry did not
+      # activate) — obwohl das Plugin `inject = ['webServer']` exportiert.
+      # Gemessen am 21.10.2026 im Startprotokoll des Hosts.
+      inject: [webServer]

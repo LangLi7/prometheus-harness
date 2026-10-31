@@ -1,5 +1,5 @@
 /**
- * `scripts/plugin-metadaten-aufloeser.mjs` — Paket-Metadaten unter Bun lesbar machen.
+ * `scripts/plugin-metadata-resolver.mjs` — Paket-Metadaten unter Bun lesbar machen.
  *
  * ## Der Befund, gemessen am 14.10.2026
  *
@@ -50,7 +50,7 @@
  * Nachbauen läßt sich das nicht — ein Teilersatz wäre derselbe Fehler wie oben. Das steht hier
  * als **offener Punkt** und nicht als stiller Rest.
  *
- * @module scripts/plugin-metadaten-aufloeser
+ * @module scripts/plugin-metadata-resolver
  */
 
 /** Die Datei, deren Ressourcen-Auflösung ergänzt wird. */
@@ -64,7 +64,7 @@ export const ANKER =
 export const ERSATZ = `function resolvePluginResource(specifier, parentURL) {
 	const loader = ModuleLoader.fromInternal();
 	if (loader === void 0) {
-		// Von scripts/plugin-metadaten-aufloeser.mjs: Bun hat keinen Node-Innenlader.
+		// Von scripts/plugin-metadata-resolver.mjs: Bun hat keinen Node-Innenlader.
 		// Öffentlicher Weg statt Wurf — der Aufrufer behandelt ein fehlendes Ergebnis
 		// ohnehin als "diese Ressource gibt es nicht".
 		const basis = typeof parentURL === "string" ? parentURL : String(parentURL);

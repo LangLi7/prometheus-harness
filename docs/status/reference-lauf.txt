@@ -646,7 +646,7 @@ In DOKUMENTEN — das kann Geschichte sein (datierte Berichte nennen alte Namen 
   tests/mandant.test.ts   <-  docs/status/mandantentrennung.md
   tests/mandant.test.ts   <-  docs/status/naming-rest.md
   tests/manual_sdk_agent_smoke.py   <-  docs/reference/inventory-config-native.md
-  tests/massstab-pixel.test.ts   <-  docs/status/arbeitspakete.md
+  tests/scale-pixel.test.ts   <-  docs/status/arbeitspakete.md
   tests/migrate.test.ts   <-  docs/review/sicherheits-befunde.md
   tests/one-time-token.test.ts   <-  docs/status/naming-rest.md
   tests/opening-view.test.ts   <-  docs/design/3d-zoom-konzept.md
@@ -680,7 +680,7 @@ In DOKUMENTEN — das kann Geschichte sein (datierte Berichte nennen alte Namen 
   tests/test_office.py   <-  docs/reference/inventory-config-native.md
   tests/test_release_version.py   <-  docs/reference/inventory-config-native.md
   tests/test_working_directory.py   <-  docs/reference/inventory-config-native.md
-  tests/typo-skala.test.ts   <-  docs/status/arbeitspakete.md
+  tests/typo-scale.test.ts   <-  docs/status/arbeitspakete.md
   tests/universe.test.ts   <-  docs/status/arbeitspakete.md
   tests/weiter.test.ts   <-  docs/status/naming-rest.md
   tests/wissen.test.ts   <-  docs/status/naming-rest.md

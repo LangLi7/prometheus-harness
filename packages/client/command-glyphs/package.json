@@ -1,0 +1,24 @@
+{
+  "name": "@prometheus-harness/client-command-glyphs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Zeichen für Befehle, die der Kern nicht kennt: /bild, /image, /ui, /usage und /verbrauch bekommen im Slash-Menü ein Bild, vier Karten oder die Messuhr. Der Kern malt für Host-Befehle kein Zeichen; diese Browser-Hälfte stellt den Dienst pmhCommandGlyphs bereit, den die Naht in @deepseek-ai/dsh-client-ui-commands fragt (patches/).",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web"
+    }
+  },
+  "files": [
+    "lib/client.js"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "test": "bun run build.mjs --pruefen"
+  }
+}

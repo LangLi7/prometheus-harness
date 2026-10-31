@@ -147,21 +147,22 @@ func (b *Backend) unavailable(op string) error {
 
 // Propose verweigert, solange kein Nix vorhanden ist. Ein echter Diff kann
 // ohne Werkzeugkasten nicht ehrlich berechnet werden, und ein erfundener Diff
-// waere schlimmer als keiner.
-func (b *Backend) Propose(req api.Proposal) (api.Diff, error) {
+// waere schlimmer als keiner — ein erfundener Branch erst recht.
+func (b *Backend) Propose(req api.Proposal) (api.Diff, api.Branch, error) {
 	if err := b.unavailable("propose"); err != nil {
-		return api.Diff{}, err
+		return api.Diff{}, api.Branch{}, err
 	}
-	return api.Diff{}, fmt.Errorf("propose: %w (geplant: nixos-rebuild build --dry-run --flake %s#%s)",
+	return api.Diff{}, api.Branch{}, fmt.Errorf("propose: %w (geplant: Branch im Git-Repository anlegen, dann nixos-rebuild build --dry-run --flake %s#%s)",
 		actuation.ErrUnsupported, req.Flake, req.Target)
 }
 
-// Check verweigert, solange kein Nix vorhanden ist.
+// Check verweigert, solange kein Nix vorhanden ist. Der Pruefbau waere
+// `nixos-rebuild build` oder `test` — ausdruecklich OHNE Aktivierung.
 func (b *Backend) Check(diff api.Diff) ([]api.Finding, error) {
 	if err := b.unavailable("check"); err != nil {
 		return nil, err
 	}
-	return nil, fmt.Errorf("check: %w (geplant: nix flake check)", actuation.ErrUnsupported)
+	return nil, fmt.Errorf("check: %w (geplant: nix flake check und nixos-rebuild build ohne Aktivierung)", actuation.ErrUnsupported)
 }
 
 // Apply verweigert, solange kein Nix vorhanden ist. Es wird ausdruecklich kein

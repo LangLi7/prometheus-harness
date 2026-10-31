@@ -18,8 +18,10 @@
 // --- Manifest ---
 export {
   MANIFEST_FILE,
+  RELOAD_ORDER,
   compareVersions,
   directoryNameFor,
+  hoechsterTakt,
   isContractRange,
   parseManifest,
   readManifest,
@@ -33,6 +35,7 @@ export {
   type UnitLanguage,
   type UnitManifest,
   type UnitPlatform,
+  type UnitReload,
 } from './manifest.ts'
 
 // --- Registry ---
@@ -114,6 +117,40 @@ export {
   type InspectResult,
   type ScanRegistryRequest,
 } from './operations.ts'
+
+// --- Plugin-Host (laden, prüfen, einhängen, abstecken) ---
+//
+// Bis zum 18.10.2026 war dieses Modul nur über den Unterpfad erreichbar. Das war
+// eine Stolperfalle ohne Nutzen: die Fähigkeit „ein Unit einhängen" gehört zur
+// Fläche des Pakets und nicht in eine zweite Importzeile, die man vergessen kann.
+export {
+  ERROR_CONTRACT,
+  ERROR_DEPENDENCY,
+  ERROR_ENTRY,
+  ERROR_LIFECYCLE,
+  ERROR_MANIFEST,
+  ERROR_NATIVE_ADDON,
+  ERROR_NOT_A_PLUGIN,
+  NATIVE_ADDON_MARKERS,
+  NON_CODE_FILES,
+  PluginHost,
+  checkNativeAddons,
+  createHostApi,
+  isInside,
+  prepare,
+  prepareFromRegistry,
+  prepareInstalled,
+  splitEntry,
+  type HostApi,
+  type HostLedger,
+  type Loader,
+  type MountState,
+  type MountedPlugin,
+  type PluginModule,
+  type PrepareResult,
+  type PreparedPlugin,
+  type Rejection,
+} from './plugin-host.ts'
 
 // --- Fehlermodell ---
 export {

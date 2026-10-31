@@ -1,0 +1,19 @@
+{
+  "name": "@prometheus-harness/skill-filesystem",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Der lokale Skill-Anbieter: findet Faehigkeiten in Projekt-, eigenen und Benutzer-Wurzeln, liest YAML-Frontmatter und laedt den Rumpf von der Platte.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/home-paths": "workspace:*",
+    "@prometheus-harness/skill": "workspace:*",
+    "yaml": "^2.9.1"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

@@ -1,0 +1,13 @@
+# Bauergebnis und Abhängigkeiten — nicht Teil der Geschichte des Projekts.
+#
+# **Warum `dist/` hier ausdrücklich steht.** Beim Umzug aus `snapshots/` am 14.10.2026 war `dist/`
+# dort **nicht** ausgeschlossen — ein `git add` hätte den gebauten Stand samt der beiden
+# Schriftdateien mitgenommen (gemessen: 0,88 MB, `apps/universe/dist/assets/*`). Ein Bauergebnis im
+# Repository ist eine zweite Wahrheit über denselben Quelltext: es veraltet still und niemand sieht,
+# welche Fassung es zeigt.
+dist/
+node_modules/
+.vite/
+.vite-temp/
+*.local
+.DS_Store

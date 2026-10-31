@@ -1,0 +1,31 @@
+{
+  "name": "@prometheus-harness/client-world",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Die echte Universe-App als main-Panel im DSH-Shell: ein Sidebar-Eintrag, ein echter Wechsel ueber ctx.layout.selectPanel, dieselbe Oberflaeche und Logik wie /universe/.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    }
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

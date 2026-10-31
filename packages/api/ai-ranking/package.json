@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/ai-ranking",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Die Schnittstelle zur bevorzugten Liste: ein Dienst ctx.aiRanking, bei dem Familien, Katalog, Anbieter, Tarife und gemessene Modelllisten sich anmelden, und GET /api/ai/ranking (geschuetzt) als lesende Flaeche. Sammelt und rechnet — ruft nichts auf.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@prometheus-harness/usage-ansicht",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Verbrauch und Kostenschaetzung: GET /api/ai/usage, das Werkzeug ai_usage und der Befehl /verbrauch (bzw. /usage) — mit der Sprache aus den Einstellungen.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/ai-capabilities": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

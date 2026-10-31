@@ -1,5 +1,5 @@
 /**
- * `scripts/ledger-nachziehen.mjs` — die Prüfung, und sie deckt **beide Formen** ab.
+ * `scripts/ledger-catchup.mjs` — die Prüfung, und sie deckt **beide Formen** ab.
  *
  * ## Warum die Formen der ganze Punkt sind
  *
@@ -18,7 +18,7 @@ import { describe, expect, test } from 'bun:test'
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { B_S1_KENNUNG, alsEinheiten, fuehreAus, lcVon, zieheNach } from './ledger-nachziehen.mjs'
+import { B_S1_KENNUNG, alsEinheiten, fuehreAus, lcVon, zieheNach } from './ledger-catchup.mjs'
 
 const HEUTE = { fassungBetrieb: 5, tabellen: 12, zusammengesetzteFk: 4, policies: 0 }
 

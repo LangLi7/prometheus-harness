@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/crew-plan",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Der Planungskern einer Crew: Rollen, Ziele und Aufgaben je Projekt und NUTZER. Reines Rechnen ohne Harness, ohne Netz, ohne Modell — damit jede Regel ohne Schluessel pruefbar ist.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "@prometheus-harness/launcher",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Ein Eintrag für viele Panels: die Starter-Fläche listet die Panels der übrigen Plugins auf und öffnet sie. Ohne diesen Eintrag stünde jedes Panel als eigene Zeile in der Seitenleiste.",
+  "main": "src/server.ts",
+  "exports": {
+    ".": "./src/server.ts",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "files": [
+    "src",
+    "lib/client.js",
+    "cordis.patch.yml",
+    "locale/*.json"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.client.json"
+  }
+}

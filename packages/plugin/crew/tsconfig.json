@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "include": [
+    "src/server.ts",
+    "src/host.ts",
+    "src/locales.ts",
+    "tests"
+  ],
+  "compilerOptions": {
+    "resolveJsonModule": true
+  }
+}

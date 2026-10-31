@@ -1,0 +1,18 @@
+{
+  "name": "ai-stack",
+  "version": "0.1.0",
+  "kind": "plugin",
+  "language": "typescript",
+  "description": "Das KI-Buendel: traegt die KI-Rangliste als Eintrag in den Host ein und bringt alles mit, was eine Plugin-Liste braucht (Marker dsh.bundle.patch, icon.svg, locale mit meta.title und meta.description). Kein Laufzeitcode - die Substanz ist cordis.patch.yml.",
+  "core": "optional",
+  "contract": "^0.2.0",
+  "provides": ["ai-stack"],
+  "requires": ["ai-ranking"],
+  "platforms": ["windows", "linux", "darwin"],
+  "notes": [
+    "Art plugin, weil ein Buendel Eintraege in den Host schreibt - es ist die Kompositionsform des Kerns (vgl. dsh-experimental-voice-input-bundle). src/index.ts besteht wie dort nur aus 'export {}'.",
+    "requires nennt ai-ranking, damit der Export-Abschluss die Abhaengigkeit mitnimmt: wer das Buendel exportiert, bekommt das Plugin, das es eintraegt.",
+    "KOLLISIONSREGEL: der Core wirft bei doppeltem (kind, path). Die Kennung pmh-ai-ranking steht deshalb ENTWEDER in diesem Buendel ODER in scripts/profile-patch.mjs (EIGENE_PAKETE) - nie in beiden. Heute fuehrt sie profile-patch.mjs; das Buendel ist die Bahn fuer die Plugin-Liste.",
+    "Eine Plugin-Liste zeigt ein Buendel nur, wenn es im Profil aktiviert ist (dsh.profile.bundles) - das ist eine Handlung am Profil, nicht am Paket."
+  ]
+}

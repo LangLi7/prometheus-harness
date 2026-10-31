@@ -40,6 +40,29 @@ export interface UnitEntry {
   readonly args: readonly string[]
 }
 
+/**
+ * Der Wechsel-Takt eines Units — die Klassifizierung aus
+ * `docs/design/harness-generationen.md` §2.3.
+ *
+ * `hot`  = im laufenden Prozeß annehmbar (Konfigurationszeile, Client-Plugin).
+ * `idle` = zwischen zwei Zügen wechselbar (eigenes Modul, eine Unit-Zeile).
+ * `boot` = nur durch einen neuen Prozess (Core, Launcher, Ports, native Dienste).
+ *
+ * **Die Vorgabe ist `boot`**, und zwar absichtlich: wer eine Änderung für heiß
+ * erklärt, muß sie belegen — und der Beleg ist eine Prüfung (die Mitgift der
+ * Unit wird abgeräumt), kein Satz. Die vorsichtige Annahme ist die einzige, die
+ * niemanden täuscht.
+ */
+export type UnitReload = 'hot' | 'idle' | 'boot'
+
+/** Die Ordnung der Takte: höher = teurer. Für „der höchste Takt gewinnt". */
+export const RELOAD_ORDER: Readonly<Record<UnitReload, number>> = { hot: 0, idle: 1, boot: 2 }
+
+/** Der teurere von zwei Takten. */
+export function hoechsterTakt(a: UnitReload, b: UnitReload): UnitReload {
+  return RELOAD_ORDER[a] >= RELOAD_ORDER[b] ? a : b
+}
+
 /** Ein vollständig geprüftes Unit-Manifest. */
 export interface UnitManifest {
   /** Eindeutiger Name; entspricht dem Ordnernamen (letztes Segment, case-insensitiv). */
@@ -62,6 +85,17 @@ export interface UnitManifest {
   /** Leer = überall lauffähig. */
   readonly platforms: readonly UnitPlatform[]
   readonly notes: readonly string[]
+  /**
+   * Wie teuer ein Wechsel dieses Units ist. Fehlt das Feld, gilt `boot` —
+   * die vorsichtige Annahme (siehe {@link UnitReload}).
+   */
+  readonly reload?: UnitReload
+  /**
+   * `true` heißt Einbahnstraße: die Wirkung läßt sich nicht zurücknehmen
+   * (Schema-Migration, Rotation, nach außen gewirkte Nebenwirkung). Ein
+   * Generationenwechsel mit einem solchen Unit verlangt ausdrückliche Freigabe.
+   */
+  readonly irreversible?: boolean
   /** Der Ordner, aus dem das Manifest gelesen wurde (absolut). */
   readonly directory: string
 }
@@ -79,6 +113,7 @@ export interface ManifestSource {
 const KINDS: readonly UnitKind[] = ['plugin', 'service', 'patch', 'skill']
 const LANGUAGES: readonly UnitLanguage[] = ['typescript', 'go', 'rust']
 const PLATFORMS: readonly UnitPlatform[] = ['windows', 'linux', 'darwin']
+const RELOAD_CLASSES: readonly UnitReload[] = ['hot', 'idle', 'boot']
 
 const KNOWN_FIELDS = new Set([
   'name',
@@ -93,6 +128,8 @@ const KNOWN_FIELDS = new Set([
   'requires',
   'platforms',
   'notes',
+  'reload',
+  'irreversible',
 ])
 
 /**
@@ -431,6 +468,40 @@ export function parseManifest(source: ManifestSource): Validation<UnitManifest> 
   })
   const notes = readStringArray(record, 'notes', errors)
 
+  // --- reload / irreversible (Erweiterung, harness-generationen.md §2.3) ---
+  const reloadRaw = readString(record, 'reload', errors)
+  let reload: UnitReload | undefined
+  if (reloadRaw !== undefined) {
+    if (RELOAD_CLASSES.includes(reloadRaw as UnitReload)) {
+      reload = reloadRaw as UnitReload
+    }
+    else {
+      errors.push(unitError('manifest_field_value', `"reload" muss ${RELOAD_CLASSES.join(', ')} sein, ist "${reloadRaw}".`, `${at}#/reload`))
+    }
+  }
+
+  let irreversible: boolean | undefined
+  const irreversibleRaw = record.irreversible
+  if (irreversibleRaw !== undefined) {
+    if (typeof irreversibleRaw !== 'boolean') {
+      errors.push(unitError('manifest_field_type', `"irreversible" muss true oder false sein, ist ${typeof irreversibleRaw}.`, `${at}#/irreversible`))
+    }
+    else {
+      irreversible = irreversibleRaw
+    }
+  }
+
+  // Der Widerspruch, den niemand bemerkt, bis es zu spät ist: ein Vorgang, der
+  // im laufenden Prozeß zurückgenommen werden kann, KANN nicht einbahnig sein.
+  // Wer beides deklariert, hat eines von beidem nicht verstanden.
+  if (reload === 'hot' && irreversible === true) {
+    errors.push(unitError(
+      'manifest_field_value',
+      '"reload": "hot" mit "irreversible": true widerspricht sich: was im laufenden Prozeß zurückgenommen werden kann, ist keine Einbahnstraße.',
+      `${at}#/irreversible`,
+    ))
+  }
+
   // --- requires: Selbstabhängigkeit, Duplikate, Namensform ---
   const seenRequires = new Set<string>()
   requires.forEach((required, index) => {
@@ -480,6 +551,8 @@ export function parseManifest(source: ManifestSource): Validation<UnitManifest> 
     requires,
     platforms,
     notes,
+    ...(reload === undefined ? {} : { reload }),
+    ...(irreversible === undefined ? {} : { irreversible }),
     directory: source.directory === undefined ? '' : resolve(source.directory),
   }, warnings)
 }
@@ -553,5 +626,7 @@ export function serializeManifest(manifest: UnitManifest): string {
     requires: [...manifest.requires],
     platforms: [...manifest.platforms],
     notes: [...manifest.notes],
+    ...(manifest.reload === undefined ? {} : { reload: manifest.reload }),
+    ...(manifest.irreversible === undefined ? {} : { irreversible: manifest.irreversible }),
   })
 }

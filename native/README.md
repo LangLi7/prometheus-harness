@@ -71,6 +71,7 @@ cargo run  -p pmh-flock -- --probe
 | `native/pty/` | `pmh-pty` | `node-pty` (Addon) | neu; PTY/ConPTY |
 | `native/index/` | `pmh-index` | — | neu; Parsing und Indizierung |
 | `native/crypto/` | `pmh-crypto` | — | neu; Kryptografie |
+| `native/pmh-tray/` | `pmh-tray` + `pmh-tray-gui` | — | neu; Infobereich-Symbol für Start/Stopp/Autostart (nur Windows) |
 | `services/pmh-sandbox/` | `pmh-sandbox` | `sandbox-windows-acl` | Policy kommt aus dem TS-Core |
 
 ## Plattformen

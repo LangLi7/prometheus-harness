@@ -241,6 +241,10 @@ func (c *Conn) ReadMessage() (opcode byte, payload []byte, err error) {
 			return 0, nil, err
 		}
 		if isControl(f.opcode) {
+			if !f.fin || len(f.payload) > MaxControlPayload {
+				c.sendClose(CloseProtocolError, "Steuernachricht verletzt RFC 6455")
+				return 0, nil, &CloseError{Code: CloseProtocolError, Reason: "ungueltige Steuernachricht"}
+			}
 			switch f.opcode {
 			case OpPing:
 				// Pong muss dieselbe Nutzlast tragen (RFC 6455 §5.5.3).

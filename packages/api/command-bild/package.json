@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/command-bild",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Der Befehl /bild: erzeugt ein Bild aus einer Zeile, mit Stil, Seitenverhaeltnis, Aufloesung und Zielpfad — ueber dieselbe Kette wie das Werkzeug image_generate.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

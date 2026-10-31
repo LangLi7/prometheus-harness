@@ -25,15 +25,22 @@ import { join } from 'node:path'
 
 import {
   EIGENE_PAKETE,
+  MCP_EINTRAEGE,
   PTC_EINTRAEGE,
   SUBIAGENTEN_ABSCHALTUNG,
   MARKE_ANFANG,
   MARKE_ENDE,
   bereichsZeilen,
+  findeGitBash,
+  hatWsl2Distribution,
   idAus,
   mitBereich,
+  paketInject,
+  paketName,
   patchPfad,
+  terminalZeilen,
   verdrahte,
+  wslBereit,
 } from '../profile-patch.mjs'
 
 /** Die Zeilen der Vorlage, wie `dsh` sie anlegt (gemessen am 13.10.2026). */
@@ -103,8 +110,13 @@ describe('bereichsZeilen', () => {
     const endeInsert = zeilen.findIndex((z, i) => i > 1 && z.startsWith('- '))
     const insertBlock = zeilen.slice(1, endeInsert < 0 ? zeilen.length - 1 : endeInsert)
     expect(insertBlock[0]).toBe('- insert:')
-    expect(insertBlock.filter((z) => z.startsWith('  - id: '))).toHaveLength(2)
-    expect(insertBlock.filter((z) => z.startsWith('    '))).toHaveLength(4)
+    // **Die MCP-Zeilen zählen mit, und zwar aus ihrer eigenen Liste.** Sie sind
+    // echte `insert`-Einträge (mit `config:`), keine Änderungen; wer eine
+    // hinzufügt, ändert `MCP_EINTRAEGE` — und die Zahl hier zieht mit, statt
+    // bei jeder Ergänzung rot zu werden.
+    expect(insertBlock.filter((z) => z.startsWith('  - id: '))).toHaveLength(2 + MCP_EINTRAEGE.filter((z) => z.startsWith('  - id: ')).length)
+    // `inject` tragen nur die Paket-Einträge; die MCP-Zeilen haben `config`.
+    expect(insertBlock.filter((z) => z.startsWith('    inject: '))).toHaveLength(2)
 
     // **Die obersten Einträge — und warum hier gezählt wird.**
     // Der Bereich ist NICHT nur der `insert`-Block: er trägt zusätzlich den
@@ -113,13 +125,21 @@ describe('bereichsZeilen', () => {
     // beim ersten Überschreiben des Bereichs passiert ist.
     const oben = zeilen.filter((z) => z.startsWith('- '))
     expect(oben[0]).toBe('- insert:')
-    // **Vier oberste Einträge:** der `insert`-Block, der bleibende Eintrag der
-    // Oberfläche und die zwei Subagenten-Abschaltungen. Die Zahl wird aus den
-    // Konstanten gebildet und nicht hingeschrieben — sonst müßte sie bei jeder
-    // Ergänzung nachgezogen werden, und eine Prüfung, die man bei jeder Änderung
-    // anpasst, prüft nichts.
-    expect(oben).toHaveLength(1 + 1 + SUBIAGENTEN_ABSCHALTUNG.length / 2)
+    // **Vier oberste Einträge waren es bis zum 18.10.2026** — der `insert`-Block,
+    // der bleibende Eintrag der Oberfläche und die zwei Subagenten-Abschaltungen.
+    // Seitdem kommt der Eintrag des Terminal-Controllers dazu (Shell-Auswahl je
+    // Plattform). Die Zahl wird aus den Konstanten gebildet und nicht
+    // hingeschrieben — sonst müßte sie bei jeder Ergänzung nachgezogen werden, und
+    // eine Prüfung, die man bei jeder Änderung anpasst, prüft nichts.
+    // **Fünf oberste Einträge** (auf Windows; auf Linux einer weniger): der
+    // `insert`-Block, der bleibende Eintrag der Oberfläche, der Eintrag des
+    // Terminal-Controllers (seit 18.10.2026) und die zwei Subagenten-Abschaltungen.
+    // Die Terminal-Zeilen liefert der Erzeuger selbst, damit die Plattformabhängigkeit
+    // nicht doppelt gepflegt wird.
+    const terminalOben = terminalZeilen({ plattform: process.platform }).filter((z) => z.startsWith('- '))
+    expect(oben).toHaveLength(1 + 1 + terminalOben.length + SUBIAGENTEN_ABSCHALTUNG.length / 2)
     expect(oben).toContain('- id: ui-settings-general')
+    expect(oben).toContain('- id: terminal-controller')
     expect(oben).toContain('- id: subagent-claude-code')
     expect(oben).toContain('- id: subagent-codex')
   })
@@ -151,6 +171,128 @@ describe('bereichsZeilen', () => {
       (z, i) => z.startsWith('- id: ') && zeilen[i + 1] === '  disabled: true',
     )
     expect(abgeschaltet).toEqual(['- id: subagent-claude-code', '- id: subagent-codex'])
+  })
+})
+
+describe('Einträge lesen — Name und inject', () => {
+  test('ein Name gilt als Eintrag mit der Vorgabe webServer', () => {
+    expect(paketName('@a/b')).toBe('@a/b')
+    expect(paketInject('@a/b')).toEqual(['webServer'])
+  })
+
+  test('ein Gegenstand bringt sein eigenes inject mit', () => {
+    const eintrag = { paket: '@a/b', inject: ['subprocess'] }
+    expect(paketName(eintrag)).toBe('@a/b')
+    expect(paketInject(eintrag)).toEqual(['subprocess'])
+  })
+
+  test('das Terminal-Paket wartet auf subprocess — nicht auf webServer', () => {
+    // **Der Fehler, der hier verhindert wird.** Ein falsches `inject` ist nicht
+    // laut: der Loader hängt das Plugin ein, ohne daß der Dienst da ist, und das
+    // Plugin tut still gar nichts. Das Terminal bliebe schwarz, und niemand hätte
+    // einen Anhaltspunkt.
+    const eintrag = EIGENE_PAKETE.find((e) => paketName(e) === '@prometheus-harness/terminal-pty')
+    expect(eintrag).toBeDefined()
+    expect(paketInject(eintrag)).toEqual(['subprocess'])
+  })
+
+  test('der insert-Block schreibt das inject des Eintrags', () => {
+    const zeilen = bereichsZeilen([{ paket: '@a/b', inject: ['subprocess'] }])
+    expect(zeilen).toContain('    inject: [subprocess]')
+    expect(zeilen).not.toContain('    inject: [webServer]')
+  })
+})
+
+describe('terminalZeilen — welche Shells angeboten werden', () => {
+  test('Linux bietet KEIN powershell und KEIN cmd an', () => {
+    // Weisung des Betreibers (18.10.2026): „wenn linux dann sollte powershell cmd
+    // überhaupt gar nicht anzeigen".
+    const text = terminalZeilen({ plattform: 'linux' }).join('\n')
+    expect(text).toContain('- id: terminal-controller')
+    expect(text).toContain('shellCandidates: [zsh, bash, fish]')
+    expect(text).not.toContain('powershell')
+    expect(text).not.toContain('cmd')
+    expect(text).not.toContain('wsl.exe')
+  })
+
+  test('Windows mit WSL2 bekommt bash aus WSL als Vorgabe', () => {
+    // „der bash würde ich mit WSL2 verbinden … und wenn linux dann …" — der
+    // Betreiber will beide Wege sehen: WSL-Bash als Vorgabe und Git-Bash daneben.
+    const text = terminalZeilen({
+      plattform: 'win32',
+      wslBereit: true,
+      gitBash: 'C:\\Program Files\\Git\\bin\\bash.exe',
+    }).join('\n')
+    expect(text).toContain('shell:')
+    expect(text).toContain("path: 'wsl.exe'")
+    expect(text).toContain("name: 'bash (WSL)'")
+    expect(text).toContain("args: ['-e', 'bash', '-l']")
+    // **Git-Bash als absoluter Pfad.** Als Name `bash` löste er auf
+    // `C:\WINDOWS\system32\bash.exe` auf — das ist der alte WSL-Starter, nicht Git.
+    expect(text).toContain("'C:\\Program Files\\Git\\bin\\bash.exe'")
+    expect(text).toContain('powershell')
+    expect(text).toContain('cmd')
+  })
+
+  test('Windows ohne WSL2 erfindet keine WSL-Zeile', () => {
+    const text = terminalZeilen({ plattform: 'win32', wslBereit: false }).join('\n')
+    expect(text).not.toContain('wsl.exe')
+    expect(text).toContain('shellCandidates: [powershell, cmd]')
+  })
+})
+
+describe('Was die Maschine hergibt', () => {
+  test('findeGitBash nimmt den ersten vorhandenen Ort', () => {
+    expect(findeGitBash((pfad) => pfad.includes('Program Files\\Git'))).toBe(
+      'C:\\Program Files\\Git\\bin\\bash.exe',
+    )
+    expect(findeGitBash(() => false)).toBeUndefined()
+  })
+
+  test('wslBereit liest die UTF-16-Ausgabe der Distributionsliste', () => {
+    // Die echte Ausgabe kommt UTF-16 (gemessen); hier wird sie nachgebaut.
+    const utf16 = (text) => text.split('').join('\u0000')
+    const bereit = wslBereit(() =>
+      utf16('  NAME              STATE           VERSION\r\n* Ubuntu            Stopped         2\r\n'))
+    expect(bereit).toBe(true)
+  })
+
+  test('die gemessene Form OHNE `Standarddistribution` zählt trotzdem', () => {
+    // **Der Fehler, der diese Prüfung erzwungen hat.** Der erste Anlauf las
+    // `wsl --version` und verlangte `Standardversion: 2`. Auf der Zielmaschine
+    // (18.10.2026) steht das dort nicht — gemessen: `WSL-Version: 2.6.3.0`,
+    // `Kernelversion: 6.6.87.2-1`, dann nur noch Versionen. Ergebnis wäre
+    // „WSL2 fehlt" auf einem Rechner mit drei Distributionen gewesen.
+    const gemessen = [
+      '  NAME              STATE           VERSION',
+      '* Ubuntu            Stopped         2',
+      '  docker-desktop    Running         2',
+      '  kali-linux        Stopped         2',
+      '',
+    ].join('\r\n')
+    expect(wslBereit(() => gemessen)).toBe(true)
+  })
+
+  test('nur Docker-Distributionen ergeben keine Shell', () => {
+    // `docker-desktop` hat keine Shell. Eine WSL-Bash dorthin anzubieten wäre ein
+    // Terminal, das beim ersten Befehl scheitert.
+    const nurDocker = '  NAME              STATE           VERSION\r\n  docker-desktop    Running         2\r\n'
+    expect(wslBereit(() => nurDocker)).toBe(false)
+  })
+
+  test('ohne WSL ist es nicht bereit — und ohne Distribution auch nicht', () => {
+    expect(wslBereit(() => '')).toBe(false)
+    expect(wslBereit(() => 'WSL-Version: 2.6.3.0\r\nStandardversion: 2\r\n')).toBe(false)
+    // Die Kopfzeile allein nennt `VERSION` ohne Zahl — sie ist keine Distribution.
+    expect(hatWsl2Distribution('  NAME   STATE   VERSION\r\n')).toBe(false)
+  })
+
+  test('ein Fehler beim Aufruf gilt als „nicht bereit" und nicht als Absturz', () => {
+    expect(
+      wslBereit(() => {
+        throw new Error('kein wsl.exe')
+      }),
+    ).toBe(false)
   })
 })
 
@@ -245,12 +387,14 @@ describe('mitBereich', () => {
     // **Der erste Eintrag ist der `insert`-Block; danach kommen die weiteren.**
     // Früher stand hier `toHaveLength(1)` — das galt, solange der Bereich nur den
     // `insert`-Block trug. Jetzt trägt er zusätzlich die Abschaltungen des
-    // PTC-Zwischenschritts und einen bleibenden Eintrag der Oberfläche. Geprüft
-    // wird deshalb der **erste** Eintrag genau und die Anzahl insgesamt.
-    expect(eintraege).toHaveLength(1 + 1 + SUBIAGENTEN_ABSCHALTUNG.length / 2)
+    // PTC-Zwischenschritts, einen bleibenden Eintrag der Oberfläche und den
+    // Eintrag des Terminal-Controllers. Geprüft wird deshalb der **erste** Eintrag
+    // genau und die Anzahl insgesamt; die Terminal-Zeilen zählt der Erzeuger selbst.
+    const terminalOben = terminalZeilen({ plattform: process.platform }).filter((z) => z.startsWith('- '))
+    expect(eintraege).toHaveLength(1 + 1 + terminalOben.length + SUBIAGENTEN_ABSCHALTUNG.length / 2)
     expect(Object.keys(eintraege[0])).toEqual(['insert'])
     const eingefuegt = eintraege[0].insert
-    expect(eingefuegt).toHaveLength(1)
+    expect(eingefuegt).toHaveLength(1 + MCP_EINTRAEGE.filter((z) => z.startsWith('  - id: ')).length)
     expect(eingefuegt[0].id).toBe('pmh-health')
     expect(eingefuegt[0].name).toBe('@prometheus-harness/health')
     expect(eingefuegt[0].inject).toEqual(['webServer'])
@@ -335,6 +479,17 @@ function parseEinfach(text) {
       continue
     }
     if (verschachtelt && /^ {4}\w+: /u.test(zeile)) continue
+    // **Ein Feld auf sechs Zeichen** gehört zum `config:` eines MCP-Eintrags
+    // (`serverName`, `transport`, `command`, `args`, `env`, `cwd`, …). Der Wert
+    // ist hier ohne Bedeutung: geprüft wird, daß die erzeugte Datei gültig ist
+    // und die Einträge die richtige Form haben. `!!js`-Werte bleiben Zeichenketten.
+    // **Der Kopf der Verschachtelung** (`    config:`) steht auf vier Zeichen und
+    // gehört zu einem `insert`-Eintrag; seine Kinder überspringt die Regel darüber.
+    if (/^ {4}\w+:\s*$/u.test(zeile) && liste !== undefined) continue
+    // Sechs und acht Zeichen: `config:`-Felder und deren `env:`-Kinder. Beide
+    // ohne Bedeutung für diese Prüfung — sie müssen nur gültig bleiben.
+    if (/^ {6}\w+:/u.test(zeile) && liste !== undefined) continue
+    if (/^ {8}\w+:/u.test(zeile) && liste !== undefined) continue
     throw new Error(`parseEinfach: unerwartete Zeile ${JSON.stringify(zeile)}`)
   }
   return eintraege
@@ -374,8 +529,12 @@ describe('EIGENE_PAKETE', () => {
   })
 
   test('jedes genannte Paket hat eine gültige id', () => {
-    for (const paket of EIGENE_PAKETE) {
-      expect(idAus(paket)).toMatch(/^pmh-[a-z0-9-]+$/u)
+    // **`paketName` und nicht der Eintrag selbst.** Seit ein Eintrag auch ein
+    // Gegenstand sein darf (`{ paket, inject }`, für den Terminal-Controller-Weg),
+    // ist der rohe Wert keine Zeichenkette mehr — der Fehler war hier sofort
+    // sichtbar, statt später im Profil.
+    for (const eintrag of EIGENE_PAKETE) {
+      expect(idAus(paketName(eintrag))).toMatch(/^pmh-[a-z0-9-]+$/u)
     }
   })
 })
@@ -437,4 +596,38 @@ describe('verdrahte — mit einer echten Datei', () => {
       w.weg()
     }
   })
+})
+
+test('eine fremde Einstellung IM eigenen Bereich wird gerettet', () => {
+  /*
+   * ## Der gemessene Schaden (16.10.2026)
+   *
+   * Der Einstellungseditor des Harness schreibt seine Zeilen ans Ende des YAML-Inhalts — und dort stand
+   * unsere Endmarke als letzte Zeile. Nach einer Schriftgrößenänderung im Chat lag `- id: ui-theme` also
+   * **innerhalb** unseres Bereichs, und der nächste Start löschte ihn mit. Nachgerechnet: die Datei
+   * schrumpfte von 1581 auf 1423 Zeichen, `id: ui-theme` war danach **weg** — jede im Chat geänderte
+   * Einstellung verschwand beim nächsten Start.
+   *
+   * ## Was hier festgehalten wird
+   *
+   * Eine fremde Zeile in unserem Bereich überlebt **jeden** Lauf, wird **nicht** verdoppelt, und die
+   * Datei kommt innerhalb von zwei Läufen zur Ruhe.
+   */
+  const fremd = ['- id: locale', '  name: "@deepseek-ai/dsh-client-locale"', '  config:', '    preference: de']
+  const datei = `${MARKE_ANFANG}\n${ZEILEN.join('\n')}\n${fremd.join('\n')}\n${MARKE_ENDE}\n`
+
+  const einmal = mitBereich(datei, ZEILEN)
+  expect(einmal, 'die fremde Einstellung ging beim ersten Lauf verloren').toContain('preference: de')
+  expect((einmal.match(/preference: de/g) ?? []).length, 'die fremde Einstellung wurde verdoppelt').toBe(1)
+
+  const zweimal = mitBereich(einmal, ZEILEN)
+  expect(zweimal, 'die fremde Einstellung ging beim zweiten Lauf verloren').toContain('preference: de')
+
+  // **Ab dem dritten Lauf passiert nichts mehr** — die Rettung ist eine einmalige Umschichtung, keine
+  // dauerhafte Änderung. Ohne diese Prüfung würde bei jedem Start geschrieben, und niemand merkte es.
+  const dreimal = mitBereich(zweimal, ZEILEN)
+  expect(dreimal, 'die Datei kommt nicht zur Ruhe').toBe(zweimal)
+
+  // Und unsere eigenen Zeilen stehen weiterhin genau einmal darin.
+  expect((dreimal.match(/id: pmh-health/g) ?? []).length).toBe(1)
 })

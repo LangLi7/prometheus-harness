@@ -46,7 +46,14 @@ import type { Context } from '@deepseek-ai/cordis'
 import { useEffect, useState } from 'react'
 import { QuellordnerDialog, type Ordner } from './dialog.tsx'
 import { arbeitsbereichId, csrfWert, type Arbeitsbereichsstand } from './state.ts'
-import { listeOrdner, legeOrdnerAn, entferneOrdner, setzeZugriff, type WegeOptionen } from './paths.ts'
+import {
+  listeOrdner,
+  legeOrdnerAn,
+  entferneOrdner,
+  setzeZugriff,
+  stelleBereichSicher,
+  type WegeOptionen,
+} from './paths.ts'
 
 /** Kennung des Plugins. */
 export const name = 'source-folders'
@@ -75,6 +82,15 @@ export interface QuellordnerDienste {
    */
   readonly arbeitsbereich: () => string | undefined
   /**
+   * Titel und Pfad des Arbeitsbereichs — **für die Brücke**.
+   *
+   * Der Host kennt beides, die Datenbank nicht. Ohne sie könnte sie den Arbeitsbereich nicht
+   * anlegen und der Arbeitsplatz (der erste Ordner) bliebe leer.
+   *
+   * @returns Titel und Pfad, oder `undefined`
+   */
+  readonly bereichsAngaben: () => { readonly name: string; readonly pfad: string } | undefined
+  /**
    * Öffnet den Verzeichniswähler des Rechners.
    *
    * **Gemessen:** `ctx.workspaces.pickDirectory(): Promise<string | null>`
@@ -98,6 +114,7 @@ export interface QuellordnerDienste {
 export function QuellordnerSchicht({
   optionen,
   arbeitsbereich,
+  bereichsAngaben,
   waehleVerzeichnis,
 }: QuellordnerDienste): React.ReactElement {
   const [offen, setOffen] = useState(false)
@@ -105,18 +122,62 @@ export function QuellordnerSchicht({
   const [fehler, setFehler] = useState<string | undefined>(undefined)
   /** Zählt die Ladevorgänge — jede Änderung erhöht ihn und lädt neu. */
   const [runde, setRunde] = useState(0)
+  /**
+   * Der Arbeitsbereich, für den der Dialog geöffnet wurde — **vom Ereignis gesetzt**.
+   *
+   * Der Eintrag „Quellordner…" im „…"-Menü der Projektzeile gehört dem Kern (per Patch,
+   * `dsh-client-ui-workspace`): er löst `pmh:quellordner` mit der Kennung aus und **navigiert
+   * nicht**. Deshalb steht hier kein Weg über die Adresse — und der Dialog wirkt auch dann, wenn
+   * der Wirt eine Seite noch nicht ausliefert.
+   */
+  const [gewuenscht, setGewuenscht] = useState<string | null>(null)
+
+  /** Der gemeinte Bereich: das Ereignis gewinnt, sonst die Sitzung, sonst der erste. */
+  const bereichJetzt = (): string | undefined => gewuenscht ?? arbeitsbereich()
+
+  useEffect(() => {
+    const hoere = (ereignis: Event): void => {
+      const detail = (ereignis as CustomEvent<{ workspaceId?: unknown }>).detail
+      const id = typeof detail?.workspaceId === 'string' ? detail.workspaceId : undefined
+      if (id === undefined || id === '') return
+      setGewuenscht(id)
+      setFehler(undefined)
+      setOffen(true)
+      setRunde((r) => r + 1)
+    }
+    globalThis.addEventListener('pmh:quellordner', hoere)
+    return () => {
+      globalThis.removeEventListener('pmh:quellordner', hoere)
+    }
+  }, [])
 
   // **Geladen wird beim Öffnen** — nicht beim Einbinden der Schicht. Die Schicht hängt dauerhaft
   // im Fenster; ohne diese Bedingung liefe bei jedem Aufbau ein Netzaufruf.
   useEffect(() => {
     if (!offen) return
-    const bereich = arbeitsbereich()
+    const bereich = bereichJetzt()
     if (bereich === undefined) {
       setFehler('Es gibt keinen Arbeitsbereich — es kann nichts angezeigt werden.')
       return
     }
+    const angaben = bereichsAngaben?.()
     let gilt = true
-    listeOrdner(bereich, optionen)
+    /*
+     * **Erst die Brücke, dann die Liste.**
+     *
+     * Der Host kennt den Arbeitsbereich, unsere Datenbank nicht; `workspace_folders` verweist
+     * aber auf `workspaces (id, user_id)`. Ohne diesen Aufruf liefe die Liste leer und jedes
+     * Hinzufügen in einen Fremdschlüssel-Fehler. Er ist idempotent und ändert keinen Namen.
+     */
+    stelleBereichSicher(
+      {
+        workspaceId: bereich,
+        name: angaben?.name ?? '',
+        ...(angaben?.pfad !== undefined ? { pfad: angaben.pfad } : {}),
+      },
+      optionen,
+    )
+      .then(() => listeOrdner(bereich, optionen))
       .then((liste) => {
         // **Nur setzen, wenn dieser Aufruf noch gilt.** Sonst überschriebe eine späte Antwort
         // eine neuere — und der Dialog zeigte etwas Veraltetes.
@@ -131,7 +192,7 @@ export function QuellordnerSchicht({
     return () => {
       gilt = false
     }
-  }, [offen, runde, arbeitsbereich, optionen])
+  }, [offen, runde, arbeitsbereich, bereichsAngaben, optionen])
 
   /**
    * Führt eine Änderung aus und lädt danach neu.
@@ -186,7 +247,7 @@ export function QuellordnerSchicht({
         aendern(() => entferneOrdner(id, optionen))
       }}
       beiHinzufuegen={() => {
-        const bereich = arbeitsbereich()
+        const bereich = bereichJetzt()
         if (bereich === undefined) {
           setFehler('Es gibt keinen Arbeitsbereich — es kann kein Ordner eingetragen werden.')
           return
@@ -227,11 +288,19 @@ export function apply(ctx: Context): void {
       register: (o: unknown, c: unknown) => unknown
     }
     workspaces: {
-      list: { getSnapshot: () => { items: readonly Arbeitsbereichsstand[] } }
+      list: {
+        getSnapshot: () => {
+          items: readonly (Arbeitsbereichsstand & { readonly title?: string; readonly path?: string })[]
+        }
+      }
       pickDirectory: () => Promise<string | null>
     }
     sessions: { list: { getSnapshot: () => { current: string | undefined } } }
   }
+
+  /** Die eine Ableitung des gemeinten Bereichs — **eine Stelle**, zwei Verwendungen. */
+  const gemeint = (): string | undefined =>
+    arbeitsbereichId(kern.workspaces.list.getSnapshot().items, kern.sessions.list.getSnapshot().current)
 
   kern.slots.inject('shell.overlay', () =>
     kern.slots.register(
@@ -245,11 +314,15 @@ export function apply(ctx: Context): void {
         // sie keine Parameter, sondern liest die Dienste hier.
         inject: (): QuellordnerDienste => ({
           optionen: { csrf: csrfWert },
-          arbeitsbereich: () =>
-            arbeitsbereichId(
-              kern.workspaces.list.getSnapshot().items,
-              kern.sessions.list.getSnapshot().current,
-            ),
+          arbeitsbereich: gemeint,
+          bereichsAngaben: () => {
+            const id = gemeint()
+            const bereich = kern.workspaces.list
+              .getSnapshot()
+              .items.find((eintrag) => eintrag.workspaceId === id)
+            if (bereich === undefined) return undefined
+            return { name: bereich.title ?? '', pfad: bereich.path ?? '' }
+          },
           // **Nicht gebunden, sondern durchgereicht.** Die Methode gehört dem Dienst; sie hier
           // abzuschreiben hieße, sie an zwei Stellen zu pflegen.
           waehleVerzeichnis: () => kern.workspaces.pickDirectory(),

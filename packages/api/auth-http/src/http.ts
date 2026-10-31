@@ -35,9 +35,20 @@ import { CSRF_COOKIE_NAME } from '@prometheus-harness/auth'
 import {
   abmelden,
   anmelden,
+  benutzerAnlegen,
+  benutzerListe,
+  benutzerLoeschen,
+  benutzerRolle,
+  benutzerSperren,
+  betreiberAnmelden,
   cookieWert,
   CSRF_KOPFZEILE,
+  einladungAnlegen,
+  einladungenListe,
+  einladungZurueckziehen,
   MAX_KOERPER_BYTES,
+  passwortLinkErzeugen,
+  passwortSetzen,
   registrieren,
   sitzungsCookieName,
   werBinIch,
@@ -50,6 +61,21 @@ import {
 export function cookieKopf(req: IncomingMessage): string | undefined {
   const wert = req.headers.cookie
   return typeof wert === 'string' ? wert : undefined
+}
+
+/**
+ * **Kommt die Anfrage vom selben Rechner?**
+ *
+ * Verglichen wird die IP **vom Socket**, nach derselben Normalisierung, die {@link herkunft}
+ * ohnehin vornimmt (`::ffff:127.0.0.1` → `127.0.0.1`). Kein Präfixvergleich, kein
+ * `X-Forwarded-For`: was der Aufrufer behaupten kann, zählt hier nicht.
+ *
+ * @param req - die Anfrage
+ * @returns ob der Socket auf demselben Rechner liegt
+ */
+export function istLoopback(req: IncomingMessage): boolean {
+  const ip = herkunft(req).ip
+  return ip === '127.0.0.1' || ip === '::1'
 }
 
 /**
@@ -165,8 +191,27 @@ export type Weg = (req: IncomingMessage, res: ServerResponse) => Promise<void>
  * @param label - ein Name für die Fehlersuche
  * @returns der Handler
  */
-export function macheWeg(methode: 'GET' | 'POST' | undefined, weg: Weg, label: string): Weg {
-  const erlaubt = methode === undefined ? ['GET', 'POST', 'PUT', 'DELETE'] : methode === 'GET' ? ['GET', 'HEAD'] : [methode]
+export function macheWeg(
+  methode: 'GET' | 'POST' | 'DELETE' | readonly ('GET' | 'POST' | 'DELETE')[] | undefined,
+  weg: Weg,
+  label: string,
+): Weg {
+  const basis =
+    methode === undefined
+      ? (['GET', 'POST', 'PUT', 'DELETE'] as const)
+      : Array.isArray(methode)
+        ? [...methode]
+        : methode === 'GET'
+          ? (['GET', 'HEAD'] as const)
+          : [methode]
+  /*
+   * **Ein Weg mit `GET` kann auch `HEAD`.** Der Server darf den Körper dann
+   * weglassen; die Kopffelder sind dieselben. Bei der Mehrweg-Form wird `HEAD`
+   * deshalb ergänzt, nicht vorausgesetzt — sonst müßte jeder Aufrufer daran
+   * denken, und der erste, der es vergißt, bekommt ein 405 auf `HEAD`.
+   */
+  const erlaubt: readonly string[] =
+    basis.includes('GET') && !basis.includes('HEAD') ? [...basis, 'HEAD'] : basis
   return async (req, res) => {
     const tatsaechlich = (req.method ?? 'GET').toUpperCase()
 
@@ -230,6 +275,12 @@ export function wegRegistrieren(umg: Umgebung): Weg {
           password: daten['password'],
           displayName: daten['displayName'],
           claimToken: daten['claimToken'],
+          // **Das Einladungs-Token aus dem Körper.** Es ist kein Sitzungsnachweis,
+          // sondern das Geheimnis des Links selbst — es gehört dorthin, wo der
+          // Link es hergibt. Ohne diese Zeile kam die Einladung nie beim Tor an:
+          // der Weg fiel auf den Admin-Zweig zurück und antwortete `401`, obwohl
+          // der Link gültig war. Gefunden hat das erst der echte Browser.
+          einladungToken: daten['einladungToken'],
           // **Der Nachweis kommt aus dem KOPF, nicht aus dem Körper.** Ein
           // Sitzungstoken oder ein CSRF-Wert im Körper wäre bei einer
           // protokollierten Anfrage im Klartext mitgeschrieben; im Kopf steht er
@@ -293,3 +344,294 @@ export function wegIch(umg: Umgebung): Weg {
 
 /** Der CSRF-Cookiename, damit die Aufruferseite ihn kennt. */
 export const CSRF_COOKIE = CSRF_COOKIE_NAME
+
+// ---------------------------------------------------------------------------
+// Die Wege der Einladungen
+// ---------------------------------------------------------------------------
+
+/**
+ * Liest den Körper und antwortet bei einem Fehler schon selbst.
+ *
+ * **Warum als eigene Funktion.** Drei Wege brauchen denselben vierzeiligen
+ * Ablauf. Dreimal abgeschrieben wäre dreimal die Gelegenheit, den Status oder den
+ * Code zu vergessen — und ein vergessener Code sieht nicht wie ein Fehler aus,
+ * sondern wie ein 200 mit leerem Körper.
+ */
+async function koerperOderAntwort(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<Record<string, unknown> | undefined> {
+  const koerper = await leseKoerper(req)
+  if (!koerper.ok) {
+    sende(res, {
+      status: koerper.status,
+      koepfe: {},
+      koerper: { ok: false, error: { code: koerper.code, message: koerper.message } },
+    })
+    return undefined
+  }
+  return (koerper.wert ?? {}) as Record<string, unknown>
+}
+
+/** `POST /api/pmh/auth/einladungen/neu` — ein Administrator erzeugt einen Link. */
+export function wegEinladungNeu(umg: Umgebung): Weg {
+  return macheWeg(
+    'POST',
+    async (req, res) => {
+      const daten = await koerperOderAntwort(req, res)
+      if (daten === undefined) return
+      const csrf = req.headers[CSRF_KOPFZEILE]
+      sende(
+        res,
+        await einladungAnlegen(umg, {
+          token: cookieWert(cookieKopf(req), sitzungsCookieName(umg)),
+          csrfKopf: typeof csrf === 'string' ? csrf : undefined,
+          dauerSekunden: daten['dauerSekunden'],
+          notiz: daten['notiz'],
+        }),
+      )
+    },
+    'auth/einladung-neu',
+  )
+}
+
+/** `GET /api/pmh/auth/einladungen` — die offenen (und vergangenen) Einladungen. */
+export function wegEinladungen(umg: Umgebung): Weg {
+  return macheWeg(
+    'GET',
+    async (req, res) => {
+      sende(res, await einladungenListe(umg, { token: cookieWert(cookieKopf(req), sitzungsCookieName(umg)) }))
+    },
+    'auth/einladungen',
+  )
+}
+
+/** `POST /api/pmh/auth/einladungen/zuruecknehmen` — ein Link wird tot. */
+export function wegEinladungZurueck(umg: Umgebung): Weg {
+  return macheWeg(
+    'POST',
+    async (req, res) => {
+      const daten = await koerperOderAntwort(req, res)
+      if (daten === undefined) return
+      const csrf = req.headers[CSRF_KOPFZEILE]
+      sende(
+        res,
+        await einladungZurueckziehen(umg, {
+          token: cookieWert(cookieKopf(req), sitzungsCookieName(umg)),
+          csrfKopf: typeof csrf === 'string' ? csrf : undefined,
+          id: daten['id'],
+        }),
+      )
+    },
+    'auth/einladung-zurueck',
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Die Konten — die Verwaltung
+// ---------------------------------------------------------------------------
+
+/** `GET /api/pmh/auth/benutzer` — alle Konten, nur für einen Administrator. */
+export function wegBenutzer(umg: Umgebung): Weg {
+  return macheWeg(
+    'GET',
+    async (req, res) => {
+      sende(res, await benutzerListe(umg, { token: cookieWert(cookieKopf(req), sitzungsCookieName(umg)) }))
+    },
+    'auth/benutzer',
+  )
+}
+
+/** `POST /api/pmh/auth/benutzer/status` — ein Konto sperren oder freigeben. */
+export function wegBenutzerStatus(umg: Umgebung): Weg {
+  return macheWeg(
+    'POST',
+    async (req, res) => {
+      const daten = await koerperOderAntwort(req, res)
+      if (daten === undefined) return
+      const csrf = req.headers[CSRF_KOPFZEILE]
+      sende(
+        res,
+        await benutzerSperren(umg, {
+          token: cookieWert(cookieKopf(req), sitzungsCookieName(umg)),
+          csrfKopf: typeof csrf === 'string' ? csrf : undefined,
+          id: daten['id'],
+          gesperrt: daten['gesperrt'],
+        }),
+      )
+    },
+    'auth/benutzer-status',
+  )
+}
+
+/**
+ * `POST /api/pmh/auth/betreiber` — aus der Token-Tür eine Sitzung.
+ *
+ * **Warum der Beweis hereingereicht wird.** Ob eine Anfrage den Token des Wirts
+ * trägt, weiß nur die Verbindung des Kerns (`authorizeIndex`, siehe
+ * `access.ts`). Diese Datei kennt keinen Kontext — sie bekommt die Antwort auf
+ * die Frage als Funktion. Das hält den Weg socketfrei prüfbar und den Ring
+ * `http.ts` ↔ `access.ts` geschlossen.
+ *
+ * **Warum `userId` im Körper steht.** Gibt es mehrere Administratorkonten, ist
+ * „wer gemeint ist" keine Frage, die der Server raten darf — sie gehört dem
+ * Menschen vor dem Bildschirm. Der Weg nimmt die Wahl entgegen und prüft sie
+ * (`betreiberAnmelden`); ohne Wahl antwortet er mit der Liste statt mit einer
+ * Vermutung.
+ *
+ * @param umg - die Umgebung
+ * @param beweis - prüft, ob die Anfrage den Token des Wirts trägt
+ * @returns der Weg
+ */
+export function wegBetreiber(umg: Umgebung, beweis: (req: IncomingMessage) => boolean): Weg {
+  return macheWeg(
+    'POST',
+    async (req, res) => {
+      const koerper = await leseKoerper(req)
+      if (!koerper.ok) {
+        sende(res, {
+          status: koerper.status,
+          koepfe: {},
+          koerper: { ok: false, error: { code: koerper.code, message: koerper.message } },
+        })
+        return
+      }
+      const daten = (koerper.wert ?? {}) as Record<string, unknown>
+      const gewaehlt = daten['userId']
+      sende(
+        res,
+        await betreiberAnmelden(umg, {
+          ...herkunft(req),
+          beweis: beweis(req),
+          ...(typeof gewaehlt === 'string' && gewaehlt.trim() !== '' ? { userId: gewaehlt.trim() } : {}),
+        }),
+      )
+    },
+    'auth/betreiber',
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Anlegen, Löschen, Rolle, Passwort-Link
+// ---------------------------------------------------------------------------
+
+/** Der CSRF-Wert aus dem Kopf — einmal, statt in jedem Weg. */
+function csrfKopf(req: IncomingMessage): string | undefined {
+  const wert = req.headers[CSRF_KOPFZEILE]
+  return typeof wert === 'string' ? wert : undefined
+}
+
+/**
+ * `POST /api/pmh/auth/benutzer/neu` — Konto anlegen, Link zurück.
+ *
+ * Der Körper wird **ungeprüft** durchgereicht: welche Felder Pflicht sind und
+ * was eine brauchbare Adresse ist, entscheidet `paths.ts` (und damit der
+ * Regelkern), nicht die HTTP-Schicht. Sonst gäbe es zwei Wahrheiten über die
+ * Eingabe — und die zweite wäre die falsche.
+ */
+export function wegBenutzerNeu(umg: Umgebung): Weg {
+  return macheWeg(
+    'POST',
+    async (req, res) => {
+      const daten = await koerperOderAntwort(req, res)
+      if (daten === undefined) return
+      sende(
+        res,
+        await benutzerAnlegen(umg, {
+          token: cookieWert(cookieKopf(req), sitzungsCookieName(umg)),
+          csrfKopf: csrfKopf(req),
+          email: daten['email'],
+          displayName: daten['displayName'],
+          rolle: daten['rolle'],
+        }),
+      )
+    },
+    'auth/benutzer-neu',
+  )
+}
+
+/** `POST /api/pmh/auth/benutzer/loeschen` — Konto endgültig entfernen. */
+export function wegBenutzerLoeschen(umg: Umgebung): Weg {
+  return macheWeg(
+    'POST',
+    async (req, res) => {
+      const daten = await koerperOderAntwort(req, res)
+      if (daten === undefined) return
+      sende(
+        res,
+        await benutzerLoeschen(umg, {
+          token: cookieWert(cookieKopf(req), sitzungsCookieName(umg)),
+          csrfKopf: csrfKopf(req),
+          id: daten['id'],
+        }),
+      )
+    },
+    'auth/benutzer-loeschen',
+  )
+}
+
+/** `POST /api/pmh/auth/benutzer/rolle` — zum Administrator machen oder zurück. */
+export function wegBenutzerRolle(umg: Umgebung): Weg {
+  return macheWeg(
+    'POST',
+    async (req, res) => {
+      const daten = await koerperOderAntwort(req, res)
+      if (daten === undefined) return
+      sende(
+        res,
+        await benutzerRolle(umg, {
+          token: cookieWert(cookieKopf(req), sitzungsCookieName(umg)),
+          csrfKopf: csrfKopf(req),
+          id: daten['id'],
+          rolle: daten['rolle'],
+        }),
+      )
+    },
+    'auth/benutzer-rolle',
+  )
+}
+
+/** `POST /api/pmh/auth/passwort/link` — Einmal-Link zum Passwortsetzen. */
+export function wegPasswortLink(umg: Umgebung): Weg {
+  return macheWeg(
+    'POST',
+    async (req, res) => {
+      const daten = await koerperOderAntwort(req, res)
+      if (daten === undefined) return
+      sende(
+        res,
+        await passwortLinkErzeugen(umg, {
+          token: cookieWert(cookieKopf(req), sitzungsCookieName(umg)),
+          csrfKopf: csrfKopf(req),
+          id: daten['id'],
+        }),
+      )
+    },
+    'auth/passwort-link',
+  )
+}
+
+/**
+ * `POST /api/pmh/auth/passwort/setzen` — der Link wird eingelöst.
+ *
+ * **Ohne Sitzung und ohne CSRF.** Wer den Link hat, hat den Nachweis; ein
+ * CSRF-Wert setzt eine Sitzung voraus, die es hier gerade nicht gibt.
+ */
+export function wegPasswortSetzen(umg: Umgebung): Weg {
+  return macheWeg(
+    'POST',
+    async (req, res) => {
+      const daten = await koerperOderAntwort(req, res)
+      if (daten === undefined) return
+      sende(
+        res,
+        await passwortSetzen(umg, {
+          ...herkunft(req),
+          resetToken: daten['resetToken'],
+          passwort: daten['passwort'],
+        }),
+      )
+    },
+    'auth/passwort-setzen',
+  )
+}

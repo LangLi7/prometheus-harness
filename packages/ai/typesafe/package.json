@@ -1,0 +1,14 @@
+{
+  "name": "@prometheus-harness/typesafe",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Der Anbieter TypeSafe (Jev): erfüllt entscheiden über POST /v1/systemone. Ein Schema-Feld wird eine typisierte Frage; mehrere Felder gehen in EINEM Aufruf. Die Sicherheit kommt aus der confidence des Modells, nicht aus einer Selbstauskunft im JSON. Text- ohne Auswahl und Zahl ohne Auswahl kann Jev nicht — das wird abgelehnt, nicht geraten.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

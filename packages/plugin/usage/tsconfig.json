@@ -1,0 +1,7 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "resolveJsonModule": true
+  },
+  "include": ["src/stand.ts", "src/server.ts", "src/locales.ts", "locale/*.json", "tests"]
+}

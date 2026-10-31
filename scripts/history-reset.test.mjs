@@ -1,5 +1,5 @@
 /**
- * `scripts/verlauf-reset.mjs` — die Prüfung, und der wichtigste Fall ist:
+ * `scripts/history-reset.mjs` — die Prüfung, und der wichtigste Fall ist:
  * **es tut nichts**.
  *
  * ## Warum diese Prüfdatei existiert
@@ -29,7 +29,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { NichtLesendError, befehle, fuehreAus, gitLesen, leseLage } from './verlauf-reset.mjs'
+import { NichtLesendError, befehle, fuehreAus, gitLesen, leseLage } from './history-reset.mjs'
 
 const hier = process.cwd()
 

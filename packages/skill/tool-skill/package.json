@@ -1,0 +1,18 @@
+{
+  "name": "@prometheus-harness/tool-skill",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Das Modell-Werkzeug `skill` und der Sitzungs-Katalog: Namen und Beschreibungen gehen immer mit, der Rumpf wird erst beim Aufruf geladen.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/agent-tools": "workspace:*",
+    "@prometheus-harness/skill": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

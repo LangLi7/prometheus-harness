@@ -238,6 +238,7 @@ function arbeitsbereichId(bereiche, sitzung) {
 
 // packages/client/source-folders/src/paths.ts
 var PFAD_ORDNER = "/api/pmh/ordner";
+var PFAD_ORDNER_BEREICH = "/api/pmh/ordner/bereich";
 var PFAD_ORDNER_ANLEGEN = "/api/pmh/ordner/anlegen";
 var PFAD_ORDNER_ZUGRIFF = "/api/pmh/ordner/zugriff";
 var PFAD_ORDNER_ENTFERNEN = "/api/pmh/ordner/entfernen";
@@ -315,6 +316,18 @@ async function entferneOrdner(id, optionen) {
   });
   await liesHuelle(antwort, PFAD_ORDNER_ENTFERNEN);
 }
+async function stelleBereichSicher(eingabe, optionen) {
+  const abruf = optionen.abruf ?? ((adresse, einstellung) => fetch(adresse, einstellung));
+  const koerper = { workspaceId: eingabe.workspaceId, name: eingabe.name };
+  if (eingabe.pfad !== undefined && eingabe.pfad.trim() !== "")
+    koerper["pfad"] = eingabe.pfad.trim();
+  const antwort = await abruf(PFAD_ORDNER_BEREICH, {
+    method: "POST",
+    headers: kopfMitCsrf(optionen),
+    body: JSON.stringify(koerper)
+  });
+  await liesHuelle(antwort, PFAD_ORDNER_BEREICH);
+}
 
 // packages/client/source-folders/src/client.tsx
 var jsx_runtime2 = require("react/jsx-runtime");
@@ -323,22 +336,46 @@ var inject = ["slots", "workspaces", "sessions"];
 function QuellordnerSchicht({
   optionen,
   arbeitsbereich,
+  bereichsAngaben,
   waehleVerzeichnis
 }) {
   const [offen, setOffen] = import_react.useState(false);
   const [ordner, setOrdner] = import_react.useState([]);
   const [fehler, setFehler] = import_react.useState(undefined);
   const [runde, setRunde] = import_react.useState(0);
+  const [gewuenscht, setGewuenscht] = import_react.useState(null);
+  const bereichJetzt = () => gewuenscht ?? arbeitsbereich();
+  import_react.useEffect(() => {
+    const hoere = (ereignis) => {
+      const detail = ereignis.detail;
+      const id = typeof detail?.workspaceId === "string" ? detail.workspaceId : undefined;
+      if (id === undefined || id === "")
+        return;
+      setGewuenscht(id);
+      setFehler(undefined);
+      setOffen(true);
+      setRunde((r) => r + 1);
+    };
+    globalThis.addEventListener("pmh:quellordner", hoere);
+    return () => {
+      globalThis.removeEventListener("pmh:quellordner", hoere);
+    };
+  }, []);
   import_react.useEffect(() => {
     if (!offen)
       return;
-    const bereich = arbeitsbereich();
+    const bereich = bereichJetzt();
     if (bereich === undefined) {
       setFehler("Es gibt keinen Arbeitsbereich — es kann nichts angezeigt werden.");
       return;
     }
+    const angaben = bereichsAngaben?.();
     let gilt = true;
-    listeOrdner(bereich, optionen).then((liste) => {
+    stelleBereichSicher({
+      workspaceId: bereich,
+      name: angaben?.name ?? "",
+      ...angaben?.pfad !== undefined ? { pfad: angaben.pfad } : {}
+    }, optionen).then(() => listeOrdner(bereich, optionen)).then((liste) => {
       if (gilt) {
         setOrdner(liste.ordner);
         setFehler(undefined);
@@ -350,7 +387,7 @@ function QuellordnerSchicht({
     return () => {
       gilt = false;
     };
-  }, [offen, runde, arbeitsbereich, optionen]);
+  }, [offen, runde, arbeitsbereich, bereichsAngaben, optionen]);
   const aendern = (tu) => {
     setFehler(undefined);
     tu().then(() => {
@@ -383,7 +420,7 @@ function QuellordnerSchicht({
       aendern(() => entferneOrdner(id, optionen));
     },
     beiHinzufuegen: () => {
-      const bereich = arbeitsbereich();
+      const bereich = bereichJetzt();
       if (bereich === undefined) {
         setFehler("Es gibt keinen Arbeitsbereich — es kann kein Ordner eingetragen werden.");
         return;
@@ -405,13 +442,21 @@ function QuellordnerSchicht({
 }
 function apply(ctx) {
   const kern = ctx;
+  const gemeint = () => arbeitsbereichId(kern.workspaces.list.getSnapshot().items, kern.sessions.list.getSnapshot().current);
   kern.slots.inject("shell.overlay", () => kern.slots.register({
     name: "shell.overlay",
     id: "source-folders",
     label: "Quellordner",
     inject: () => ({
       optionen: { csrf: csrfWert },
-      arbeitsbereich: () => arbeitsbereichId(kern.workspaces.list.getSnapshot().items, kern.sessions.list.getSnapshot().current),
+      arbeitsbereich: gemeint,
+      bereichsAngaben: () => {
+        const id = gemeint();
+        const bereich = kern.workspaces.list.getSnapshot().items.find((eintrag) => eintrag.workspaceId === id);
+        if (bereich === undefined)
+          return;
+        return { name: bereich.title ?? "", pfad: bereich.path ?? "" };
+      },
       waehleVerzeichnis: () => kern.workspaces.pickDirectory()
     })
   }, QuellordnerSchicht));

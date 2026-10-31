@@ -1,5 +1,33 @@
 # Ein Port, eine Website — die Welt wird nicht abgespalten
 
+> ## Nachtrag 15.10.2026 — **ausgeführt.**
+>
+> Die Entscheidung aus §2 ist **umgesetzt**, und die Reihenfolge aus §5 wurde eingehalten — mit
+> **einer** Abweichung, die der Betreiber so angesagt hat: der Ordner heißt **`apps/universe`**
+> (nicht `apps/world`), und der Pfad heißt dementsprechend **`/universe`** (nicht `/welt`).
+>
+> Was geschehen ist, in vier Zeilen:
+>
+> 1. **Umgezogen** `snapshots/web` → `apps/universe` — **bit-gleich belegt** (143 Dateien, SHA-256
+>    je Datei: 0 fehlend, 0 abweichend, 0 zusätzlich), ohne `dist/` und `node_modules/`.
+> 2. **Gelöscht** wurde der alte Ort **erst danach** (153 Dateien, 26,84 MB) — die Bedingung aus §5
+>    ist damit erfüllt: es wurde nichts vernichtet, was nicht vorher an anderer Stelle geprüft lag.
+> 3. **Verknüpft**: `scripts/welt-adresse.mjs` ist **gelöscht**; an seine Stelle trat
+>    `scripts/world-path.mjs` (Pfad statt Port). Der Host liefert die Welt über
+>    `packages/web/world-static` unter `/universe/` aus, `start.mjs` baut sie beim Start, und der
+>    Umschalter (`packages/client/world-switch`) zeigt auf dieselbe Herkunft. Die Insel-Einträge der
+>    Gruppe „Ansichten" benutzen dieselbe Verknüpfung (§5 Punkt 3).
+> 4. **Gemessen**: ein Prozeß, `/universe/` → **200** (HTML, JS, CSS, Schrift), `/universe/../.env`
+>    → **404**, `POST` → **405**; **39 Pakete grün**, Prototyp **262 pass · 0 fail**, Bündelprüfer
+>    **FEHLER: keine**.
+>
+> **Was offen bleibt und nicht mir gehört:** das **Festschreiben in git**. Es wurde **nichts**
+> eingestuft und **nichts** committet; die 143 Dateien sind weiterhin unverfolgt. `apps/universe`
+> bringt eine `.gitignore` mit (`dist/`, `node_modules/`), ein `git add apps/universe` nähme also nur
+> Quellen, Tests und Werkzeuge.
+>
+> Vollständiger Nachweis: [../status/welt-ein-port.md](../status/welt-ein-port.md).
+
 Entscheidung des Betreibers, 15.10.2026:
 
 > „der port sollte natürlich die selbe sein also wird es nicht gespalten oder so. das bedeutet nur
@@ -143,7 +171,7 @@ Tests, Werkzeuge — **nicht** `dist/`, **nicht** `node_modules/`.
 
 **Was die „Insel-Einträge der Gruppe Ansichten" sind, ist gemessen:** sie stehen in
 `snapshots/web/src/main.ts` (**48** Nennungen), `src/dock-view.ts` (24), `src/docking.ts` (15),
-`tools/panels.js` (13), `src/eingang.ts` (8), und geprüft werden sie von
-`tests/andockstellen.test.ts` (44) und `tests/umschalter.test.ts` (30) — also **derselbe Ort, der
+`tools/panels.js` (13), `src/entry.ts` (8), und geprüft werden sie von
+`tests/dock-stations.test.ts` (44) und `tests/switch.test.ts` (30) — also **derselbe Ort, der
 umziehen soll.** Die zwei Anweisungen greifen ineinander: derselbe Pfad, den §2 für den Port
 fordert, ist auch der Pfad, den die Inseln benutzen sollen.

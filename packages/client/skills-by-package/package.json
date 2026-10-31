@@ -1,0 +1,31 @@
+{
+  "name": "@prometheus-harness/client-skills-by-package",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Fähigkeitensuche nach Sammlung: /skills öffnet ein durchsuchbares Popup (Muster von /model) mit Gruppen je Sammlung, und /emilkowalski findet die Sammlung direkt im Slash-Menü. Die Zuordnung kommt aus units/skills/index.json, nicht aus einem Pfad-Rateschluss.",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-ui-input-trigger",
+        "@deepseek-ai/dsh-client-ui-commands",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "files": [
+    "lib/client.js"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "test": "bun run build.mjs --pruefen"
+  }
+}

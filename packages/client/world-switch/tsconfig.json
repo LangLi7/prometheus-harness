@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    // **Die Basiskonfiguration kennt kein DOM.** Sie ist für den Rechner geschrieben
+    // (`lib: ["ES2022"]`). Dieses Paket arbeitet **nur** im Browser: `document`,
+    // `MutationObserver`, `location`. Ohne die DOM-Typen wäre jeder Zugriff darauf ein Fehler —
+    // und ein `any` an dieser Stelle würde die Prüfung wertlos machen.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["bun"]
+  },
+  "include": ["src"]
+}

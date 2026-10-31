@@ -49,6 +49,7 @@ import type {
 // dieser Tabelle — und `Isolation` sagt über sich selbst, es seien „genau die
 // Felder von `SandboxPolicy`" aus `services/pmh-sandbox`. Ein eigener,
 // gleich aussehender Typ hier wäre eine zweite Wahrheit über dieselbe Sache.
+import { randomUUID } from 'node:crypto'
 import type { Dateizugriff, Isolation } from '@prometheus-harness/permissions'
 // **Die Kryptographie kommt aus `secrets`.** Der Speicher entscheidet nicht, wie
 // verschlüsselt wird — aber die Umschlag-Ebene (`speichereGeheimnis`) verpackt,
@@ -57,6 +58,11 @@ import type { Dateizugriff, Isolation } from '@prometheus-harness/permissions'
 import { entpacke, verpacke, type Hauptschluessel } from '@prometheus-harness/secrets'
 import type { TokenAblage, TokenEintrag } from '@prometheus-harness/reset'
 import type { NeuerEintrag, SchluesselAblage, SchluesselEintrag } from '@prometheus-harness/apikey'
+// **Die Einladungen sind eine eigene Datei** — und werden hier nur eingebunden.
+// Der Ringbezug (diese Datei holt aus `invitations.ts`, das den Zugangstyp von
+// hier holt) ist harmlos: `invitations.ts` importiert den Typ **nur** (`import
+// type`), und der verschwindet beim Laden. Dieselbe Bauart wie `roots.ts`.
+import { erzeugeEinladungAblage, type EinladungAblage } from './invitations.ts'
 
 // ---------------------------------------------------------------------------
 // Der Datenbankzugang
@@ -839,6 +845,167 @@ export async function ladeGeheimnis(
   return entpacke(umschlag, haupt)
 }
 
+/**
+ * Entfernt ein Geheimnis dieses Benutzers.
+ *
+ * **Warum `RETURNING` und nicht „erst zählen, dann löschen".** Die Rückgabe sagt,
+ * ob wirklich eine Zeile weggefallen ist. Ein zweiter Aufruf ist damit kein
+ * Fehler, sondern die ehrliche Antwort `false` — und die Oberfläche kann
+ * „war schon weg" von „konnte nicht löschen" unterscheiden.
+ *
+ * @param sql - der Datenbankzugang
+ * @param userId - der Benutzer
+ * @param ref - der Name
+ * @returns ob eine Zeile entfernt wurde
+ */
+export async function loescheGeheimnis(sql: SqlZugang, userId: string, ref: string): Promise<boolean> {
+  const weg = await zeilen<{ ref: string }>(
+    sql,
+    `DELETE FROM user_secrets WHERE user_id = $1 AND ref = $2 RETURNING ref`,
+    [userId, ref],
+  )
+  return weg.length > 0
+}
+
+// ---------------------------------------------------------------------------
+// Credential-Records (die zweite Adressform der Credential-Seam)
+// ---------------------------------------------------------------------------
+
+/** Eine Record-Zeile **ohne** Rumpf — nur Adresse, Art und Zeitpunkt. */
+export interface CredentialRecordAnzeige {
+  readonly key: string
+  readonly kind: string
+  readonly updatedAt: string
+}
+
+/**
+ * Legt einen Credential-Record ab — und **verpackt ihn dabei**.
+ *
+ * **Warum das nicht `speichereGeheimnis` ist.** Ein Record ist kein
+ * Umgebungsvariablen-Name: seine Adresse ist `<scope>/<id>`, sein Rumpf ist
+ * JSON, den nur sein Besitzer versteht. Die Tabelle `credential_records` hält
+ * beide Räume getrennt; `user_secrets` bleibt für Referenzen.
+ *
+ * @param sql - der Datenbankzugang
+ * @param haupt - der Hauptschlüssel
+ * @param eingabe - Benutzer, Adresse, Art und der JSON-fähige Rumpf
+ */
+export async function speichereCredentialRecord(
+  sql: SqlZugang,
+  haupt: Hauptschluessel,
+  eingabe: {
+    readonly userId: string
+    readonly key: string
+    readonly kind: string
+    readonly record: unknown
+  },
+): Promise<void> {
+  const klartext = new TextEncoder().encode(JSON.stringify(eingabe.record))
+  const umschlag = verpacke(klartext, haupt)
+  await ausfuehren(
+    sql,
+    `INSERT INTO credential_records
+       (id, user_id, key, kind, payload_cipher, wrapped_key, master_key_version)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (user_id, key) DO UPDATE
+       SET kind = EXCLUDED.kind,
+           payload_cipher = EXCLUDED.payload_cipher,
+           wrapped_key = EXCLUDED.wrapped_key,
+           master_key_version = EXCLUDED.master_key_version,
+           updated_at = now()`,
+    [
+      randomUUID(),
+      eingabe.userId,
+      eingabe.key,
+      eingabe.kind,
+      Buffer.from(umschlag.valueCipher),
+      Buffer.from(umschlag.wrappedKey),
+      umschlag.masterKeyVersion,
+    ],
+  )
+}
+
+/**
+ * Liest einen Credential-Record — und **entpackt ihn dabei**.
+ *
+ * @param sql - der Datenbankzugang
+ * @param haupt - der Hauptschlüssel
+ * @param eingabe - Benutzer und Adresse
+ * @returns der Rumpf oder `undefined`
+ */
+export async function ladeCredentialRecord(
+  sql: SqlZugang,
+  haupt: Hauptschluessel,
+  eingabe: { readonly userId: string; readonly key: string },
+): Promise<unknown | undefined> {
+  const gefunden = await zeilen<{
+    payload_cipher: Uint8Array
+    wrapped_key: Uint8Array
+    master_key_version: number
+  }>(
+    sql,
+    `SELECT payload_cipher, wrapped_key, master_key_version
+       FROM credential_records WHERE user_id = $1 AND key = $2`,
+    [eingabe.userId, eingabe.key],
+  )
+  const zeile = gefunden[0]
+  if (zeile === undefined) return undefined
+  const klartext = entpacke(
+    {
+      valueCipher: zeile.payload_cipher,
+      wrappedKey: zeile.wrapped_key,
+      masterKeyVersion: zeile.master_key_version,
+    },
+    haupt,
+  )
+  return JSON.parse(new TextDecoder().decode(klartext)) as unknown
+}
+
+/**
+ * Listet die Records eines Benutzers — **ohne Rumpf und ohne Klartext**.
+ *
+ * @param sql - der Datenbankzugang
+ * @param userId - der Benutzer
+ * @returns Adresse, Art und Zeitpunkt, nach Adresse sortiert
+ */
+export async function listeCredentialRecords(
+  sql: SqlZugang,
+  userId: string,
+): Promise<readonly CredentialRecordAnzeige[]> {
+  const gefunden = await zeilen<{ key: string; kind: string; updated_at: unknown }>(
+    sql,
+    `SELECT key, kind, updated_at FROM credential_records
+       WHERE user_id = $1 ORDER BY key`,
+    [userId],
+  )
+  return gefunden.map((zeile) => ({
+    key: zeile.key,
+    kind: zeile.kind,
+    updatedAt: alsIso(zeile.updated_at),
+  }))
+}
+
+/**
+ * Entfernt einen Record; ein zweiter Aufruf ist kein Fehler.
+ *
+ * @param sql - der Datenbankzugang
+ * @param userId - der Benutzer
+ * @param key - die Adresse
+ * @returns ob eine Zeile entfernt wurde
+ */
+export async function loescheCredentialRecord(
+  sql: SqlZugang,
+  userId: string,
+  key: string,
+): Promise<boolean> {
+  const weg = await zeilen<{ key: string }>(
+    sql,
+    `DELETE FROM credential_records WHERE user_id = $1 AND key = $2 RETURNING key`,
+    [userId, key],
+  )
+  return weg.length > 0
+}
+
 // ---------------------------------------------------------------------------
 // Einmal-Token (Passwort-Reset)
 // ---------------------------------------------------------------------------
@@ -1153,6 +1320,16 @@ export async function listeApiSchluessel(sql: SqlZugang, userId: string): Promis
  * @param sql - der Datenbankzugang
  * @returns der Speicher
  */
+/**
+ * Der Zerleger — **eine** Wahrheit über das Schneiden von Texten.
+ *
+ * Der Speicher zerlegt **nicht** selbst (siehe {@link erzeugeWissensspeicher}: *„Kein Zerlegen und
+ * kein Einbetten"*). Wer Stücke schreiben will, braucht diese Funktion also von außen — ohne diesen
+ * Export müßte jeder Aufrufer das Schneiden nachbauen, und zwei Zerleger ergäben zwei verschiedene
+ * Stückgrenzen für denselben Text.
+ */
+export { zerlege, ZERLEGER_VORGABEN, type Stueck } from './chunker.ts'
+
 export function erzeugeWissensspeicher(sql: SqlZugang): Wissensspeicher {
   return {
     async legeDokumentAb(eintrag: NeuesDokument): Promise<string> {
@@ -1313,17 +1490,27 @@ export function erzeugeWissensspeicher(sql: SqlZugang): Wissensspeicher {
       // **Der Mandant steht in der WHERE-Klausel, nicht in der ORDER BY.** Er
       // schränkt die Kandidaten ein, bevor sortiert wird — nachträglich zu filtern
       // hieße, fremde Zeilen zu lesen und dann wegzuwerfen.
+      //
+      // **Seit dem Werkzeug `knowledge_search` trägt der Treffer seine Herkunft.**
+      // Ein Vektor ohne Quelle ist für den Agenten wertlos: er kann das Stück
+      // nicht belegen und nicht nachlesen. Der Verbund läuft über `(id, user_id)` —
+      // also über denselben zusammengesetzten Schlüssel, der das Leck verhindert.
+      // `deleted_at IS NULL` ist kein Feinschliff: ein gelöschtes Dokument soll
+      // nicht über einen alten Vektor wieder auftauchen.
       const gefunden = await zeilen<{
         id: string
         document_id: string
         ordinal: number
+        titel: string
+        herkunft: string | null
         aehnlichkeit: number
       }>(
         sql,
-        `SELECT c.id, c.document_id, c.ordinal,
+        `SELECT c.id, c.document_id, c.ordinal, d.title AS titel, d.source_path AS herkunft,
                 1 - (c.embedding <=> $2::vector) AS aehnlichkeit
            FROM chunks c
-          WHERE c.user_id = $1 AND c.embedding IS NOT NULL
+           JOIN documents d ON d.id = c.document_id AND d.user_id = c.user_id
+          WHERE c.user_id = $1 AND c.embedding IS NOT NULL AND d.deleted_at IS NULL
           ORDER BY c.embedding <=> $2::vector
           LIMIT $3`,
         [userId, vektorZuText(anfrage.vektor), grenze],
@@ -1332,8 +1519,43 @@ export function erzeugeWissensspeicher(sql: SqlZugang): Wissensspeicher {
         stueckId: z.id,
         dokumentId: z.document_id,
         ordnung: z.ordinal,
+        titel: z.titel,
+        herkunft: z.herkunft,
         aehnlichkeit: z.aehnlichkeit,
       }))
+    },
+
+    async liesStuecke(userId: string, stueckIds: readonly string[]): Promise<readonly Stueckinhalt[]> {
+      if (stueckIds.length === 0) return []
+      // **Dynamische Platzhalter statt `= ANY($2)`.** Ein `uuid[]` müßte als
+      // Array gebunden werden, und ob der Treiber das in der Form tut, die
+      // PostgreSQL erwartet, ist eine Annahme. Platzhalter sind eine Zusicherung.
+      //
+      // **Die Reihenfolge kommt vom Aufrufer, nicht von der Datenbank.** Ein
+      // `SELECT ... IN (...)` liefert in beliebiger Reihenfolge; wer die Treffer
+      // nach Ähnlichkeit sortiert hat, will sie so zurück.
+      const platzhalter = stueckIds.map((_, i) => `$${String(i + 2)}`).join(', ')
+      const gefunden = await zeilen<{ id: string; ordinal: number; content_cipher: unknown }>(
+        sql,
+        `SELECT id, ordinal, content_cipher
+           FROM chunks
+          WHERE user_id = $1 AND id IN (${platzhalter})`,
+        [userId, ...stueckIds],
+      )
+      const nachId = new Map(gefunden.map((z) => [z.id, z]))
+      return stueckIds.flatMap((id) => {
+        const z = nachId.get(id)
+        if (z === undefined) return []
+        return [
+          {
+            stueckId: z.id,
+            ordnung: z.ordinal,
+            inhaltVerschluesselt: Buffer.isBuffer(z.content_cipher)
+              ? new Uint8Array(z.content_cipher)
+              : new Uint8Array(),
+          },
+        ]
+      })
     },
   }
 }
@@ -1407,8 +1629,20 @@ export interface Treffer {
   readonly stueckId: string
   readonly dokumentId: string
   readonly ordnung: number
+  /** Der Titel des Dokuments — die Auskunft, die der Agent zitieren kann. */
+  readonly titel: string
+  /** Woher das Dokument stammt (Vault-Pfad). `null`, wenn nicht vermerkt. */
+  readonly herkunft: string | null
   /** Kosinus-Ähnlichkeit: `1 - Abstand`, also 1 = gleich, 0 = orthogonal. */
   readonly aehnlichkeit: number
+}
+
+/** Ein Stück mit seinem verschlüsselten Inhalt — für die Entschlüsselung beim Aufrufer. */
+export interface Stueckinhalt {
+  readonly stueckId: string
+  readonly ordnung: number
+  /** **Verschlüsselt.** Nur der Aufrufer mit dem Hauptschlüssel kommt an den Text. */
+  readonly inhaltVerschluesselt: Uint8Array
 }
 
 /** Der Wissensspeicher. */
@@ -1419,6 +1653,15 @@ export interface Wissensspeicher {
   offeneStuecke(userId: string, grenze: number): Promise<readonly OffenesStueck[]>
   setzeEinbettung(userId: string, stueckId: string, vektor: readonly number[], modell: string, at: Date): Promise<boolean>
   suche(userId: string, anfrage: SucheAnfrage): Promise<readonly Treffer[]>
+  /**
+   * Die Stücke zu den Treffern — **in der Reihenfolge, in der sie gefragt wurden**.
+   *
+   * **Warum das getrennt von `suche` steht.** Die Suche vergleicht Vektoren; sie
+   * hat den Text nicht. Der Text liegt verschlüsselt, und ihn zu öffnen ist eine
+   * Entscheidung des Aufrufers (er hat den Hauptschlüssel, der Speicher nicht).
+   * Zwei Schritte, weil es zwei Zuständigkeiten sind.
+   */
+  liesStuecke(userId: string, stueckIds: readonly string[]): Promise<readonly Stueckinhalt[]>
 }
 
 /** Die drei Speicher, die der Regelkern braucht. */
@@ -1426,6 +1669,20 @@ export interface AuthSpeicher {
   readonly benutzer: UserStore
   readonly sitzungen: SessionStore
   readonly spur: AuthEventSink
+  /**
+   * Die Einladungen — der dritte Weg zu einem Konto.
+   *
+   * **Warum im `AuthSpeicher` und nicht als eigener Dienst.** Dieselbe
+   * Begründung wie bei {@link anzahlAdmins}: es ist eine Frage an den Speicher,
+   * keine Regel der Anmeldung. Und es ist **derselbe** Zugang — eine Einladung
+   * liegt in derselben Datenbank wie die Konten, die aus ihr entstehen; zwei
+   * getrennt gebaute Speicher wären zwei Gelegenheiten, in zwei Datenbanken zu
+   * schreiben.
+   *
+   * Siehe `invitations.ts` für die Regeln, die nur die Datenbank halten kann
+   * (ein Token gilt genau einmal).
+   */
+  readonly einladungen: EinladungAblage
   /**
    * Wie viele Administratoren es gibt.
    *
@@ -1454,6 +1711,144 @@ export interface AuthSpeicher {
    * Meinung, die ihm nicht gehört.
    */
   readonly ladeProfil: (userId: string) => Promise<Isolation | undefined>
+  /**
+   * Alle Konten — für die Verwaltung.
+   *
+   * **Warum im Speicher und nicht über `UserStore`.** `UserStore` ist die Sicht
+   * der **Anmeldung**: sie sucht nach Adresse und Kennung. Eine Liste aller
+   * Konten ist eine Sicht der **Verwaltung** — ein anderer Zweck, eine andere
+   * Grenze; der Regelkern soll dafür keine Methode bekommen.
+   */
+  readonly listeBenutzer: (grenze: number) => Promise<readonly KontoZeile[]>
+  /**
+   * Sperrt oder entsperrt ein Konto.
+   *
+   * **Warum `false` zurückkommt, wenn es das Konto nicht gibt.** Ein `UPDATE`
+   * ohne Treffer ist kein Fehler, sondern „nichts geändert" — der Aufrufer
+   * unterscheidet daran 404 von 200.
+   */
+  readonly setzeGesperrt: (userId: string, gesperrt: boolean, jetzt: Date) => Promise<boolean>
+  /**
+   * Löscht ein Konto.
+   *
+   * **Die Fremdschlüssel tragen das Aufräumen.** Sitzungen, API-Schlüssel,
+   * Geheimnisse und Einmal-Token hängen mit `ON DELETE CASCADE` an `users`; eine
+   * gelöschte Zeile nimmt ihre Spuren mit. Das ist die eine Stelle, an der
+   * „löschen" wirklich löscht — und der Grund, warum es sperren **auch** gibt:
+   * Sperren bewahrt, Löschen entfernt.
+   */
+  readonly loescheBenutzer: (userId: string) => Promise<boolean>
+  /** Ändert die Rolle eines Kontos. */
+  readonly setzeRolle: (userId: string, rolle: 'user' | 'admin', jetzt: Date) => Promise<boolean>
+  /**
+   * Die Einmal-Token (`one_time_tokens`) — Grundlage der Passwort-Links.
+   *
+   * **Warum hier und nicht als eigenes Paket.** Der Reset-Regelkern
+   * (`@prometheus-harness/reset`) bekommt eine `TokenAblage`; diese Tabelle
+   * **ist** die Ablage. Sie lag bisher ohne Aufrufer da — derselbe Fall wie
+   * `user_secrets` vor den Token-Wegen.
+   */
+  readonly tokenAblage: TokenAblage
+}
+
+/**
+ * Ein Konto, wie es die **Verwaltung** sieht — ohne Hash, mit Zeitpunkt.
+ *
+ * **Warum `KontoZeile` und nicht `BenutzerZeile`.** `BenutzerZeile` gibt es in
+ * dieser Datei schon: das ist die **rohe** Zeile aus `users`, mit
+ * `password_hash` und Schlangenschreibweise. Zwei Dinge mit einem Namen wären
+ * im Typlauf nicht zu unterscheiden (und genau das ist zuerst passiert).
+ */
+export interface KontoZeile {
+  readonly id: string
+  readonly email: string
+  readonly displayName: string
+  readonly role: 'user' | 'admin'
+  readonly disabledAt: string | undefined
+  readonly createdAt: string
+}
+
+/**
+ * Liest die Konten für die Verwaltung.
+ *
+ * **Warum `created_at` mitkommt.** In einer Liste von Konten ist „seit wann"
+ * die einzige Angabe, die eine Reihenfolge erklärt — und sie ist der einzige
+ * Hinweis darauf, welches Konto das erste war.
+ *
+ * **Warum keine Zählungen (Werke, Chats, Schlüssel).** Die Tabellen der Daten
+ * eines Benutzers sind über `user_id` getrennt; ein Teil ist zusätzlich durch
+ * Row Level Security geschützt (`workspace_folders`, `conversation_sessions`,
+ * `session_events`). Wer hier zählte, liefe entweder in eine leere Liste (RLS
+ * ohne Mandant) oder müßte den Mandanten **je Zeile** umschalten — also genau
+ * die Trennung aufheben, um sie anzuzeigen. Das gehört nicht in eine Liste.
+ */
+export async function listeBenutzer(sql: SqlZugang, grenze: number): Promise<readonly KontoZeile[]> {
+  const gefunden = await zeilen<{
+    id: string
+    email: string
+    display_name: string
+    role: string
+    disabled_at: unknown
+    created_at: unknown
+  }>(
+    sql,
+    `SELECT id, email, display_name, role, disabled_at, created_at
+       FROM users
+      ORDER BY created_at ASC
+      LIMIT $1`,
+    [grenze],
+  )
+  return gefunden.map((zeile) => ({
+    id: zeile.id,
+    email: zeile.email,
+    displayName: zeile.display_name,
+    role: zeile.role === 'admin' ? 'admin' : 'user',
+    disabledAt: zeile.disabled_at === null || zeile.disabled_at === undefined ? undefined : alsIso(zeile.disabled_at),
+    createdAt: alsIso(zeile.created_at),
+  }))
+}
+
+/**
+ * Sperrt oder entsperrt ein Konto.
+ *
+ * **Was hier NICHT geprüft wird.** Ob es der letzte Administrator ist und ob
+ * jemand sich selbst sperrt — das sind **Regeln**, und sie stehen in
+ * `auth-http/paths.ts`, wo sie ohne Datenbank prüfbar sind. Dieser Speicher
+ * führt aus; er entscheidet nicht.
+ */
+export async function setzeGesperrt(
+  sql: SqlZugang,
+  userId: string,
+  gesperrt: boolean,
+  jetzt: Date,
+): Promise<boolean> {
+  const geaendert = await zeilen<{ id: string }>(
+    sql,
+    `UPDATE users SET disabled_at = $2, updated_at = $3 WHERE id = $1 RETURNING id`,
+    [userId, gesperrt ? jetzt : null, jetzt],
+  )
+  return geaendert.length > 0
+}
+
+/** Löscht ein Konto — die Fremdschlüssel nehmen die Spuren mit. */
+export async function loescheBenutzer(sql: SqlZugang, userId: string): Promise<boolean> {
+  const weg = await zeilen<{ id: string }>(sql, 'DELETE FROM users WHERE id = $1 RETURNING id', [userId])
+  return weg.length > 0
+}
+
+/** Ändert die Rolle eines Kontos. */
+export async function setzeRolle(
+  sql: SqlZugang,
+  userId: string,
+  rolle: 'user' | 'admin',
+  jetzt: Date,
+): Promise<boolean> {
+  const geaendert = await zeilen<{ id: string }>(
+    sql,
+    'UPDATE users SET role = $2, updated_at = $3 WHERE id = $1 RETURNING id',
+    [userId, rolle, jetzt],
+  )
+  return geaendert.length > 0
 }
 
 /**
@@ -1496,6 +1891,12 @@ export function erzeugeSpeicher(sql: SqlZugang): AuthSpeicher {
     spur: erzeugeSpurensenke(sql),
     anzahlAdmins: () => zaehleAdmins(sql),
     ladeProfil: (userId) => ladeProfil(sql, userId),
+    einladungen: erzeugeEinladungAblage(sql),
+    listeBenutzer: (grenze) => listeBenutzer(sql, grenze),
+    setzeGesperrt: (userId, gesperrt, jetzt) => setzeGesperrt(sql, userId, gesperrt, jetzt),
+    loescheBenutzer: (userId) => loescheBenutzer(sql, userId),
+    setzeRolle: (userId, rolle, jetzt) => setzeRolle(sql, userId, rolle, jetzt),
+    tokenAblage: erzeugeTokenAblage(sql),
   }
 }
 
@@ -1513,6 +1914,19 @@ export function erzeugeSpeicher(sql: SqlZugang): AuthSpeicher {
 export { ladeWurzeln, schreibbareWurzeln, type Wurzeln } from './roots.ts'
 
 // ---------------------------------------------------------------------------
+// Einladungen
+// ---------------------------------------------------------------------------
+// **Nur ausgeführt, mit eigenen Regeln.** `invitations.ts` hält die Regeln, die
+// die Datenbank sichern kann (ein Token gilt genau einmal, ein Hash kommt nur
+// einmal vor) und die Umdeutung der Zeilen — hier steht nur der Export.
+export {
+  erzeugeEinladungAblage,
+  type EinladungAblage,
+  type EinladungRecord,
+  type NeueEinladung,
+} from './invitations.ts'
+
+// ---------------------------------------------------------------------------
 // Quellordner ändern
 // ---------------------------------------------------------------------------
 // **Auch nur ausgeführt.** `folders.ts` benutzt die Regeln der Datenbank (genau ein
@@ -1523,6 +1937,28 @@ export {
   legeOrdnerAn,
   listeOrdner,
   setzeZugriff,
+  stelleBereit,
   type Ordner,
   type Zugriff,
 } from './folders.ts'
+
+// ---------------------------------------------------------------------------
+// Der Obsidian-Vault — `vaults`, `notes`, `tags`, `note_tags`, `links` (0007)
+// ---------------------------------------------------------------------------
+// **Eigene Datei, ein eigener Re-Export.** Der Mandant steht in jeder Zeile, und die drei Regeln dazu
+// (Abgleich über `content_hash`/`mtime`, ein Verweis roh **und** aufgelöst, kein Löschen in einer
+// Schreibfunktion) stehen dort im Dateikopf.
+export {
+  alleinigerVerwalter,
+  etikettenSetzen,
+  notizKennungen,
+  notizSichern,
+  notizenLesen,
+  vaultSichern,
+  vaultStand,
+  vaultsLesen,
+  verweiseSetzen,
+  type NotizEingabe,
+  type NotizZeile,
+  type VaultZeile,
+} from './notizen.ts'

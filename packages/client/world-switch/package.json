@@ -1,0 +1,26 @@
+{
+  "name": "@prometheus-harness/client-world-switch",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Die Marke oben links im Chat wechselt in die Welt: das Client-Plugin faengt den Klick auf die Marke der Seitenleiste ab (Faengstufe, ohne neues Element und ohne Aenderung am Aussehen), hinterlegt den Ankunftswunsch im localStorage und oeffnet /universe/ auf DERSELBEN Herkunft.",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js"
+  ],
+  "scripts": {
+    "build": "bun run ../../../scripts/client-buendel.mjs --paket packages/client/world-switch"
+  }
+}

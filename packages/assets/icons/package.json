@@ -1,0 +1,24 @@
+{
+  "name": "@prometheus-harness/icons",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Der Zeichensatz der Prometheus-Oberflaeche: 30 gezeichnete SVG-Zeichen (24x24, Strichlinie, currentColor) aus EINER Quelle — als Markup, als Element, als Sprite und als fertige .svg-Dateien. Ersetzt die Schriftzeichen, mit denen die Welt vorher arbeitete (◆ ▤ ◉ ⟲ # ~ ⚙ ✕ ❯).",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./shapes": "./src/shapes.ts",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src/index.ts",
+    "src/shapes.ts",
+    "svg"
+  ],
+  "scripts": {
+    "build": "bun run build.mjs",
+    "pruefen": "bun run build.mjs --pruefen",
+    "typecheck": "tsgo --noEmit -p tsconfig.json",
+    "test": "bun test"
+  }
+}

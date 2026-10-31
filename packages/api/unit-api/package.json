@@ -1,0 +1,16 @@
+{
+  "name": "@prometheus-harness/unit-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Der Bootstrap: haengt sich in den Host und legt die lesenden Wege des Plugin-Managers an (/api/pmh/gen/status, /api/pmh/gen/list). Liest den Zustand aus .pmh, NICHT aus dem Speicher — und rechnet die teure Drift-Pruefung nur auf ausdrueckliche Anfrage.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@prometheus-harness/unit-system": "workspace:*"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

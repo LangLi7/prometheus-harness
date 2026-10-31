@@ -1,0 +1,16 @@
+# Das Konten-Plugin als eigenes Bündel.
+#
+# **Was diese Datei tut.** Sie hängt genau eine Zeile in das Ladeprogramm des
+# Hosts: das Panel (Browser-Hälfte) und den Eintrag in der Seitenleiste. Wer das
+# Bündel im Plugin-Fenster abschaltet, nimmt beides mit — es bleibt keine Route
+# und kein halbes Plugin zurück, weil die Wege in `@prometheus-harness/auth-http`
+# liegen und dort bleiben (sie gehören zur Anmeldung, nicht zur Verwaltung).
+#
+# **Warum `inject: [webServer]`.** Die Zeile ist die Vorgabe des Profils für
+# Pakete, die einen Dienst brauchen, bevor sie laden. Das Panel selbst braucht
+# keinen Dienst — es lebt im Browser —, aber die Modul-Hälfte nimmt die
+# `dsh.client`-Zeile nur auf, wenn die Host-Zeile sauber aktiviert ist.
+- insert:
+    - id: pmh-accounts
+      name: '@prometheus-harness/accounts'
+      inject: [webServer]

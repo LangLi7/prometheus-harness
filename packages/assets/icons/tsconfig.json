@@ -1,0 +1,11 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    // **Dieses Paket braucht das DOM.** Es baut SVG-Elemente (`iconElement` nimmt ein `Document`)
+    // und wird von der Oberfläche (`apps/universe`) benutzt; die Basiskonfiguration kennt nur
+    // `ES2022`, also steht `DOM` hier ausdrücklich dabei.
+    "lib": ["ES2022", "DOM"],
+    "types": ["bun"]
+  },
+  "include": ["src", "tests"]
+}

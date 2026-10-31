@@ -1,0 +1,14 @@
+{
+  "meta": {
+    "title": "Starter",
+    "description": "Ein Eintrag für viele Panels: listet die Panels der übrigen Plugins und öffnet das gewählte."
+  },
+  "launcher": {
+    "panel": "Starter",
+    "title": "Panels",
+    "intro": "Ein Klick öffnet das Panel. Die Liste steht in den Einstellungen dieses Plugins.",
+    "empty": "Keine Panels eingetragen — die Liste steht in den Einstellungen.",
+    "open": "Öffnen",
+    "close": "Schließen"
+  }
+}

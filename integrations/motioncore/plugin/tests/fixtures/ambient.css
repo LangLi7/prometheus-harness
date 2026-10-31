@@ -1,0 +1,30 @@
+:root {
+  --motion-dur-micro: 150ms;
+}
+
+.hover {
+  transition: background-color var(--motion-dur-micro) linear;
+}
+
+.marquee {
+  animation: 36s linear infinite marquee-scroll;
+}
+
+.spinner {
+  animation: 1s linear infinite spin;
+}
+
+@keyframes marquee-scroll {
+  to { transform: translateX(-50%); }
+}
+
+@keyframes spin {
+  to { transform: rotate(1turn); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

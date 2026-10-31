@@ -77,3 +77,44 @@ Erweiterung `vector`, die Rechte (Schema-`USAGE` und Vorgaberechte). Siehe
   wird sie nicht.
 - Der zweite und dritte Riegel (`store-postgres`, `einmaltoken`, `auth-http`) vergleichen weiter
   nur mit der Umgebung — siehe `unfall-betriebsdatenbank.md`.
+
+---
+
+## Nachtrag 28.10.2026 — der Anschluss, der fehlte
+
+Der Betreiber hat Bilder aus **ChatGPT Codex** gezeigt (Projektzeile → *Projekt bearbeiten* →
+Name plus **Quellordner** mit *Primär* und *Ordner hinzufügen*) und gesagt: *„ich würde gerne
+allgemein den workspaces zugriff erweitern können zb mehr ordner path geben wie beim ChatGPT
+Codex"*.
+
+**Der Befund.** Alles außer dem Anschluss stand schon: Datenmodell, vier Wege, Dialog. Es fehlten
+**zwei** Dinge, und das zweite war der eigentliche Blocker:
+
+1. **Die Profilzeile** — das Paket `@prometheus-harness/client-source-folders` war gebaut, aber
+   nicht in `scripts/profile-patch.mjs` eingetragen. Es konnte deshalb gar nicht laden.
+2. **Die Brücke.** `workspace_folders` verweist auf `workspaces (id, user_id)`. Der Arbeitsbereich
+   entsteht aber im **Host** (`dsh-workspace`), nicht in unserer Datenbank — gemessen legt
+   **nichts** eine Zeile in `pmh.workspaces` an (nur Tests tun das). Jeder Ordner wäre also in
+   einen Fremdschlüssel-Fehler **23503** gelaufen.
+
+**Was jetzt gebaut ist.**
+
+| Teil | Ort | Was es tut |
+|---|---|---|
+| **Die Brücke** | `store-postgres/src/folders.ts` (`stelleBereit`) | legt den Arbeitsbereich für **diesen** Mandanten an (`on conflict do nothing` — ein Name wird nie überschrieben) und **den Arbeitsplatz als ersten Ordner**, wenn es noch keinen gibt |
+| **Der Weg** | `auth-http/src/folders.ts` (`POST /api/pmh/ordner/bereich`) | idempotent, mit Sitzung **und** CSRF; Titel und Pfad kommen vom Host |
+| **Der Dialog** | `client-source-folders/src/client.tsx` | ruft **erst** die Brücke, **dann** die Liste — und ist über die Profilzeile aktiv |
+
+**Was ausdrücklich nicht gebaut ist — und warum.**
+
+- **„Projekt bearbeiten" an der Projektzeile** (Bild 1/7) und **„Neuer Chat in diesem Ordner"**:
+  Beides braucht eine Naht zwischen zwei unserer Plugins (ein Dienst, den `client-source-folders`
+  bereitstellt und `client-tabs` aufruft) bzw. `ctx.sessions.create({ workspaceId, cwd })`, damit
+  die Sitzung **in** einem Zusatzordner läuft und die Sandbox dort eingrenzt. Nicht gebaut.
+- **Der Agent kennt die Zusatzordner nicht.** Die Ordner hängen an `(workspace, user)`; die
+  Sitzung im Host trägt **keine** Benutzerkennung. Ein Prompt-Beitrag „hier sind deine Ordner"
+  müßte raten, wem sie gehören — und Raten ist hier keine Grundlage.
+- **Nicht gemessen:** der Lauf gegen eine echte Datenbank. Der bestehende Test verweigert `pmh`
+  ausdrücklich; eine Wegwerf-Datenbank wurde für diesen Nachtrag **nicht** aufgesetzt. Geprüft
+  sind Typlauf (**92 Pakete grün**), die Paketprüfungen (**47 pass**, darunter der Dialog) und der
+  Bündelprüfer (`lib/client.js`, 15 277 Zeichen).

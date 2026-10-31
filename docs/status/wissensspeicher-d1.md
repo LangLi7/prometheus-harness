@@ -263,3 +263,95 @@ die Suche sind fertig und geprüft — **was fehlt, ist der Schlüssel.**
 | Typprüfung | `bun scripts/typecheck.mjs` | **25 Pakete grün, 0 rot** |
 | Voller Lauf | `bun test` | **1188 pass, 2 fail** in 49 Dateien — Zuwachs **+6**, die zwei roten sind die bekannten fremden |
 | Laufzeit der Meßprüfung | — | ~10 s (20 000 Zeilen + Index + `ANALYZE`) |
+
+---
+
+## 9. Der Stand nach dem Werkzeug — 27.10.2026
+
+Der Speicher hat jetzt einen Aufrufer: `knowledge_search` in
+[`packages/world/knowledge`](../../packages/world/knowledge/src/index.ts). Gebaut ist
+der Weg Anfrage → Einbetter → Vektor → Treffer → **entschlüsselter Text**; `suche`
+trägt seit dieser Änderung `titel` und `herkunft` (JOIN über `(id, user_id)`), und
+`liesStuecke` liefert die Stücke in der Reihenfolge der Treffer.
+
+**Der Einbetter ist wählbar und sagt seinen Preis.** `waehleEinbetter` nimmt den
+kostenlosen Weg (Ollama, `nomic-embed-text`, 768 Dimensionen) als Vorgabe; ein
+bezahlter Weg braucht Schlüssel **und** `PMH_EINBETTER_FREIGABE=1`. Der lokale Weg ist
+**gegen echtes Ollama gemessen** (768 Werte, 176 ms warm); OpenAI und Google sind
+gebaut, aber **nicht** gegen den Dienst gemessen — es lag kein Schlüssel vor.
+
+### Der Befund, der alles relativiert
+
+```
+SELECT (SELECT count(*) FROM documents), (SELECT count(*) FROM chunks),
+       (SELECT count(*) FROM chunks WHERE embedding IS NOT NULL)
+→ {"dokumente":"0","stuecke":"0","eingebettet":"0"}
+```
+
+**Der Speicher ist leer.** Die Struktur steht (Tabellen, Index, Mandantentrennung,
+Prüfungen), aber es wurde **nie etwas eingelesen**. Ein perfektes Suchwerkzeug findet
+in einer leeren Tabelle nichts — und meldet das korrekt als „0 Treffer", nicht als Fehler.
+
+**Was daraus folgt:** Der nächste Schritt ist nicht die Suche, sondern das **Einlesen**
+(Vault → Stücke → Einbettungen). Erst danach ist eine Trefferquote meßbar. Wer jetzt
+„RAG läuft" sagt, meint die Mechanik, nicht den Bestand.
+
+### Der Einleser ist nicht idempotent — gefunden beim ersten Lauf
+
+Der erste Lauf brach ab (`ConnectionRefused` auf Ollama), nachdem `pmh.notes` schon
+**679 Zeilen** hatte und **ein** Dokument mit drei Stücken. Ein zweiter Lauf hätte
+**keine** Vektoren nachgeholt:
+
+> `zuSchreiben` enthält beim zweiten Lauf nur die *geänderten* Notizen. Sind alle Hashes
+> gleich, ist die Menge leer — und Durchlauf 3 (`einlesen.ts`:180) hängt an genau dieser
+> Menge. Der Vektor-Teil wird also nie nachgeholt.
+
+Zwei Folgen, beide ernst:
+
+1. **Ein Abbruch im Vektor-Teil ist nicht fortsetzbar.** Man muß `content_hash`
+   zurücksetzen (`UPDATE pmh.notes SET content_hash = NULL`) und die halben Dokumente
+   löschen — genau das wurde am 27.10. getan, um den Lauf zu wiederholen.
+2. **Eine geänderte Notiz bekommt keine neuen Vektoren.** Sie gilt als „geändert", wird
+   in Durchlauf 1 neu geschrieben, aber ihr Dokument existiert schon — es entsteht ein
+   **zweites** Dokument mit derselben Herkunft, oder (wenn man es verhindert) der alte
+   Vektor bleibt. Die Suche fände dann den alten Text.
+
+**Das ist ein Fehler im Einleser, nicht in der Suche.** Behoben ist er noch nicht; er
+steht hier, damit der nächste Lauf nicht wieder als „läuft" durchgeht.
+
+### Der erste Lauf — und was er zeigt
+
+Eingelesen am 27.10.2026, lokal, `nomic-embed-text`, ohne Kosten:
+
+| | |
+|---|---|
+| Notizen | 679 (neu), 1 372 Etiketten, 3 994 Verweise, 56 offene Verweise |
+| Dokumente | 679 |
+| Stücke | 6 084 |
+| **eingebettet** | **6 084 (100 %)** |
+
+Dann vier Fragen an die echte Suche — drei, deren Antwort im Vault steht, eine, die
+dort **nicht** steht:
+
+| Frage | bester Treffer | Ähnlichkeit |
+|---|---|---|
+| Warum kein eigenes RAG, wenn es einen Code-Graphen gibt? | *Entscheidung — Codebase-Memory mit Graphify* | **0,789** |
+| Namensgrenze Prometheus / fremder Harness | *Fremd-Repos — was paßt* | **0,851** |
+| Was prüfe ich vor einem Merge? | *Sicherheitsbefunde der Datenbankschicht* | 0,698 |
+| **Sauerteigbrot mit Roggenmehl** (nicht im Vault) | *`source` — Rohmaterial und Auszüge* | **0,671** |
+
+**Der Befund: die Suche trifft, aber sie trennt schlecht.** Der Abstand zwischen der
+schwächsten echten Frage (0,698) und dem klaren Unsinn (0,671) beträgt **0,027**. Ein
+fester Schwellwert wäre damit wertlos: „unter 0,7 ist nichts" würde die richtige Antwort
+zu Frage 3 verwerfen **und** das Sauerteigbrot durchlassen.
+
+Das ist keine Eigenschaft der Suche, sondern des **Modells**: `nomic-embed-text` ist
+englisch-lastig, und deutsche Texte landen alle im selben Ähnlichkeitsband (0,62–0,85).
+Die drei guten Treffer zeigen, daß der Weg funktioniert; die schwache Trennung zeigt,
+daß das Modell für diesen Vault das falsche ist.
+
+**Die nächste Messung ist damit vorgezeichnet:** dasselbe Verfahren mit einem
+mehrsprachigen Modell (768 Dimensionen, z. B. `multilingual-e5-base`), dieselben vier
+Fragen, und der Abstand zwischen „trifft" und „trifft nicht" als Zahl. Erst dieser
+Vergleich beantwortet die Preisfrage — nicht die Preistabelle.
+

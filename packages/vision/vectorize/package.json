@@ -1,0 +1,13 @@
+{
+  "name": "@prometheus-harness/vectorize",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Ein flaechiges Bild zu SVG ohne Fremdwerkzeug: PNG lesen, Farben finden, Kanten zu Schleifen verketten, vereinfachen, SVG schreiben und zurueckrechnen zum Vergleich.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsgo --noEmit -p tsconfig.json"
+  }
+}

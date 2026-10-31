@@ -1,0 +1,9 @@
+# Insert the PDF export plugin into the Web profile. It serves /api/chat.pdf and
+# adds the session-header and message PDF buttons.
+- insert:
+    - id: pmh-pdf-export
+      name: '@prometheus-harness/pdf-export'
+      inject: [connection, sessionPersistence]
+      config:
+        # First export may install Typst with winget/brew/cargo. 'never' disables it.
+        install: auto

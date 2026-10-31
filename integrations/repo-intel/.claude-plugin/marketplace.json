@@ -1,0 +1,13 @@
+{
+  "name": "repo-intel",
+  "owner": {
+    "name": "Prometheus Harness"
+  },
+  "plugins": [
+    {
+      "name": "repo-intel",
+      "source": "./plugin",
+      "description": "Fremde Repositories verstehen: Text-Digest über gitingest, Architekturkarte über gitdiagram, Bau-Prompt über gitreverse."
+    }
+  ]
+}

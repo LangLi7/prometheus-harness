@@ -1,0 +1,9 @@
+{
+  "name": "mirofish",
+  "version": "0.1.0",
+  "description": "Website-Analyse mit MiroFish: Seed-Dossier aus der Seite, Schwarm-Simulation als synthetische Zielgruppe, Report als Design-Entscheidungen.",
+  "author": {
+    "name": "Prometheus Harness"
+  },
+  "license": "MIT"
+}

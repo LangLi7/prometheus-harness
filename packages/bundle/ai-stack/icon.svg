@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="KI-Rangliste">
+  <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+    <path d="M7 6.5h13" />
+    <path d="M7 12h9" />
+    <path d="M7 17.5h6" />
+  </g>
+  <g fill="currentColor">
+    <circle cx="3" cy="6.5" r="1.25" />
+    <circle cx="3" cy="12" r="1.25" />
+    <circle cx="3" cy="17.5" r="1.25" />
+  </g>
+</svg>

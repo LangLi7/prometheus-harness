@@ -1,5 +1,5 @@
 /**
- * `scripts/ptc-typentfernung.mjs` — ergänzt `stripTypeScriptTypes` für Bun.
+ * `scripts/ptc-type-stripping.mjs` — ergänzt `stripTypeScriptTypes` für Bun.
  *
  * ## Warum es diese Datei gibt — der Befund, der sie erzwungen hat
  *
@@ -66,7 +66,7 @@
  * abgeschnitten** — und der Unterprozess hätte stillschweigend **kaputten Code**
  * ausgeführt. Genau die Sorte Fehler, die niemand bemerkt. Deshalb wird das Ende
  * hier ausdrücklich auf `"\n}"` gebracht, und der Rundlauf ist als Prüfung
- * hinterlegt (`scripts/tests/ptc-typentfernung.test.mjs`) — **mit Ausführung**,
+ * hinterlegt (`scripts/tests/ptc-type-stripping.test.mjs`) — **mit Ausführung**,
  * nicht nur mit Formvergleich.
  *
  * ## Die bewußte Abweichung, die dabeisteht
@@ -78,7 +78,7 @@
  * als nötig und würde PTC unter Bun wieder abschalten. Es steht hier, damit es
  * niemand für ein Versehen hält.
  *
- * @module scripts/ptc-typentfernung
+ * @module scripts/ptc-type-stripping
  */
 
 /** Das Präfix, mit dem der Core das PTC-Programm umhüllt. **Genau 35 Zeichen.** */

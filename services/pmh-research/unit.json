@@ -1,0 +1,28 @@
+{
+  "name": "pmh-research",
+  "version": "0.1.0",
+  "kind": "service",
+  "language": "go",
+  "description": "Recherche-Kette: Metasuche ueber SearXNG, Extraktion ueber Firecrawl, Rendern ueber einen lokalen Browser-Dienst, Rueckfall auf einen nackten Abruf - als HTTP-Wege und als MCP-Werkzeuge aus EINER Umsetzung, mit Bericht je Anbieter und Zielschutz gegen private Adressen.",
+  "entry": {
+    "command": "pmh-research",
+    "args": ["serve", "--addr", "127.0.0.1", "--port", "4114"]
+  },
+  "core": "optional",
+  "contract": "^0.2.0",
+  "provides": ["research", "mcp-tools"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "reload": "idle",
+  "notes": [
+    "Arbeitspaket aus MAPPING.md Zeile 225: 'services/pmh-research (Go): Firecrawl (Extraktion) + SearXNG (Metasuche) + Quellenverwaltung'. Die Quellenverwaltung ist NICHT gebaut; was gebaut ist, steht im README unter Grenzen.",
+    "core optional, weil der Dienst ohne Core laeuft: detect, search, fetch und mcp sind eigenstaendige Unterbefehle; nur 'serve' braucht einen Aufrufer.",
+    "reload idle und nicht hot: der Dienst haelt keinen Zustand, aber ein Wechsel waehrend eines laufenden Abrufs wuerde die Verbindung des Nutzers kappen. 'hot' waere hier eine Behauptung ohne Pruefung.",
+    "Zwei Oberflaechen, eine Faehigkeit: die HTTP-Wege unter /api/pmh/research/... und die MCP-Werkzeuge research_search/research_fetch rufen dieselbe internal/kette auf. Eine zweite Umsetzung waere eine zweite Wahrheit.",
+    "Sicherheit: der Rueckfall-Abruf lehnt private und lokale Ziele ab (Loopback, RFC1918, 169.254 inkl. Cloud-Metadaten, unique-local v6), solange PMH_RESEARCH_PRIVAT nicht '1' ist. Grenze: ein NAME wird nicht aufgeloest - DNS-Rebinding ist ungeloest und steht im README.",
+    "Kein Anbieter wird vorgetaeuscht: fehlt PMH_SEARXNG_URL oder PMH_FIRECRAWL_KEY, fehlt der Anbieter im Bericht, und die Kette nimmt den naechsten. Ein Anbieter, der mit 200 antwortet und nichts liefert, ist kein Fehler; einer, der HTML statt JSON liefert, ist einer.",
+    "Keine Fremdabhaengigkeit in go.mod - wie die Nachbardienste. Die HTML-Zerlegung des Rueckfalls ist deshalb eine Heuristik und kein Parser; das steht als Grenze im README.",
+    "Der Renderer (PMH_BROWSER_RENDER_URL) ist ein EIGENER Prozess: scripts/browser-render.mjs haelt Chromium auf CDP-Port 9334 und beantwortet POST /render. Warum kein Browserstart aus Go: ein Chromium an die Frist einer Anfrage zu binden hinterlaesst bei jedem Fehlschlag einen Zombie. Gemessen 21.10.2026: eine Seite, deren Text nur per JavaScript entsteht, liefert mit Renderer 'Gerendert per JavaScript' (herkunft renderer), ohne ihn leeren Text (herkunft browser).",
+    "Exit-Codes: 0 Erfolg, 1 nichts geliefert oder Anbieterfehler, 2 Aufruffeher, 125 Startfehler. Fehler nach stderr mit dem Praefix 'pmh-research: '."
+  ]
+}

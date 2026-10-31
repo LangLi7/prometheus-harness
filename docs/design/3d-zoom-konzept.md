@@ -375,9 +375,183 @@ Wissen — sie muss vom Betreiber korrigiert werden.
 | Punkt | Stand |
 |---|---|
 | P7.1–P7.6 (Untersuchung, Konzept) | **erledigt** |
-| **P7.7 (Betreiber-Abnahme)** | **OFFEN** — wartet auf Bestätigung der Vorschläge A, B, C |
-| P7.8–P7.15 (Implementierung, Test, Nachweis) | **gesperrt**, bis P7.7 abgenommen ist |
+| **P7.7 (Betreiber-Abnahme)** | **teilweise erteilt** — siehe §8. Freigegeben ist, was der Prototyp braucht; **nicht** freigegeben sind Barrierefreiheit, Leistungsnachweis und Datenanbindung |
+| P7.8–P7.15 (Implementierung, Test, Nachweis) | **in Arbeit** fuer den Prototyp (§8). Die uebrigen Teile bleiben gesperrt |
 
-**Solange P7.7 offen ist, wird kein Code geschrieben.** Auch die Vorschläge A–C werden **nicht**
-umgesetzt, bevor der Betreiber sie bestätigt oder korrigiert hat.
+---
+
+## 8. Der Prototyp (ab 13.10.2026)
+
+Der Betreiber hat einen **Prototypen beauftragt** — ausdruecklich **noch ohne**
+Harness-Anbindung. Er liegt in **`apps/universe`** (umgezogen am 14.10.2026 aus `snapshots/web`;
+ein Port statt zwei, Nachweis und Messungen: [../status/welt-ein-port.md](../status/welt-ein-port.md)).
+
+### 8.1 Entscheidungen des Betreibers (13.10.2026)
+
+| Frage | Entscheidung | Wirkung |
+|---|---|---|
+| Zeichenweg | **three.js** (also WebGL), nicht selbst gerechnet | Die Aussage „Canvas 2D zuerst" aus §4.2 ist damit **ersetzt**. Der Betreiber hat sie selbst korrigiert: „es ist 3D also xyz und mit rotation und zoom" |
+| Was „2D" im Namen bedeutet | **nichts ueber die Welt** | Die Welt bleibt 3D mit Perspektive. „Canvas 2D" ist ein API-Name, keine Aussage ueber den Raum |
+| Mobil | **nur Chat** | Unter 860 px Breite wird die Welt nicht aufgebaut |
+| Zustand | **Reload darf nichts verlieren** | Modus, Kamera und Panel-Anordnung liegen im Speicher — **je Raum getrennt** |
+| Isolierung | **eigene Instanz je Nutzer** | „komplett sein eigenes wie ein **Sandbox / Container**" — **nicht** ein Filter in einer gemeinsamen Datenbank. Korrektur einer frueheren Fehldeutung |
+| Datenbank | **PostgreSQL/pgvector**, spaeter | Der Betreiber will die Vektorsuche der Datenbank fuer das **Finden** von Objekten nutzen |
+
+### 8.2 Was aus §4.2 unveraendert gilt
+
+Die **Schaerfe-Regel** haengt nicht am Renderer: pro Bezugsebene **neu gezeichnet**, kein
+vergroessertes Bitmap, Beschriftungen als Text und **nicht als Textur**. Der Renderer
+entscheidet ueber Geschwindigkeit und Abhaengigkeiten — nicht ueber Schaerfe. Waere die
+Beschriftung eine Textur, waere sie genau der Fehler aus §1 in neuer Form.
+
+### 8.3 Die Bezugsebenen
+
+Die Nummerierung ist **absteigend in der Groesse**: je **kleiner** die Zahl, desto **groesser**
+der Bezug. Das ist kein Geschmack — es macht „welche Ebene ist gerade ein Punkt" zu einem
+Vergleich statt zu einer Sonderfallliste. (Ein erster Anlauf hatte es andersherum; die Tests
+haben es aufgedeckt.)
+
+| Ebene | Name | Im Projekt |
+|---|---|---|
+| 1 | Kosmisches Netz | alles |
+| 2 | Filament | Projektgruppe — die groessten bekannten Strukturen des Universums |
+| 3 | Galaxie | ein Projekt |
+| 4 | Sternhaufen | eine Gruppe von Workspaces |
+| 5 | Sonnensystem | ein Workspace; Planeten = Dateien |
+
+### 8.4 Was der Prototyp **nicht** ist
+
+- **Keine Harness-Anbindung.** Chat-Antworten sind erfunden und als solche gekennzeichnet.
+- **Keine echte Physik.** Bahnen sind gerechnete Lagen, keine n-Koerper-Simulation. Der
+  Betreiber will „realistische Physik" — das ist **Scheibe 3** und noch offen.
+- **Keine Datenbank.** Die Massen sind Attrappen.
+- **Kein Sicherheitsmerkmal.** Der Raum ist ein Name aus der Adresse, keine Zugangskontrolle.
+  Die echte Grenze zieht spaeter der Container.
+
+### 8.5 Nachweis
+
+| Pruefung | Ergebnis |
+|---|---|
+| `bun test` | **166 Tests, 0 Fehler** (14 Dateien) |
+| `tsgo --noEmit` (TypeScript 7) | **exit 0** |
+| `vite build` | **exit 0** |
+| Entwicklungsserver | **HTTP 200** auf `127.0.0.1:5176` |
+
+**Was nicht geprueft ist:** Das Bild selbst. Kein Browser wurde geoeffnet — es gibt kein Chrome auf
+diesem Rechner, und der Pruefweg ueber DevTools findet keine Installation. Weder Bildrate noch
+Darstellung sind also **gemessen**; wer „sieht gut aus" behaupten will, muss es ansehen.
+Rechnerisch belegt ist, dass der Startblick die Welt in den Bildbereich legt
+(`tests/opening-view.test.ts` projiziert Sonne, innere Planeten und Neptun mit echter
+Kamerarechnung) und dass die Huelle ohne Absturz laedt (`tests/boot.test.ts`).
+
+### 8.6 Steuerung und Sprache — Einstellungen als Plugins (13.10.2026)
+
+**Weisung des Betreibers:** „die koennte man in settings implementieren fuer stuerung" und „sprache
+nicht vergessen das wir auf englisch standard und deutsch unterstuetzen diese sprache fuer den
+harness wird durch eine language package/plugin implementiert, wie beim Visual studio code
+extension verstehst du?"
+
+Das ist die Form, in der dieser Prototyp waechst — **Verwaltungen im Kern, Inhalte als Pakete**:
+
+| Teil | Ort | Kennt |
+|---|---|---|
+| Einstellungen | `settings.ts` | kein einziges Feld — nur Schema, Grenzen, Speicherung je Raum |
+| Sprachkern | `i18n.ts` | keine einzige Sprache — nur Schluessel, aktive Sprache, Rueckfall |
+| Sprachpakete | `locales/de.ts`, `locales/en.ts` | Saetze, sonst nichts; je als **Plugin** eingetragen |
+| Sprachauswahl | `locale-plugins.ts` | die Einstellung `language.locale` |
+| Steuerung | `control-settings.ts` | Drehen, Zoomen, Schieben, Achsen, Dimensionen, Namen |
+| Einstellungsbildschirm | `settings-screen.ts` | keine Einstellung — er zeigt an, was andere beschreiben |
+
+**Warum das die Voraussetzung fuer die Harness-Kopplung ist.** Ein Harness, der Sprachen und
+Einstellungen als Liste im Code fuehrt, muss bei jeder neuen Sprache und jedem neuen Werkzeug
+angefasst werden. Hier legt man ein Paket daneben: `locales/ja.ts`, ein Plugin, fertig. Der Kern
+bleibt unveraendert — und damit pruefbar.
+
+**Die Steuerungswerte sind keine Konstanten mehr**, sondern werden bei jeder Bewegung **gelesen**:
+`control.rotateSpeed` (ersetzt `ROTATE_SPEED`), `control.zoomFactor`, `control.axisSpin`,
+`control.panFactor`, `control.showAxes`, `world.dimensions` (3 … 5, ersetzt die feste 5 in der
+Matrix). Die alten Konstanten bleiben als **Rueckfall**: ein abgeschaltetes Plugin nimmt seine
+Beschreibung mit, die Kamera darf deshalb nicht stehenbleiben.
+
+**Ein eigener Rechenfehler, der hier festgehalten gehoert.** In einem Zwischenschritt stand in
+`camera.ts`, `0,00175 rad/px` seien „57 Pixel je Grad" und in CAD-Programmen liege man bei 40 bis 60.
+Nachgerechnet ist `(π/180)/0,00175` = **9,97 px/°**. Der erste Korrekturversuch machte es nicht
+besser (erst „9,97", dann „32,7" — beide Male dieselbe Verwechslung von Grad und Radiant). Richtig
+ist **9,97** (alter Wert: 4,15). Der **Faktor 2,4** zwischen alt und neu stimmt, und die
+Entscheidung, langsamer zu drehen, bleibt richtig.
+
+Geblieben ist daraus mehr als eine Korrektur:
+
+- Die Umrechnung steht **an einer Stelle** (`settings.ts`) und ist **mit Gegenprobe** geprueft: 10 px
+  Zug × 0,00175 rad/px = 1,0°.
+- Die Anzeige nennt die Groesse, die man **spuert**: **Grad je Bildschirmbreite**. `0,00175` sind
+  **128° je 1280 px** — zwei Zuege, einmal herum. Der alte Wert waren **308°**, also mehr als einmal
+  herum in **einem** Zug. Genau das war „wenn ich versuche zu drehen ist es zu fast".
+- „Pixel je Grad" allein waere die schlechtere Anzeige: sie haengt an der Fensterbreite, und 10 px/°
+  liest sich wie „sehr feinfuehlig", obwohl ein Zug quer ueber den Schirm um 128° dreht.
+
+### 8.7 Der Fehler, der das Bild leer liess
+
+Der Betreiber sah „komplett leer": schwarzes Canvas, halb gezeichnetes Achsenkreuz, sonst nichts.
+Die Ursache war **kein** Zeichen- und **kein** Rechenfehler, sondern ein `ReferenceError` **beim
+Laden der Huelle**: `registerLocalePlugins` ruft beim Eintragen `onSwitch → relabel()`, und
+`relabel()` griff auf `dock` zu, das erst weiter unten deklariert wird. Das Modul starb, **bevor**
+`requestAnimationFrame(loop)` erreicht war.
+
+**Warum das der lehrreichste Fehler dieser Runde ist:**
+
+1. Er war **unsichtbar** — kein Overlay, keine Meldung, nur ein leeres Bild.
+2. Keine der 120 bisherigen Pruefungen fand ihn, weil **keine die Huelle lud**. Sie prueften
+   Bausteine: Kamera, Szene, Rotation, Docking, Terminal. Die Naht dazwischen war ungeprueft.
+3. Ein erster Reparaturtest meldete **Gruen**, obwohl der Fehler wieder eingebaut war — er fing den
+   `ReferenceError` als „erwarteten three.js-Fehler" ab.
+
+Behoben ist er durch die Marke `aufgebaut` (was vor dem Aufbau passiert, beschriftet nichts) und
+durch `tests/boot.test.ts`, der die Huelle gegen ein winziges DOM (`tests/dom-stub.ts`) **wirklich
+laedt**. Der Test ist **gegengeprueft**: mit wieder eingebautem Fehler meldet er
+`ReferenceError: Cannot access 'dock' before initialization`. Merksatz: *ein Test, der den Fehler
+nicht faengt, ist schlimmer als keiner — er erzeugt Vertrauen.*
+
+### 8.8 Der Umschalter zwischen Chat und Welt (14.10.2026)
+
+**Der Betreiber hat den Weg in beide Richtungen an dieselbe Stelle gelegt:** im Chat an die Marke der
+Seitenleiste, in der Welt an die Kopfzeile `◆ PROMETHEUS`. Damit ist die Welt nicht mehr nur ein
+eigener Entwicklungsserver, den man kennen muss, sondern aus dem Harness erreichbar — und der
+Prototyp startet mit ihm zusammen (`scripts/start.mjs`, `--no-welt` schaltet ihn ab).
+
+Der Wechsel geht in der Welt durch **eine** Stelle (`src/view-switch.ts`): gemerkt **und**
+umgeblendet. Vorher merkten die Insel-Eintraege nichts, und nach dem Neuladen stand wieder das
+Universum da.
+
+Vollstaendiger Nachweis, die Zahlen und die offenen Punkte:
+[../status/umschalter-marke.md](../status/umschalter-marke.md).
+
+**Nachtrag am selben Tag: die Regel musste nachgeschaerft werden.** Der Betreiber hat den Umschalter
+getestet (Klick auf die Marke in der Welt) und landete im **Platzhalter-Chat** des Prototyps —
+*„Hier entsteht der Chat"*, *„Chat-Modus — noch nicht gebaut"*. Zwei Dinge heissen „Chat": der
+Harness-Chat und der Platzhalter dieser Ansicht. Seither gilt:
+
+* **Die Marke fuehrt zwischen Harness und Welt** — sie hinterlegt beim Klick den **Ankunftswunsch**
+  (`localStorage`: `pmh.world.arrival = 'os'` — *ich will die Welt*) und **navigiert** dann auf
+  `/universe/`; zurueck geht es ueber die **eigene** Herkunft. Kein Zusatz in der Adreßzeile:
+  *„der link ist nur zu lange so lol"* (Betreiber, 15.10.2026).
+* **Der Insel-Eintrag `▤ Chat` tut dasselbe** — auf ausdrueckliche Ansage: *„kannst du noch den neue
+  implementierungsverknuepfung auch hier machen: ◉ ansichten · ▤ Chat · ⟲ Ansicht zuruecksetzen"*.
+  Zwei Wege mit demselben Namen muessen dasselbe tun, sonst fuehrt der eine in den echten Chat und
+  der andere in den Platzhalter. `⟲ Ansicht zuruecksetzen` bleibt, was es ist: Kamera zurueck und
+  **in** die Welt — es verlaesst die Oberflaeche nicht.
+* **Der Platzhalter bleibt erreichbar** — ueber `view chat` im Terminal. Er ist damit nicht mehr der
+  Irrweg, den der Umschalter nimmt.
+* Die uebrigen Insel-Eintraege (`◉ Universe`, Orte, Objekte, Panels, Einstellungen) fuehren weiter
+  **innerhalb** der Welt.
+
+Dazu die zweite Haelfte desselben Befunds: die Welt oeffnete sich in der **zuletzt gespeicherten**
+Ansicht. Der Adresszusatz **schlaegt** sie jetzt — wer den Umschalter drueckt, will die Welt sehen.
+
+**Nachtrag zu §8.5.** Die dort genannten **166 Tests in 14 Dateien** sind der Stand vom 13.10.2026.
+Am 14.10.2026 gemessen: **262 Pruefungen in 24 Dateien, 0 Fehler** — die Zahl ist gewachsen, weil
+weitere Bausteine des Prototyps dazugekommen sind (Docking, Objekte, Ansichts-Leiste, Sprache,
+Umschalter), nicht weil die alten weniger geworden waeren.
+
+
 

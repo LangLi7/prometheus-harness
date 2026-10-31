@@ -20,13 +20,17 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/LangLi7/prometheus-harness/services/pmh-nix/api"
 )
 
 // Schema ist die Fassung der Ablagedatei.
-const Schema = 1
+//
+// Fassung 2 ergaenzt die ausdrueckliche Freigabe (Approval), die Basisgeneration
+// und die Sachkategorien eines Vorschlags.
+const Schema = 2
 
 // Parameter des atomaren Schreibens. Unter Windows sperrt ein gleichzeitiger
 // Leser die Zieldatei kurzzeitig; deshalb wird das Umbenennen wiederholt.
@@ -47,6 +51,12 @@ type ProposalRecord struct {
 	// Checked ist nil, solange der Vorschlag nicht geprueft wurde. Apply
 	// verlangt eine Aufzeichnung.
 	Checked *api.CheckRecord `json:"checked,omitempty"`
+	// Approval ist nil, solange keine ausdrueckliche menschliche Freigabe
+	// vorliegt. Apply verlangt eine Aufzeichnung.
+	Approval *api.Approval `json:"approval,omitempty"`
+	// BaseGeneration ist die Generation, die beim Aufnehmen aktiv war. Sie ist
+	// die Grundlage der Freigabe und der Anwendung.
+	BaseGeneration string `json:"base_generation,omitempty"`
 	// Applied ist wahr, sobald der Vorschlag eine Generation erzeugt hat.
 	// Ein zweites Apply wird abgewiesen.
 	Applied       bool   `json:"applied"`
@@ -193,12 +203,21 @@ func isRetryableRename(err error) bool {
 
 // AddProposal nimmt einen Vorschlag auf und liefert die vergebene Kennung.
 // Die Kennung kommt vom Dienst, nie vom Aufrufer.
+//
+// Aufgezeichnet wird ein BRANCH MIT DIFF, keine angewandte Aenderung. Die
+// Basisgeneration ist die Generation, die in diesem Augenblick aktiv ist —
+// daran ist spaeter ablesbar, worauf sich die Freigabe bezog.
 func (s *Store) AddProposal(p api.Proposal, d api.Diff) (*ProposalRecord, error) {
 	id := fmt.Sprintf("prop-%04d", s.nextSeq())
 	p.ID = id
 	p.CreatedAt = time.Now().UTC()
+	p.BaseGeneration = s.file.Current
 	d.ProposalID = id
-	rec := &ProposalRecord{Proposal: p, Diff: d}
+	rec := &ProposalRecord{
+		Proposal:       p,
+		Diff:           d,
+		BaseGeneration: s.file.Current,
+	}
 	s.file.Proposals[id] = rec
 	if err := s.Save(); err != nil {
 		return nil, err
@@ -216,6 +235,10 @@ func (s *Store) Proposal(id string) *ProposalRecord {
 
 // RecordCheck zeichnet das Pruefergebnis auf. Ab hier ist der Vorschlag
 // geprueft — vorher weist die Politik jede Anwendung ab.
+//
+// Eine bereits erteilte Freigabe wird ung ueltig, wenn die neue Pruefung einen
+// anderen Diff betrifft: eine Freigabe gilt immer genau fuer die Bytes, die
+// freigegeben wurden.
 func (s *Store) RecordCheck(id string, rec api.CheckRecord) error {
 	p := s.Proposal(id)
 	if p == nil {
@@ -231,6 +254,48 @@ func (s *Store) RecordCheck(id string, rec api.CheckRecord) error {
 		}
 	}
 	p.Checked = &rec
+	if p.Approval != nil && p.Approval.DiffHash != rec.DiffHash {
+		p.Approval = nil
+	}
+	return s.Save()
+}
+
+// RecordApproval zeichnet die ausdrueckliche menschliche Freigabe auf.
+//
+// Sie ist die einzige Stelle, an der eine Freigabe entstehen kann. Der
+// Fingerabdruck wird auf den GEPRUEFTEN Diff festgelegt, nicht auf das, was
+// der Aufrufer behauptet: die Aufzeichnung bleibt die Wahrheit.
+func (s *Store) RecordApproval(id string, a api.Approval) (*api.Approval, error) {
+	p := s.Proposal(id)
+	if p == nil {
+		return nil, fmt.Errorf("vorschlag %q nicht vorhanden", id)
+	}
+	if p.Checked == nil {
+		return nil, fmt.Errorf("vorschlag %q ist nicht geprueft: eine Freigabe ohne Pruefbau waere blind", id)
+	}
+	a.By = strings.TrimSpace(a.By)
+	if a.By == "" {
+		return nil, fmt.Errorf("freigabe ohne Identitaet: wer freigibt, muss benannt sein")
+	}
+	if a.At.IsZero() {
+		a.At = time.Now().UTC()
+	}
+	a.DiffHash = p.Checked.DiffHash
+	a.BaseGeneration = p.BaseGeneration
+	p.Approval = &a
+	if err := s.Save(); err != nil {
+		return nil, err
+	}
+	return p.Approval, nil
+}
+
+// ClearApproval nimmt eine Freigabe zurueck.
+func (s *Store) ClearApproval(id string) error {
+	p := s.Proposal(id)
+	if p == nil {
+		return fmt.Errorf("vorschlag %q nicht vorhanden", id)
+	}
+	p.Approval = nil
 	return s.Save()
 }
 

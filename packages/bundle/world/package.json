@@ -1,0 +1,26 @@
+{
+  "name": "@prometheus-harness/world",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Das Welt-Bündel: das Universe-Panel im DSH-Shell. Obsidian und Graphify sind eigene Plugins mit eigenem Panel. Kein zweiter Chat, kein /universe mehr.",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./src/index.ts",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "cordis.patch.yml",
+    "icon.svg",
+    "src"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@prometheus-harness/client-world": "workspace:*"
+  }
+}

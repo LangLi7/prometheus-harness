@@ -1,5 +1,5 @@
 /**
- * `scripts/maschinenpfade.mjs` — Prüfung des Werkzeugs selbst (E4).
+ * `scripts/machine-paths.mjs` — Prüfung des Werkzeugs selbst (E4).
  *
  * ## Warum die Muster ALLGEMEIN sein müssen — und wie das geprüft wird
  *
@@ -13,7 +13,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ausgenommen, fuehreAus, sammle, untersuche } from './maschinenpfade.mjs'
+import { ausgenommen, fuehreAus, sammle, untersuche } from './machine-paths.mjs'
 
 /** Ein Wegwerf-Baum mit Fixtures. */
 function baum() {

@@ -50,7 +50,28 @@
  * | 4 | Stapel starten (PostgreSQL, Redis) und auf Gesundheit **warten** |
  * | 5 | Migrationen |
  * | 6 | Typecheck (unser „build") |
- * | 7 | Prüfen, was läuft — und den nächsten Befehl nennen |
+ * | 7 | **Mitgaben**: Graphify nachziehen, Obsidian nennen (oder auf Wunsch installieren) |
+ * | 8 | Prüfen, was läuft — und den nächsten Befehl nennen |
+ *
+ * ## Die beiden Mitgaben (Schritt 7)
+ *
+ * Graphify und Obsidian sind **keine** Voraussetzungen — ohne sie startet der
+ * Harness. Aber ihre Panels wären ohne Weg eine Sackgasse. `scripts/mitgaben.mjs`
+ * kennt die Wege je Plattform; hier wird nur entschieden, wer geht:
+ *
+ * | Schalter | Wirkung |
+ * |---|---|
+ * | *(keiner)* | Graphify wird installiert, Obsidian genannt |
+ * | `--mit-obsidian` | auch Obsidian wird installiert (winget/brew/flatpak/snap) |
+ * | `--ohne-mitgaben` | beide nur prüfen und nennen |
+ *
+ * **Warum Obsidian nicht von selbst.** Es ist ein Programm mit Oberfläche und
+ * eigener Lizenz (gewerblich kostenpflichtig) — dieselbe Zurückhaltung wie bei
+ * Docker Desktop weiter unten. Graphify ist ein PyPI-Paket (Apache-2.0, ohne
+ * Rechte, mit `uv tool uninstall` rücknehmbar).
+ *
+ * **Kein Scheitern.** Fehlt am Ende eine Mitgabe, steht das als Zeile da und der
+ * Abschluß nennt den Befehl. Eine fehlende Beigabe ist kein Installationsfehler.
  *
  * **Jeder Schritt ist wiederholbar.** Ein zweiter Lauf ändert nichts, was schon
  * richtig ist — und sagt das auch.
@@ -88,6 +109,9 @@ import {
   werkzeugBefehl,
   wslLage,
 } from './install-parts.mjs'
+// **Die beiden Mitgaben.** Eigene Datei, weil die Plattform-Matrix und die Rezepte
+// eine eigene Wahrheit sind — und weil sie ohne Installation prüfbar sein sollen.
+import { MITGABEN, installiere as installiereMitgabe, pruefeAlle, wirdInstalliert, zeilen } from './mitgaben.mjs'
 
 /** Wurzel des Projekts, abgeleitet aus dem Modulpfad. */
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -509,7 +533,7 @@ async function starteStapel(schreibe = aus) {
  * @returns das Ergebnis des Körpers
  */
 async function schritt(nummer, titel, koerper) {
-  aus(`\n[${String(nummer)}/7] ${titel}\n`)
+  aus(`\n[${String(nummer)}/8] ${titel}\n`)
   return await koerper()
 }
 
@@ -523,6 +547,7 @@ export async function installiere(optionen = {}) {
   const wurzel = optionen.wurzel ?? ROOT
   const schreibe = optionen.schreibe ?? aus
   const ueberspringeStapel = optionen.ohneStapel === true
+  const ueberspringeMitgaben = optionen.ohneMitgaben === true
 
   schreibe(`Prometheus Harness — Installation (${familie()})\n`)
   schreibe(`Projekt: ${wurzel}\n`)
@@ -702,7 +727,64 @@ export async function installiere(optionen = {}) {
   if (!geprueft) return 1
 
   // ── 7 ────────────────────────────────────────────────────────────────────
-  await schritt(7, 'Fertig', async () => {
+  /*
+   * **Mitgaben — die beiden optionalen Panels.**
+   *
+   * Ohne sie startet der Harness, und ihre Panels sagen, was fehlt. Nur: ein
+   * Panel, das „nicht installiert" sagt und keinen Weg nennt, ist eine Sackgasse.
+   * Hier wird der Weg gangbar — mit der Zurückhaltung aus `mitgaben.mjs`:
+   * Graphify (PyPI, Apache-2.0, ohne Rechte) wird installiert, Obsidian (eigene
+   * Lizenz, Oberfläche) nur auf ausdrücklichen Wunsch `--mit-obsidian`.
+   *
+   * **Dieser Schritt kann die Installation nicht scheitern lassen.** Eine fehlende
+   * Mitgabe ist eine fehlende Beigabe; der Harness läuft ohne sie. Was fehlt,
+   * steht als Zeile da — und im Abschluß mit dem Befehl, der es nachholt.
+   */
+  await schritt(7, 'Mitgaben (Graphify, Obsidian)', async () => {
+    const wahl = {
+      ohneMitgaben: ueberspringeMitgaben,
+      mitObsidian: optionen.mitObsidian === true,
+      mitGraphen: !ueberspringeMitgaben,
+    }
+    const vorher = await pruefeAlle()
+    for (const befund of vorher) {
+      if (befund.da) {
+        for (const zeile of zeilen(befund, { installiert: false })) schreibe(`${zeile}\n`)
+        continue
+      }
+      const soll = wirdInstalliert(befund.name, wahl)
+      if (!soll) {
+        for (const zeile of zeilen(befund, { installiert: false })) schreibe(`${zeile}\n`)
+        schreibe(`  ${' '.repeat(9)}   ${MITGABEN[befund.name].ohne}\n`)
+        continue
+      }
+      schreibe(`  ${befund.titel}: nicht da — wird installiert …\n`)
+      const ergebnis = await installiereMitgabe(befund.name)
+      for (const zeile of zeilen(ergebnis.danach, { installiert: ergebnis.ok })) schreibe(`${zeile}\n`)
+      schreibe(`  ${' '.repeat(9)}   Weg: ${ergebnis.weg}\n`)
+      if (!ergebnis.ok) {
+        for (const zeile of ergebnis.text.split('\n')) {
+          if (zeile.trim() !== '') schreibe(`  ${' '.repeat(9)}   ${zeile}\n`)
+        }
+      }
+    }
+    const fehltNoch = (await pruefeAlle()).filter((befund) => !befund.da)
+    if (fehltNoch.length > 0) {
+      schreibe(
+        '\n  Fehlt weiterhin: ' +
+          `${fehltNoch.map((befund) => befund.titel).join(', ')}. ` +
+          'Die Panels sagen es, der Harness läuft.\n',
+      )
+      if (fehltNoch.some((befund) => befund.name === 'obsidian')) {
+        schreibe('  Obsidian nachziehen (eigene Lizenz, für gewerbliche Nutzung kostenpflichtig):\n')
+        schreibe('    bun run install:alles -- --mit-obsidian\n')
+      }
+    }
+    return true
+  })
+
+  // ── 8 ────────────────────────────────────────────────────────────────────
+  await schritt(8, 'Fertig', async () => {
     schreibe(
       '\n  Starten:\n' +
         '\n' +
@@ -735,5 +817,7 @@ export async function installiere(optionen = {}) {
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const ohneStapel = process.argv.includes('--ohne-stapel')
-  process.exitCode = await installiere({ ohneStapel })
+  const ohneMitgaben = process.argv.includes('--ohne-mitgaben')
+  const mitObsidian = process.argv.includes('--mit-obsidian')
+  process.exitCode = await installiere({ ohneStapel, ohneMitgaben, mitObsidian })
 }

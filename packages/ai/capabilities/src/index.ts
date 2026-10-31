@@ -142,6 +142,25 @@ export interface Feld<T> {
   readonly art: 'text' | 'zahl' | 'wahrheitswert'
   /** Ob das Feld fehlen darf. */
   readonly freiwillig?: boolean
+  /**
+   * Was das Feld **bedeutet** — in Worten, für das Modell.
+   *
+   * **Warum das nicht überflüssig ist.** Ohne sie kennt ein Entscheidungsmodell nur den
+   * Feldnamen. Ein Modell, das eine Frage wörtlich beantwortet (Jev tut das), bekommt damit
+   * „welchen Wert hat `risiko`?" — und `risiko` allein sagt nicht, ob damit die
+   * Ausfallwahrscheinlichkeit, die Einstufung des Kunden oder die Höhe des Betrags gemeint ist.
+   *
+   * **Sie ist freiwillig, weil sie nicht immer nötig ist.** Ein Feld `refund_requested` mit
+   * `art: 'wahrheitswert'` erklärt sich selbst; eines mit vier Auswahlwerten oft nicht.
+   *
+   * **Am wirkungsvollsten mit `beschreibung` an der Auswahl.** Hier steht die Bedeutung des
+   * Feldes; was die einzelnen Werte bedeuten, gehört in dieselbe Beschreibung, solange
+   * {@link Feld.auswahl} nur Werte und keine Erläuterungen trägt.
+   *
+   * Ein Anbieter, der sie nicht auswertet, darf sie übergehen — sie ändert die Form des
+   * Ergebnisses nicht.
+   */
+  readonly beschreibung?: string
 }
 
 /** Die Eingabe eines Entscheids. */
@@ -208,15 +227,59 @@ export interface Einbetter {
   betteEin(texte: readonly string[]): Promise<readonly (readonly number[])[]>
 }
 
+/**
+ * Die Stellschrauben eines Bildauftrags — **gemessen**, nicht erfunden.
+ *
+ * Am 21.10.2026 über `GET /api/v1/images/models` gelesen: die Bild-API kennt `resolution`,
+ * `aspect_ratio`, `quality`, `output_format`, `background`, `n`, `seed` und `input_references` —
+ * **je Modell verschieden**. `gemini-2.5-flash-image` kann kein `resolution`, `gemini-3.1-flash-image`
+ * schon; `gpt-5-image-mini` kann `quality` und `background`, Gemini nicht.
+ *
+ * **Warum hier trotzdem alle Felder stehen.** Der Vertrag beschreibt, was ein *Aufrufer* sagen darf.
+ * Ob das gewählte Modell es kann, weiß der **Anbieter** — er hat die Modellliste, nicht der Vertrag.
+ * Ein Feld hier zu verbieten, weil ein Modell es nicht kennt, machte den Vertrag vom Modell abhängig.
+ */
+export interface ZeichenOptionen {
+  /** Seitenverhältnis, etwa `16:9`, `1:1`, `2:3` — `auto` läßt den Anbieter wählen. */
+  readonly seitenverhaeltnis?: string
+  /** Auflösungsstufe: `512`, `768`, `1K`, `1.5K`, `2K`, `4K` — nicht jedes Modell kennt sie. */
+  readonly aufloesung?: string
+  /** Qualität, wo der Anbieter sie kennt: `auto`, `low`, `medium`, `high`. */
+  readonly qualitaet?: 'auto' | 'low' | 'medium' | 'high'
+  /** Ausgabeformat: `png`, `jpeg`, `webp` — `svg` nur bei Vektormodellen. */
+  readonly format?: 'png' | 'jpeg' | 'webp' | 'svg'
+  /** Hintergrund: `auto`, `transparent`, `opaque`. `transparent` verlangt png oder webp. */
+  readonly hintergrund?: 'auto' | 'transparent' | 'opaque'
+  /** Wie viele Bilder (1…10) — viele Modelle können nur eines und weisen `n > 1` ab. */
+  readonly anzahl?: number
+  /**
+   * Referenzbilder für Bild-zu-Bild — als `http(s)`-Adresse oder als `data:`-URL.
+   *
+   * **Warum keine Dateipfade.** Der Vertrag kennt kein Dateisystem; wer eine lokale Datei hat,
+   * schreibt sie in eine `data:`-URL. Das ist eine Zeile beim Aufrufer, aber sie hält den Vertrag
+   * frei von Pfaden, Rechten und Sandkästen.
+   */
+  readonly referenzen?: readonly string[]
+}
+
+/** Was ein Bild zurückkommt — Bytes, Typ und (wenn der Anbieter es sagt) der Preis. */
+export interface GezeichnetesBild {
+  readonly bytes: Uint8Array
+  readonly typ: string
+  /** Was der Aufruf gekostet hat, in USD — **nur**, wenn der Anbieter es meldet. */
+  readonly kostenUsd?: number
+}
+
 /** Ein Anbieter, der **zeichnen** kann. */
 export interface Zeichner {
   /**
    * Wandelt Text in ein Bild.
    *
    * @param beschreibung - was zu sehen sein soll
-   * @returns die Bytes und ihr Typ
+   * @param optionen - Seitenverhältnis, Auflösung, Referenzen und was der Anbieter sonst kennt
+   * @returns die Bytes, ihr Typ und — wenn gemeldet — der Preis
    */
-  zeichne(beschreibung: string): Promise<{ readonly bytes: Uint8Array; readonly typ: string }>
+  zeichne(beschreibung: string, optionen?: ZeichenOptionen): Promise<GezeichnetesBild>
 }
 
 // ---------------------------------------------------------------------------

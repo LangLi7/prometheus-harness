@@ -359,9 +359,12 @@ func (s *Server) schreiben(conn *wire.Conn, session *Session, pongs *atomic.Int3
 			}
 		case <-session.Finished():
 			// Die Session ist beendet; der Rest der Warteschlange wird noch
-			// ausgegeben, damit ein error-Rahmen ankommt.
+			// ausgegeben, damit ein error-Rahmen ankommt. Der Close-Code 1000
+			// sagt: geordnetes Ende. 1001 waere die Aussage "Dienst geht weg"
+			// und damit falsch — eine abgehaengte oder abgeraeumte Sicht ist
+			// kein Dienstende.
 			s.restAusgeben(conn, session)
-			_ = conn.SendClose(wire.CloseGoingAway, "Sicht abgehaengt")
+			_ = conn.SendClose(wire.CloseNormalClosure, "Sicht abgehaengt")
 			return
 		case <-tickerC(ticker):
 			if int(pongs.Add(1)) > s.maxMissedPings {
@@ -470,8 +473,11 @@ func (s *Server) befehl(conn *wire.Conn, session *Session, msg api.ClientMessage
 		return ErrBereitsAngeschlossen
 
 	case api.FrameCancel, api.FrameDetach:
+		// Der Rahmen beendet die Anhaengung; die Schreibschleife schliesst die
+		// Verbindung danach mit 1000 (geordnetes Ende). Hier wird bewusst kein
+		// zweiter Close-Rahmen geschickt — der erste gewinnt, und 1001 waere
+		// die falsche Aussage.
 		s.hub.Remove(session)
-		_ = conn.SendClose(wire.CloseNormalClosure, "abgehaengt")
 		return ErrNichtAngeschlossen
 
 	case api.FrameItem:

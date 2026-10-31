@@ -1,0 +1,8 @@
+# Das Obsidian-Plugin als eigenes Bündel.
+#
+# Es bringt **beides** mit: die Host-Routen (über den Provider) und das
+# Browser-Panel. Wer nur Obsidian will, installiert nur dieses Paket.
+- insert:
+    - id: pmh-obsidian
+      name: '@prometheus-harness/obsidian'
+      inject: [webServer, tools]

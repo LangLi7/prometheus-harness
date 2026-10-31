@@ -1,0 +1,22 @@
+{
+  "name": "pmh-status",
+  "version": "0.1.0",
+  "kind": "plugin",
+  "language": "typescript",
+  "description": "Erstes echtes Plugin-Unit: haengt sich in die Laufzeit ein und legt zwei lesende Wege an — den Generationszustand und die eigene Auskunft.",
+  "entry": {
+    "command": "src/index.ts",
+    "args": []
+  },
+  "core": "optional",
+  "contract": "^0.2.0",
+  "provides": ["status-endpoint"],
+  "requires": [],
+  "platforms": ["windows", "linux", "darwin"],
+  "reload": "hot",
+  "notes": [
+    "reload ist hot und das ist BELEGT, nicht behauptet: apply gibt eine Absteck-Funktion zurueck, die beide Wege wieder abmeldet; ohne diese Rueckgabe waere 'hot' eine unbewiesene Behauptung (docs/design/harness-generationen.md Abschnitt 2.3).",
+    "Das Unit ist absichtlich selbsttragend: keine import-Anweisung auf ein anderes Paket. units/ steht nicht im Bun-Arbeitsbereich (units/README.md), und ein Plugin, das fremde Pakete braucht, waere beim Empfaenger nicht lauffaehig.",
+    "Der Vertrag mit dem Host steht in README.md: services.routen ist Pflicht, services.zustand ist optional. Fehlt routen, wirft apply - fail-closed, weil ein einghaengtes Plugin, das nichts anbietet, schlimmer ist als ein abgewiesenes."
+  ]
+}
